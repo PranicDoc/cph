@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: cph
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pranic_doc
+    username: postgres
+    password: root123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+app:
+  jwt:
+    # Base64-encoded 64-byte secret for HS512 — CHANGE THIS IN PRODUCTION
+    secret: Y2hhbmdlLXRoaXMtdG8tYS1sb25nLXNlY3JldC1rZXktaW4tcHJvZHVjdGlvbi1lbnZpcm9ubWVudC1wbGVhc2U=
+    access-token-expiration-ms: 3600000     # 1 hour
+    refresh-token-expiration-ms: 604800000  # 7 days
+  encryption:
+    # Base64-encoded 32-byte AES key — CHANGE THIS IN PRODUCTION
+    key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+  cookies:
+    secure: false    # true in production (HTTPS only)
+    same-site: Lax   # "None" for cross-origin, "Strict" for same-site only
+
+server:
+  port: 9918
+  servlet:
+    context-path: /cph
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  

@@ -1,0 +1,85 @@
+package com.pranicdoc.cph.healing.controller;
+
+import com.pranicdoc.cph.common.dto.PageResponse;
+import com.pranicdoc.cph.healing.dto.*;
+import com.pranicdoc.cph.healing.service.CaseService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/cases")
+@RequiredArgsConstructor
+public class CaseController {
+
+    private final CaseService caseService;
+
+    @PostMapping
+    public ResponseEntity<CaseResponse> create(@Valid @RequestBody CaseCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(caseService.create(request));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CaseResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(caseService.getById(id));
+    }
+
+    @GetMapping("/patient/{patientId}")
+    public ResponseEntity<PageResponse<CaseResponse>> getByPatientId(
+            @PathVariable UUID patientId,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(caseService.getByPatientId(patientId, pageable));
+    }
+
+    @PostMapping("/{id}/symptoms")
+    public ResponseEntity<Void> addSymptom(@PathVariable UUID id,
+                                            @Valid @RequestBody SymptomRequest request) {
+        caseService.addSymptom(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PatchMapping("/{id}/symptoms/{symptomId}/resolve")
+    public ResponseEntity<Void> resolveSymptom(@PathVariable UUID id,
+                                                @PathVariable UUID symptomId) {
+        caseService.resolveSymptom(id, symptomId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/medications")
+    public ResponseEntity<Void> addMedication(@PathVariable UUID id,
+                                               @Valid @RequestBody MedicationRequest request) {
+        caseService.addMedication(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/{id}/declaration")
+    public ResponseEntity<Void> signDeclaration(@PathVariable UUID id,
+                                                 @Valid @RequestBody DeclarationRequest request) {
+        caseService.signDeclaration(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<Void> closeCase(@PathVariable UUID id,
+                                           @Valid @RequestBody CaseClosureRequest request) {
+        caseService.closeCase(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        caseService.softDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<CaseResponse> updateCaseDetails(@RequestBody CaseUpdateRequest caseUpdateRequest) {
+        return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest));
+    }
+}

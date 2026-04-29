@@ -1,0 +1,38 @@
+package com.pranicdoc.cph.healing.model;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pranicdoc.cph.common.model.TenantEntity;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.envers.Audited;
+
+/**
+ * CaseMedication — medications the patient is taking during the case.
+ */
+@Entity
+@Table(name = "case_medication")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Audited
+public class CaseMedication extends TenantEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "healing_case_id", nullable = false)
+    @JsonBackReference
+    private HealingCase healingCase;
+
+    @Column(name = "medication_name", nullable = false)
+    private String medicationName;
+
+    @Column(name = "dosage")
+    private String dosage;
+
+    @Column(name = "frequency")
+    private String frequency;
+
+    @Column(name = "notes")
+    private String notes;
+}

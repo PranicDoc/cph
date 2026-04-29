@@ -1,0 +1,18 @@
+# Node
+node_modules/
+.env
+.env.*
+
+# Build outputs
+dist/
+build/
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+
+.gradle/

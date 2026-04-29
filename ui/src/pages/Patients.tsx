@@ -1,0 +1,249 @@
+import { useState, useEffect } from "react";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { Skeleton } from "../components/ui/skeleton";
+import { Search, Plus, Link as URLIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import api from "../lib/axios";
+import { usePatient } from "../context/PatientContext";
+
+type Patient = {
+  healingCaseId: any;
+  id: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  contact: string;
+  status: "DRAFT" | "ACTIVE" | "COMPLETED";
+};
+
+const columnHelper = createColumnHelper<Patient>();
+
+export default function Patients() {
+  const [data, setData] = useState<Patient[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [openPopup, setOpenPopup] = useState<boolean>(false);
+  const [generatedLink, setGeneratedLink] = useState<string>("");
+  const { selectPatient, setPatients } = usePatient();
+
+  const columns = [
+    columnHelper.accessor("firstName", {
+      header: "First Name",
+      cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor("lastName", {
+      header: "Last Name",
+    }),
+    columnHelper.accessor("dob", {
+      header: "Date of Birth",
+    }),
+    columnHelper.accessor("gender", {
+      header: "Gender",
+    }),
+    columnHelper.accessor("contact", {
+      header: "Phone",
+    }),
+    columnHelper.accessor("status", {
+      header: "Status",
+      cell: (info) => (
+        <span
+          className={`px-2 py-1 rounded-md text-xs font-semibold ${info.getValue() === "ACTIVE"
+            ? "bg-success/10 text-success"
+            : "bg-text-light/10 text-text-light"
+            }`}
+        >
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor("id", {
+      header: "Actions",
+      cell: (info) => {
+        return (
+          <Link
+            to={`/session/${info.row.original.healingCaseId}`}
+            className="text-primary hover:text-primary-dark"
+            onClick={() => handleSelectPatient(info.row.original)}
+          >
+            {info.row.original.status === "DRAFT" ? "Start" : "View"}
+          </Link>
+        )
+      },
+    }),
+  ];
+
+  const handleSelectPatient = (patient: Patient) => {
+    selectPatient(patient.id);
+  }
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    setIsLoading(true);
+    const res = await api.get("/api/v1/patients");
+    if (res.status === 200) {
+      setData(res.data);
+      setPatients(res.data);
+    }
+    setIsLoading(false);
+  }
+
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const handleGenerateLink = async () => {
+    setOpenPopup(true);
+    const res = await api.get("/api/v1/patients/generate-link");
+    if (res.status === 200) {
+      setGeneratedLink(res.data.link);
+    } else {
+      console.error("Failed to generate registration link");
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {openPopup && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md space-y-4">
+
+            <h2 className="text-lg font-semibold text-primary-dark">
+              Self Registration Link
+            </h2>
+
+            <p className="text-sm text-text-light">
+              Share this link with the patient. It will expire in 30 minutes.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={generatedLink}
+                readOnly
+                className="flex-1 border border-border rounded-lg px-3 py-2 text-sm"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedLink);
+                }}
+                className="bg-primary text-white px-3 py-2 rounded-lg text-sm"
+              >
+                Copy
+              </button>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setOpenPopup(false)}
+                className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary-dark">Patients Directory</h1>
+          <p className="text-text-light text-sm">Manage and view all registered patients.</p>
+        </div>
+        <div className="flex gap-x-4">
+          <button
+            onClick={handleGenerateLink}
+            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors hover:cursor-pointer"
+          >
+            <URLIcon className="w-4 h-4" />
+            Generate Self Registration Link
+          </button>
+          <Link
+            to="/registration"
+            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Patient
+          </Link>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
+            <input
+              type="text"
+              placeholder="Search patients..."
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-primary text-white">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th key={header.id} className="px-6 py-4 font-semibold">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="border-b border-border">
+                    {columns.map((_, colIdx) => (
+                      <td key={colIdx} className="px-6 py-4">
+                        <Skeleton className="h-5 w-full max-w-[120px]" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="border-b border-border hover:bg-primary/5 transition-colors"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-6 py-4 text-text">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="px-6 py-8 text-center text-text-light">
+                    No patients found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

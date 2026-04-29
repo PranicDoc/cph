@@ -1,0 +1,41 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Patients from './pages/Patients';
+import Registration from './pages/Registration';
+import Session from './pages/Session';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import { PatientProvider } from './context/PatientContext';
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <PatientProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/self-register" element={<Registration />} />
+            <Route path="/self-register/:clinicId/:uuid" element={<Registration />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Patients />} />
+                <Route path="registration" element={<Registration />} />
+                <Route path="session/:healingCaseId" element={<Session />} />
+              </Route>
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </PatientProvider>
+    </AuthProvider>
+  );
+}
