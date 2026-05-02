@@ -1,21 +1,12 @@
 import { X, GripVertical } from "lucide-react";
 import { TagInput } from "./TagInput"; // your enhanced tag input
 import { useState } from "react";
-
-interface TreatmentStep {
-  step: number;
-  tag: string;
-  sweepType?: string;
-  targets?: string[];
-  color?: string;
-  cycles?: number;
-  notes?: string;
-}
+import { TreatmentStep } from "../interfaces";
 
 interface TreatmentPlan {
   protocolName: string;
   bookReference: string;
-  steps: TreatmentStep[];
+  treatmentSteps: TreatmentStep[];
 }
 
 interface TreatmentStepsProps {
@@ -77,7 +68,7 @@ const CHAKRA_SUGGESTIONS = [
 ];
 
 export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
-  const { protocolName, bookReference, steps } = value;
+  const { protocolName, bookReference, treatmentSteps } = value;
 
   const updateProtocolName = (name: string) => {
     onChange({ ...value, protocolName: name });
@@ -88,10 +79,10 @@ export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
   };
 
   const updateStep = (index: number, field: keyof TreatmentStep, val: any) => {
-    const updatedSteps = steps.map((step, i) =>
+    const updatedSteps = treatmentSteps.map((step, i) =>
       i === index ? { ...step, [field]: val } : step
     );
-    onChange({ ...value, steps: updatedSteps });
+    onChange({ ...value, treatmentSteps: updatedSteps });
   };
 
   const updateTargets = (index: number, newTargets: string[]) => {
@@ -100,18 +91,18 @@ export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
 
   const addStep = () => {
     const newStep: TreatmentStep = {
-      step: steps.length + 1,
+      step: treatmentSteps.length + 1,
       tag: "General Sweeping",
       targets: [],
     };
-    onChange({ ...value, steps: [...steps, newStep] });
+    onChange({ ...value, treatmentSteps: [...treatmentSteps, newStep] });
   };
 
   const removeStep = (index: number) => {
-    const updatedSteps = steps
+    const updatedSteps = treatmentSteps
       .filter((_, i) => i !== index)
       .map((step, i) => ({ ...step, num: i + 1 }));
-    onChange({ ...value, steps: updatedSteps });
+    onChange({ ...value, treatmentSteps: updatedSteps });
   };
 
   return (
@@ -146,7 +137,7 @@ export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
 
       {/* Steps List */}
       <div className="bg-background rounded-xl p-3 space-y-3">
-        {steps.map((step, idx) => (
+        {treatmentSteps.map((step, idx) => (
           <div
             key={idx}
             className="bg-white border border-border rounded-lg p-4"

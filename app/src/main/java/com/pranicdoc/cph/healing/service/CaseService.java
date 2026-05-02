@@ -206,7 +206,9 @@ public class CaseService {
                 c.getBasicBookPg(), c.getAdvancedBookPg(), c.getPsychotherapyPg(),
                 c.getStatus(), c.getCreatedAt(), c.getUpdatedAt(), c.getMedicalSnapshot(),
                 c.getSessions().stream().sorted(
-                        Comparator.comparingInt(HealingSession::getSessionNumber)).toList()
+                        Comparator.comparingInt(HealingSession::getSessionNumber)).toList(),
+                c.getSymptoms(),
+                c.getMedications()
         );
     }
 
@@ -244,6 +246,7 @@ public class CaseService {
             }
             entity.setHealingDetails(details);
         }
+        if(CaseStatus.DRAFT.equals(entity.getStatus())) entity.setStatus(CaseStatus.ACTIVE);
         return toResponse(caseRepository.save(entity));
     }
 }

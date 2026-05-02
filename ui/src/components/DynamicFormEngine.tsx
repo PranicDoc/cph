@@ -65,18 +65,10 @@ export function DynamicField({
 
   const [enabled, setEnabled] = useState(false);
 
-  // Clear the field on mount if toggle is off (prevent stale data)
-  useEffect(() => {
-    if (enableToggle && !enabled) {
-      form.setFieldValue(name, "");
-    }
-  }, [enableToggle, name, form]); // safe – runs once on mount
-
   const handleToggle = useCallback(() => {
     setEnabled((prev) => {
       const next = !prev;
       if (!next) {
-        // Turning OFF → clear the value
         form.setFieldValue(name, "");
       }
       return next;
@@ -112,7 +104,7 @@ export function DynamicField({
           );
         }
 
-        if (type === "chip") {
+        if (type === "tag") {
           return (
             <div className={wrapperClassName}>
               <label className="block text-sm font-semibold mb-2">

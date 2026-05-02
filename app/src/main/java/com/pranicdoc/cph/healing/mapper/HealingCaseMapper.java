@@ -37,7 +37,7 @@ public interface HealingCaseMapper {
     List<CaseMedication> toMedications(List<MedicationRequest> requests);
 
     @Mapping(target = "healingCase", ignore = true)
-    @Mapping(target = "treatmentSteps", source = "steps")
+    @Mapping(target = "treatmentSteps", source = "treatmentSteps")
     HealingDetails toHealingDetails(HealingDetailsRequest request);
 
     @AfterMapping

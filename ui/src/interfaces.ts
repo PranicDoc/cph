@@ -4,7 +4,7 @@ export interface HealingSession {
   healerId: string;
 
   medicalCondition?: string;
-  healingDetails?: string;
+  healingDetails?: HealingDetails;
   labFindings?: string;
 
   complementaryTreatments?: boolean;
@@ -22,7 +22,9 @@ export interface HealingSession {
   createdAt: string; // ISO string (Instant equivalent)
   updatedAt: string;
   medicalSnapshot: MedicalSnapshot;
-  healingSession: any
+  healingSession: any;
+  symptoms: any;
+  medications: any;
 }
 
 export interface MedicalSnapshot {
@@ -40,10 +42,20 @@ export interface MedicalSnapshot {
   additionalNotes: string;
 }
 
-export interface PageNumbers {
-  basicBookPg: string;
-  advancedBookPg: string;
-  psychotherapyPg: string;
+interface HealingDetails {
+  protocolName: string;
+  bookReference: string;
+  treatmentSteps: TreatmentStep[];
+}
+
+export interface TreatmentStep {
+  tag: string;
+  sweepType?: string;
+  notes?: string;
+  cycles?: number;
+  step: number
+  targets?: string[];
+  color?: string;
 }
 
 export type CaseStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";

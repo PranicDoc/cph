@@ -30,5 +30,4 @@ public class HealingDetails extends BaseEntity {
     @OneToMany(mappedBy = "healingDetails", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<TreatmentStep> treatmentSteps;
-
 }

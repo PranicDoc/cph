@@ -5,6 +5,6 @@ import java.util.List;
 public record HealingDetailsRequest(
     String protocolName,
     String bookReference,
-    List<TreatmentStepRequest> steps
+    List<TreatmentStepRequest> treatmentSteps
 ) {
 }

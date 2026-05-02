@@ -185,7 +185,7 @@ export function TagInput({
           const display = getDisplayText(item);
           return (
             <span
-              key={display + idx} // idx to allow duplicate display? avoid, but okay
+              key={display + idx}
               className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium border border-primary/20 hover:bg-primary/20 transition-colors"
             >
               {display}

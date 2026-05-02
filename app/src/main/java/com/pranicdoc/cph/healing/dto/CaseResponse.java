@@ -1,9 +1,7 @@
 package com.pranicdoc.cph.healing.dto;
 
 import com.pranicdoc.cph.common.enums.CaseStatus;
-import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
-import com.pranicdoc.cph.healing.model.HealingDetails;
-import com.pranicdoc.cph.healing.model.HealingSession;
+import com.pranicdoc.cph.healing.model.*;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,5 +25,7 @@ public record CaseResponse(
         Instant createdAt,
         Instant updatedAt,
         CaseMedicalSnapshot medicalSnapshot,
-        List<HealingSession> healingSession
+        List<HealingSession> healingSession,
+        List<CaseSymptom> symptoms,
+        List<CaseMedication> medications
 ) {}

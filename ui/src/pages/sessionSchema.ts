@@ -51,17 +51,6 @@ export const sessionSchema: FormSchema = [
     fieldsContainerClassName: "space-y-4 mt-4",
     fields: [
       {
-        name: "protocols",
-        label: "Protocol(s) Used",
-        type: "tag",
-        placeholder: "Type to add more protocols...",
-      },
-    ],
-  },
-  {
-    fieldsContainerClassName: "space-y-4 mt-4",
-    fields: [
-      {
         name: "medications",
         label: "Medications",
         type: "tag",
