@@ -5,14 +5,14 @@ interface CustomDOBPickerProps {
   onChange: (value: string) => void;
   onBlur: () => void;
   className?: string;
+  disabled: boolean;
 }
 
-export function CustomDOBPicker({ value, onChange, onBlur, className }: CustomDOBPickerProps) {
+export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }: CustomDOBPickerProps) {
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
 
-  // Sync from external value (e.g. initial load or form reset)
   useEffect(() => {
     if (!value) {
       setYear('');
@@ -72,6 +72,7 @@ export function CustomDOBPicker({ value, onChange, onBlur, className }: CustomDO
       <select 
         value={month} 
         onChange={handleMonthChange} 
+        disabled={disabled}
         onBlur={onBlur} 
         className="flex-1 p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
       >

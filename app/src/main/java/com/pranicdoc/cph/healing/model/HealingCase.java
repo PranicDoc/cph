@@ -37,9 +37,9 @@ public class HealingCase extends TenantEntity {
     @Column(name = "medical_condition", columnDefinition = "TEXT")
     private String medicalCondition; // 🔒
 
-    @Convert(converter = EncryptedStringConverter.class)
-    @Column(name = "healing_details", columnDefinition = "TEXT")
-    private String healingDetails; // 🔒
+    @JsonManagedReference
+    @OneToOne(mappedBy = "healingCase", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private HealingDetails healingDetails;
 
     @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "lab_findings", columnDefinition = "TEXT")

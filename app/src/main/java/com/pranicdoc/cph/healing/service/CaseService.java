@@ -232,6 +232,18 @@ public class CaseService {
                 entity.getMedications().add(medication);
             }
         }
+        if (caseUpdateRequest.healingDetails() != null) {
+            entity.setHealingDetails(null);
+            HealingDetails details = healingCaseMapper
+                    .toHealingDetails(caseUpdateRequest.healingDetails());
+            details.setHealingCase(entity);
+            if (details.getTreatmentSteps() != null) {
+                for (TreatmentStep step : details.getTreatmentSteps()) {
+                    step.setHealingDetails(details);
+                }
+            }
+            entity.setHealingDetails(details);
+        }
         return toResponse(caseRepository.save(entity));
     }
 }

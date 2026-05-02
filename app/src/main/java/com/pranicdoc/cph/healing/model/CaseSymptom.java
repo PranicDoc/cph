@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,7 +21,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @Audited
-public class CaseSymptom extends TenantEntity {
+public class CaseSymptom extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_case_id", nullable = false)

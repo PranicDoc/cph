@@ -2,6 +2,7 @@ package com.pranicdoc.cph.healing.dto;
 
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
+import com.pranicdoc.cph.healing.model.HealingDetails;
 import com.pranicdoc.cph.healing.model.HealingSession;
 
 import java.time.Instant;
@@ -13,7 +14,7 @@ public record CaseResponse(
         UUID patientId,
         UUID healerId,
         String medicalCondition,
-        String healingDetails,
+        HealingDetails healingDetails,
         String labFindings,
         Boolean complementaryTreatments,
         String complementaryDetails,

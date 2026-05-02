@@ -7,7 +7,7 @@ public record CaseUpdateRequest(
         UUID healingCaseId,
         String medicalCondition,
         List<SymptomRequest> symptoms,
-        String healingDetails,
+        HealingDetailsRequest healingDetails,
         String basicBookPg,
         String advancedBookPg,
         String psychotherapyPg,

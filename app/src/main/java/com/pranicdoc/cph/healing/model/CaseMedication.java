@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -17,7 +18,7 @@ import org.hibernate.envers.Audited;
 @AllArgsConstructor
 @Builder
 @Audited
-public class CaseMedication extends TenantEntity {
+public class CaseMedication extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_case_id", nullable = false)

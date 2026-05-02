@@ -78,7 +78,7 @@ public class CaseController {
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping
     public ResponseEntity<CaseResponse> updateCaseDetails(@RequestBody CaseUpdateRequest caseUpdateRequest) {
         return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest));
     }
