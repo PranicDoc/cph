@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -81,5 +82,14 @@ public class CaseController {
     @PatchMapping
     public ResponseEntity<CaseResponse> updateCaseDetails(@RequestBody CaseUpdateRequest caseUpdateRequest) {
         return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest));
+    }
+
+    @PostMapping("/generate-pdf")
+    public ResponseEntity<Map<String, String>> generatePdf(@RequestParam UUID healingCaseId) {
+        String jobId = caseService.postMessageToGeneratePdf(healingCaseId);
+        return ResponseEntity.accepted().body(Map.of(
+                "jobId", jobId,
+                "status", "PROCESSING"
+        ));
     }
 }

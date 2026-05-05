@@ -1,5 +1,8 @@
 package com.pranicdoc.cph.healing.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -11,13 +14,17 @@ import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
+import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
+import io.swagger.v3.core.util.ObjectMapperFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,7 +41,11 @@ public class CaseService {
     private final SecurityContextUtil securityContextUtil;
     private final DeclarationMapper declarationMapper;
     private final HealingCaseMapper healingCaseMapper;
-
+    private final MessageService messageService;
+    private final PdfJobRepository pdfJobRepository;
+    private final ObjectMapper objectMapper = ObjectMapperFactory.buildStrictGenericObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
      */
@@ -248,5 +259,29 @@ public class CaseService {
         }
         if(CaseStatus.DRAFT.equals(entity.getStatus())) entity.setStatus(CaseStatus.ACTIVE);
         return toResponse(caseRepository.save(entity));
+    }
+
+    @Auditable(action = "SEND_MESSAGE")
+    @Transactional
+    public String postMessageToGeneratePdf(UUID healingCaseId) {
+        CaseResponse snapshot = getById(healingCaseId);
+        String healingCaseData;
+        try {
+            healingCaseData = objectMapper.writeValueAsString(snapshot);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize healing case snapshot", e);
+        }
+        String jobId = securityContextUtil.getCurrentClinicCode() + "-" + UUID.randomUUID();
+        PdfJobEntity entity = PdfJobEntity.create(jobId, healingCaseId, healingCaseData);
+        pdfJobRepository.save(entity);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        messageService.publish(jobId, healingCaseId);
+                    }
+                }
+        );
+        return jobId;
     }
 }

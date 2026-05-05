@@ -11,6 +11,24 @@ spring:
     hibernate:
       ddl-auto: update
 
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+      batch-size: 16384
+      linger-ms: 5
+      compression-type: snappy
+
+    template:
+      default-topic: pdf-jobs
+
 app:
   jwt:
     # Base64-encoded 64-byte secret for HS512 — CHANGE THIS IN PRODUCTION
@@ -39,4 +57,3 @@ management:
       show-details: always
       probes:
         enabled: true
-  
