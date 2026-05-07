@@ -226,8 +226,8 @@ public class CaseService {
     @Auditable(action = "UPDATE_CASE")
     @Transactional
     public CaseResponse updateCaseDetails(CaseUpdateRequest caseUpdateRequest) {
-        HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId()).orElseThrow(
-                () -> new ResourceNotFoundException("Healing Case not found"));
+        HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
         if(caseUpdateRequest.symptoms() != null && !caseUpdateRequest.symptoms().isEmpty()) {
             entity.getSymptoms().clear();
@@ -246,18 +246,31 @@ public class CaseService {
             }
         }
         if (caseUpdateRequest.healingDetails() != null) {
-            entity.setHealingDetails(null);
-            HealingDetails details = healingCaseMapper
-                    .toHealingDetails(caseUpdateRequest.healingDetails());
-            details.setHealingCase(entity);
-            if (details.getTreatmentSteps() != null) {
-                for (TreatmentStep step : details.getTreatmentSteps()) {
-                    step.setHealingDetails(details);
+            HealingDetails existingDetails = entity.getHealingDetails();
+            if (existingDetails == null) {
+                HealingDetails newDetails = healingCaseMapper.toHealingDetails(caseUpdateRequest.healingDetails());
+                newDetails.setHealingCase(entity);
+                if (newDetails.getTreatmentSteps() != null) {
+                    for (TreatmentStep step : newDetails.getTreatmentSteps()) {
+                        step.setHealingDetails(newDetails);
+                    }
+                }
+                entity.setHealingDetails(newDetails);
+            } else {
+                healingCaseMapper.updateHealingDetails(caseUpdateRequest.healingDetails(), existingDetails);
+                if (caseUpdateRequest.healingDetails().treatmentSteps() != null) {
+                    existingDetails.getTreatmentSteps().clear();
+                    for (TreatmentStepRequest stepReq : caseUpdateRequest.healingDetails().treatmentSteps()) {
+                        TreatmentStep step = healingCaseMapper.toTreatmentStep(stepReq);
+                        step.setHealingDetails(existingDetails);
+                        existingDetails.getTreatmentSteps().add(step);
+                    }
                 }
             }
-            entity.setHealingDetails(details);
         }
-        if(CaseStatus.DRAFT.equals(entity.getStatus())) entity.setStatus(CaseStatus.ACTIVE);
+        if(CaseStatus.DRAFT.equals(entity.getStatus())) {
+            entity.setStatus(CaseStatus.ACTIVE);
+        }
         return toResponse(caseRepository.save(entity));
     }
 

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.envers.Audited;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -29,5 +30,5 @@ public class HealingDetails extends BaseEntity {
 
     @OneToMany(mappedBy = "healingDetails", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
-    private List<TreatmentStep> treatmentSteps;
+    private List<TreatmentStep> treatmentSteps = new ArrayList<>();
 }

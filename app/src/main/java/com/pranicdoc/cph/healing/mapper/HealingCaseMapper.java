@@ -52,4 +52,8 @@ public interface HealingCaseMapper {
             }
         }
     }
+
+    @Mapping(target = "treatmentSteps", ignore = true)
+    void updateHealingDetails(HealingDetailsRequest healingDetailsRequest, @MappingTarget HealingDetails existingDetails);
+    TreatmentStep toTreatmentStep(TreatmentStepRequest stepReq);
 }

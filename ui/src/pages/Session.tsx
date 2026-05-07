@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useParams } from "react-router-dom";
-import { CheckCircle2, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { sessionSchema } from "./sessionSchema";
@@ -9,6 +9,7 @@ import { SessionHeader } from "./SessionHeader";
 import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { FieldDisplay } from "../components/FieldDisplay";
+import { HealingSession as HealingSessionPage} from "../components/HealingSession";
 
 type SessionFormValues = {
   medicalCondition: string;
@@ -81,12 +82,33 @@ export default function Session() {
           complementaryTreatments: !!value.complementaryDetails,
           infectiousIllness: !!value.infectiousDetails,
         };
-        await api.patch("/api/v1/cases", payload);
+        const { data } = await api.patch("/api/v1/cases", payload);
+        setSessionData(data);
+        const updatedValues = mapResponseToFormValues(data);
+        populateForm(updatedValues);
+        initialFormValuesRef.current = updatedValues;
       } catch (err) {
         console.error(err);
       } finally {
         setIsSubmitting(false);
       }
+    },
+  });
+
+  const mapResponseToFormValues = (data: any): SessionFormValues => ({
+    medicalCondition: data.medicalCondition || "",
+    symptoms: data.symptoms || [],
+    medications: data.medications || [],
+    basicBookPg: data.basicBookPg || "",
+    advancedBookPg: data.advancedBookPg || "",
+    psychotherapyPg: data.psychotherapyPg || "",
+    labFindings: data.labFindings || "",
+    complementaryDetails: data.complementaryModalities || "", // Note the mapping here based on your useEffect
+    infectiousDetails: data.infectiousIllness || "",
+    healingDetails: {
+      protocolName: data.healingDetails?.protocolName || "",
+      bookReference: data.healingDetails?.bookReference || "",
+      treatmentSteps: data.healingDetails?.treatmentSteps || [],
     },
   });
 
@@ -187,7 +209,8 @@ export default function Session() {
       <div className="space-y-6">
         <SessionHeader healingSession={sessionData} />
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Next Step (Placeholder)</h2>
+          <h2 className="text-xl font-semibold mb-4">Healing Session</h2>
+          <HealingSessionPage healingSession={sessionData} />
           <button
             type="button"
             onClick={goToPreviousStep}
@@ -291,6 +314,7 @@ export default function Session() {
         onSubmit={(e) => {
           e.preventDefault();
           sessionForm.handleSubmit();
+          goToNextStep();
         }}
         className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
       >
@@ -329,12 +353,12 @@ export default function Session() {
           </div>
 
           <button
-            type="button"
-            onClick={goToNextStep}
+            type={isEdit ? "submit" : "button"}
+            onClick={isEdit ? undefined : goToNextStep}
             disabled={isSubmitting}
             className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
           >
-            <CheckCircle2 className="w-5 h-5" /> {getNextButtonLabel()}
+            {getNextButtonLabel()}
           </button>
         </div>
       </form>
