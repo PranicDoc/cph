@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
@@ -22,6 +23,7 @@ public class QualitativeFeedback extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_session_id", nullable = false)
+    @JsonBackReference
     private HealingSession healingSession;
 
     @Enumerated(EnumType.STRING)

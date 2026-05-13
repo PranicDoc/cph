@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,6 +27,7 @@ public class ProtocolEntry extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_session_id", nullable = false)
+    @JsonBackReference
     private HealingSession healingSession;
 
     @Column(name = "chakra_id")
@@ -41,5 +44,6 @@ public class ProtocolEntry extends TenantEntity {
 
     @OneToMany(mappedBy = "protocolEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonManagedReference
     private List<ProtocolColor> colors = new ArrayList<>();
 }

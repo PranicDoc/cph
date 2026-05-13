@@ -38,8 +38,8 @@ public class ScanService {
             ChakraReading reading = ChakraReading.builder()
                     .chakraScan(scan)
                     .chakraId(readingReq.chakraId())
-                    .sizeReading(readingReq.sizeReading())
-                    .conditionReading(readingReq.conditionReading())
+                    .energyLevel(readingReq.energyLevel())
+                    .activationLevel(readingReq.activationLevel())
                     .notes(readingReq.notes())
                     .build();
             scan.getReadings().add(reading);

@@ -5,7 +5,9 @@ import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.SessionIncompleteException;
+import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
+import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,8 +28,10 @@ public class SessionService {
 
     private final SessionRepository sessionRepository;
     private final CaseService caseService;
+    private final HealingSessionMapper mapper;
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
 
-    @Auditable(action = "CREATE_SESSION")
+    @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
         caseService.requireConsent(caseId);
         HealingCase healingCase = caseService.findOrThrow(caseId);
@@ -44,6 +49,35 @@ public class SessionService {
                 .status(SessionStatus.DRAFT)
                 .build();
 
+        return toResponse(sessionRepository.save(session));
+    }
+
+    @Auditable(action = "CREATE_SESSION")
+    @Transactional
+    public SessionResponse create(CreateSessionRequest sessionRequest) {
+        List<HealingSession> existing = sessionRepository
+                .findByHealingCaseIdOrderBySessionNumberAsc(sessionRequest.caseId());
+        if(existing.isEmpty()) {
+            caseService.requireConsent(sessionRequest.caseId());
+        }
+        HealingCase healingCase = caseService.findOrThrow(sessionRequest.caseId());
+        int nextNumber = existing.size() + 1;
+        HealingSession session = mapper.toEntity(sessionRequest);
+        session.setSessionNumber(nextNumber);
+        session.setSessionDate(LocalDate.now());
+        // TODO this is a basic validation, add few more checks comparing with the base data
+        boolean hasPreScan = session.getScans().stream()
+                .anyMatch(s -> s.getScanType() == ScanType.PRE);
+        boolean hasPostScan = session.getScans().stream()
+                .anyMatch(s -> s.getScanType() == ScanType.POST);
+        boolean hasProtocol = !session.getProtocolEntries().isEmpty();
+        if (!hasPreScan) throw new SessionIncompleteException("Pre-scan is required");
+        if (!hasProtocol) throw new SessionIncompleteException("At least one protocol entry is required");
+        if (!hasPostScan) throw new SessionIncompleteException("Post-scan is required");
+        session.setEndTime(LocalTime.now().withNano(0).withSecond(0));
+        session.setStatus(SessionStatus.COMPLETED);
+        session.setHealingCase(healingCase);
+        healingCase.getSessions().add(session);
         return toResponse(sessionRepository.save(session));
     }
 

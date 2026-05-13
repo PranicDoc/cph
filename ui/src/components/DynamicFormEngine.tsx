@@ -13,6 +13,7 @@ export type FieldType =
   | "password"
   | "number"
   | "tag"
+  | "time"
   | "chip";
 
 export type FieldConfig = {

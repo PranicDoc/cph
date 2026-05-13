@@ -1,7 +1,7 @@
 package com.pranicdoc.cph.common.model;
 
-import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
+import com.pranicdoc.cph.common.tenant.TenantEntityListener;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,6 +21,7 @@ import java.util.UUID;
 @MappedSuperclass
 @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "clinicId", type = UUID.class))
 @Filter(name = "tenantFilter", condition = "clinic_id = :clinicId")
+@EntityListeners(TenantEntityListener.class)
 public abstract class TenantEntity extends BaseEntity {
 
     @Column(name = "clinic_id", nullable = false, updatable = false, columnDefinition = "uuid")

@@ -53,9 +53,145 @@ export interface TreatmentStep {
   sweepType?: string;
   notes?: string;
   cycles?: number;
-  step: number
+  step: number;
   targets?: string[];
   color?: string;
 }
 
 export type CaseStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+// ChakraScan Data
+export interface ChakraData {
+  id: string;
+  name: string;
+  color: string;
+  state: string;
+  highlight?: string;
+}
+
+// HealingSession Wizard Form Interfaces
+export interface ChakraReadingRequest {
+  chakraId: string;
+  sizeReading?: string;
+  conditionReading?: string;
+  notes?: string;
+}
+
+export interface ChakraScanRequest {
+  scanType: "PRE" | "POST";
+  notes?: string;
+  readings: ChakraReadingRequest[];
+}
+
+export interface SymptomFeedbackRequest {
+  caseSymptomId: string;
+  rating: number; // 0-10 scale
+  notes?: string;
+}
+
+export interface ProtocolColorRequest {
+  colorId: string;
+  usageType: "CLEANSING" | "ENERGISING";
+}
+
+export interface ProtocolEntryRequest {
+  chakraId?: string;
+  targetArea: string;
+  technique: string;
+  notes?: string;
+  colors: ProtocolColorRequest[];
+}
+
+export interface QualitativeFeedbackRequest {
+  feedbackType: "INTERIM" | "FINAL";
+  feedbackText?: string;
+  patientRemarks?: string;
+}
+
+export interface HealingSessionFormData {
+  sessionNumber?: number;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  status: "DRAFT" | "COMPLETED";
+  scans: ChakraScanRequest[];
+  symptomFeedbacks: SymptomFeedbackRequest[];
+  protocolEntries: ProtocolEntryRequest[];
+  qualitativeFeedbacks: QualitativeFeedbackRequest[];
+}
+
+export interface ChakraScanProps {
+  value: ChakraData[];
+  onChange: (chakras: ChakraData[]) => void;
+}
+
+export interface ColorOption {
+  id: string;
+  name: string;
+}
+
+export interface ChakraOption {
+  id: string;
+  name: string;
+}
+
+// --------------------------------------------------------------
+
+// types.ts (or inside component)
+export interface ChakraWithLevels {
+  id: string;
+  name: string;
+  color?: string; // optional styling
+  energyLevel: "Normal" | "Congested" | "Depleted";
+  activationLevel: "Normal" | "Overactivated" | "Underactivated";
+}
+
+// Region definitions
+export type BodyRegion =
+  | "Head"
+  | "Throat"
+  | "Chest"
+  | "AbdomenPelvis"
+  | "Arms"
+  | "Legs";
+
+export const regionChakras: Record<BodyRegion, string[]> = {
+  Head: [
+    "Crown Chakra",
+    "Forehead Chakra",
+    "Ajna Chakra",
+    "Left Jaw Minor Chakra",
+    "Right Jaw Minor Chakra",
+  ],
+  Throat: ["Throat Chakra"],
+  Chest: [
+    "Front Heart Chakra",
+    "Back Heart Chakra",
+    "Front Solar Plexus Chakra",
+    "Back Solar Plexus Chakra",
+  ],
+  AbdomenPelvis: [
+    "Navel Chakra",
+    "Meng Mein Chakra",
+    "Sex Chakra",
+    "Basic Chakra",
+    "Front Spleen Chakra",
+    "Back Spleen Chakra",
+    "Left Hip Minor Chakra",
+    "Right Hip Minor Chakra",
+  ],
+  Arms: [
+    "Left Shoulder Minor Chakra",
+    "Right Shoulder Minor Chakra",
+    "Left Elbow Minor Chakra",
+    "Right Elbow Minor Chakra",
+    "Left Hand Chakra",
+    "Right Hand Chakra",
+  ],
+  Legs: [
+    "Left Knee Minor Chakra",
+    "Right Knee Minor Chakra",
+    "Left Sole Chakra",
+    "Right Sole Chakra",
+  ],
+};

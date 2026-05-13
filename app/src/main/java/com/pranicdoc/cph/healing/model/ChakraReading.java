@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,16 +26,20 @@ public class ChakraReading extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chakra_scan_id", nullable = false)
+    @JsonBackReference
     private ChakraScan chakraScan;
 
     @Column(name = "chakra_id", nullable = false)
     private UUID chakraId; // FK to ChakraCatalog
 
-    @Column(name = "size_reading")
-    private String sizeReading; // e.g., "Normal", "Small", "Large"
+    @Column(name = "chakra_name")
+    private String chakraName;
 
-    @Column(name = "condition_reading")
-    private String conditionReading; // e.g., "Congested", "Depleted", "Normal"
+    @Column(name = "energy_level")
+    private String energyLevel; // "Normal", "Congested", "Depleted"
+
+    @Column(name = "activation_level")
+    private String activationLevel; // "Underactivated", "Overactivated", "Normal"
 
     @Column(name = "notes")
     private String notes;

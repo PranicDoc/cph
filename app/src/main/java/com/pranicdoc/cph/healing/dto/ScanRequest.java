@@ -12,8 +12,9 @@ public record ScanRequest(
 ) {
     public record ChakraReadingRequest(
             @NotNull UUID chakraId,
-            String sizeReading,
-            String conditionReading,
+            @NotNull String chakraName,
+            String energyLevel,
+            String activationLevel,
             String notes
     ) {}
 }

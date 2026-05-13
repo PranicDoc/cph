@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.controller;
 
+import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.service.SessionService;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +18,9 @@ public class SessionController {
 
     private final SessionService sessionService;
 
-    @PostMapping("/case/{caseId}")
-    public ResponseEntity<SessionResponse> create(@PathVariable UUID caseId) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(caseId));
+    @PostMapping("/case")
+    public ResponseEntity<SessionResponse> create(@RequestBody CreateSessionRequest sessionRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(sessionRequest));
     }
 
     @GetMapping("/{id}")

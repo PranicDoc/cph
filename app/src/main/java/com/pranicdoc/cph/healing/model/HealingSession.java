@@ -1,6 +1,8 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
@@ -52,17 +54,21 @@ public class HealingSession extends TenantEntity {
 
     @OneToMany(mappedBy = "healingSession", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonManagedReference
     private List<ChakraScan> scans = new ArrayList<>(); // Pre + Post (max 2)
 
     @OneToMany(mappedBy = "healingSession", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonManagedReference
     private List<SymptomFeedback> symptomFeedbacks = new ArrayList<>();
 
     @OneToMany(mappedBy = "healingSession", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonManagedReference
     private List<QualitativeFeedback> qualitativeFeedbacks = new ArrayList<>();
 
     @OneToMany(mappedBy = "healingSession", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonManagedReference
     private List<ProtocolEntry> protocolEntries = new ArrayList<>();
 }

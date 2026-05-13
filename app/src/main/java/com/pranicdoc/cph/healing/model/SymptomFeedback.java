@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,6 +25,7 @@ public class SymptomFeedback extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_session_id", nullable = false)
+    @JsonBackReference
     private HealingSession healingSession;
 
     @Column(name = "case_symptom_id", nullable = false)

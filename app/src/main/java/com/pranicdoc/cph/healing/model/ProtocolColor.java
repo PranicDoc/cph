@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
@@ -26,6 +27,7 @@ public class ProtocolColor extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "protocol_entry_id", nullable = false)
+    @JsonBackReference
     private ProtocolEntry protocolEntry;
 
     @Column(name = "color_id", nullable = false)

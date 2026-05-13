@@ -9,7 +9,7 @@ import { SessionHeader } from "./SessionHeader";
 import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { FieldDisplay } from "../components/FieldDisplay";
-import { HealingSession as HealingSessionPage} from "../components/HealingSession";
+import { HealingSessionWizard } from "../components/HealingSession";
 
 type SessionFormValues = {
   medicalCondition: string;
@@ -210,7 +210,13 @@ export default function Session() {
         <SessionHeader healingSession={sessionData} />
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h2 className="text-xl font-semibold mb-4">Healing Session</h2>
-          <HealingSessionPage healingSession={sessionData} />
+          {healingCaseId && (
+            <HealingSessionWizard
+              caseId={healingCaseId}
+              sessionNumber={sessionData?.healingSession?.length}
+              symptoms={sessionData?.symptoms}
+            />
+          )}
           <button
             type="button"
             onClick={goToPreviousStep}
@@ -251,18 +257,40 @@ export default function Session() {
             />
             <FieldDisplay
               label="Symptoms"
-              value={sessionData.symptoms?.map((s: any) => s.symptomName).join(", ")}
+              value={sessionData.symptoms
+                ?.map((s: any) => s.symptomName)
+                .join(", ")}
             />
             <FieldDisplay
               label="Medications"
-              value={sessionData.medications?.map((m: any) => m.medicationName).join(", ")}
+              value={sessionData.medications
+                ?.map((m: any) => m.medicationName)
+                .join(", ")}
             />
-            <FieldDisplay label="Basic Page Number" value={sessionData?.basicBookPg} />
-            <FieldDisplay label="Advanced Page Number" value={sessionData?.advancedBookPg} />
-            <FieldDisplay label="Psychotherapy Page Number" value={sessionData?.psychotherapyPg} />
-            <FieldDisplay label="Lab Findings" value={sessionData.labFindings} />
-            <FieldDisplay label="Complementary Details" value={sessionData.complementaryDetails} />
-            <FieldDisplay label="Infectious Details" value={sessionData.infectiousIllness} />
+            <FieldDisplay
+              label="Basic Page Number"
+              value={sessionData?.basicBookPg}
+            />
+            <FieldDisplay
+              label="Advanced Page Number"
+              value={sessionData?.advancedBookPg}
+            />
+            <FieldDisplay
+              label="Psychotherapy Page Number"
+              value={sessionData?.psychotherapyPg}
+            />
+            <FieldDisplay
+              label="Lab Findings"
+              value={sessionData.labFindings}
+            />
+            <FieldDisplay
+              label="Complementary Details"
+              value={sessionData.complementaryDetails}
+            />
+            <FieldDisplay
+              label="Infectious Details"
+              value={sessionData.infectiousIllness}
+            />
             <FieldDisplay
               label="Treatment Plan"
               value={

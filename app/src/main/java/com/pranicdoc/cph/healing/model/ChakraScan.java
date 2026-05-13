@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.healing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
@@ -26,6 +28,7 @@ public class ChakraScan extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "healing_session_id", nullable = false)
+    @JsonBackReference
     private HealingSession healingSession;
 
     @Enumerated(EnumType.STRING)
@@ -37,5 +40,6 @@ public class ChakraScan extends TenantEntity {
 
     @OneToMany(mappedBy = "chakraScan", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonManagedReference
     private List<ChakraReading> readings = new ArrayList<>();
 }

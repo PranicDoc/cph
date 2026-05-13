@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.controller;
 
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
@@ -20,9 +21,9 @@ public class MasterDataController {
     // --- Chakras ---
 
     @GetMapping("/chakras")
-    public ResponseEntity<List<ChakraCatalog>> getChakras(
+    public ResponseEntity<ApiResponse<List<ChakraCatalog>>> getChakras(
             @RequestParam(required = false) UUID clinicId) {
-        return ResponseEntity.ok(masterDataService.getAllChakras(clinicId));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",masterDataService.getAllChakras(clinicId)));
     }
 
     @GetMapping("/chakras/{id}")
