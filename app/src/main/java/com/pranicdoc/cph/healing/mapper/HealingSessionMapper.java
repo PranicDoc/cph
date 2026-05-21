@@ -12,6 +12,7 @@ public interface HealingSessionMapper {
     @Mapping(target = "sessionNumber", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "healingCase", ignore = true)
+    @Mapping(target = "sessionDate", source = "sessionDate")
     HealingSession toEntity(CreateSessionRequest sessionRequest);
 
     @Mapping(target = "healingSession", ignore = true)

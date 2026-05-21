@@ -22,7 +22,7 @@ export default function Layout() {
             <span>PranicDoc</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+          {/* <nav className="hidden md:flex items-center gap-1 bg-white/10 p-1 rounded-xl">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -37,13 +37,7 @@ export default function Layout() {
                 {item.name}
               </Link>
             ))}
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <span className="bg-secondary text-white px-3 py-1 rounded-full text-xs font-semibold">
-              v1.0 Draft
-            </span>
-          </div>
+          </nav> */}
         </div>
       </header>
 

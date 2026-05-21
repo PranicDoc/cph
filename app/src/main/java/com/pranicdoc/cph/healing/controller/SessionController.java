@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.controller;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.service.SessionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class SessionController {
     private final SessionService sessionService;
 
     @PostMapping("/case")
-    public ResponseEntity<SessionResponse> create(@RequestBody CreateSessionRequest sessionRequest) {
+    public ResponseEntity<SessionResponse> create(@Valid @RequestBody CreateSessionRequest sessionRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(sessionRequest));
     }
 

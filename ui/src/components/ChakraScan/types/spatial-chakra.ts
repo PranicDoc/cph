@@ -33,6 +33,7 @@ export const ACTIVATION_LEVEL_LABELS: Record<ActivationLevel, string> = {
 
 export interface ChakraCatalogEntry {
   id: string;
+  code?: string;
   name: string;
   category: ChakraCategory;
   location: string;

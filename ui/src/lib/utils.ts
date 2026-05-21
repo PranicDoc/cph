@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { CreateSessionPayload } from "../interfaces";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -112,16 +113,16 @@ export function constructHealingSessionPayload({
     notes?: string;
     colors: Array<{
       colorId: string;
-      usageType: string;
+      usageType: "CLEANSING" | "ENERGISING";
     }>;
   }>;
-  feedbackType: string;
+  feedbackType: "INTERIM" | "FINAL";
   feedbackText: string;
   patientRemarks: string;
-}) {
+}): CreateSessionPayload {
   return {
     caseId,
-    startDate: sessionDate,
+    sessionDate,
     startTime,
     endTime,
     scans: [

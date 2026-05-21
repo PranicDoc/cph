@@ -45,6 +45,12 @@ function mapScanEntry(chakra: ChakraDocEntry) {
   };
 }
 
+function hasIncompleteProtocolColorRows(entries: ProtocolEntryRequest[]) {
+  return entries.some((entry) =>
+    (entry.colors || []).some((color) => !color.colorId)
+  );
+}
+
 export function useHealingSessionWizard({
   caseId,
   symptoms,
@@ -188,6 +194,13 @@ export function useHealingSessionWizard({
 
     try {
       const values = form.state.values;
+      const protocolEntries = values.protocolEntries || [];
+
+      if (hasIncompleteProtocolColorRows(protocolEntries)) {
+        window.alert("Please select a color for every protocol color row.");
+        return;
+      }
+
       const payload = constructHealingSessionPayload({
         caseId,
         sessionDate: values.sessionDate,
@@ -196,7 +209,7 @@ export function useHealingSessionWizard({
         preScanData: preScanChakraData.map(mapScanEntry),
         postScanData: postScanChakraData.map(mapScanEntry),
         symptomFeedbacks: values.symptomFeedbacks,
-        protocolEntries: values.protocolEntries,
+        protocolEntries,
         feedbackType: values.feedbackType,
         feedbackText: values.feedbackText,
         patientRemarks: values.patientRemarks,

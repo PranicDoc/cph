@@ -6,10 +6,18 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { Skeleton } from "../components/ui/skeleton";
-import { Search, Plus, Link as URLIcon } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Link as URLIcon,
+  CircleCheck,
+  Eye,
+  Play,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../lib/axios";
 import { usePatient } from "../context/PatientContext";
+import { ClosurePopup } from "./Closure";
 
 type Patient = {
   healingCaseId: any;
@@ -30,6 +38,9 @@ export default function Patients() {
   const [openPopup, setOpenPopup] = useState<boolean>(false);
   const [generatedLink, setGeneratedLink] = useState<string>("");
   const { selectPatient, setPatients } = usePatient();
+
+  // CHANGED: Instead of a boolean, store the selected patient so the popup has their ID
+  const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
 
   const columns = [
     columnHelper.accessor("firstName", {
@@ -52,10 +63,11 @@ export default function Patients() {
       header: "Status",
       cell: (info) => (
         <span
-          className={`px-2 py-1 rounded-md text-xs font-semibold ${info.getValue() === "ACTIVE"
-            ? "bg-success/10 text-success"
-            : "bg-text-light/10 text-text-light"
-            }`}
+          className={`px-2 py-1 rounded-md text-xs font-semibold ${
+            info.getValue() === "ACTIVE"
+              ? "bg-success/10 text-success"
+              : "bg-text-light/10 text-text-light"
+          }`}
         >
           {info.getValue()}
         </span>
@@ -64,22 +76,54 @@ export default function Patients() {
     columnHelper.accessor("id", {
       header: "Actions",
       cell: (info) => {
+        const patient = info.row.original;
+
+        const isDraft = patient.status === "DRAFT";
+        const isActive = patient.status === "ACTIVE";
+
         return (
-          <Link
-            to={`/session/${info.row.original.healingCaseId}`}
-            className="text-primary hover:text-primary-dark"
-            onClick={() => handleSelectPatient(info.row.original)}
-          >
-            {info.row.original.status === "DRAFT" ? "Start" : "View"}
-          </Link>
-        )
+          <div className="flex items-center gap-2">
+            {/* Primary Action */}
+            <Link
+              to={`/session/${patient.healingCaseId}`}
+              onClick={() => handleSelectPatient(patient)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary
+               px-3 py-1.5 text-white text-xs font-medium hover:bg-primary-dark transition-colors"
+            >
+              {isDraft ? (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  Start
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3.5 h-3.5" />
+                  View
+                </>
+              )}
+            </Link>
+            <div
+              onClick={() => setClosurePatient(patient)}
+              className={`inline-flex items-center gap-1.5 rounded-lg
+                ${
+                  isActive
+                    ? "bg-primary hover:bg-primary-dark cursor-pointer"
+                    : "bg-border pointer-events-none"
+                } 
+                px-3 py-1.5 text-white text-xs font-medium transition-colors`}
+            >
+              <CircleCheck className="w-3.5 h-3.5" />
+              Complete
+            </div>
+          </div>
+        );
       },
     }),
   ];
 
   const handleSelectPatient = (patient: Patient) => {
     selectPatient(patient.id);
-  }
+  };
 
   useEffect(() => {
     fetchPatients();
@@ -93,7 +137,7 @@ export default function Patients() {
       setPatients(res.data);
     }
     setIsLoading(false);
-  }
+  };
 
   const table = useReactTable({
     data,
@@ -109,22 +153,19 @@ export default function Patients() {
     } else {
       console.error("Failed to generate registration link");
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       {openPopup && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md space-y-4">
-
             <h2 className="text-lg font-semibold text-primary-dark">
               Self Registration Link
             </h2>
-
             <p className="text-sm text-text-light">
               Share this link with the patient. It will expire in 30 minutes.
             </p>
-
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -141,7 +182,6 @@ export default function Patients() {
                 Copy
               </button>
             </div>
-
             <div className="flex justify-end">
               <button
                 onClick={() => setOpenPopup(false)}
@@ -153,10 +193,26 @@ export default function Patients() {
           </div>
         </div>
       )}
+
+      {closurePatient && (
+        <ClosurePopup
+          patient={closurePatient}
+          onClose={() => setClosurePatient(null)}
+          onSuccess={() => {
+            setClosurePatient(null);
+            fetchPatients();
+          }}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-primary-dark">Patients Directory</h1>
-          <p className="text-text-light text-sm">Manage and view all registered patients.</p>
+          <h1 className="text-2xl font-bold text-primary-dark">
+            Patients Directory
+          </h1>
+          <p className="text-text-light text-sm">
+            Manage and view all registered patients.
+          </p>
         </div>
         <div className="flex gap-x-4">
           <button
@@ -198,9 +254,9 @@ export default function Patients() {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </th>
                   ))}
                 </tr>
@@ -235,7 +291,10 @@ export default function Patients() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-6 py-8 text-center text-text-light">
+                  <td
+                    colSpan={columns.length}
+                    className="px-6 py-8 text-center text-text-light"
+                  >
                     No patients found.
                   </td>
                 </tr>

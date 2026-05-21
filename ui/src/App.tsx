@@ -13,6 +13,7 @@ import Register from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { PatientProvider } from './context/PatientContext';
+import { Closure } from './pages/Closure';
 
 export default function App() {
   return (

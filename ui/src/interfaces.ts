@@ -72,8 +72,9 @@ export interface ChakraData {
 // HealingSession Wizard Form Interfaces
 export interface ChakraReadingRequest {
   chakraId: string;
-  sizeReading?: string;
-  conditionReading?: string;
+  chakraName: string;
+  energyLevel?: string;
+  activationLevel?: string;
   notes?: string;
 }
 
@@ -127,12 +128,37 @@ export interface ChakraScanProps {
 
 export interface ColorOption {
   id: string;
+  code: string;
   name: string;
+  colorHex?: string;
+  properties?: string;
+  clinicId?: string | null;
 }
 
 export interface ChakraOption {
   id: string;
+  code: string;
   name: string;
+  category?: string;
+  location?: string;
+  clinicId?: string | null;
+}
+
+export interface CreateSessionPayload {
+  caseId: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  scans: ChakraScanRequest[];
+  symptomFeedbacks: SymptomFeedbackRequest[];
+  qualitativeFeedbacks: QualitativeFeedbackRequest[];
+  protocolEntries: Array<{
+    chakraId: string | null;
+    targetArea: string;
+    technique: string;
+    notes?: string;
+    colors: ProtocolColorRequest[];
+  }>;
 }
 
 // --------------------------------------------------------------

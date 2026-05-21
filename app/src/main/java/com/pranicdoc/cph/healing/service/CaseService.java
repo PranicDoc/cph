@@ -2,6 +2,7 @@ package com.pranicdoc.cph.healing.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
@@ -28,7 +29,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -175,11 +179,24 @@ public class CaseService {
     @Auditable(action = "CLOSE_CASE")
     public void closeCase(UUID caseId, CaseClosureRequest request) {
         HealingCase healingCase = findOrThrow(caseId);
+        List<HealingSession> sessions = healingCase.getSessions();
+        int healingCount = sessions.size();
+        HealingSession lastSession = sessions.get(sessions.size() - 1);
+        LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
+                .stream()
+                .map(QualitativeFeedback::getCreatedAt)
+                .filter(Objects::nonNull)
+                .map(instant -> instant.atZone(ZoneId.systemDefault()).toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(null);
         CaseClosure closure = CaseClosure.builder()
                 .healingCase(healingCase)
                 .closureDate(LocalDate.now())
-                .outcome(request.outcome())
-                .remarks(request.remarks())
+                .additionalComments(request.additionalComments())
+                .healingCount(healingCount)
+                .isHealingContinued(request.isHealingContinued())
+                .lastFeedbackDate(lastFeedbackDate)
+//                .healerSignature()
                 .closedBy(securityContextUtil.getCurrentHealerId())
                 .build();
         healingCase.setClosure(closure);
@@ -219,7 +236,8 @@ public class CaseService {
                 c.getSessions().stream().sorted(
                         Comparator.comparingInt(HealingSession::getSessionNumber)).toList(),
                 c.getSymptoms(),
-                c.getMedications()
+                c.getMedications(),
+                c.getClosure()
         );
     }
 
@@ -278,9 +296,19 @@ public class CaseService {
     @Transactional
     public String postMessageToGeneratePdf(UUID healingCaseId) {
         CaseResponse snapshot = getById(healingCaseId);
+        Patient patientData = patientRepository.findById(snapshot.patientId())
+                .orElseThrow(() -> new ResourceNotFoundException("No Patient found for the given id"));
         String healingCaseData;
         try {
-            healingCaseData = objectMapper.writeValueAsString(snapshot);
+            ObjectNode root =
+                    objectMapper.valueToTree(snapshot);
+
+            root.set(
+                    "patient",
+                    objectMapper.valueToTree(patientData)
+            );
+            healingCaseData =
+                    objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize healing case snapshot", e);
         }

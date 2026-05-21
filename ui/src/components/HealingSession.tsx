@@ -1,4 +1,9 @@
+import { useMemo } from "react";
 import { useHealingSessionWizard } from "../hooks/useHealingSessionWizard";
+import {
+  buildBackendChakraCatalog,
+  buildPranaColorCatalog,
+} from "./ChakraScan";
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";
 import { StepPostScan } from "./HealingSessionWizard/StepPostScan";
 import { StepPreScan } from "./HealingSessionWizard/StepPreScan";
@@ -41,6 +46,14 @@ export const HealingSessionWizard = ({
   } = useHealingSessionWizard({ caseId, symptoms });
 
   const { colors, chakras, loading } = referenceData;
+  const availableChakras = useMemo(
+    () => buildBackendChakraCatalog(chakras),
+    [chakras]
+  );
+  const pranaColorCatalog = useMemo(
+    () => buildPranaColorCatalog(colors),
+    [colors]
+  );
 
   if (loading) {
     return <div>Loading reference data...</div>;
@@ -56,6 +69,8 @@ export const HealingSessionWizard = ({
           <StepPreScan
             value={preScanChakraData}
             onChange={setPreScanChakraData}
+            availableChakras={availableChakras}
+            pranaColorCatalog={pranaColorCatalog}
           />
         )}
 
@@ -77,6 +92,8 @@ export const HealingSessionWizard = ({
           <StepPostScan
             value={postScanChakraData}
             onChange={setPostScanChakraData}
+            availableChakras={availableChakras}
+            pranaColorCatalog={pranaColorCatalog}
           />
         )}
 

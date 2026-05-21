@@ -27,5 +27,6 @@ public record CaseResponse(
         CaseMedicalSnapshot medicalSnapshot,
         List<HealingSession> healingSession,
         List<CaseSymptom> symptoms,
-        List<CaseMedication> medications
+        List<CaseMedication> medications,
+        CaseClosure closure
 ) {}

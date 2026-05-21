@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.patient.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
@@ -24,6 +25,7 @@ public class PatientMedicalHistory extends TenantEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false, unique = true)
+    @JsonBackReference
     private Patient patient;
 
     @Column(name = "general_health")

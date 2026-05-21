@@ -109,7 +109,7 @@ export default function Registration() {
       } catch (error) {
         console.error("Failed to save medical history.", error);
         // Fallback for UI demonstration
-        setStep(3);
+        alert("Something went wrong")
       } finally {
         setIsSubmitting(false);
       }

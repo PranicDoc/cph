@@ -92,6 +92,7 @@ public class HealingCase extends TenantEntity {
     private List<CaseMedication> medications = new ArrayList<>();
 
     @OneToOne(mappedBy = "healingCase", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private CaseClosure closure;
 
     @OneToMany(mappedBy = "healingCase", cascade = CascadeType.ALL)

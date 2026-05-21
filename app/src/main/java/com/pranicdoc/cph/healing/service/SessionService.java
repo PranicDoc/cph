@@ -11,13 +11,14 @@ import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,7 +30,8 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final CaseService caseService;
     private final HealingSessionMapper mapper;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+    private final ChakraCatalogRepository chakraCatalogRepository;
+    private final PranaColorCatalogRepository pranaColorCatalogRepository;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -62,9 +64,9 @@ public class SessionService {
         }
         HealingCase healingCase = caseService.findOrThrow(sessionRequest.caseId());
         int nextNumber = existing.size() + 1;
+        validateMasterDataReferences(sessionRequest);
         HealingSession session = mapper.toEntity(sessionRequest);
         session.setSessionNumber(nextNumber);
-        session.setSessionDate(LocalDate.now());
         // TODO this is a basic validation, add few more checks comparing with the base data
         boolean hasPreScan = session.getScans().stream()
                 .anyMatch(s -> s.getScanType() == ScanType.PRE);
@@ -74,11 +76,43 @@ public class SessionService {
         if (!hasPreScan) throw new SessionIncompleteException("Pre-scan is required");
         if (!hasProtocol) throw new SessionIncompleteException("At least one protocol entry is required");
         if (!hasPostScan) throw new SessionIncompleteException("Post-scan is required");
-        session.setEndTime(LocalTime.now().withNano(0).withSecond(0));
         session.setStatus(SessionStatus.COMPLETED);
         session.setHealingCase(healingCase);
         healingCase.getSessions().add(session);
         return toResponse(sessionRepository.save(session));
+    }
+
+    private void validateMasterDataReferences(CreateSessionRequest request) {
+        if (request.scans() != null) {
+            request.scans().forEach(scan -> {
+                if (scan.readings() != null) {
+                    scan.readings().forEach(reading -> validateChakraId(reading.chakraId()));
+                }
+            });
+        }
+
+        if (request.protocolEntries() != null) {
+            request.protocolEntries().forEach(entry -> {
+                if (entry.chakraId() != null) {
+                    validateChakraId(entry.chakraId());
+                }
+                if (entry.colors() != null) {
+                    entry.colors().forEach(color -> validateColorId(color.colorId()));
+                }
+            });
+        }
+    }
+
+    private void validateChakraId(UUID chakraId) {
+        if (!chakraCatalogRepository.existsById(chakraId)) {
+            throw new IllegalArgumentException("Invalid chakraId: " + chakraId);
+        }
+    }
+
+    private void validateColorId(UUID colorId) {
+        if (!pranaColorCatalogRepository.existsById(colorId)) {
+            throw new IllegalArgumentException("Invalid colorId: " + colorId);
+        }
     }
 
     @Transactional(readOnly = true)

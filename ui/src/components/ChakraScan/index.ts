@@ -1,6 +1,10 @@
 // ── Chakra Accordion Panel — Standalone Export ──
 
 export { ChakraAccordionPanel, default } from "./ChakraAccordionPanel";
+export {
+  buildBackendChakraCatalog,
+  buildPranaColorCatalog,
+} from "./utils";
 
 // Types (re-export the ones consumers need)
 export type {

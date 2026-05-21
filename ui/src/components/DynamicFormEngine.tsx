@@ -33,6 +33,7 @@ export type FieldConfig = {
   displayKey?: string;
   createNewTag?: (input: string) => any;
   enableToggle?: boolean;
+  trimSpaces?: boolean;
 };
 
 export type FormGroup = {
@@ -62,6 +63,7 @@ export function DynamicField({
     wrapperClassName,
     labelClassName,
     enableToggle = false,
+    trimSpaces = false,
   } = fieldConfig;
 
   const [enabled, setEnabled] = useState(false);
@@ -80,8 +82,22 @@ export function DynamicField({
     <form.Field
       name={name}
       validators={{
-        onChange: ({ value }: any) =>
-          required && !value ? "Required" : undefined,
+        onChange: ({ value }: any) => {
+          if (required && !value) {
+            return "Required";
+          }
+          // Contact number validation
+          if (name === "contact" && value) {
+            const normalized = value.replace(/\s+/g, "");
+
+            const phoneRegex = /^\+?\d{10,15}$/;
+
+            if (!phoneRegex.test(normalized)) {
+              return "Invalid contact number";
+            }
+          }
+          return undefined;
+        },
       }}
       children={(field: any) => {
         if (type === "checkbox") {
@@ -196,7 +212,11 @@ export function DynamicField({
             ) : (
               <input
                 type={type}
-                value={field.state.value}
+                value={
+                  trimSpaces
+                    ? field.state.value.replace(/\s+/g, "")
+                    : field.state.value
+                }
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
                 disabled={isDisabled}

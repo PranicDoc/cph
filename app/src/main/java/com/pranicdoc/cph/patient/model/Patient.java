@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.patient.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.enums.Gender;
 import com.pranicdoc.cph.common.enums.MaritalStatus;
@@ -74,6 +75,7 @@ public class Patient extends TenantEntity {
 
     // 1:1 bidirectional with PatientMedicalHistory (living master, updated anytime)
     @OneToOne(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private PatientMedicalHistory medicalHistory;
 
     public static Patient create(PatientCreateRequest req) {

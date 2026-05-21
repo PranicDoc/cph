@@ -5,13 +5,13 @@ import {
   ENERGY_OPTIONS,
   getActivationOption,
 } from "../data/energy-options";
-import { getChakraById } from "../data/chakra-catalog";
 import { isDocumented } from "../utils";
 import { LevelSelector } from "./LevelSelector";
 import { ProtocolPicker } from "./ProtocolPicker";
 import { TreatmentColorPicker } from "./TreatmentColorPicker";
 import type {
   ActivationLevel,
+  ChakraCatalogEntry,
   ChakraDocEntry,
   ColorUsageType,
   EnergyLevel,
@@ -20,7 +20,7 @@ import type {
 } from "../types/spatial-chakra";
 
 interface ChakraCardProps {
-  chakraId: string;
+  chakra: ChakraCatalogEntry;
   entry: ChakraDocEntry;
   expanded: boolean;
   onToggle: () => void;
@@ -120,7 +120,7 @@ function CollapsedChakraCard({
 }
 
 export const ChakraCard = memo(function ChakraCard({
-  chakraId,
+  chakra,
   entry,
   expanded,
   onToggle,
@@ -128,9 +128,8 @@ export const ChakraCard = memo(function ChakraCard({
   protocolCatalog,
   pranaColorCatalog,
 }: ChakraCardProps) {
-  const catalog = getChakraById(chakraId);
-  const colorHex = catalog?.colorHex ?? "#888";
-  const name = catalog?.name ?? chakraId;
+  const colorHex = chakra.colorHex;
+  const name = chakra.name;
   const documented = isDocumented(entry);
 
   const updateEnergy = useCallback(
@@ -199,9 +198,9 @@ export const ChakraCard = memo(function ChakraCard({
         <h3 className="text-sm font-semibold text-gray-800 flex-1 truncate">
           {name}
         </h3>
-        {catalog?.location && (
+        {chakra.location && (
           <span className="text-[10px] text-gray-400">
-            {catalog.location}
+            {chakra.location}
           </span>
         )}
         <button

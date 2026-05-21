@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
-import { BODY_REGIONS } from "./data/body-regions";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PROTOCOL_CATALOG } from "./data/protocol-catalog";
 import { PRANA_COLOR_CATALOG } from "./data/prana-color-catalog";
 import { ChakraCard } from "./components/ChakraCard";
 import {
+  CHAKRA_CATALOG,
+  buildRegionsForChakras,
   createDefaultEntry,
   createEntriesMap,
   getOverallStats,
   getRegionStats,
 } from "./utils";
 import type {
+  ChakraCatalogEntry,
   ChakraDocEntry,
   ProtocolCatalogEntry,
   PranaColorEntry,
@@ -18,6 +20,7 @@ import type {
 interface ChakraAccordionPanelProps {
   value: ChakraDocEntry[];
   onChange: (entries: ChakraDocEntry[]) => void;
+  availableChakras?: ChakraCatalogEntry[];
   protocolCatalog?: ProtocolCatalogEntry[];
   pranaColorCatalog?: PranaColorEntry[];
 }
@@ -25,23 +28,42 @@ interface ChakraAccordionPanelProps {
 function ChakraAccordionPanel({
   value,
   onChange,
+  availableChakras,
   protocolCatalog = PROTOCOL_CATALOG,
   pranaColorCatalog = PRANA_COLOR_CATALOG,
 }: ChakraAccordionPanelProps) {
   const [entries, setEntries] = useState(() => createEntriesMap(value));
-  const [selectedRegionId, setSelectedRegionId] = useState(
-    BODY_REGIONS[0]?.id ?? ""
-  );
+  const [selectedRegionId, setSelectedRegionId] = useState("");
   const [expandedChakraId, setExpandedChakraId] = useState<string | null>(null);
+  const chakraCatalog = availableChakras ?? CHAKRA_CATALOG;
+  const regions = useMemo(
+    () => buildRegionsForChakras(chakraCatalog),
+    [chakraCatalog]
+  );
+  const chakraById = useMemo(
+    () => new Map(chakraCatalog.map((chakra) => [chakra.id, chakra])),
+    [chakraCatalog]
+  );
 
   useEffect(() => {
     setEntries(createEntriesMap(value));
   }, [value]);
 
-  const selectedRegion = BODY_REGIONS.find((r) => r.id === selectedRegionId);
+  useEffect(() => {
+    if (regions.length === 0) {
+      setSelectedRegionId("");
+      return;
+    }
+
+    if (!regions.some((region) => region.id === selectedRegionId)) {
+      setSelectedRegionId(regions[0].id);
+    }
+  }, [regions, selectedRegionId]);
+
+  const selectedRegion = regions.find((r) => r.id === selectedRegionId);
   const chakraIds = selectedRegion?.chakraIds ?? [];
-  const currentStats = getRegionStats(selectedRegionId, entries);
-  const overallStats = getOverallStats(entries);
+  const currentStats = getRegionStats(selectedRegionId, regions, entries);
+  const overallStats = getOverallStats(regions, entries);
 
   const toggleChakra = useCallback((chakraId: string) => {
     setExpandedChakraId((prev) => (prev === chakraId ? null : chakraId));
@@ -75,8 +97,8 @@ function ChakraAccordionPanel({
           onChange={(e) => handleRegionChange(e.target.value)}
           className="flex-1 text-sm p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-violet-300 text-gray-700"
         >
-          {BODY_REGIONS.map((region) => {
-            const stats = getRegionStats(region.id, entries);
+          {regions.map((region) => {
+            const stats = getRegionStats(region.id, regions, entries);
 
             return (
               <option key={region.id} value={region.id}>
@@ -102,12 +124,18 @@ function ChakraAccordionPanel({
 
       <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {chakraIds.map((id) => {
-          const entry = entries[id] ?? createDefaultEntry(id);
+          const chakra = chakraById.get(id);
+
+          if (!chakra) {
+            return null;
+          }
+
+          const entry = entries[id] ?? createDefaultEntry(chakra);
 
           return (
             <ChakraCard
               key={id}
-              chakraId={id}
+              chakra={chakra}
               entry={entry}
               expanded={expandedChakraId === id}
               onToggle={() => toggleChakra(id)}

@@ -31,7 +31,7 @@ export const patientDemographicsSchema: FormSchema = [
         ]
       },
       { name: "occupation", label: "Occupation", placeholder: "E.g. Software Engineer" },
-      { name: "contact", label: "WhatsApp / Phone", type: "tel", required: true, placeholder: "+91 98765 43210" },
+      { name: "contact", label: "WhatsApp / Phone", type: "tel", required: true, placeholder: "+91 9876543210", trimSpaces: true },
       { name: "email", label: "Email", type: "email", placeholder: "patient@email.com" }
     ]
   },
