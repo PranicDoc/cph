@@ -15,16 +15,14 @@ export function WizardNavigation({
   canSubmit,
 }: WizardNavigationProps) {
   return (
-    <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
-      {step > 1 && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
-        >
-          Back
-        </button>
-      )}
+    <div className="flex justify-between pt-6 border-t border-border mt-8">
+      <button
+        type="button"
+        onClick={onBack}
+        className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+      >
+        Previous
+      </button>
       <button
         type="submit"
         disabled={!canSubmit || isSubmitting}

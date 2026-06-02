@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import api from "../lib/axios";
-
-type Patient = {
-  healingCaseId: any;
-  id: string;
-  firstName: string;
-  lastName: string;
-};
+import { Patient } from "../context/PatientContext";
 
 type ClosurePopupProps = {
   patient: Patient;

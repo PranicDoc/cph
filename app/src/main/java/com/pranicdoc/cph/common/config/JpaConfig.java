@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  * Hibernate @Filter definitions are on TenantEntity (activated by TenantInterceptor).
  */
 @Configuration
-@EnableJpaAuditing
+@EnableJpaAuditing(auditorAwareRef = "auditorAwareImpl")
 public class JpaConfig {
     // Hibernate Envers is auto-configured by spring-boot-starter + hibernate-envers on classpath.
     // @FilterDef / @Filter are declared on TenantEntity.

@@ -1,16 +1,20 @@
 package com.pranicdoc.cph.healing.controller;
 
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.service.CaseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.ScrollPosition;
+import org.springframework.data.domain.Window;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -85,11 +89,32 @@ public class CaseController {
     }
 
     @PostMapping("/generate-pdf")
-    public ResponseEntity<Map<String, String>> generatePdf(@RequestParam UUID healingCaseId) {
-        String jobId = caseService.postMessageToGeneratePdf(healingCaseId);
-        return ResponseEntity.accepted().body(Map.of(
-                "jobId", jobId,
-                "status", "PROCESSING"
-        ));
+    public ResponseEntity<ApiResponse<JobAckResponse>> generatePdf(@RequestParam UUID healingCaseId) {
+        JobAckResponse ackResponse = caseService.postMessageToGeneratePdf(healingCaseId);
+        return ResponseEntity.accepted().body(
+                new ApiResponse<>(true,
+                        "Accepted the request, please wait while processing",
+                        ackResponse));
+    }
+
+    @GetMapping("/get-pdfs")
+    public ResponseEntity<ApiResponse<Window<PdfJobDTO>>> getAllPdfs(
+            @RequestParam(required = false) ScrollPosition scrollPosition,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ResponseEntity.ok().body(
+            new ApiResponse<>(true, "Successfully retrieved pdfs",
+                caseService.getCompletedPdfJobs(scrollPosition, limit)
+            )
+        );
+    }
+
+    @GetMapping("/download")
+    public ResponseEntity<ApiResponse<PreSignedUrlResponse>> getDownloadLink(@RequestParam String fileUrl) {
+        return ResponseEntity.ok().body(
+                new ApiResponse<>(true, "Successfully retrieved download link",
+                    caseService.getPreSignedDownloadUrl(fileUrl)
+                )
+        );
     }
 }

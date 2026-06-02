@@ -17,11 +17,13 @@ interface HealingSessionWizardProps {
   caseId: string;
   sessionNumber: number;
   symptoms: any[];
+  onClose: () => void;
 }
 
 export const HealingSessionWizard = ({
   caseId,
   symptoms = [],
+  onClose,
 }: HealingSessionWizardProps) => {
   const {
     step,
@@ -55,12 +57,20 @@ export const HealingSessionWizard = ({
     [colors]
   );
 
+  const handleWizardBack = () => {
+    if (step == 1) {
+      onClose();
+    } else {
+      handleBack();
+    }
+  };
+
   if (loading) {
     return <div>Loading reference data...</div>;
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="mx-auto space-y-6">
       <WizardHeader step={step} />
       <WizardProgress step={step} />
 
@@ -97,7 +107,7 @@ export const HealingSessionWizard = ({
           />
         )}
 
-        {step === 4 && (
+        {/* {step === 4 && (
           <StepSymptomsFeedback
             form={form}
             symptoms={symptoms}
@@ -105,15 +115,15 @@ export const HealingSessionWizard = ({
             onUpdateSymptom={handleUpdateSymptomFeedback}
             onRemoveSymptom={handleRemoveSymptomFeedback}
           />
-        )}
+        )} */}
 
-        {step === 5 && <CompletionScreen />}
+        {step === 4 && <CompletionScreen />}
 
-        {step <= 4 && (
+        {step <= 3 && (
           <WizardNavigation
             step={step}
             isSubmitting={isSubmitting}
-            onBack={handleBack}
+            onBack={handleWizardBack}
             onSubmit={handleNext}
             canSubmit={true}
           />

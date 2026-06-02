@@ -11,6 +11,11 @@ spring:
     hibernate:
       ddl-auto: update
 
+  #  Remove later for prod after enabling kafka
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
   kafka:
     bootstrap-servers: localhost:9092
 
@@ -39,8 +44,18 @@ app:
     # Base64-encoded 32-byte AES key — CHANGE THIS IN PRODUCTION
     key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
   cookies:
-    secure: false    # true in production (HTTPS only)
-    same-site: Lax   # "None" for cross-origin, "Strict" for same-site only
+    secure: true    # true in production (HTTPS only)
+    same-site: None   # "None" for cross-origin, "Strict" for same-site only
+  enable:
+    kafka: false
+
+storage:
+  provider: R2
+  bucket: pranicdoc-pdfs
+  endpoint: ${R2_ENDPOINT}
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+  presigned-expiry-minutes: 10
 
 server:
   port: 9918

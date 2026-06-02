@@ -15,6 +15,15 @@ java {
 
 repositories {
 	mavenCentral()
+
+	maven {
+		url = uri("https://maven.pkg.github.com/PranicDoc/storage-sdk")
+
+		credentials {
+			username = project.findProperty("gpr.user")
+			password = project.findProperty("gpr.key")
+		}
+	}
 }
 
 dependencies {
@@ -73,6 +82,15 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// --- Caffeine ---
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+
+	// --- Storage Service ---
+	implementation 'com.pranicdoc:storage-sdk:1.0.1'
+
+	// --- Lib Phone Number ---
+	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.31'
 }
 
 tasks.named('test') {

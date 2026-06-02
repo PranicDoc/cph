@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -7,6 +8,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
+import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.exception.ConsentRequiredException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -19,21 +21,20 @@ import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
+import com.pranicdoc.storage.service.StorageService;
 import io.swagger.v3.core.util.ObjectMapperFactory;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +48,7 @@ public class CaseService {
     private final HealingCaseMapper healingCaseMapper;
     private final MessageService messageService;
     private final PdfJobRepository pdfJobRepository;
+    private final StorageService storageService;
     private final ObjectMapper objectMapper = ObjectMapperFactory.buildStrictGenericObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -292,29 +294,87 @@ public class CaseService {
         return toResponse(caseRepository.save(entity));
     }
 
+    @Auditable(action = "GET_ALL_PDF")
+    @Transactional(readOnly = true)
+    public Window<PdfJobDTO> getCompletedPdfJobs(ScrollPosition scrollPosition, int limitSize) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        List<UUID> healingCaseIds = caseRepository.findAllHealingCaseIdsByHealerId(healerId);
+        if (healingCaseIds.isEmpty()) {
+            return Window.from(Collections.emptyList(), value -> ScrollPosition.keyset());
+        }
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt")
+                .and(Sort.by(Sort.Direction.DESC, "id"));
+        Window<PdfJobEntity> jobWindow = pdfJobRepository.findByStatusAndHealingCaseIdIn(
+                JobStatus.COMPLETED,
+                healingCaseIds,
+                scrollPosition != null ? scrollPosition : ScrollPosition.keyset(),
+                Limit.of(limitSize),
+                sort
+        );
+        return jobWindow.map(job -> {
+//            String signedUrl = storageService.generatePresignedDownloadUrl(job.getFileUrl()).toString();
+            return new PdfJobDTO(job.getHealingCaseId(), job.getFileUrl());
+        });
+    }
+
+    @Auditable(action = "DOWNLOAD_PDF")
+    @Transactional
+    public PreSignedUrlResponse getPreSignedDownloadUrl(String fileUrl) {
+        return new PreSignedUrlResponse(
+                storageService.generatePresignedDownloadUrl(fileUrl).toString(),
+                Instant.now().plus(Duration.ofMinutes(10))
+        );
+    }
+
     @Auditable(action = "SEND_MESSAGE")
     @Transactional
-    public String postMessageToGeneratePdf(UUID healingCaseId) {
+    public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         CaseResponse snapshot = getById(healingCaseId);
         Patient patientData = patientRepository.findById(snapshot.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("No Patient found for the given id"));
+        JsonNode newJsonNode;
         String healingCaseData;
         try {
-            ObjectNode root =
-                    objectMapper.valueToTree(snapshot);
-
-            root.set(
-                    "patient",
-                    objectMapper.valueToTree(patientData)
-            );
-            healingCaseData =
-                    objectMapper.writeValueAsString(root);
+            ObjectNode root = objectMapper.valueToTree(snapshot);
+            root.set("patient", objectMapper.valueToTree(patientData));
+            newJsonNode = root;
+            healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize healing case snapshot", e);
+        }
+        Optional<PdfJobEntity> existingJobOpt =
+                pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(healingCaseId);
+        if (existingJobOpt.isPresent()) {
+            PdfJobEntity existingJob = existingJobOpt.get();
+            JobStatus currentStatus = existingJob.getStatus();
+            if (JobStatus.STARTED.equals(currentStatus) || JobStatus.PROCESSING.equals(currentStatus)) {
+                throw new IllegalStateException("PDF generation is already in process for this case.");
+            }
+            if (JobStatus.COMPLETED.equals(currentStatus)) {
+                try {
+                    JsonNode existingJsonNode = objectMapper.readTree(existingJob.getHealingCaseData());
+                    if (newJsonNode.equals(existingJsonNode)) {
+                        return new JobAckResponse(existingJob.getJobId(), currentStatus);
+                    }
+                } catch (Exception e) {
+                    // If parsing the old data fails for any reason, assume it changed and proceed.
+                }
+                existingJob.setHealingCaseData(healingCaseData);
+                existingJob.setStatus(JobStatus.DRAFT);
+                pdfJobRepository.save(existingJob);
+                String existingJobId = existingJob.getJobId();
+                publishJobMessage(existingJobId, healingCaseId);
+                return new JobAckResponse(existingJobId, JobStatus.PROCESSING);
+            }
         }
         String jobId = securityContextUtil.getCurrentClinicCode() + "-" + UUID.randomUUID();
         PdfJobEntity entity = PdfJobEntity.create(jobId, healingCaseId, healingCaseData);
         pdfJobRepository.save(entity);
+        publishJobMessage(jobId, healingCaseId);
+        return new JobAckResponse(jobId, JobStatus.PROCESSING);
+    }
+
+    private void publishJobMessage(String jobId, UUID healingCaseId) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
@@ -323,6 +383,5 @@ public class CaseService {
                     }
                 }
         );
-        return jobId;
     }
 }

@@ -1,63 +1,67 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  ReactNode,
+} from "react";
+import { useQuery } from "@tanstack/react-query";
+import api from "../lib/axios"; // Make sure this path points to your axios instance
+import { useAuth } from "./AuthContext";
 
 // ---- TYPES ----
 
-type CaseStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+export type CaseStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "CANCELLED";
 
 export type Patient = {
-    healingCaseId: any;
-    id: string;
-    firstName: string;
-    lastName: string;
-    dob: string;
-    gender: string;
-    contact: string;
-    status: "DRAFT" | "ACTIVE" | "COMPLETED";
+  id: string;
+  healingCaseId?: string | null; // Added to match your Patients.tsx component
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  contact: string;
+  status: "DRAFT" | "ACTIVE" | "CLOSED"; // Fixed to match Patients.tsx
 };
 
 export interface HealingCase {
-    id: string;
-    patientId: string;
-    healerId: string;
-
-    medicalCondition?: string;
-    healingDetails?: string;
-    labFindings?: string;
-
-    complementaryTreatments?: boolean;
-    complementaryDetails?: string;
-
-    infectiousIllness?: boolean;
-    infectiousDetails?: string;
-
-    basicBookPg?: string;
-    advancedBookPg?: string;
-    psychotherapyPg?: string;
-
-    status: CaseStatus;
-
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  patientId: string;
+  healerId: string;
+  medicalCondition?: string;
+  healingDetails?: string;
+  labFindings?: string;
+  complementaryTreatments?: boolean;
+  complementaryDetails?: string;
+  infectiousIllness?: boolean;
+  infectiousDetails?: string;
+  basicBookPg?: string;
+  advancedBookPg?: string;
+  psychotherapyPg?: string;
+  status: CaseStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---- DERIVED TYPE ----
 
-type ComputedPatient = Patient & {
-    fullName: string;
-    age: number;
-    visitCount: number;
-    lastVisit: string | null;
+export type ComputedPatient = Patient & {
+  fullName: string;
+  age: number;
+  visitCount: number;
+  lastVisit: string | null;
 };
 
 // ---- CONTEXT TYPE ----
 
 type PatientContextType = {
-    patients: ComputedPatient[];
-    selectedPatient: ComputedPatient | null;
-    HealingCase: HealingCase | null;
-    setPatients: (patients: Patient[]) => void;
-    setSessions: (sessions: HealingCase[]) => void;
-    selectPatient: (patientId: string) => void;
+  patients: ComputedPatient[];
+  selectedPatient: ComputedPatient | null;
+  HealingCase: HealingCase | null;
+  selectPatient: (patientId: string | null) => void;
+  isLoading: boolean;
+  error: Error | null;
 };
 
 // ---- CONTEXT ----
@@ -67,115 +71,134 @@ const PatientContext = createContext<PatientContextType | undefined>(undefined);
 // ---- UTILS ----
 
 const calculateAge = (dob: string): number => {
-    const birth = new Date(dob);
-    const today = new Date();
-
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
-
-    return age;
+  if (!dob) return 0;
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
 };
 
 const calculateGender = (gender: string) => {
-    if (gender === "M") {
-        return "Male";
-    } else if (gender === "F") {
-        return "Female";
-    } else {
-        return "Other";
-    }
-}
+  if (gender === "M") return "Male";
+  if (gender === "F") return "Female";
+  return "Other";
+};
+
+// ---- API FETCHERS ----
+
+const fetchPatients = async (): Promise<Patient[]> => {
+  const res = await api.get("/api/v1/patients");
+  return res.data;
+};
+
+const fetchHealingCases = async (): Promise<HealingCase[]> => {
+  //   const res = await api.get("/api/v1/cases");
+  //   return res.data;
+  return [];
+};
 
 // ---- PROVIDER ----
 
 export const PatientProvider = ({ children }: { children: ReactNode }) => {
-    const [patients, setPatientsState] = useState<ComputedPatient[]>([]);
-    const [healingCases, setHealingCases] = useState<HealingCase[]>([]);
-    const [selectedPatient, setSelectedPatient] = useState<ComputedPatient | null>(null);
-    const [HealingCase, setHealingCase] = useState<HealingCase | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
+    () => {
+      return sessionStorage.getItem("selectedPatientId") || null;
+    }
+  );
+  const { isAuthenticated } = useAuth();
 
-    // ---- SET PATIENTS WITH COMPUTATION ----
+  useEffect(() => {
+    if (selectedPatientId) {
+      sessionStorage.setItem("selectedPatientId", selectedPatientId);
+    } else {
+      sessionStorage.removeItem("selectedPatientId");
+    }
+  }, [selectedPatientId]);
 
-    const setPatients = (rawPatients: Patient[]) => {
-        const computed = rawPatients.map((p) => ({
-            ...p,
-            fullName: `${p.firstName} ${p.lastName}`,
-            age: calculateAge(p.dob),
-            gender: calculateGender(p.gender),
-            visitCount: 0,
-            lastVisit: null,
-        }));
+  const {
+    data: rawPatients = [],
+    isPending: isLoadingPatients,
+    error: patientsError,
+  } = useQuery({
+    queryKey: ["patients"],
+    queryFn: fetchPatients,
+    enabled: isAuthenticated,
+  });
 
-        setPatientsState(computed);
-    };
+  const {
+    data: rawCases = [],
+    isPending: isLoadingCases,
+    error: casesError,
+  } = useQuery({
+    queryKey: ["healingCases"],
+    queryFn: fetchHealingCases,
+    enabled: isAuthenticated,
+  });
 
-    // ---- SET SESSIONS + UPDATE PATIENT DERIVED DATA ----
-
-    const setSessions = (allSessions: HealingCase[]) => {
-        setHealingCases(allSessions);
-
-        setPatientsState((prev) =>
-            prev.map((p) => {
-                const patientSessions = allSessions
-                    .filter((s) => s.patientId === p.id)
-                    .sort(
-                        (a, b) =>
-                            new Date(b.createdAt).getTime() -
-                            new Date(a.createdAt).getTime()
-                    );
-
-                return {
-                    ...p,
-                    visitCount: patientSessions.length,
-                    lastVisit: patientSessions[0]?.createdAt || null,
-                };
-            })
+  const computedPatients = useMemo<ComputedPatient[]>(() => {
+    return rawPatients.map((p) => {
+      const patientSessions = rawCases
+        .filter((s) => s.patientId === p.id)
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-    };
 
-    // ---- SELECT PATIENT ----
+      return {
+        ...p,
+        fullName: `${p.firstName} ${p.lastName}`,
+        age: calculateAge(p.dob),
+        gender: calculateGender(p.gender),
+        visitCount: patientSessions.length,
+        lastVisit: patientSessions[0]?.createdAt || null,
+      };
+    });
+  }, [rawPatients, rawCases]);
 
-    const selectPatient = (patientId: string) => {
-        const patient = patients.find((p) => p.id === patientId) || null;
-        setSelectedPatient(patient);
+  const selectedPatient = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return computedPatients.find((p) => p.id === selectedPatientId) || null;
+  }, [computedPatients, selectedPatientId]);
 
-        if (!patient) return;
-
-        const patientSessions = healingCases
-            .filter((s) => s.patientId === patientId)
-            .sort(
-                (a, b) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime()
-            );
-
-        setHealingCase(patientSessions[0] || null);
-    };
-
+  const activeHealingCase = useMemo(() => {
+    if (!selectedPatientId) return null;
     return (
-        <PatientContext.Provider
-            value={{
-                patients,
-                selectedPatient,
-                HealingCase,
-                setPatients,
-                setSessions,
-                selectPatient,
-            }}
-        >
-            {children}
-        </PatientContext.Provider>
+      rawCases
+        .filter((s) => s.patientId === selectedPatientId)
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0] || null
     );
+  }, [rawCases, selectedPatientId]);
+
+  return (
+    <PatientContext.Provider
+      value={{
+        patients: computedPatients,
+        selectedPatient,
+        HealingCase: activeHealingCase,
+        selectPatient: setSelectedPatientId,
+        isLoading: isLoadingPatients || isLoadingCases,
+        error:
+          patientsError || casesError ? new Error("Failed to load data") : null,
+      }}
+    >
+      {children}
+    </PatientContext.Provider>
+  );
 };
 
+// ---- HOOK ----
+
 export const usePatient = () => {
-    const context = useContext(PatientContext);
-    if (!context) {
-        throw new Error('usePatient must be used within PatientProvider');
-    }
-    return context;
+  const context = useContext(PatientContext);
+  if (!context) {
+    throw new Error("usePatient must be used within PatientProvider");
+  }
+  return context;
 };

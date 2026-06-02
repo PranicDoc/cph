@@ -16,7 +16,7 @@ export const sessionSchema: FormSchema = [
     fields: [
       {
         name: "medicalCondition",
-        label: "Medical Condition / Diagnosis",
+        label: "Chief Complaint",
         type: "textarea",
         placeholder: "Please state the main ailment that will be treated...",
         required: true,
@@ -34,7 +34,7 @@ export const sessionSchema: FormSchema = [
     fields: [
       {
         name: "symptoms",
-        label: "Chief Complaint / Symptoms",
+        label: "Symptoms",
         type: "tag",
         placeholder: "Type to add symptoms...",
         suggestions: COMMON_SYMPTOMS,

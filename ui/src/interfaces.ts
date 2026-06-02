@@ -97,10 +97,13 @@ export interface ProtocolColorRequest {
 
 export interface ProtocolEntryRequest {
   chakraId?: string;
-  targetArea: string;
-  technique: string;
+  targetArea?: string;
+  technique?: string;
   notes?: string;
-  colors: ProtocolColorRequest[];
+  colors?: ProtocolColorRequest[];
+  protocolName?: string;
+  referenceBook?: string;
+  detailedProtocol?: string
 }
 
 export interface QualitativeFeedbackRequest {

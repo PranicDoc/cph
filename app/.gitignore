@@ -37,3 +37,4 @@ out/
 .vscode/
 
 ../ui/node_modules/
+.env

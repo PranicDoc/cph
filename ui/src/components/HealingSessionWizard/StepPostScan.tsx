@@ -1,4 +1,4 @@
-import { ChakraAccordionPanel } from "../ChakraScan";
+import { ChakraAccordionPanel, ChakraDataGrid } from "../ChakraScan";
 import type {
   ChakraCatalogEntry,
   ChakraDocEntry,
@@ -22,7 +22,7 @@ export function StepPostScan({
     <div className="space-y-6">
       <h2 className="text-lg font-semibold border-b pb-2">Post-Healing Scan</h2>
 
-      <ChakraAccordionPanel
+      <ChakraDataGrid
         value={value}
         onChange={onChange}
         availableChakras={availableChakras}

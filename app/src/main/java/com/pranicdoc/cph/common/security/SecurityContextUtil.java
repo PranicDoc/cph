@@ -27,6 +27,11 @@ public class SecurityContextUtil {
         return getTenantDetails().healerId();
     }
 
+    public UUID getCurrentHealerIdOrNull() {
+        TenantDetails details = getTenantDetailsOrNull();
+        return details != null ? details.healerId() : null;
+    }
+
     /**
      * Returns the clinic code (e.g. "CHNY01") for the current healer.
      */
@@ -47,12 +52,29 @@ public class SecurityContextUtil {
         throw new IllegalStateException("No role found in SecurityContext");
     }
 
+    public String getCurrentHealerEmail() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
     private TenantDetails getTenantDetails() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getDetails() instanceof TenantDetails details) {
             return details;
         }
-        throw new IllegalStateException("No tenant context found in SecurityContext — is the user authenticated?");
+        throw new IllegalStateException("No tenant context found in SecurityContext, is the user authenticated?");
+    }
+
+    private TenantDetails getTenantDetailsOrNull() {
+        Authentication auth =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null) {
+            return null;
+        }
+
+        return auth.getDetails() instanceof TenantDetails details
+                ? details
+                : null;
     }
 
     /**

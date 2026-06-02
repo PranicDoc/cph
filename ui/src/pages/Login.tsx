@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { Activity } from "lucide-react";
@@ -6,9 +6,11 @@ import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { loginSchema } from "./AuthSchema";
 import { useAuth } from "../context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Login() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { login, isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -28,9 +30,9 @@ export default function Login() {
         // Send only email and password to the API
         const res = await api.post("/api/v1/auth/login", {
           email: value.email,
-          password: value.password
+          password: value.password,
         });
-        
+
         // Handle Remember Me
         if (value.rememberMe) {
           localStorage.setItem("rememberedEmail", value.email);
@@ -38,8 +40,9 @@ export default function Login() {
           localStorage.removeItem("rememberedEmail");
         }
 
-        if(res.status === 200){
-          login();
+        if (res.status === 200) {
+          login(res.data);
+          queryClient.clear();
           navigate("/");
         } else {
           setError("Please enter correct username and password");
@@ -53,7 +56,6 @@ export default function Login() {
     },
   });
 
-  // Redirect if already logged in
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -71,7 +73,10 @@ export default function Login() {
         </h2>
         <p className="mt-2 text-center text-sm text-text-light">
           Or{" "}
-          <Link to="/register" className="font-medium text-primary hover:text-primary-dark">
+          <Link
+            to="/register"
+            className="font-medium text-primary hover:text-primary-dark"
+          >
             create a new account
           </Link>
         </p>

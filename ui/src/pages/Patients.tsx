@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -13,34 +13,28 @@ import {
   CircleCheck,
   Eye,
   Play,
+  BookText,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../lib/axios";
-import { usePatient } from "../context/PatientContext";
+import { ComputedPatient, Patient, usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
+import { useQueryClient } from "@tanstack/react-query";
 
-type Patient = {
-  healingCaseId: any;
-  id: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  contact: string;
-  status: "DRAFT" | "ACTIVE" | "COMPLETED";
-};
-
-const columnHelper = createColumnHelper<Patient>();
+const columnHelper = createColumnHelper<ComputedPatient>();
 
 export default function Patients() {
-  const [data, setData] = useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [openPopup, setOpenPopup] = useState<boolean>(false);
   const [generatedLink, setGeneratedLink] = useState<string>("");
-  const { selectPatient, setPatients } = usePatient();
-
-  // CHANGED: Instead of a boolean, store the selected patient so the popup has their ID
+  const { patients, isLoading, selectPatient } = usePatient(); 
+  const queryClient = useQueryClient();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
+
+  const generatePdf = (healingCaseId: string) => {
+    api.post("/api/v1/cases/generate-pdf", null, {
+      params: { healingCaseId: healingCaseId },
+    });
+  };
 
   const columns = [
     columnHelper.accessor("firstName", {
@@ -80,10 +74,15 @@ export default function Patients() {
 
         const isDraft = patient.status === "DRAFT";
         const isActive = patient.status === "ACTIVE";
+        const isCompleted = patient.status === "CLOSED";
+
+        const handleClosureButtonClick = (patient: Patient) => {
+          if (isActive) setClosurePatient(patient);
+          if (isCompleted) generatePdf(patient.healingCaseId);
+        };
 
         return (
           <div className="flex items-center gap-2">
-            {/* Primary Action */}
             <Link
               to={`/session/${patient.healingCaseId}`}
               onClick={() => handleSelectPatient(patient)}
@@ -103,17 +102,26 @@ export default function Patients() {
               )}
             </Link>
             <div
-              onClick={() => setClosurePatient(patient)}
+              onClick={() => handleClosureButtonClick(patient)}
               className={`inline-flex items-center gap-1.5 rounded-lg
                 ${
-                  isActive
+                  isActive || isCompleted
                     ? "bg-primary hover:bg-primary-dark cursor-pointer"
                     : "bg-border pointer-events-none"
                 } 
                 px-3 py-1.5 text-white text-xs font-medium transition-colors`}
             >
-              <CircleCheck className="w-3.5 h-3.5" />
-              Complete
+              {isCompleted ? (
+                <>
+                  <BookText className="w-3.5 h-3.5" />
+                  Generate PDF
+                </>
+              ) : (
+                <>
+                  <CircleCheck className="w-3.5 h-3.5" />
+                  Complete
+                </>
+              )}
             </div>
           </div>
         );
@@ -125,22 +133,8 @@ export default function Patients() {
     selectPatient(patient.id);
   };
 
-  useEffect(() => {
-    fetchPatients();
-  }, []);
-
-  const fetchPatients = async () => {
-    setIsLoading(true);
-    const res = await api.get("/api/v1/patients");
-    if (res.status === 200) {
-      setData(res.data);
-      setPatients(res.data);
-    }
-    setIsLoading(false);
-  };
-
   const table = useReactTable({
-    data,
+    data: patients,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -200,7 +194,7 @@ export default function Patients() {
           onClose={() => setClosurePatient(null)}
           onSuccess={() => {
             setClosurePatient(null);
-            fetchPatients();
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
           }}
         />
       )}

@@ -1,6 +1,8 @@
 // ── Chakra Accordion Panel — Standalone Export ──
 
 export { ChakraAccordionPanel, default } from "./ChakraAccordionPanel";
+export { ChakraQuickPanel } from "./ChakraQuickPanel"
+export { ChakraDataGrid } from "./ChakraDataGrid"
 export {
   buildBackendChakraCatalog,
   buildPranaColorCatalog,

@@ -4,7 +4,7 @@
 
 // --- Energy & Activation Enums ---
 
-export type EnergyLevel = "N" | "SD" | "D" | "SLD" | "SC" | "C" | "SVC" | "PCD";
+export type EnergyLevel = "N" | "D" | "C";
 export type ActivationLevel = "N" | "U" | "O";
 export type ColorUsageType = "cleansing" | "energising";
 export type ScanType = "pre" | "post";
@@ -14,13 +14,8 @@ export type BodySide = "front" | "back" | "center";
 
 export const ENERGY_LEVEL_LABELS: Record<EnergyLevel, string> = {
   N: "Normal",
-  SLD: "Slightly Depleted",
   D: "Depleted",
-  SD: "Severely Depleted",
-  SC: "Slightly Congested",
   C: "Congested",
-  SVC: "Severely Congested",
-  PCD: "Pranic Congestion (Dirty)",
 };
 
 export const ACTIVATION_LEVEL_LABELS: Record<ActivationLevel, string> = {

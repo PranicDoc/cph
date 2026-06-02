@@ -11,10 +11,13 @@ public record ProtocolRequest(
         String targetArea,
         String technique,
         String notes,
-        @NotNull @Valid List<ProtocolColorRequest> colors
+        List<ProtocolColorRequest> colors,
+        String protocolName,
+        String referenceBook,
+        String detailedProtocol
 ) {
     public record ProtocolColorRequest(
-            @NotNull UUID colorId,
-            @NotNull ColorUsageType usageType
+            UUID colorId,
+            ColorUsageType usageType
     ) {}
 }

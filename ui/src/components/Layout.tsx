@@ -1,13 +1,14 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { Activity } from "lucide-react";
 import { cn } from "../lib/utils";
+import UserProfileIcon from "./UserProfile";
 
 export default function Layout() {
   const location = useLocation();
 
   const navItems = [
-    // { name: "Patients", path: "/" },
-    // { name: "Registration", path: "/registration" },
+    { name: "Patients", path: "/" },
+    { name: "Generated PDFs", path: "/pdf-list" },
     // { name: "Healing Session", path: "/session" },
   ];
 
@@ -22,7 +23,7 @@ export default function Layout() {
             <span>PranicDoc</span>
           </Link>
 
-          {/* <nav className="hidden md:flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+          <nav className="hidden md:flex items-center gap-1 bg-white/10 p-1 rounded-xl">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -37,7 +38,11 @@ export default function Layout() {
                 {item.name}
               </Link>
             ))}
-          </nav> */}
+          </nav>
+
+          <div>
+            <UserProfileIcon />
+          </div>
         </div>
       </header>
 

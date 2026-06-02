@@ -208,23 +208,14 @@ export default function Session() {
     return (
       <div className="space-y-6">
         <SessionHeader healingSession={sessionData} />
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Healing Session</h2>
-          {healingCaseId && (
-            <HealingSessionWizard
-              caseId={healingCaseId}
-              sessionNumber={sessionData?.healingSession?.length}
-              symptoms={sessionData?.symptoms}
-            />
-          )}
-          <button
-            type="button"
-            onClick={goToPreviousStep}
-            className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
-          >
-            Back
-          </button>
-        </div>
+        {healingCaseId && (
+          <HealingSessionWizard
+            caseId={healingCaseId}
+            sessionNumber={sessionData?.healingSession?.length}
+            symptoms={sessionData?.symptoms}
+            onClose={goToPreviousStep}
+          />
+        )}
       </div>
     );
   }
@@ -252,7 +243,7 @@ export default function Session() {
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldDisplay
-              label="Medical Condition"
+              label="Chief Complaint"
               value={sessionData.medicalCondition}
             />
             <FieldDisplay
@@ -291,7 +282,7 @@ export default function Session() {
               label="Infectious Details"
               value={sessionData.infectiousIllness}
             />
-            <FieldDisplay
+            {/* <FieldDisplay
               label="Treatment Plan"
               value={
                 sessionData.healingDetails ? (
@@ -307,7 +298,7 @@ export default function Session() {
                   </div>
                 ) : null
               }
-            />
+            /> */}
           </dl>
 
           {/* Navigation buttons */}
@@ -348,14 +339,14 @@ export default function Session() {
       >
         <DynamicFormEngine form={sessionForm} schema={sessionSchema} />
 
-        <sessionForm.Field name="healingDetails">
+        {/* <sessionForm.Field name="healingDetails">
           {(field) => (
             <TreatmentSteps
               value={field.state.value}
               onChange={field.handleChange}
             />
           )}
-        </sessionForm.Field>
+        </sessionForm.Field> */}
 
         {/* Navigation buttons */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-border">
@@ -366,7 +357,7 @@ export default function Session() {
               disabled={currentStep === 0}
               className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Back
+              Previous
             </button>
 
             {sessionData.status !== "DRAFT" && (

@@ -4,13 +4,16 @@ import React, {
   useState,
   useEffect,
   ReactNode,
-} from 'react';
-import api from '../lib/axios';
+} from "react";
+import api from "../lib/axios";
+import type { UserInfo } from "../components/UserProfile";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: () => void;
+  user: UserInfo | null;
+  setUser: (user: UserInfo | null) => void;
+  login: (userData: UserInfo) => void;
   logout: () => void;
   ensureValidSession: () => Promise<void>;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
@@ -18,33 +21,44 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ---- CONFIG ----
-const ACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 min
-const REFRESH_INTERVAL = 50 * 60 * 1000; // ~50 min (since TTL = 1hr)
+const ACTIVITY_TIMEOUT = 15 * 60 * 1000;
+const REFRESH_INTERVAL = 50 * 60 * 1000;
+const USER_STORAGE_KEY = "user_profile_data";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [user, setUserState] = useState<UserInfo | null>(() => {
+    const stored = localStorage.getItem(USER_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  });
+
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   let isRefreshing = false;
   let queue: any[] = [];
   let lastRefreshTime = 0;
 
-  // ---- REFRESH ----
+  const setUser = (newUser: UserInfo | null) => {
+    setUserState(newUser);
+    if (newUser) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  };
+
   const refreshToken = async () => {
     const now = Date.now();
-
-    // prevent spam
     if (isRefreshing || now - lastRefreshTime < 60 * 1000) return;
 
     try {
       isRefreshing = true;
       lastRefreshTime = now;
 
-      const res = await api.post('/api/v1/auth/refresh');
-
-      if (res.status !== 200) throw new Error('Refresh failed');
+      const res = await api.post("/api/v1/auth/refresh");
+      if (res.status !== 200) throw new Error("Refresh failed");
 
       setIsAuthenticated(true);
       processQueue(null);
@@ -58,23 +72,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const processQueue = (error: any) => {
-    queue.forEach((p) =>
-      error ? p.reject(error) : p.resolve()
-    );
+    queue.forEach((p) => (error ? p.reject(error) : p.resolve()));
     queue = [];
   };
 
-  // ---- INITIAL AUTH CHECK ----
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await api.get('/api/v1/auth/me', {
+        const res = await api.get("/api/v1/auth/me", {
           withCredentials: true,
         });
 
-        setIsAuthenticated(res.status === 200);
+        if (res.status === 200) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       } catch {
         setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  // ---- ACTIVITY TRACKING + EVENT REFRESH ----
   useEffect(() => {
     let debounce: any;
 
@@ -93,7 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setLastActivity(now);
 
-      // user came back after long time → try refresh once
       if (wasInactive) {
         clearTimeout(debounce);
         debounce = setTimeout(() => {
@@ -102,18 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("mousemove", handleActivity);
 
     return () => {
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("mousemove", handleActivity);
     };
   }, [lastActivity]);
 
-  // ---- PROACTIVE REFRESH (APPROXIMATION) ----
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -127,24 +141,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [lastActivity]);
 
-  // ---- PRE-FLIGHT (for forms, payments etc.) ----
   const ensureValidSession = async () => {
     try {
       await refreshToken();
     } catch {
       logout();
-      throw new Error('Session expired');
+      throw new Error("Session expired");
     }
   };
 
-  // ---- REACTIVE FETCH ----
   const fetchWithAuth = async (
     url: string,
     options: RequestInit = {}
   ): Promise<Response> => {
     let res = await fetch(url, {
       ...options,
-      credentials: 'include',
+      credentials: "include",
     });
 
     if (res.status !== 401) return res;
@@ -158,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resolve: async () => {
           const retry = await fetch(url, {
             ...options,
-            credentials: 'include',
+            credentials: "include",
           });
           resolve(retry);
         },
@@ -167,12 +179,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // ---- AUTH ACTIONS ----
-  const login = () => setIsAuthenticated(true);
+  const login = (userData: UserInfo) => {
+    setIsAuthenticated(true);
+    setUser(userData);
+  };
 
-  const logout = () => {
+  const logout = async () => {
+    const res = await api.post("/api/v1/auth/logout");
     setIsAuthenticated(false);
-    window.location.href = '/login';
+    setUser(null);
   };
 
   return (
@@ -180,6 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         isAuthenticated,
         isLoading,
+        user,
+        setUser,
         login,
         logout,
         ensureValidSession,
@@ -191,11 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ---- HOOK ----
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }

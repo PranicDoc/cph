@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import Patients from './pages/Patients';
-import Registration from './pages/Registration';
-import Session from './pages/Session';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import { PatientProvider } from './context/PatientContext';
-import { Closure } from './pages/Closure';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import Patients from "./pages/Patients";
+import Registration from "./pages/Registration";
+import Session from "./pages/Session";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { PatientProvider } from "./context/PatientContext";
+import { PdfList } from "./pages/PdfList";
 
 export default function App() {
   return (
@@ -24,7 +24,10 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/self-register" element={<Registration />} />
-            <Route path="/self-register/:clinicId/:uuid" element={<Registration />} />
+            <Route
+              path="/self-register/:clinicId/:uuid"
+              element={<Registration />}
+            />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
@@ -32,6 +35,7 @@ export default function App() {
                 <Route index element={<Patients />} />
                 <Route path="registration" element={<Registration />} />
                 <Route path="session/:healingCaseId" element={<Session />} />
+                <Route path="pdf-list" element={<PdfList />} />
               </Route>
             </Route>
           </Routes>

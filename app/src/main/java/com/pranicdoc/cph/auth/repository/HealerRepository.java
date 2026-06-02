@@ -2,6 +2,7 @@ package com.pranicdoc.cph.auth.repository;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -15,4 +16,11 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndClinicId(String email, UUID clinicId);
+
+    @Query("""
+           SELECT h.email
+           FROM Healer h
+           WHERE h.id = :healerId
+       """)
+    String findEmailById(UUID healerId);
 }

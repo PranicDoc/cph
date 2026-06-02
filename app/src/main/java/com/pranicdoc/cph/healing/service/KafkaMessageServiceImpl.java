@@ -4,6 +4,7 @@ import com.pranicdoc.cph.healing.dto.kafka.PdfJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
@@ -15,6 +16,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnProperty(
+        name = "app.enable.kafka",
+        havingValue = "true"
+)
 public class KafkaMessageServiceImpl implements MessageService {
 
     private final KafkaTemplate<String, PdfJob> kafkaTemplate;

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { CreateSessionPayload } from "../interfaces";
+import type { CreateSessionPayload, ProtocolEntryRequest } from "../interfaces";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -106,16 +106,7 @@ export function constructHealingSessionPayload({
     rating: number;
     notes?: string;
   }>;
-  protocolEntries: Array<{
-    chakraId?: string;
-    targetArea: string;
-    technique: string;
-    notes?: string;
-    colors: Array<{
-      colorId: string;
-      usageType: "CLEANSING" | "ENERGISING";
-    }>;
-  }>;
+  protocolEntries: ProtocolEntryRequest[];
   feedbackType: "INTERIM" | "FINAL";
   feedbackText: string;
   patientRemarks: string;

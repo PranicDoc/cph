@@ -6,6 +6,11 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,6 +24,7 @@ import java.util.UUID;
 @MappedSuperclass
 @Audited
 @SQLRestriction("is_deleted = false")
+@EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
     @Id
@@ -26,16 +32,20 @@ public abstract class BaseEntity {
     private UUID id;
 
     @Column(name = "created_at", nullable = false, updatable = false)
+    @CreatedDate
     private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
+    @LastModifiedDate
     private Instant updatedAt;
 
-    @Column(name = "created_by")
-    private UUID createdBy;
+    @Column(name = "created_by", updatable = false)
+    @CreatedBy
+    private String createdBy;
 
     @Column(name = "updated_by")
-    private UUID updatedBy;
+    @LastModifiedBy
+    private String updatedBy;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;

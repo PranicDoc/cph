@@ -42,6 +42,15 @@ public class ProtocolEntry extends TenantEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "protocol_name")
+    private String protocolName;
+
+    @Column(name = "reference_book")
+    private String referenceBook;
+
+    @Column(columnDefinition = "TEXT", name = "detailed_protocol")
+    private String detailedProtocol;
+
     @OneToMany(mappedBy = "protocolEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @JsonManagedReference
