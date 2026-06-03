@@ -158,13 +158,16 @@ class SessionServiceTest {
                         "Crown Chakra",
                         "General Sweeping",
                         "",
-                        List.of(new ProtocolRequest.ProtocolColorRequest(colorId, ColorUsageType.CLEANSING))
+                        List.of(new ProtocolRequest.ProtocolColorRequest(colorId, ColorUsageType.CLEANSING)),
+                        "",
+                        "",
+                        ""
                 ))
         );
     }
 
     private HealingCase healingCase(UUID caseId) {
-        HealingCase healingCase = new HealingCase();
+        HealingCase healingCase = HealingCase.builder().build();
         healingCase.setId(caseId);
         healingCase.setSessions(new ArrayList<>());
         return healingCase;
