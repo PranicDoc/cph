@@ -24,6 +24,15 @@ repositories {
 			password = project.findProperty("gpr.key")
 		}
 	}
+
+	maven {
+		url = uri("https://maven.pkg.github.com/PranicDoc/common-dtos")
+
+		credentials {
+			username = project.findProperty("gpr.user")
+			password = project.findProperty("gpr.key")
+		}
+	}
 }
 
 dependencies {
@@ -89,10 +98,17 @@ dependencies {
 	// --- Storage Service ---
 	implementation 'com.pranicdoc:storage-sdk:1.0.1'
 
+	// --- Common DTOs ---
+	implementation 'com.pranicdoc:common-dtos:0.0.1-SNAPSHOT'
+
 	// --- Lib Phone Number ---
 	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.31'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+configurations.all {
+	resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
 }
