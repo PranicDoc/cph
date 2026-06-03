@@ -13,6 +13,7 @@ import com.pranicdoc.cph.common.exception.ConsentRequiredException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.*;
+import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
@@ -329,14 +330,18 @@ public class CaseService {
     @Auditable(action = "SEND_MESSAGE")
     @Transactional
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
-        CaseResponse snapshot = getById(healingCaseId);
-        Patient patientData = patientRepository.findById(snapshot.patientId())
-                .orElseThrow(() -> new ResourceNotFoundException("No Patient found for the given id"));
+        HealingCase healingCase = findOrThrow(healingCaseId);
+        Patient patientEntity = patientRepository.findById(healingCase.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException("No Patient found"));
+
+        com.pranicdoc.common.dto.CaseSnapshot caseSnapshot = CphCaseMapper.toCaseSnapshot(healingCase);
+        com.pranicdoc.common.dto.Patient patientSnapshot = CphCaseMapper.toPatientSnapshot(patientEntity);
+
         JsonNode newJsonNode;
         String healingCaseData;
         try {
-            ObjectNode root = objectMapper.valueToTree(snapshot);
-            root.set("patient", objectMapper.valueToTree(patientData));
+            ObjectNode root = objectMapper.valueToTree(caseSnapshot);
+            root.set("patient", objectMapper.valueToTree(patientSnapshot));
             newJsonNode = root;
             healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {
