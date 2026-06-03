@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@Deprecated(since = "0.0.1-SNAPSHOT", forRemoval = false)
 public record CaseSnapshot(
         UUID id,
         UUID patientId,

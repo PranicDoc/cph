@@ -1,6 +1,6 @@
 package com.pranicdoc.cph.healing.config;
 
-import com.pranicdoc.cph.healing.dto.kafka.PdfJob;
+import com.pranicdoc.common.dto.PdfJob;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
