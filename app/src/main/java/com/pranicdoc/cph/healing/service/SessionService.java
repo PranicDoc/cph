@@ -14,7 +14,6 @@ import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
-import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.notification.dto.WhatsappMessageDto;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
 import com.pranicdoc.cph.notification.repository.OutboxRepository;
@@ -38,31 +37,9 @@ public class SessionService {
     private final CaseService caseService;
     private final HealingSessionMapper mapper;
     private final ChakraCatalogRepository chakraCatalogRepository;
-    private final PranaColorCatalogRepository pranaColorCatalogRepository;
     private final PhoneNumberFormatter phoneNumberFormatter;
     private final PatientService patientService;
     private final OutboxRepository outboxRepository;
-
-    @Auditable(action = "CREATE_SESSION_OLD")
-    public SessionResponse create(UUID caseId) {
-        caseService.requireConsent(caseId);
-        HealingCase healingCase = caseService.findOrThrow(caseId);
-
-        // Determine next session number
-        List<HealingSession> existing = sessionRepository
-                .findByHealingCaseIdOrderBySessionNumberAsc(caseId);
-        int nextNumber = existing.size() + 1;
-
-        HealingSession session = HealingSession.builder()
-                .healingCase(healingCase)
-                .sessionNumber(nextNumber)
-                .sessionDate(LocalDate.now())
-                .startTime(LocalTime.now())
-                .status(SessionStatus.DRAFT)
-                .build();
-
-        return toResponse(sessionRepository.save(session));
-    }
 
     @Auditable(action = "CREATE_SESSION")
     @Transactional
@@ -148,13 +125,6 @@ public class SessionService {
     private void validateChakraId(UUID chakraId) {
         if (!chakraCatalogRepository.existsById(chakraId)) {
             throw new IllegalArgumentException("Invalid chakraId: " + chakraId);
-        }
-    }
-
-    @Deprecated
-    private void validateColorId(UUID colorId) {
-        if (!pranaColorCatalogRepository.existsById(colorId)) {
-            throw new IllegalArgumentException("Invalid colorId: " + colorId);
         }
     }
 

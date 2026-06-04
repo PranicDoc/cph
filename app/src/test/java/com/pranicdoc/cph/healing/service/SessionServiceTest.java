@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.service;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.ScanType;
+import com.pranicdoc.cph.common.util.PhoneNumberFormatter;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.ProtocolRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
@@ -15,7 +16,9 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.ProtocolEntry;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
-import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
+import com.pranicdoc.cph.notification.repository.OutboxRepository;
+import com.pranicdoc.cph.patient.dto.PatientResponse;
+import com.pranicdoc.cph.patient.service.PatientService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,7 +54,13 @@ class SessionServiceTest {
     private ChakraCatalogRepository chakraCatalogRepository;
 
     @Mock
-    private PranaColorCatalogRepository pranaColorCatalogRepository;
+    private PatientService patientService;
+
+    @Mock
+    private OutboxRepository outboxRepository;
+
+    @Mock
+    private PhoneNumberFormatter phoneNumberFormatter;
 
     @InjectMocks
     private SessionService sessionService;
@@ -71,9 +80,12 @@ class SessionServiceTest {
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
         when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
-        when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(true);
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientService.getById(any())).thenReturn(new PatientResponse(
+                null, null, null, null, null, null, null, "+91234567890",
+                null, null, null, null, null, null, null, null));
+        when(phoneNumberFormatter.formatToE164(any())).thenThrow(new IllegalArgumentException("invalid"));
 
         SessionResponse response = sessionService.create(request);
 
@@ -98,29 +110,6 @@ class SessionServiceTest {
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.existsById(chakraId)).thenReturn(false);
-
-        assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
-        verify(mapper, never()).toEntity(any());
-    }
-
-    @Test
-    void createRejectsProtocolColorsWithUnknownColorIds() {
-        UUID caseId = UUID.randomUUID();
-        UUID chakraId = UUID.randomUUID();
-        UUID colorId = UUID.randomUUID();
-        CreateSessionRequest request = request(
-                caseId,
-                LocalDate.of(2026, 5, 13),
-                LocalTime.of(9, 30),
-                LocalTime.of(10, 45),
-                chakraId,
-                colorId
-        );
-
-        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
-        when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
         verify(mapper, never()).toEntity(any());
@@ -159,9 +148,9 @@ class SessionServiceTest {
                         "General Sweeping",
                         "",
                         List.of(new ProtocolRequest.ProtocolColorRequest(colorId, ColorUsageType.CLEANSING)),
+                        "Pranic Breathing Protocol",
                         "",
-                        "",
-                        ""
+                        "Deep breathing with visualization"
                 ))
         );
     }
