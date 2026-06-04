@@ -1,6 +1,6 @@
 package com.pranicdoc.cph.healing.service;
 
-import com.pranicdoc.cph.healing.dto.kafka.PdfJob;
+import com.pranicdoc.common.dto.PdfJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
