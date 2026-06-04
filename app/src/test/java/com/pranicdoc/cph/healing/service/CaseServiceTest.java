@@ -6,6 +6,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
+import com.pranicdoc.cph.healing.mapper.CphCaseMapperImpl;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -43,6 +46,7 @@ class CaseServiceTest {
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private DeclarationMapper declarationMapper;
     @Mock private HealingCaseMapper healingCaseMapper;
+    @Spy  private CphCaseMapper cphCaseMapper = new CphCaseMapperImpl();
     @Mock private MessageService messageService;
     @Mock private PdfJobRepository pdfJobRepository;
     @Mock private StorageService storageService;

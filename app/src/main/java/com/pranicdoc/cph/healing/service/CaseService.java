@@ -47,6 +47,7 @@ public class CaseService {
     private final SecurityContextUtil securityContextUtil;
     private final DeclarationMapper declarationMapper;
     private final HealingCaseMapper healingCaseMapper;
+    private final CphCaseMapper cphCaseMapper;
     private final MessageService messageService;
     private final PdfJobRepository pdfJobRepository;
     private final StorageService storageService;
@@ -334,8 +335,8 @@ public class CaseService {
         Patient patientEntity = patientRepository.findById(healingCase.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("No Patient found"));
 
-        com.pranicdoc.common.dto.CaseSnapshot caseSnapshot = CphCaseMapper.toCaseSnapshot(healingCase);
-        com.pranicdoc.common.dto.Patient patientSnapshot = CphCaseMapper.toPatientSnapshot(patientEntity);
+        com.pranicdoc.common.dto.CaseSnapshot caseSnapshot = cphCaseMapper.toCaseSnapshot(healingCase);
+        com.pranicdoc.common.dto.Patient patientSnapshot = cphCaseMapper.toPatientSnapshot(patientEntity);
 
         JsonNode newJsonNode;
         String healingCaseData;
