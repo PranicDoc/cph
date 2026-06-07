@@ -4,6 +4,8 @@ import type {
   ChakraDocEntry,
   PranaColorEntry,
 } from "../ChakraScan/types/spatial-chakra";
+import { VoiceRecorder } from "./VoiceRecorder";
+import { parseChakraTranscript } from "../../lib/chakraNlp";
 
 interface StepPreScanProps {
   value: ChakraDocEntry[];
@@ -18,16 +20,23 @@ export function StepPreScan({
   availableChakras,
   pranaColorCatalog,
 }: StepPreScanProps) {
-  // Crown, Forehead, Ajna, Throat, Front Heart, Back Heart, Front Solar Plexus, Back Solar Plexus, Spleen, Navel, Meng Mein, Sex, Basic
+  function handleTranscript(transcript: string) {
+    const updated = parseChakraTranscript(transcript, availableChakras, value);
+    onChange(updated);
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold border-b pb-2">Pre-Healing Scan</h2>
-      <ChakraDataGrid
+      <div className="flex justify-center w-full">
+        <VoiceRecorder onTranscript={handleTranscript} />
+      </div>
+      {/* <ChakraDataGrid
         value={value}
         onChange={onChange}
         availableChakras={availableChakras}
         pranaColorCatalog={pranaColorCatalog}
-      />
+      /> */}
     </div>
   );
 }

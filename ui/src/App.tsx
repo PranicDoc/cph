@@ -14,6 +14,8 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
+import Unauthorized from "./pages/Unauthorized";
+import PatientFeedback from "./pages/Feedback";
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
               path="/self-register/:clinicId/:uuid"
               element={<Registration />}
             />
+            <Route path="/feedback" element={<PatientFeedback />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

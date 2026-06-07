@@ -2,9 +2,7 @@ package com.pranicdoc.cph.healing.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -23,7 +21,6 @@ import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.storage.service.StorageService;
-import io.swagger.v3.core.util.ObjectMapperFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -51,9 +48,8 @@ public class CaseService {
     private final MessageService messageService;
     private final PdfJobRepository pdfJobRepository;
     private final StorageService storageService;
-    private final ObjectMapper objectMapper = ObjectMapperFactory.buildStrictGenericObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
      */
@@ -99,6 +95,7 @@ public class CaseService {
         return toResponse(caseRepository.save(healingCase));
     }
 
+    // TODO make this robust like adding actual digital signature in this
     private boolean checkSignature(Declaration declaration, Patient patient) {
         return declaration.getPatientSignature()
                 .equals(patient.getFirstName() + " " + patient.getLastName());
@@ -143,6 +140,12 @@ public class CaseService {
                     s.setResolvedDate(LocalDate.now());
                 });
         caseRepository.save(healingCase);
+    }
+
+    @Auditable(action = "GET_SYMPTOMS_FOR_FEEDBACK")
+    @Transactional(readOnly = true)
+    public PageResponse<SymptomFeedbackDTO> getSymptomsForFeedback(UUID caseId, Pageable pageable) {
+        return PageResponse.from(caseRepository.findAllSymptomsByCaseId(caseId, pageable));
     }
 
     // --- Medications ---
@@ -206,6 +209,9 @@ public class CaseService {
         healingCase.setClosure(closure);
         healingCase.setStatus(CaseStatus.CLOSED);
         caseRepository.save(healingCase);
+        if(!request.isHealingContinued()) {
+            notificationService.sendFinalFeedbackNotification(lastSession);
+        }
     }
 
     @Auditable(action = "DELETE_CASE")

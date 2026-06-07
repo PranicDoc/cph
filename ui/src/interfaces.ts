@@ -157,10 +157,13 @@ export interface CreateSessionPayload {
   qualitativeFeedbacks: QualitativeFeedbackRequest[];
   protocolEntries: Array<{
     chakraId: string | null;
-    targetArea: string;
-    technique: string;
+    targetArea?: string;
+    technique?: string;
     notes?: string;
     colors: ProtocolColorRequest[];
+    protocolName?: string;
+    referenceBook?: string;
+    detailedProtocol?: string;
   }>;
 }
 

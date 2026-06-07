@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/sessions/{sessionId}/feedback")
+@RequestMapping("/api/v1/sessions/{caseId}/feedback")
 @RequiredArgsConstructor
 public class FeedbackController {
 
@@ -21,17 +21,17 @@ public class FeedbackController {
 
     @PostMapping("/symptoms")
     public ResponseEntity<Void> saveSymptomFeedback(
-            @PathVariable UUID sessionId,
+            @PathVariable UUID caseId,
             @Valid @RequestBody List<SymptomFeedbackRequest> requests) {
-        feedbackService.saveSymptomFeedback(sessionId, requests);
+        feedbackService.saveSymptomFeedback(caseId, requests);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/qualitative")
     public ResponseEntity<Void> saveQualitativeFeedback(
-            @PathVariable UUID sessionId,
+            @PathVariable UUID caseId,
             @Valid @RequestBody QualitativeFeedbackRequest request) {
-        feedbackService.saveQualitativeFeedback(sessionId, request);
+        feedbackService.saveQualitativeFeedback(caseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

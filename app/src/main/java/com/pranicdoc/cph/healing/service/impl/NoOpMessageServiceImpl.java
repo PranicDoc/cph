@@ -1,5 +1,6 @@
-package com.pranicdoc.cph.healing.service;
+package com.pranicdoc.cph.healing.service.impl;
 
+import com.pranicdoc.cph.healing.service.MessageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;

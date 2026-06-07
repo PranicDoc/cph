@@ -6,6 +6,7 @@ import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.service.CaseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.ScrollPosition;
 import org.springframework.data.domain.Window;
@@ -97,7 +98,7 @@ public class CaseController {
                         ackResponse));
     }
 
-    @GetMapping("/get-pdfs")
+    @GetMapping("/pdfs")
     public ResponseEntity<ApiResponse<Window<PdfJobDTO>>> getAllPdfs(
             @RequestParam(required = false) ScrollPosition scrollPosition,
             @RequestParam(defaultValue = "10") int limit
@@ -115,6 +116,16 @@ public class CaseController {
                 new ApiResponse<>(true, "Successfully retrieved download link",
                     caseService.getPreSignedDownloadUrl(fileUrl)
                 )
+        );
+    }
+
+    @GetMapping("/symptoms")
+    public ResponseEntity<PageResponse<SymptomFeedbackDTO>> getSymptomsForFeedback(
+            @RequestParam UUID caseId,
+            Pageable pageable) {
+
+        return ResponseEntity.ok(
+                caseService.getSymptomsForFeedback(caseId, pageable)
         );
     }
 }

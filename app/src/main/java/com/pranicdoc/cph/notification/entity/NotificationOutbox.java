@@ -2,7 +2,9 @@ package com.pranicdoc.cph.notification.entity;
 
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
@@ -11,6 +13,8 @@ import lombok.Setter;
 })
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class NotificationOutbox extends BaseEntity {
 
     @Column(name = "phone_number", nullable = false, length = 20)

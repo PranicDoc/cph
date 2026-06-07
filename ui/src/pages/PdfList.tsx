@@ -62,7 +62,7 @@ export function PdfList() {
       if (searchQuery) params.append("search", searchQuery);
 
       const response = await api.get(
-        `/api/v1/cases/get-pdfs?${params.toString()}`
+        `/api/v1/cases/pdfs?${params.toString()}`
       );
       const result = response.data.data;
       const newItems = result.content || [];

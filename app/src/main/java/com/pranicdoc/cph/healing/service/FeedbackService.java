@@ -2,6 +2,8 @@ package com.pranicdoc.cph.healing.service;
 
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.enums.FeedbackType;
+import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.common.exception.FeedbackAlreadySubmittedException;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -9,7 +11,9 @@ import com.pranicdoc.cph.healing.model.QualitativeFeedback;
 import com.pranicdoc.cph.healing.model.SymptomFeedback;
 import com.pranicdoc.cph.healing.repository.QualitativeFeedbackRepository;
 import com.pranicdoc.cph.healing.repository.SymptomFeedbackRepository;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,41 +28,40 @@ public class FeedbackService {
     private final SymptomFeedbackRepository symptomFeedbackRepository;
     private final QualitativeFeedbackRepository qualitativeFeedbackRepository;
     private final SessionService sessionService;
+    private final FeedbackLinkRepository feedbackLinkRepository;
 
     /**
      * Save symptom feedback for a session (one rating per symptom, scale 0-10).
      */
     @Auditable(action = "SAVE_SYMPTOM_FEEDBACK")
-    public void saveSymptomFeedback(UUID sessionId, List<SymptomFeedbackRequest> requests) {
-        HealingSession session = sessionService.findOrThrow(sessionId);
-
-        for (SymptomFeedbackRequest req : requests) {
-            SymptomFeedback feedback = SymptomFeedback.builder()
+    public void saveSymptomFeedback(UUID caseId, List<SymptomFeedbackRequest> requests) {
+        HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
+        try {
+            List<SymptomFeedback> feedbacks = requests.stream()
+                .map(req -> SymptomFeedback.builder()
                     .healingSession(session)
                     .caseSymptomId(req.caseSymptomId())
                     .rating(req.rating())
                     .notes(req.notes())
-                    .build();
-            symptomFeedbackRepository.save(feedback);
+                    .build())
+                .toList();
+            symptomFeedbackRepository.saveAllAndFlush(feedbacks);
+            feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
+        } catch (DataIntegrityViolationException ex) {
+            throw new FeedbackAlreadySubmittedException();
         }
     }
 
-    /**
-     * Save qualitative feedback (interim or final).
-     * Enforces: only 1 FINAL per case.
-     */
     @Auditable(action = "SAVE_QUALITATIVE_FEEDBACK")
-    public void saveQualitativeFeedback(UUID sessionId, QualitativeFeedbackRequest request) {
-        HealingSession session = sessionService.findOrThrow(sessionId);
+    public void saveQualitativeFeedback(UUID caseId, QualitativeFeedbackRequest request) {
+        HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
 
-        // Enforce 1 FINAL per case
         if (request.feedbackType() == FeedbackType.FINAL) {
-            UUID caseId = session.getHealingCase().getId();
             qualitativeFeedbackRepository
-                    .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
-                    .ifPresent(existing -> {
-                        throw new IllegalArgumentException("A FINAL feedback already exists for this case");
-                    });
+                .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
+                .ifPresent(existing -> {
+                    throw new FeedbackAlreadySubmittedException();
+                });
         }
 
         QualitativeFeedback feedback = QualitativeFeedback.builder()
@@ -69,5 +72,9 @@ public class FeedbackService {
                 .build();
 
         qualitativeFeedbackRepository.save(feedback);
+
+        if (request.feedbackType() == FeedbackType.FINAL) {
+            feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
+        }
     }
 }

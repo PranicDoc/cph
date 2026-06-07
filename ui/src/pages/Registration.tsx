@@ -3,8 +3,12 @@ import { useForm } from "@tanstack/react-form";
 import api from "../lib/axios";
 import { CheckCircle2 } from "lucide-react";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { patientDemographicsSchema, patientMedicalHistorySchema, consentDeclarationSchema } from "./RegistrationSchemas";
-import { useLocation, useParams } from "react-router-dom";
+import {
+  patientDemographicsSchema,
+  patientMedicalHistorySchema,
+  consentDeclarationSchema,
+} from "./RegistrationSchemas";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
@@ -14,6 +18,7 @@ export default function Registration() {
   const location = useLocation();
   const hasCalled = useRef(false);
   const [isSelfRegister, setIsSelfRegister] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!location.pathname.startsWith("/self-register")) {
@@ -29,15 +34,11 @@ export default function Registration() {
       try {
         const res = await api.post("/api/v1/auth/init-session", {
           clinicId: clinicId,
-          uuid: uuid
+          uuid: uuid,
         });
-        if (res.status !== 200) {
-          throw new Error("Invalid link");
-        }
         window.history.replaceState({}, "", "/self-register");
       } catch (err) {
-        console.error(err);
-        alert("Invalid or expired registration link");
+        navigate("/unauthorized");
       }
     };
 
@@ -66,7 +67,10 @@ export default function Registration() {
       try {
         setStep(2);
       } catch (error) {
-        console.error("Failed to save patient. Using mock ID for UI flow.", error);
+        console.error(
+          "Failed to save patient. Using mock ID for UI flow.",
+          error
+        );
         // Fallback for UI demonstration if backend is not ready
         setPatientId("mock-uuid-1234-5678");
         setStep(2);
@@ -96,20 +100,20 @@ export default function Registration() {
       setIsSubmitting(true);
       const payload = {
         ...patientForm.state.values,
-        medicalHistory: value
-      }
+        medicalHistory: value,
+      };
       try {
         // Attach patientId to the payload implicitly via the URL or explicitly in the body
         // POST call to save medical history
         const res = await api.post(`/api/v1/patients`, {
-          ...payload
+          ...payload,
         });
         setStep(3);
         setPatientId(res.data.id);
       } catch (error) {
         console.error("Failed to save medical history.", error);
         // Fallback for UI demonstration
-        alert("Something went wrong")
+        alert("Something went wrong");
       } finally {
         setIsSubmitting(false);
       }
@@ -130,11 +134,11 @@ export default function Registration() {
         const declaration = {
           patientConsent: value.consent1 && value.consent2 && value.consent3,
           patientSignature: value.patientSignature,
-          signedAt: new Date().toISOString()
+          signedAt: new Date().toISOString(),
         };
         const payload = {
           patientId: patientId,
-          declaration: declaration
+          declaration: declaration,
         };
         await api.post(`/api/v1/cases`, payload);
         setStep(4);
@@ -154,16 +158,39 @@ export default function Registration() {
           👤 New Patient Registration
         </h1>
         <span className="text-sm font-medium bg-white/20 px-3 py-1 rounded-lg">
-          Step {step} of 4 — {step === 1 ? "Personal Details" : step === 2 ? "Medical History" : step === 3 ? "Consent" : "Complete"}
+          Step {step} of 4 —{" "}
+          {step === 1
+            ? "Personal Details"
+            : step === 2
+            ? "Medical History"
+            : step === 3
+            ? "Consent"
+            : "Complete"}
         </span>
       </div>
 
       {/* Progress Bar */}
       <div className="flex gap-2">
-        <div className={`h-1.5 flex-1 rounded-full ${step >= 1 ? "bg-primary" : "bg-border"}`}></div>
-        <div className={`h-1.5 flex-1 rounded-full ${step >= 2 ? "bg-primary" : "bg-border"}`}></div>
-        <div className={`h-1.5 flex-1 rounded-full ${step >= 3 ? "bg-primary" : "bg-border"}`}></div>
-        <div className={`h-1.5 flex-1 rounded-full ${step >= 4 ? "bg-primary" : "bg-border"}`}></div>
+        <div
+          className={`h-1.5 flex-1 rounded-full ${
+            step >= 1 ? "bg-primary" : "bg-border"
+          }`}
+        ></div>
+        <div
+          className={`h-1.5 flex-1 rounded-full ${
+            step >= 2 ? "bg-primary" : "bg-border"
+          }`}
+        ></div>
+        <div
+          className={`h-1.5 flex-1 rounded-full ${
+            step >= 3 ? "bg-primary" : "bg-border"
+          }`}
+        ></div>
+        <div
+          className={`h-1.5 flex-1 rounded-full ${
+            step >= 4 ? "bg-primary" : "bg-border"
+          }`}
+        ></div>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
@@ -176,10 +203,16 @@ export default function Registration() {
             }}
             className="space-y-6"
           >
-            <DynamicFormEngine form={patientForm} schema={patientDemographicsSchema} />
+            <DynamicFormEngine
+              form={patientForm}
+              schema={patientDemographicsSchema}
+            />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
-              <button type="button" className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors">
+              <button
+                type="button"
+                className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+              >
                 Cancel
               </button>
               <patientForm.Subscribe
@@ -207,7 +240,10 @@ export default function Registration() {
             }}
             className="space-y-6"
           >
-            <DynamicFormEngine form={historyForm} schema={patientMedicalHistorySchema} />
+            <DynamicFormEngine
+              form={historyForm}
+              schema={patientMedicalHistorySchema}
+            />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
               <button
@@ -242,7 +278,10 @@ export default function Registration() {
             }}
             className="space-y-6"
           >
-            <DynamicFormEngine form={consentForm} schema={consentDeclarationSchema} />
+            <DynamicFormEngine
+              form={consentForm}
+              schema={consentDeclarationSchema}
+            />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
               <button
@@ -273,23 +312,29 @@ export default function Registration() {
             <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10 text-success" />
             </div>
-            <h2 className="text-2xl font-bold text-primary-dark">Registration Complete!</h2>
+            <h2 className="text-2xl font-bold text-primary-dark">
+              Registration Complete!
+            </h2>
             <p className="text-text-light max-w-md mx-auto">
-              {isSelfRegister ? "Thank you for registering with us. You can now proceed to the session." : "The patient demographics, medical history, and consent declaration have been successfully saved."}
+              {isSelfRegister
+                ? "Thank you for registering with us. You can now proceed to the session."
+                : "The patient demographics, medical history, and consent declaration have been successfully saved."}
             </p>
             <div className="pt-6">
-              {!isSelfRegister && <button
-                onClick={() => {
-                  patientForm.reset();
-                  historyForm.reset();
-                  consentForm.reset();
-                  setPatientId(null);
-                  setStep(1);
-                }}
-                className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
-              >
-                Register Another Patient
-              </button>}
+              {!isSelfRegister && (
+                <button
+                  onClick={() => {
+                    patientForm.reset();
+                    historyForm.reset();
+                    consentForm.reset();
+                    setPatientId(null);
+                    setStep(1);
+                  }}
+                  className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Register Another Patient
+                </button>
+              )}
             </div>
           </div>
         )}

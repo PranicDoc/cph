@@ -43,7 +43,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/logout",
-                                "/api/v1/auth/init-session"
+                                "/api/v1/auth/init-session",
+                                "/api/v1/auth/init-feedback-session"
                         ).permitAll()
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()

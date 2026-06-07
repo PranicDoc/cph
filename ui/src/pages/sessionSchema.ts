@@ -65,24 +65,24 @@ export const sessionSchema: FormSchema = [
       },
     ],
   },
-  {
-    containerClassName: "bg-background rounded-xl p-4 mt-4",
-    fieldsContainerClassName: "flex flex-wrap justify-around gap-4",
-    title: "Book page numbers",
-    fields: [
-      { name: "basicBookPg", label: "Basic Book pg no", type: "number" },
-      {
-        name: "advancedBookPg",
-        label: "Advanced Book pg no",
-        type: "number",
-      },
-      {
-        name: "psychotherapyPg",
-        label: "Psychotherapy Book pg no",
-        type: "number",
-      },
-    ],
-  },
+  // {
+  //   containerClassName: "bg-background rounded-xl p-4 mt-4",
+  //   fieldsContainerClassName: "flex flex-wrap justify-around gap-4",
+  //   title: "Book page numbers",
+  //   fields: [
+  //     { name: "basicBookPg", label: "Basic Book pg no", type: "number" },
+  //     {
+  //       name: "advancedBookPg",
+  //       label: "Advanced Book pg no",
+  //       type: "number",
+  //     },
+  //     {
+  //       name: "psychotherapyPg",
+  //       label: "Psychotherapy Book pg no",
+  //       type: "number",
+  //     },
+  //   ],
+  // },
   {
     fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
     fields: [
@@ -102,23 +102,23 @@ export const sessionSchema: FormSchema = [
       },
     ],
   },
-  {
-    fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
-    fields: [
-      {
-        name: "healerNotes",
-        label: "Healer Notes (Private)",
-        type: "textarea",
-        rows: 3,
-        placeholder: "Session observations...",
-      },
-      {
-        name: "patientFeedback",
-        label: "Patient Feedback",
-        type: "textarea",
-        rows: 3,
-        placeholder: "How does the patient feel?",
-      },
-    ],
-  },
+  // {
+  //   fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
+  //   fields: [
+  //     {
+  //       name: "healerNotes",
+  //       label: "Healer Notes (Private)",
+  //       type: "textarea",
+  //       rows: 3,
+  //       placeholder: "Session observations...",
+  //     },
+  //     {
+  //       name: "patientFeedback",
+  //       label: "Patient Feedback",
+  //       type: "textarea",
+  //       rows: 3,
+  //       placeholder: "How does the patient feel?",
+  //     },
+  //   ],
+  // },
 ];

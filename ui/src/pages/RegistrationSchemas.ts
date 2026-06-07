@@ -73,12 +73,12 @@ export const patientMedicalHistorySchema: FormSchema = [
         type: "select",
         options: [
           { label: "Vegetarian", value: "VEGETARIAN" },
-          { label: "Vegan", value: "VEGAN" },
-          { label: "Non-Vegetarian", value: "NON_VEGETARIAN" },
+          // { label: "Vegan", value: "VEGAN" },
+          // { label: "Non-Vegetarian", value: "NON_VEGETARIAN" },
           { label: "Mixed", value: "MIXED" }
         ]
       },
-      { name: "exercise", label: "Exercise Type", placeholder: "E.g. Yoga, Walking, Gym" },
+      { name: "exercise", label: "Exercise Type", placeholder: "E.g. Yoga, Walking, Gym, Sports" },
       {
         name: "exerciseFrequency",
         label: "Exercise Frequency",

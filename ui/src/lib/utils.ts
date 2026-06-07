@@ -157,10 +157,13 @@ export function constructHealingSessionPayload({
       targetArea: entry.targetArea,
       technique: entry.technique,
       notes: entry.notes || "",
-      colors: entry.colors.map((color) => ({
+      colors: (entry.colors ?? []).map((color) => ({
         colorId: color.colorId,
         usageType: color.usageType,
       })),
+      protocolName: entry.protocolName || "",
+      referenceBook: entry.referenceBook || "",
+      detailedProtocol: entry.detailedProtocol || "",
     })),
   };
 }

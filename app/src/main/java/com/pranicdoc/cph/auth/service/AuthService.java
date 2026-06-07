@@ -8,10 +8,14 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.notification.entity.FeedbackLink;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,6 +45,7 @@ public class AuthService {
     private final CookieUtil cookieUtil;
     private final SecurityContextUtil securityContextUtil;
     private final RegistrationLinkRepository registrationLinkRepository;
+    private final FeedbackLinkRepository feedbackLinkRepository;
 
     // ─── Register ───────────────────────────────────────────────
 
@@ -100,14 +105,23 @@ public class AuthService {
         return toResponse(healer, clinic.getCode());
     }
 
+    @Auditable(action = "FEEDBACK_SESSION")
+    public void initSessionForFeedback(String token, HttpServletResponse response) {
+        FeedbackLink link = feedbackLinkRepository
+                .findByTokenAndStatusAndExpiresAtAfter(token, LinkStatus.ACTIVE, Instant.now())
+                .orElseThrow(() -> new TokenExpiredException("Feedback link is expired or already used"));
+        String selfRegToken = jwtService.generateSelfRegToken(link.getClinicId().toString());
+        cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
+    }
+
     @Auditable(action = "SELF_REG_SESSION")
     public void initSessionForSelfReg(String uuid, String clinicId, HttpServletResponse response) {
         if (uuid == null || uuid.isBlank()) {
-            throw new RuntimeException("Invalid UUID");
+            throw new IllegalArgumentException("Invalid UUID");
         }
         int updated = registrationLinkRepository.consume(uuid, Instant.now());
         if (updated == 0) {
-            throw new RuntimeException("Invalid or expired link");
+            throw new TokenExpiredException("Invalid or expired link");
         }
         String selfRegToken = jwtService.generateSelfRegToken(clinicId);
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);

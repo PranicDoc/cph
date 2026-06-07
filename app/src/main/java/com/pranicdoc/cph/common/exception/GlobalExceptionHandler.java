@@ -78,6 +78,24 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(TokenExpiredException.class)
+    public ProblemDetail handleTokenExpired(TokenExpiredException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        pd.setTitle("Token Used or Expired");
+        pd.setType(URI.create("https://pranicdoc.com/errors/token-expired"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    @ExceptionHandler(FeedbackAlreadySubmittedException.class)
+    public ProblemDetail handleFeedbackAlreadySubmitted(FeedbackAlreadySubmittedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Feedback Already Submitted");
+        pd.setType(URI.create("https://pranicdoc.com/errors/feedback-already-submitted"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

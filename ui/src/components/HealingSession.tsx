@@ -34,15 +34,6 @@ export const HealingSessionWizard = ({
     isSubmitting,
     setPreScanChakraData,
     setPostScanChakraData,
-    handleAddProtocolEntry,
-    handleUpdateProtocolEntry,
-    handleRemoveProtocolEntry,
-    handleAddColor,
-    handleUpdateColor,
-    handleRemoveColor,
-    handleAddSymptomFeedback,
-    handleUpdateSymptomFeedback,
-    handleRemoveSymptomFeedback,
     handleBack,
     handleNext,
   } = useHealingSessionWizard({ caseId, symptoms });
@@ -84,19 +75,7 @@ export const HealingSessionWizard = ({
           />
         )}
 
-        {step === 2 && (
-          <StepProtocolEntries
-            form={form}
-            chakras={chakras}
-            colors={colors}
-            onAdd={handleAddProtocolEntry}
-            onUpdate={handleUpdateProtocolEntry}
-            onRemove={handleRemoveProtocolEntry}
-            onAddColor={handleAddColor}
-            onUpdateColor={handleUpdateColor}
-            onRemoveColor={handleRemoveColor}
-          />
-        )}
+        {step === 2 && <StepProtocolEntries form={form} />}
 
         {step === 3 && (
           <StepPostScan

@@ -34,6 +34,7 @@ export type FieldConfig = {
   createNewTag?: (input: string) => any;
   enableToggle?: boolean;
   trimSpaces?: boolean;
+  validate?: (value: any, formValues: any, fieldName: string) => string | undefined;
 };
 
 export type FormGroup = {
@@ -95,6 +96,9 @@ export function DynamicField({
             if (!phoneRegex.test(normalized)) {
               return "Invalid contact number";
             }
+          }
+          if (fieldConfig.validate) {
+            return fieldConfig.validate(value, form.state.values, fieldConfig.name);
           }
           return undefined;
         },

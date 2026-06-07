@@ -1,6 +1,6 @@
 // hooks/useHealingSessionForm.ts (simplified – just returns form values, no submission logic)
 import { useForm } from "@tanstack/react-form";
-import { ProtocolEntryRequest, SymptomFeedbackRequest } from "../interfaces";
+import { SymptomFeedbackRequest } from "../interfaces";
 import { getCurrentDateAndTime } from "../lib/utils";
 
 type HealingSessionFormValues = {
@@ -8,7 +8,9 @@ type HealingSessionFormValues = {
   startTime: string;
   endTime: string;
   symptomFeedbacks: SymptomFeedbackRequest[];
-  protocolEntries: ProtocolEntryRequest[];
+  protocolName: string;
+  referenceBook: string;
+  detailedProtocol: string;
   feedbackType: "INTERIM" | "FINAL";
   feedbackText: string;
   patientRemarks: string;
@@ -30,7 +32,9 @@ export function useHealingSessionForm(symptoms: any[]) {
     startTime,
     endTime,
     symptomFeedbacks: initialSymptomFeedbacks,
-    protocolEntries: [],
+    protocolName: "",
+    referenceBook: "",
+    detailedProtocol: "",
     feedbackType: "INTERIM",
     feedbackText: "",
     patientRemarks: "",

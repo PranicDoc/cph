@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.healing.repository;
 
 import com.pranicdoc.cph.common.enums.CaseStatus;
+import com.pranicdoc.cph.healing.dto.SymptomFeedbackDTO;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,4 +28,17 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
         WHERE hc.healerId = :healerId
     """)
     List<UUID> findAllHealingCaseIdsByHealerId(@Param("healerId") UUID healerId);
+
+    @Query("""
+        SELECT new com.pranicdoc.cph.healing.dto.SymptomFeedbackDTO(
+            s.id,
+            s.symptomName
+        )
+        FROM CaseSymptom s
+        WHERE s.healingCase.id = :caseId
+    """)
+    Page<SymptomFeedbackDTO> findAllSymptomsByCaseId(
+            @Param("caseId") UUID caseId,
+            Pageable pageable
+    );
 }

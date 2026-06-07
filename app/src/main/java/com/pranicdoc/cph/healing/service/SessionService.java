@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.healing.service;
 
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -15,17 +16,20 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
-import com.pranicdoc.cph.notification.dto.WhatsappMessageDto;
+import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.notification.repository.OutboxRepository;
-import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.service.PatientService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,9 +43,7 @@ public class SessionService {
     private final HealingSessionMapper mapper;
     private final ChakraCatalogRepository chakraCatalogRepository;
     private final PranaColorCatalogRepository pranaColorCatalogRepository;
-    private final PhoneNumberFormatter phoneNumberFormatter;
-    private final PatientService patientService;
-    private final OutboxRepository outboxRepository;
+    private final NotificationService notificationService;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -81,37 +83,12 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setStatus(SessionStatus.COMPLETED);
         session.setHealingCase(healingCase);
-        healingCase.getSessions().add(session);
-        // TODO add a generate feedback link to whatsapp, use the notification service that i have
-        sendFeedbackNotification(session);
-        return toResponse(sessionRepository.save(session));
+        HealingSession saved = sessionRepository.save(session);
+        notificationService.sendFeedbackNotification(saved, false);
+        return toResponse(saved);
     }
 
-    private void sendFeedbackNotification(HealingSession session) {
-        HealingCase healingCase = session.getHealingCase();
-        String patientNumber = patientService.getById(healingCase.getPatientId()).contact();
-        try {
-            patientNumber = phoneNumberFormatter.formatToE164(patientNumber);
-        } catch (IllegalArgumentException e) {
-            return;
-        }
-        NotificationOutbox outbox = getNotificationOutbox(session, patientNumber);
-        outboxRepository.save(outbox);
-    }
-
-    private static NotificationOutbox getNotificationOutbox(HealingSession session, String patientNumber) {
-        String dateStr = session.getSessionDate() != null ? session.getSessionDate().toString() : "recently";
-        Integer sessionNum = session.getSessionNumber();
-        // TODO outsource this as config and then fetch it
-        // TODO add link or form for getting the feedback for the symptoms
-        String message = String.format(
-                "Hello, your healing session (Session #%d) on %s is marked as complete. " +
-                        "Please take a moment to log your feedback.", sessionNum, dateStr
-        );
-        return new NotificationOutbox(patientNumber, message);
-    }
-
-    private static void validatePrePostAndProtocolExists(HealingSession session) {
+    private void validatePrePostAndProtocolExists(HealingSession session) {
         boolean hasPreScan = session.getScans().stream()
                 .anyMatch(s -> s.getScanType() == ScanType.PRE);
         boolean hasPostScan = session.getScans().stream()
@@ -132,13 +109,13 @@ public class SessionService {
         }
 
         if (request.protocolEntries() != null) {
-            request.protocolEntries().forEach(SessionService::validateProtocolEntry);
+            request.protocolEntries().forEach(this::validateProtocolEntry);
         }
     }
 
-    private static void validateProtocolEntry(ProtocolRequest entry) {
-        if (((entry.protocolName() == null || entry.protocolName().isBlank()) &&
-            (entry.referenceBook() == null || entry.referenceBook().isBlank())) ||
+    private void validateProtocolEntry(ProtocolRequest entry) {
+        if (((entry.protocolName() == null || entry.protocolName().isBlank()) ||
+            (entry.referenceBook() == null || entry.referenceBook().isBlank())) &&
                 (entry.detailedProtocol() == null || entry.detailedProtocol().isBlank()))
         {
             throw new IllegalArgumentException("No Valid Protocol Entries.");
@@ -185,6 +162,16 @@ public class SessionService {
     public HealingSession findOrThrow(UUID id) {
         return sessionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("HealingSession", id));
+    }
+
+    @Transactional(readOnly = true)
+    public HealingSession findLatestByCaseIdOrThrow(UUID caseId) {
+        List<HealingSession> sessions = sessionRepository
+                .findByHealingCaseIdOrderBySessionNumberAsc(caseId);
+        if (sessions.isEmpty()) {
+            throw new ResourceNotFoundException("HealingSession for case", caseId);
+        }
+        return sessions.get(sessions.size() - 1);
     }
 
     private SessionResponse toResponse(HealingSession s) {

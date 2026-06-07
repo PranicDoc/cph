@@ -4,35 +4,14 @@ import { useReferenceData } from "./useReferenceData";
 import { useHealingSessionForm } from "./useHealingSessionForm";
 import { constructHealingSessionPayload } from "../lib/utils";
 import api from "../lib/axios";
-import type {
-  ProtocolEntryRequest,
-  SymptomFeedbackRequest,
-} from "../interfaces";
+import type { SymptomFeedbackRequest } from "../interfaces";
 
-const FINAL_FORM_STEP = 4;
-const COMPLETED_STEP = 5;
+const FINAL_FORM_STEP = 3;
+const COMPLETED_STEP = 4;
 
 interface UseHealingSessionWizardParams {
   caseId: string;
   symptoms: any[];
-}
-
-function createProtocolEntry(): ProtocolEntryRequest {
-  return {
-    chakraId: "",
-    targetArea: "",
-    technique: "",
-    notes: "",
-    colors: [],
-  };
-}
-
-function createSymptomFeedback(): SymptomFeedbackRequest {
-  return {
-    caseSymptomId: "",
-    rating: 5,
-    notes: "",
-  };
 }
 
 function mapScanEntry(chakra: ChakraDocEntry) {
@@ -45,20 +24,14 @@ function mapScanEntry(chakra: ChakraDocEntry) {
   };
 }
 
-function hasIncompleteProtocolColorRows(entries: ProtocolEntryRequest[]) {
-  return entries.some((entry) =>
-    (entry.colors || []).some((color) => !color.colorId)
-  );
-}
-
 export function useHealingSessionWizard({
   caseId,
   symptoms,
 }: UseHealingSessionWizardParams) {
   const [step, setStep] = useState(1);
-  const [preScanChakraData, setPreScanChakraData] = useState<
-    ChakraDocEntry[]
-  >([]);
+  const [preScanChakraData, setPreScanChakraData] = useState<ChakraDocEntry[]>(
+    []
+  );
   const [postScanChakraData, setPostScanChakraData] = useState<
     ChakraDocEntry[]
   >([]);
@@ -67,124 +40,18 @@ export function useHealingSessionWizard({
   const referenceData = useReferenceData();
   const { form } = useHealingSessionForm(symptoms);
 
-  const handleAddProtocolEntry = useCallback(() => {
-    const current = form.state.values.protocolEntries || [];
-    form.setFieldValue("protocolEntries", [
-      ...current,
-      createProtocolEntry(),
-    ]);
-  }, [form]);
-
-  const handleUpdateProtocolEntry = useCallback(
-    (index: number, field: string, value: any) => {
-      const updated = [...(form.state.values.protocolEntries || [])];
-
-      updated[index] = {
-        ...updated[index],
-        [field]: value,
-      };
-
-      form.setFieldValue("protocolEntries", updated);
-    },
-    [form]
-  );
-
-  const handleRemoveProtocolEntry = useCallback(
-    (index: number) => {
-      const updated = (form.state.values.protocolEntries || []).filter(
-        (_, i) => i !== index
-      );
-
-      form.setFieldValue("protocolEntries", updated);
-    },
-    [form]
-  );
-
-  const handleAddColor = useCallback(
-    (entryIndex: number) => {
-      const updated = [...(form.state.values.protocolEntries || [])];
-
-      updated[entryIndex].colors = [
-        ...(updated[entryIndex].colors || []),
-        {
-          colorId: "",
-          usageType: "CLEANSING",
-        },
-      ];
-
-      form.setFieldValue("protocolEntries", updated);
-    },
-    [form]
-  );
-
-  const handleUpdateColor = useCallback(
-    (entryIndex: number, colorIndex: number, field: string, value: any) => {
-      const updated = [...(form.state.values.protocolEntries || [])];
-      const colors = updated[entryIndex].colors || [];
-
-      colors[colorIndex] = {
-        ...colors[colorIndex],
-        [field]: value,
-      };
-
-      updated[entryIndex].colors = colors;
-      form.setFieldValue("protocolEntries", updated);
-    },
-    [form]
-  );
-
-  const handleRemoveColor = useCallback(
-    (entryIndex: number, colorIndex: number) => {
-      const updated = [...(form.state.values.protocolEntries || [])];
-
-      updated[entryIndex].colors = (
-        updated[entryIndex].colors || []
-      ).filter((_, i) => i !== colorIndex);
-
-      form.setFieldValue("protocolEntries", updated);
-    },
-    [form]
-  );
-
-  const handleAddSymptomFeedback = useCallback(() => {
-    const current = form.state.values.symptomFeedbacks || [];
-
-    form.setFieldValue("symptomFeedbacks", [
-      ...current,
-      createSymptomFeedback(),
-    ]);
-  }, [form]);
-
-  const handleUpdateSymptomFeedback = useCallback(
-    (index: number, field: string, value: any) => {
-      const updated = [...(form.state.values.symptomFeedbacks || [])];
-
-      updated[index] = {
-        ...updated[index],
-        [field]: value,
-      };
-
-      form.setFieldValue("symptomFeedbacks", updated);
-    },
-    [form]
-  );
-
-  const handleRemoveSymptomFeedback = useCallback(
-    (index: number) => {
-      const updated = (form.state.values.symptomFeedbacks || []).filter(
-        (_, i) => i !== index
-      );
-
-      form.setFieldValue("symptomFeedbacks", updated);
-    },
-    [form]
-  );
-
   const handleBack = useCallback(() => {
     setStep((current) => Math.max(1, current - 1));
   }, []);
 
   const handleNext = useCallback(async () => {
+    await form.validateAllFields("change");
+    const hasErrors = Object.values(form.state.fieldMeta).some(
+      (meta: any) => meta.errors && meta.errors.length > 0
+    );
+    if (hasErrors) {
+      return;
+    }
     if (step < FINAL_FORM_STEP) {
       setStep(step + 1);
       return;
@@ -194,12 +61,11 @@ export function useHealingSessionWizard({
 
     try {
       const values = form.state.values;
-      const protocolEntries = values.protocolEntries || [];
 
-      if (hasIncompleteProtocolColorRows(protocolEntries)) {
-        window.alert("Please select a color for every protocol color row.");
-        return;
-      }
+      const hasProtocol = values.protocolName || values.referenceBook || values.detailedProtocol;
+      const protocolEntries = hasProtocol
+        ? [{ protocolName: values.protocolName, referenceBook: values.referenceBook, detailedProtocol: values.detailedProtocol, colors: [] }]
+        : [];
 
       const payload = constructHealingSessionPayload({
         caseId,
@@ -234,15 +100,6 @@ export function useHealingSessionWizard({
     isSubmitting,
     setPreScanChakraData,
     setPostScanChakraData,
-    handleAddProtocolEntry,
-    handleUpdateProtocolEntry,
-    handleRemoveProtocolEntry,
-    handleAddColor,
-    handleUpdateColor,
-    handleRemoveColor,
-    handleAddSymptomFeedback,
-    handleUpdateSymptomFeedback,
-    handleRemoveSymptomFeedback,
     handleBack,
     handleNext,
   };

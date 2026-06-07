@@ -2,6 +2,7 @@ package com.pranicdoc.cph.auth.controller;
 
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.service.AuthService;
@@ -86,6 +87,14 @@ public class AuthController {
     public ResponseEntity<?> initSession(@RequestBody InitSessionRequest request,
                                          HttpServletResponse response) {
         authService.initSessionForSelfReg(request.uuid(), request.clinicId(), response);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/init-feedback-session")
+    public ResponseEntity<Void> initFeedbackSession(
+            @Valid @RequestBody InitFeedbackSessionRequest request,
+            HttpServletResponse response) {
+        authService.initSessionForFeedback(request.token(), response);
         return ResponseEntity.ok().build();
     }
 }
