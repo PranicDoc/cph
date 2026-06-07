@@ -16,6 +16,7 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.payments.CreditGateService;
 import com.pranicdoc.cph.healing.service.MessageService;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
@@ -64,6 +65,7 @@ public class CaseService {
     private final StorageService storageService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final CreditGateService creditGateService;
     private final RegistrationLinkRepository registrationLinkRepository;
     private final HealingDetailsRepository healingDetailsRepository;
     private final JwtService jwtService;
@@ -409,6 +411,8 @@ public class CaseService {
     @Transactional
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         HealingCase healingCase = findOrThrow(healingCaseId);
+        creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
+                securityContextUtil.getCurrentClinicId(), healingCaseId);
         Patient patientEntity = patientRepository.findById(healingCase.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("No Patient found"));
 

@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -35,9 +36,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.pranicdoc.cph.payments.CreditGateService;
+import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CaseServiceTest {
@@ -51,6 +55,9 @@ class CaseServiceTest {
     @Mock private MessageService messageService;
     @Mock private PdfJobRepository pdfJobRepository;
     @Mock private StorageService storageService;
+    @Mock private NotificationService notificationService;
+    @Spy  private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    @Mock private CreditGateService creditGateService;
 
     @InjectMocks
     private CaseService caseService;
@@ -115,6 +122,7 @@ class CaseServiceTest {
         Patient patient = org.mockito.Mockito.mock(Patient.class);
 
         // Wire mocks
+        doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId))
@@ -143,5 +151,53 @@ class CaseServiceTest {
         // Secondary: structural validation
         assertNotNull(payload.get("patient"), "patient sibling node must be present");
         assertNotNull(payload.get("healingSession"), "healingSession key must be present (not 'sessions')");
+    }
+
+    @Test
+    void postMessageToGeneratePdf_approved_proceedsAndSavesJob() {
+        UUID caseId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        HealingCase healingCase = HealingCase.builder()
+                .patientId(patientId)
+                .healerId(UUID.randomUUID())
+                .status(CaseStatus.DRAFT)
+                .sessions(new ArrayList<>())
+                .symptoms(new ArrayList<>())
+                .medications(new ArrayList<>())
+                .build();
+        Patient patient = org.mockito.Mockito.mock(Patient.class);
+
+        doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
+        when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
+        when(securityContextUtil.getCurrentClinicCode()).thenReturn("CLINIC01");
+        when(pdfJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        caseService.postMessageToGeneratePdf(caseId);
+
+        verify(pdfJobRepository).save(any());
+    }
+
+    @Test
+    void postMessageToGeneratePdf_insufficient_throwsAndNeverSavesJob() {
+        UUID caseId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        HealingCase healingCase = HealingCase.builder()
+                .patientId(patientId)
+                .healerId(UUID.randomUUID())
+                .status(CaseStatus.DRAFT)
+                .sessions(new ArrayList<>())
+                .symptoms(new ArrayList<>())
+                .medications(new ArrayList<>())
+                .build();
+
+        doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+
+        assertThrows(InsufficientCreditsException.class,
+                () -> caseService.postMessageToGeneratePdf(caseId));
+
+        verify(pdfJobRepository, never()).save(any());
     }
 }
