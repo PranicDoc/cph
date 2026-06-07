@@ -96,6 +96,15 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(InsufficientCreditsException.class)
+    public ProblemDetail handleInsufficientCredits(InsufficientCreditsException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
+        pd.setTitle("Insufficient Credits");
+        pd.setType(URI.create("https://pranicdoc.com/errors/insufficient-credits"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

@@ -6,7 +6,10 @@ import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.payments.CreditServiceClient;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +20,10 @@ import java.util.UUID;
 @Transactional
 public class ClinicService {
 
+    private static final Logger log = LoggerFactory.getLogger(ClinicService.class);
+
     private final ClinicRepository clinicRepository;
+    private final CreditServiceClient creditServiceClient;
 
     @Auditable(action = "CREATE_CLINIC")
     public ClinicResponse create(ClinicCreateRequest request) {
@@ -34,7 +40,14 @@ public class ClinicService {
                 .active(true)
                 .build();
 
-        return toResponse(clinicRepository.save(clinic));
+        Clinic saved = clinicRepository.save(clinic);
+        try {
+            creditServiceClient.createAccount("CLINIC", saved.getId());
+        } catch (Exception e) {
+            log.warn("CREDIT_ACCOUNT_PROVISION_FAILED clinicId={} reason={} (clinic registration completed; manual provisioning may be needed)",
+                    saved.getId(), e.getMessage());
+        }
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)

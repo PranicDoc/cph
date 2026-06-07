@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cphtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        envers:
+          autoRegisterListeners: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+creditservice:
+  api-key: test-api-key
+  # base-url is NOT set here — WireMock injects it via @ConfigureWireMock(property = "creditservice.base-url")
+
+storage:
+  provider: R2
+  bucket: test-bucket
+  endpoint: http://localhost:9999
+  access-key: test-access-key
+  secret-key: test-secret-key
+  presigned-expiry-minutes: 10

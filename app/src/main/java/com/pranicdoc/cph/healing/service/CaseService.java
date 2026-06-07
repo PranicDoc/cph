@@ -10,6 +10,7 @@ import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.exception.ConsentRequiredException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.payments.CreditGateService;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
@@ -50,6 +51,7 @@ public class CaseService {
     private final StorageService storageService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final CreditGateService creditGateService;
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
      */
@@ -338,6 +340,8 @@ public class CaseService {
     @Transactional
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         HealingCase healingCase = findOrThrow(healingCaseId);
+        creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
+                securityContextUtil.getCurrentClinicId(), healingCaseId);
         Patient patientEntity = patientRepository.findById(healingCase.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("No Patient found"));
 
