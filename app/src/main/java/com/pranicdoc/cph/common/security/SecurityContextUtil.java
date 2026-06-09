@@ -77,8 +77,20 @@ public class SecurityContextUtil {
                 : null;
     }
 
+    /** patientId from a PATIENT_CASE token. Null for healer tokens. */
+    public UUID getCurrentPatientId() {
+        return getTenantDetails().patientId();
+    }
+
+    /** caseId from a PATIENT_CASE token. Null for healer tokens. */
+    public UUID getCurrentCaseId() {
+        return getTenantDetails().caseId();
+    }
+
     /**
      * Record carrying tenant details set by JwtAuthFilter.
+     * patientId and caseId are only populated for PATIENT_CASE tokens.
+     * healerId and clinicCode are only populated for ACCESS/SELF_REG tokens.
      */
-    public record TenantDetails(UUID clinicId, UUID healerId, String clinicCode) {}
+    public record TenantDetails(UUID clinicId, UUID healerId, String clinicCode, UUID patientId, UUID caseId) {}
 }

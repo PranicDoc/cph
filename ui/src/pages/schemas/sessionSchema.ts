@@ -56,6 +56,11 @@ export const sessionSchema: FormSchema = [
         type: "tag",
         placeholder: "Type to add more medications...",
         displayKey: "medicationName",
+        displayFormatter: (m: any) =>
+          m.dosage ? `${m.medicationName} (${m.dosage})` : m.medicationName,
+        editableFields: {
+          dosage: { label: "Dosage", placeholder: "e.g. 500mg" },
+        },
         createNewTag: (name: string) => ({
           medicationName: name,
           dosage: "",

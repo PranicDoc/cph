@@ -84,10 +84,10 @@ public class AuthController {
     }
 
     @PostMapping("/init-session")
-    public ResponseEntity<?> initSession(@RequestBody InitSessionRequest request,
+    public ResponseEntity<ApiResponse<?>> initSession(@RequestBody InitSessionRequest request,
                                          HttpServletResponse response) {
-        authService.initSessionForSelfReg(request.uuid(), request.clinicId(), response);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(
+                authService.initSessionForSelfReg(request.uuid(), request.clinicId(), response));
     }
 
     @PostMapping("/init-feedback-session")
@@ -95,6 +95,12 @@ public class AuthController {
             @Valid @RequestBody InitFeedbackSessionRequest request,
             HttpServletResponse response) {
         authService.initSessionForFeedback(request.token(), response);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/clear-patient-session")
+    public ResponseEntity<Void> clearPatientSession(HttpServletResponse response) {
+        authService.clearPatientSession(response);
         return ResponseEntity.ok().build();
     }
 }

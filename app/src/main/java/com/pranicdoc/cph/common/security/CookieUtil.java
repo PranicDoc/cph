@@ -71,6 +71,34 @@ public class CookieUtil {
     }
 
     /**
+     * Set PATIENT_CASE session cookie — persistent (7 days), survives browser close.
+     */
+    public void setPatientCaseSessionCookie(HttpServletResponse response, String token) {
+        ResponseCookie cookie = ResponseCookie.from("accessToken", token)
+                .httpOnly(true)
+                .secure(secure)
+                .path("/")
+                .maxAge(refreshTokenMaxAgeSec)
+                .sameSite(sameSite)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    /**
+     * Clear the patient-case cookie after health form submission.
+     */
+    public void clearPatientCaseCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(secure)
+                .path("/")
+                .maxAge(0)
+                .sameSite(sameSite)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    /**
      * Clear auth cookies (for logout).
      */
     public void clearAuthCookies(HttpServletResponse response) {

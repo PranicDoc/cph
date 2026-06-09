@@ -4,6 +4,8 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.service.CaseService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -27,8 +29,10 @@ public class CaseController {
     private final CaseService caseService;
 
     @PostMapping
-    public ResponseEntity<CaseResponse> create(@Valid @RequestBody CaseCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(caseService.create(request));
+    public ResponseEntity<CaseResponse> create(@Valid @RequestBody CaseCreateRequest request,
+                                               HttpServletRequest httpRequest,
+                                               HttpServletResponse httpResponse) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(caseService.create(request, httpRequest, httpResponse));
     }
 
     @GetMapping("/{id}")

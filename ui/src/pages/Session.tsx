@@ -10,6 +10,7 @@ import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { FieldDisplay } from "../components/FieldDisplay";
 import { HealingSessionWizard } from "../components/HealingSession";
+import { usePatient } from "../context/PatientContext";
 
 type SessionFormValues = {
   medicalCondition: string;
@@ -31,6 +32,7 @@ type SessionFormValues = {
 
 export default function Session() {
   const { healingCaseId } = useParams();
+  const { selectPatient } = usePatient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionData, setSessionData] = useState<HealingSession | null>(null);
   const [isEdit, setIsEdit] = useState(false);
@@ -125,6 +127,7 @@ export default function Session() {
       try {
         const { data } = await api.get(`/api/v1/cases/${healingCaseId}`);
         setSessionData(data);
+        if (data.patientId) selectPatient(data.patientId);
 
         const initialEdit = data.status === "DRAFT";
         setIsEdit(initialEdit);
@@ -259,7 +262,9 @@ export default function Session() {
             <FieldDisplay
               label="Medications"
               value={sessionData.medications
-                ?.map((m: any) => m.medicationName)
+                ?.map((m: any) =>
+                  m.dosage ? `${m.medicationName} (${m.dosage})` : m.medicationName
+                )
                 .join(", ")}
             />
             <FieldDisplay

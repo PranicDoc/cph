@@ -46,10 +46,47 @@ public class JwtService {
     }
 
     /**
-     * Generate a self registration token.
+     * Generate a self registration token (feedback session — no registration UUID).
      */
     public String generateSelfRegToken(String uuid) {
-        return buildToken(null, UUID.fromString(uuid), null, null, "SELF_REG", accessTokenExpirationMs);
+        return buildToken(null, UUID.fromString(uuid), null, "PATIENT", "SELF_REG", accessTokenExpirationMs);
+    }
+
+    /**
+     * Generate a self registration token with the registration link UUID embedded.
+     * Used during patient self-registration so the backend can look up and consume the link.
+     */
+    public String generateSelfRegToken(String clinicId, String regUuid) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(UUID.randomUUID().toString())
+                .claim("clinicId", clinicId)
+                .claim("type", "SELF_REG")
+                .claim("role", "PATIENT")
+                .claim("reg_uuid", regUuid)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + accessTokenExpirationMs))
+                .signWith(signingKey)
+                .compact();
+    }
+
+    /**
+     * Generate a case-scoped token issued after case creation.
+     * Replaces the broad SELF_REG token — bound to a single patientId + caseId.
+     * Uses refresh-token expiry (7 days) so it survives browser close.
+     */
+    public String generatePatientCaseToken(UUID patientId, UUID caseId, UUID clinicId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(patientId.toString())
+                .claim("caseId", caseId.toString())
+                .claim("clinicId", clinicId.toString())
+                .claim("type", "PATIENT_CASE")
+                .claim("role", "PATIENT")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + refreshTokenExpirationMs))
+                .signWith(signingKey)
+                .compact();
     }
 
     /**
@@ -111,10 +148,20 @@ public class JwtService {
     }
 
     /**
-     * Extract token type ("ACCESS" or "REFRESH").
+     * Extract token type ("ACCESS", "REFRESH", "SELF_REG", or "PATIENT_CASE").
      */
     public String extractTokenType(String token) {
         return parseToken(token).get("type", String.class);
+    }
+
+    /** Extract the registration link UUID embedded in a SELF_REG token. Null for other token types. */
+    public String extractRegUuid(String token) {
+        return parseToken(token).get("reg_uuid", String.class);
+    }
+
+    /** Extract the caseId claim from a PATIENT_CASE token. */
+    public UUID extractCaseId(String token) {
+        return UUID.fromString(parseToken(token).get("caseId", String.class));
     }
 
     /**
@@ -136,6 +183,7 @@ public class JwtService {
                     .subject(UUID.randomUUID().toString())
                     .claim("clinicId", clinicId.toString())
                     .claim("type", type)
+                    .claim("role", role)
                     .issuedAt(now)
                     .expiration(expiry)
                     .signWith(signingKey)

@@ -9,7 +9,14 @@ import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.exception.ConsentRequiredException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.security.CookieUtil;
+import com.pranicdoc.cph.common.security.JwtAuthFilter;
+import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.access.AccessDeniedException;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
@@ -50,12 +57,15 @@ public class CaseService {
     private final StorageService storageService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final RegistrationLinkRepository registrationLinkRepository;
+    private final JwtService jwtService;
+    private final CookieUtil cookieUtil;
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
      */
     @Auditable(action = "CREATE_CASE")
     @Transactional
-    public CaseResponse create(CaseCreateRequest request) {
+    public CaseResponse create(CaseCreateRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         Patient patient = patientRepository.findById(request.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", request.patientId()));
         boolean exists = caseRepository.existsByPatientIdAndClinicIdAndStatus(
@@ -92,7 +102,18 @@ public class CaseService {
                     .build();
             healingCase.setMedicalSnapshot(snapshot);
         }
-        return toResponse(caseRepository.save(healingCase));
+        HealingCase saved = caseRepository.save(healingCase);
+        if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {
+            String selfRegToken = JwtAuthFilter.extractTokenFromCookie(httpRequest, "accessToken");
+            if (selfRegToken != null) {
+                String regUuid = jwtService.extractRegUuid(selfRegToken);
+                if (regUuid != null) registrationLinkRepository.markUsed(regUuid);
+            }
+            String patientCaseToken = jwtService.generatePatientCaseToken(
+                    saved.getPatientId(), saved.getId(), securityContextUtil.getCurrentClinicId());
+            cookieUtil.setPatientCaseSessionCookie(httpResponse, patientCaseToken);
+        }
+        return toResponse(saved);
     }
 
     // TODO make this robust like adding actual digital signature in this
@@ -254,12 +275,25 @@ public class CaseService {
     @Auditable(action = "UPDATE_CASE")
     @Transactional
     public CaseResponse updateCaseDetails(CaseUpdateRequest caseUpdateRequest) {
-        if(caseUpdateRequest.healingDetails().detailedProtocol().isBlank() &&
+        if(!securityContextUtil.getCurrentRole().equalsIgnoreCase("Patient")
+                && caseUpdateRequest.healingDetails().detailedProtocol().isBlank() &&
             (caseUpdateRequest.healingDetails().protocolName().isBlank() ||
                     caseUpdateRequest.healingDetails().bookReference().isBlank())
         ) throw new IllegalArgumentException("No valid protocol found");
         HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
+        String role = securityContextUtil.getCurrentRole();
+        if ("PATIENT".equalsIgnoreCase(role)) {
+            UUID tokenPatientId = securityContextUtil.getCurrentPatientId();
+            UUID tokenCaseId = securityContextUtil.getCurrentCaseId();
+            if (!entity.getPatientId().equals(tokenPatientId) || !entity.getId().equals(tokenCaseId)) {
+                throw new AccessDeniedException("Not authorized to update this case");
+            }
+        } else {
+            if (!entity.getClinicId().equals(securityContextUtil.getCurrentClinicId())) {
+                throw new AccessDeniedException("Case does not belong to your clinic");
+            }
+        }
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
         if(caseUpdateRequest.symptoms() != null && !caseUpdateRequest.symptoms().isEmpty()) {
             entity.getSymptoms().clear();
@@ -298,10 +332,11 @@ public class CaseService {
                 }
             }
         }
-        if(CaseStatus.DRAFT.equals(entity.getStatus())) {
+        if(!securityContextUtil.getCurrentRole().equalsIgnoreCase("Patient")
+                && CaseStatus.DRAFT.equals(entity.getStatus())) {
             entity.setStatus(CaseStatus.ACTIVE);
         }
-        return toResponse(caseRepository.save(entity));
+        return toResponse(entity);
     }
 
     @Auditable(action = "GET_ALL_PDF")

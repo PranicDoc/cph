@@ -9,12 +9,14 @@ import {
   consentDeclarationSchema,
 } from "./schemas/RegistrationSchemas";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { usePatient } from "../context/PatientContext";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { clinicId, uuid } = useParams();
+  const { selectPatient } = usePatient();
   const location = useLocation();
   const hasCalled = useRef(false);
   const [isSelfRegister, setIsSelfRegister] = useState(false);
@@ -36,6 +38,7 @@ export default function Registration() {
           clinicId: clinicId,
           uuid: uuid,
         });
+        sessionStorage.setItem("role", res.data?.data);
         window.history.replaceState({}, "", "/self-register");
       } catch (err) {
         navigate("/unauthorized");
@@ -140,8 +143,15 @@ export default function Registration() {
           patientId: patientId,
           declaration: declaration,
         };
-        await api.post(`/api/v1/cases`, payload);
-        setStep(4);
+        const res = await api.post(`/api/v1/cases`, payload);
+        if (isSelfRegister) {
+          selectPatient(patientId);
+          const caseId = res.data?.id;
+          sessionStorage.setItem("caseId", caseId);
+          navigate(`/patient-health/${caseId}`);
+        } else {
+          setStep(4);
+        }
       } catch (error) {
         console.error("Failed to save declaration.", error);
         setStep(4);
@@ -223,7 +233,7 @@ export default function Registration() {
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
                     className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
-                    {isSubmitting ? "Saving..." : "Save & Next ➡️"}
+                    {isSubmitting ? "Saving..." : "Save & Next"}
                   </button>
                 )}
               />
@@ -261,7 +271,7 @@ export default function Registration() {
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
                     className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
-                    {isSubmitting ? "Saving..." : "Save & Next ➡️"}
+                    {isSubmitting ? "Saving..." : "Save & Next"}
                   </button>
                 )}
               />
@@ -299,7 +309,7 @@ export default function Registration() {
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
                     className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
-                    {isSubmitting ? "Saving..." : "Complete Registration ➡️"}
+                    {isSubmitting ? "Saving..." : "Complete Registration"}
                   </button>
                 )}
               />

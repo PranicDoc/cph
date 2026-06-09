@@ -19,6 +19,6 @@ public class RegistrationLink {
     @Enumerated(EnumType.STRING)
     private Status status;
     public enum Status {
-        ACTIVE, USED
+        ACTIVE, IN_PROGRESS, USED
     }
 }

@@ -32,6 +32,8 @@ export type FieldConfig = {
   rows?: number;
   valueKey?: string;
   displayKey?: string;
+  displayFormatter?: (tag: any) => string;
+  editableFields?: Record<string, { label: string; placeholder?: string }>;
   createNewTag?: (input: string) => any;
   enableToggle?: boolean;
   trimSpaces?: boolean;
@@ -149,8 +151,10 @@ export function DynamicField({
                 suggestions={fieldConfig.suggestions}
                 placeholder={fieldConfig.placeholder}
                 displayKey={fieldConfig.displayKey}
+                displayFormatter={fieldConfig.displayFormatter}
                 valueKey={fieldConfig.valueKey}
                 createNewTag={fieldConfig.createNewTag}
+                editableFields={fieldConfig.editableFields}
               />
             </div>
           );
@@ -264,7 +268,10 @@ export function DynamicFormEngine({
 }) {
   return (
     <>
-      {schema.map((group, groupIdx) => (
+      {schema.map((group, groupIdx) => {
+        // Skip the group entirely when every field has display: false
+        if (group.fields.every((f) => f.display === false)) return null;
+        return (
         <div key={groupIdx} className={group.containerClassName}>
           {group.title && (
             <h3 className="text-sm font-semibold text-text-light uppercase tracking-wider mb-4">
@@ -299,7 +306,8 @@ export function DynamicFormEngine({
             })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }

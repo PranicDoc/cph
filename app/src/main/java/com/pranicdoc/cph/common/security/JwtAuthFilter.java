@@ -55,29 +55,37 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Only accept ACCESS tokens for API requests
             String tokenType = jwtService.extractTokenType(token);
-            if (!"ACCESS".equals(tokenType) && !"SELF_REG".equals(tokenType)) {
+            Claims claims = jwtService.parseToken(token);
+            String role = claims.get("role", String.class);
+            UUID clinicId = UUID.fromString(claims.get("clinicId", String.class));
+
+            UsernamePasswordAuthenticationToken authToken;
+
+            if ("PATIENT_CASE".equals(tokenType)) {
+                // Narrow case-scoped token: subject = patientId
+                UUID patientId = UUID.fromString(claims.getSubject());
+                UUID caseId = UUID.fromString(claims.get("caseId", String.class));
+                authToken = new UsernamePasswordAuthenticationToken(
+                        patientId.toString(), null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                authToken.setDetails(new SecurityContextUtil.TenantDetails(
+                        clinicId, null, null, patientId, caseId));
+
+            } else if ("ACCESS".equals(tokenType) || "SELF_REG".equals(tokenType)) {
+                UUID healerId = UUID.fromString(claims.getSubject());
+                String clinicCode = claims.get("clinicCode", String.class);
+                authToken = new UsernamePasswordAuthenticationToken(
+                        healerId.toString(), null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                authToken.setDetails(new SecurityContextUtil.TenantDetails(
+                        clinicId, healerId, clinicCode, null, null));
+
+            } else {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            Claims claims = jwtService.parseToken(token);
-            UUID healerId = UUID.fromString(claims.getSubject());
-            UUID clinicId = UUID.fromString(claims.get("clinicId", String.class));
-            String clinicCode = claims.get("clinicCode", String.class);
-            String role = claims.get("role", String.class);
-
-            // Build Spring Security auth token
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(
-                            healerId.toString(),
-                            null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                    );
-
-            // Attach tenant details for SecurityContextUtil
-            authToken.setDetails(new SecurityContextUtil.TenantDetails(clinicId, healerId, clinicCode));
             SecurityContextHolder.getContext().setAuthentication(authToken);
 
         } catch (Exception ex) {

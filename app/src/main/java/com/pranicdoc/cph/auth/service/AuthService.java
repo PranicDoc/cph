@@ -8,6 +8,7 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
@@ -46,6 +47,7 @@ public class AuthService {
     private final SecurityContextUtil securityContextUtil;
     private final RegistrationLinkRepository registrationLinkRepository;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    private static final String PATIENT = "PATIENT";
 
     // ─── Register ───────────────────────────────────────────────
 
@@ -115,16 +117,25 @@ public class AuthService {
     }
 
     @Auditable(action = "SELF_REG_SESSION")
-    public void initSessionForSelfReg(String uuid, String clinicId, HttpServletResponse response) {
+    public ApiResponse<String> initSessionForSelfReg(String uuid, String clinicId, HttpServletResponse response) {
         if (uuid == null || uuid.isBlank()) {
             throw new IllegalArgumentException("Invalid UUID");
         }
-        int updated = registrationLinkRepository.consume(uuid, Instant.now());
-        if (updated == 0) {
-            throw new TokenExpiredException("Invalid or expired link");
+        Instant now = Instant.now();
+        int activated = registrationLinkRepository.consume(uuid, now);
+        if (activated == 0) {
+            // Returning patient — link already IN_PROGRESS; allow re-auth if not expired
+            registrationLinkRepository.findInProgress(uuid, now)
+                    .orElseThrow(() -> new TokenExpiredException("Invalid or expired link"));
         }
-        String selfRegToken = jwtService.generateSelfRegToken(clinicId);
+        // Embed reg UUID in token so CaseService can identify and consume the link on case creation
+        String selfRegToken = jwtService.generateSelfRegToken(clinicId, uuid);
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
+        return ApiResponse.of(PATIENT);
+    }
+
+    public void clearPatientSession(HttpServletResponse response) {
+        cookieUtil.clearPatientCaseCookie(response);
     }
 
     // ─── Refresh ────────────────────────────────────────────────

@@ -9,6 +9,8 @@ interface TagInputProps {
   label?: string;
   valueKey?: string;
   displayKey?: string;
+  displayFormatter?: (tag: any) => string;
+  editableFields?: Record<string, { label: string; placeholder?: string }>;
   createNewTag?: (input: string) => any;
 }
 
@@ -20,15 +22,19 @@ export function TagInput({
   label,
   valueKey,
   displayKey,
+  displayFormatter,
+  editableFields,
   createNewTag,
 }: TagInputProps) {
   const [input, setInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [editingTagIdx, setEditingTagIdx] = useState<number | null>(null);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close dropdown on outside click
+  // Close dropdown and popover on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -37,20 +43,17 @@ export function TagInput({
       ) {
         setShowDropdown(false);
         setActiveIndex(-1);
+        setEditingTagIdx(null);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Resolve the display key (priority: displayKey > valueKey)
   const resolvedDisplayKey = displayKey || valueKey;
 
-  /**
-   * Extract the display text from a tag, regardless of whether
-   * it’s a plain string or an object.
-   */
-  const getDisplayText = useCallback(
+  // Used for logic (duplicate check, remove) — always uses displayKey
+  const getLogicText = useCallback(
     (tag: any): string => {
       if (resolvedDisplayKey && typeof tag === "object" && tag !== null) {
         return tag[resolvedDisplayKey] ?? "";
@@ -60,11 +63,21 @@ export function TagInput({
     [resolvedDisplayKey]
   );
 
-  // Filter suggestions: show only those not already present in the value array
+  // Used for chip display — prefers displayFormatter when provided
+  const getDisplayText = useCallback(
+    (tag: any): string => {
+      if (displayFormatter && typeof tag === "object" && tag !== null) {
+        return displayFormatter(tag);
+      }
+      return getLogicText(tag);
+    },
+    [displayFormatter, getLogicText]
+  );
+
   const filtered = suggestions.filter(
     (s) =>
       s.toLowerCase().includes(input.toLowerCase()) &&
-      !value.some((v) => getDisplayText(v).toLowerCase() === s.toLowerCase())
+      !value.some((v) => getLogicText(v).toLowerCase() === s.toLowerCase())
   );
 
   const addTag = useCallback(
@@ -72,23 +85,21 @@ export function TagInput({
       const trimmed = item.trim();
       if (!trimmed) return;
 
-      // Duplicate check
       const alreadyExists = value.some(
-        (v) => getDisplayText(v).toLowerCase() === trimmed.toLowerCase()
+        (v) => getLogicText(v).toLowerCase() === trimmed.toLowerCase()
       );
       if (alreadyExists) {
         setInput("");
         return;
       }
 
-      // Create new tag object
       let newTag: any;
       if (createNewTag) {
         newTag = createNewTag(trimmed);
       } else if (valueKey) {
         newTag = { [valueKey]: trimmed };
       } else {
-        newTag = trimmed; // plain string
+        newTag = trimmed;
       }
 
       onChange([...value, newTag]);
@@ -96,12 +107,12 @@ export function TagInput({
       setActiveIndex(-1);
       inputRef.current?.focus();
     },
-    [value, onChange, valueKey, createNewTag, getDisplayText]
+    [value, onChange, valueKey, createNewTag, getLogicText]
   );
 
   const removeTag = (tagToRemove: any) => {
     onChange(
-      value.filter((v) => getDisplayText(v) !== getDisplayText(tagToRemove))
+      value.filter((v) => getLogicText(v) !== getLogicText(tagToRemove))
     );
     inputRef.current?.focus();
   };
@@ -144,11 +155,30 @@ export function TagInput({
     if (e.key === "Escape") {
       setShowDropdown(false);
       setActiveIndex(-1);
+      setEditingTagIdx(null);
       return;
     }
   };
 
-  // Helper to highlight matching text
+  const openPopover = (idx: number, item: any) => {
+    if (!editableFields) return;
+    setEditingTagIdx(idx);
+    setShowDropdown(false);
+    setEditingValues(
+      Object.fromEntries(
+        Object.keys(editableFields).map((k) => [k, item[k] ?? ""])
+      )
+    );
+  };
+
+  const savePopover = () => {
+    if (editingTagIdx === null) return;
+    const updated = [...value];
+    updated[editingTagIdx] = { ...updated[editingTagIdx], ...editingValues };
+    onChange(updated);
+    setEditingTagIdx(null);
+  };
+
   const highlightMatch = (text: string, query: string) => {
     if (!query) return text;
     const regex = new RegExp(
@@ -185,8 +215,12 @@ export function TagInput({
           const display = getDisplayText(item);
           return (
             <span
-              key={display + idx}
-              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium border border-primary/20 hover:bg-primary/20 transition-colors"
+              key={getLogicText(item) + idx}
+              className={`inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium border border-primary/20 hover:bg-primary/20 transition-colors ${editableFields ? "cursor-pointer" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                openPopover(idx, item);
+              }}
             >
               {display}
               <button
@@ -215,10 +249,54 @@ export function TagInput({
         />
       </div>
 
-      {/* Dropdown */}
+      {/* Editable fields popover */}
+      {editingTagIdx !== null && editableFields && (
+        <div className="absolute z-30 w-full mt-1 border border-border bg-white rounded-lg shadow-lg p-4 space-y-3">
+          {Object.entries(editableFields).map(([key, config]) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-text-light mb-1">
+                {config.label}{" "}
+                <span className="font-normal text-text-light/60">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={editingValues[key] ?? ""}
+                onChange={(e) =>
+                  setEditingValues((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); savePopover(); }
+                  if (e.key === "Escape") setEditingTagIdx(null);
+                }}
+                placeholder={config.placeholder}
+                autoFocus
+                className="w-full p-2 border border-border rounded-lg text-sm outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          ))}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditingTagIdx(null)}
+              className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-background transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={savePopover}
+              className="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Suggestions dropdown */}
       <div
         className={`absolute z-20 w-full mt-1 border border-border bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-200 origin-top ${
-          showDropdown
+          showDropdown && editingTagIdx === null
             ? "opacity-100 scale-y-100 translate-y-0 pointer-events-auto"
             : "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
         }`}
@@ -250,7 +328,7 @@ export function TagInput({
                 <kbd className="inline-block px-1.5 py-0.5 text-xs bg-background border border-border rounded">
                   Enter
                 </kbd>
-                <span className="text-text/70"> to add “{input.trim()}”</span>
+                <span className="text-text/70"> to add "{input.trim()}"</span>
               </>
             ) : (
               <span className="text-text/50">
