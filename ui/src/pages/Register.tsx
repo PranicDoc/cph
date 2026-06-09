@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Activity } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { registerSchema } from "./AuthSchema";
+import { registerSchema } from "./schemas/AuthSchema";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -27,7 +27,10 @@ export default function Register() {
         navigate("/login");
       } catch (err: any) {
         console.error("Registration failed:", err);
-        setError(err.response?.data?.message || "Registration failed. Please try again.");
+        setError(
+          err.response?.data?.message ||
+            "Registration failed. Please try again."
+        );
       } finally {
         setIsSubmitting(false);
       }
@@ -47,7 +50,10 @@ export default function Register() {
         </h2>
         <p className="mt-2 text-center text-sm text-text-light">
           Or{" "}
-          <Link to="/login" className="font-medium text-primary hover:text-primary-dark">
+          <Link
+            to="/login"
+            className="font-medium text-primary hover:text-primary-dark"
+          >
             sign in to your existing account
           </Link>
         </p>

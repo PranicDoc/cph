@@ -7,7 +7,7 @@ import {
   patientDemographicsSchema,
   patientMedicalHistorySchema,
   consentDeclarationSchema,
-} from "./RegistrationSchemas";
+} from "./schemas/RegistrationSchemas";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 export default function Registration() {

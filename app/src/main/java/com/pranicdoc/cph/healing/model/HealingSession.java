@@ -66,9 +66,4 @@ public class HealingSession extends TenantEntity {
     @Builder.Default
     @JsonManagedReference
     private List<QualitativeFeedback> qualitativeFeedbacks = new ArrayList<>();
-
-    @OneToMany(mappedBy = "healingSession", cascade = CascadeType.ALL)
-    @Builder.Default
-    @JsonManagedReference
-    private List<ProtocolEntry> protocolEntries = new ArrayList<>();
 }

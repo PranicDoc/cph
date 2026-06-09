@@ -1,6 +1,6 @@
 // components/HealingSessionWizard/StepSymptomsFeedback.tsx
 import { DynamicFormEngine } from "../DynamicFormEngine";
-import { qualitativeFeedbackSchema } from "../../pages/HealingSessionSchemas";
+import { qualitativeFeedbackSchema } from "../../pages/schemas/HealingSessionSchemas";
 
 interface StepSymptomsFeedbackProps {
   form: any; // Use proper type from tanstack form

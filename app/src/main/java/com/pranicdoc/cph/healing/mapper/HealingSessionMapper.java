@@ -27,9 +27,6 @@ public interface HealingSessionMapper {
     @Mapping(target = "healingSession", ignore = true)
     QualitativeFeedback toQualitativeFeedback(QualitativeFeedbackRequest request);
 
-    @Mapping(target = "healingSession", ignore = true)
-    ProtocolEntry toProtocolEntry(ProtocolRequest request);
-
     @AfterMapping
     default void linkChildren(@MappingTarget HealingSession session) {
         session.getScans().forEach(scan -> {
@@ -40,12 +37,5 @@ public interface HealingSessionMapper {
         });
         session.getSymptomFeedbacks().forEach(fb -> fb.setHealingSession(session));
         session.getQualitativeFeedbacks().forEach(q -> q.setHealingSession(session));
-        session.getProtocolEntries()
-            .forEach(entry -> {
-                entry.setHealingSession(session);
-                if (entry.getColors() != null) {
-                    entry.getColors().forEach(color -> color.setProtocolEntry(entry));
-                }
-            });
     }
 }

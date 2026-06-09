@@ -99,7 +99,7 @@ dependencies {
 	implementation 'com.pranicdoc:storage-sdk:1.0.1'
 
 	// --- Common DTOs ---
-	implementation 'com.pranicdoc:common-dtos:0.0.1-SNAPSHOT'
+	implementation 'com.pranicdoc:common-dtos:0.1.0'
 
 	// --- Lib Phone Number ---
 	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.31'

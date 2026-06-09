@@ -4,7 +4,7 @@ import { Link, useNavigate, Navigate } from "react-router-dom";
 import { Activity } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { loginSchema } from "./AuthSchema";
+import { loginSchema } from "./schemas/AuthSchema";
 import { useAuth } from "../context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 

@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { sessionSchema } from "./sessionSchema";
+import { sessionSchema } from "./schemas/sessionSchema";
 import { SessionHeader } from "./SessionHeader";
 import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
@@ -24,6 +24,7 @@ type SessionFormValues = {
   healingDetails: {
     protocolName: string;
     bookReference: string;
+    detailedProtocol: string;
     treatmentSteps: TreatmentStep[];
   };
 };
@@ -52,6 +53,7 @@ export default function Session() {
     healingDetails: {
       protocolName: "",
       bookReference: "",
+      detailedProtocol: "",
       treatmentSteps: [],
     },
   });
@@ -108,6 +110,7 @@ export default function Session() {
     healingDetails: {
       protocolName: data.healingDetails?.protocolName || "",
       bookReference: data.healingDetails?.bookReference || "",
+      detailedProtocol: data.healingDetails?.detailedProtocol || "",
       treatmentSteps: data.healingDetails?.treatmentSteps || [],
     },
   });
@@ -139,6 +142,7 @@ export default function Session() {
           infectiousDetails: data.infectiousIllness || "",
           healingDetails: {
             protocolName: data.healingDetails?.protocolName || "",
+            detailedProtocol: data.healingDetails?.detailedProtocol || "",
             bookReference: data.healingDetails?.bookReference || "",
             treatmentSteps: data.healingDetails?.treatmentSteps || [],
           },
@@ -282,23 +286,17 @@ export default function Session() {
               label="Infectious Details"
               value={sessionData.infectiousIllness}
             />
-            {/* <FieldDisplay
-              label="Treatment Plan"
+            <FieldDisplay
+              label="Protocol Details"
               value={
                 sessionData.healingDetails ? (
                   <div>
                     <p>Protocol: {sessionData.healingDetails.protocolName}</p>
                     <p>Book: {sessionData.healingDetails.bookReference}</p>
-                    <p>
-                      Steps:{" "}
-                      {sessionData.healingDetails.treatmentSteps
-                        ?.map((s) => s.tag)
-                        .join(", ") || "None"}
-                    </p>
                   </div>
                 ) : null
               }
-            /> */}
+            />
           </dl>
 
           {/* Navigation buttons */}

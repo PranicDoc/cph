@@ -254,6 +254,10 @@ public class CaseService {
     @Auditable(action = "UPDATE_CASE")
     @Transactional
     public CaseResponse updateCaseDetails(CaseUpdateRequest caseUpdateRequest) {
+        if(caseUpdateRequest.healingDetails().detailedProtocol().isBlank() &&
+            (caseUpdateRequest.healingDetails().protocolName().isBlank() ||
+                    caseUpdateRequest.healingDetails().bookReference().isBlank())
+        ) throw new IllegalArgumentException("No valid protocol found");
         HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
@@ -273,26 +277,24 @@ public class CaseService {
                 entity.getMedications().add(medication);
             }
         }
-        if (caseUpdateRequest.healingDetails() != null) {
-            HealingDetails existingDetails = entity.getHealingDetails();
-            if (existingDetails == null) {
-                HealingDetails newDetails = healingCaseMapper.toHealingDetails(caseUpdateRequest.healingDetails());
-                newDetails.setHealingCase(entity);
-                if (newDetails.getTreatmentSteps() != null) {
-                    for (TreatmentStep step : newDetails.getTreatmentSteps()) {
-                        step.setHealingDetails(newDetails);
-                    }
+        HealingDetails existingDetails = entity.getHealingDetails();
+        if (existingDetails == null) {
+            HealingDetails newDetails = healingCaseMapper.toHealingDetails(caseUpdateRequest.healingDetails());
+            newDetails.setHealingCase(entity);
+            if (newDetails.getTreatmentSteps() != null) {
+                for (TreatmentStep step : newDetails.getTreatmentSteps()) {
+                    step.setHealingDetails(newDetails);
                 }
-                entity.setHealingDetails(newDetails);
-            } else {
-                healingCaseMapper.updateHealingDetails(caseUpdateRequest.healingDetails(), existingDetails);
-                if (caseUpdateRequest.healingDetails().treatmentSteps() != null) {
-                    existingDetails.getTreatmentSteps().clear();
-                    for (TreatmentStepRequest stepReq : caseUpdateRequest.healingDetails().treatmentSteps()) {
-                        TreatmentStep step = healingCaseMapper.toTreatmentStep(stepReq);
-                        step.setHealingDetails(existingDetails);
-                        existingDetails.getTreatmentSteps().add(step);
-                    }
+            }
+            entity.setHealingDetails(newDetails);
+        } else {
+            healingCaseMapper.updateHealingDetails(caseUpdateRequest.healingDetails(), existingDetails);
+            if (caseUpdateRequest.healingDetails().treatmentSteps() != null) {
+                existingDetails.getTreatmentSteps().clear();
+                for (TreatmentStepRequest stepReq : caseUpdateRequest.healingDetails().treatmentSteps()) {
+                    TreatmentStep step = healingCaseMapper.toTreatmentStep(stepReq);
+                    step.setHealingDetails(existingDetails);
+                    existingDetails.getTreatmentSteps().add(step);
                 }
             }
         }

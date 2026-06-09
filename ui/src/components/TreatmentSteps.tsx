@@ -59,7 +59,7 @@ export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
         }
       />
 
-      <div className="bg-background rounded-xl p-3 space-y-3">
+      {/* <div className="bg-background rounded-xl p-3 space-y-3">
         {treatmentSteps.map((step, index) => (
           <TreatmentStepCard
             key={index}
@@ -77,7 +77,7 @@ export function TreatmentSteps({ value, onChange }: TreatmentStepsProps) {
         >
           + Add Treatment Step
         </button>
-      </div>
+      </div> */}
     </div>
   );
 }

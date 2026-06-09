@@ -23,6 +23,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Audited
+@Deprecated
 public class ProtocolEntry extends TenantEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -49,8 +49,6 @@ public interface CphCaseMapper {
     @Mapping(target = "feedbackType", expression = "java(f.getFeedbackType() != null ? f.getFeedbackType().name() : null)")
     QualitativeFeedbackSnapshot toQualitativeFeedbackSnapshot(QualitativeFeedback f);
 
-    ProtocolEntrySnapshot toProtocolEntrySnapshot(ProtocolEntry e);
-
     @Mapping(target = "usageType", expression = "java(c.getUsageType() != null ? c.getUsageType().name() : null)")
     ProtocolColorSnapshot toProtocolColorSnapshot(ProtocolColor c);
 

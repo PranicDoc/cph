@@ -19,6 +19,7 @@ export type FieldType =
 export type FieldConfig = {
   name: string;
   label: string;
+  display?: boolean;
   type?: FieldType;
   options?: { label: string; value: string }[];
   placeholder?: string;
@@ -34,7 +35,11 @@ export type FieldConfig = {
   createNewTag?: (input: string) => any;
   enableToggle?: boolean;
   trimSpaces?: boolean;
-  validate?: (value: any, formValues: any, fieldName: string) => string | undefined;
+  validate?: (
+    value: any,
+    formValues: any,
+    fieldName: string
+  ) => string | undefined;
 };
 
 export type FormGroup = {
@@ -56,6 +61,7 @@ export function DynamicField({
   const {
     name,
     label,
+    display = true,
     type = "text",
     options,
     placeholder,
@@ -79,6 +85,8 @@ export function DynamicField({
     });
   }, [form, name]);
 
+  if (!display) return null;
+
   return (
     <form.Field
       name={name}
@@ -98,7 +106,11 @@ export function DynamicField({
             }
           }
           if (fieldConfig.validate) {
-            return fieldConfig.validate(value, form.state.values, fieldConfig.name);
+            return fieldConfig.validate(
+              value,
+              form.state.values,
+              fieldConfig.name
+            );
           }
           return undefined;
         },

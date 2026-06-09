@@ -63,7 +63,7 @@ export const HealingSessionWizard = ({
   return (
     <div className="mx-auto space-y-6">
       <WizardHeader step={step} />
-      <WizardProgress step={step} />
+      <WizardProgress step={step} totalSteps={2} />
 
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
         {step === 1 && (
@@ -75,9 +75,9 @@ export const HealingSessionWizard = ({
           />
         )}
 
-        {step === 2 && <StepProtocolEntries form={form} />}
+        {/* {step === 2 && <StepProtocolEntries form={form} />} */}
 
-        {step === 3 && (
+        {step === 2 && (
           <StepPostScan
             value={postScanChakraData}
             onChange={setPostScanChakraData}
@@ -96,9 +96,9 @@ export const HealingSessionWizard = ({
           />
         )} */}
 
-        {step === 4 && <CompletionScreen />}
+        {step === 3 && <CompletionScreen />}
 
-        {step <= 3 && (
+        {step <= 2 && (
           <WizardNavigation
             step={step}
             isSubmitting={isSubmitting}

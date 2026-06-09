@@ -23,8 +23,6 @@ public record CreateSessionRequest(
         @NotNull @Valid
         List<SymptomFeedbackRequest> symptomFeedbacks,
         @NotNull @Valid
-        List<QualitativeFeedbackRequest> qualitativeFeedbacks,
-        @NotNull @Valid
-        List<ProtocolRequest> protocolEntries
+        List<QualitativeFeedbackRequest> qualitativeFeedbacks
 ) {
 }

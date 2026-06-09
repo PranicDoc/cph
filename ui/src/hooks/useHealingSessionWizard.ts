@@ -6,8 +6,8 @@ import { constructHealingSessionPayload } from "../lib/utils";
 import api from "../lib/axios";
 import type { SymptomFeedbackRequest } from "../interfaces";
 
-const FINAL_FORM_STEP = 3;
-const COMPLETED_STEP = 4;
+const FINAL_FORM_STEP = 2;
+const COMPLETED_STEP = 3;
 
 interface UseHealingSessionWizardParams {
   caseId: string;

@@ -93,9 +93,7 @@ public class SessionService {
                 .anyMatch(s -> s.getScanType() == ScanType.PRE);
         boolean hasPostScan = session.getScans().stream()
                 .anyMatch(s -> s.getScanType() == ScanType.POST);
-        boolean hasProtocol = !session.getProtocolEntries().isEmpty();
         if (!hasPreScan) throw new SessionIncompleteException("Pre-scan is required");
-        if (!hasProtocol) throw new SessionIncompleteException("At least one protocol entry is required");
         if (!hasPostScan) throw new SessionIncompleteException("Post-scan is required");
     }
 
@@ -107,31 +105,11 @@ public class SessionService {
                 }
             });
         }
-
-        if (request.protocolEntries() != null) {
-            request.protocolEntries().forEach(this::validateProtocolEntry);
-        }
-    }
-
-    private void validateProtocolEntry(ProtocolRequest entry) {
-        if (((entry.protocolName() == null || entry.protocolName().isBlank()) ||
-            (entry.referenceBook() == null || entry.referenceBook().isBlank())) &&
-                (entry.detailedProtocol() == null || entry.detailedProtocol().isBlank()))
-        {
-            throw new IllegalArgumentException("No Valid Protocol Entries.");
-        }
     }
 
     private void validateChakraId(UUID chakraId) {
         if (!chakraCatalogRepository.existsById(chakraId)) {
             throw new IllegalArgumentException("Invalid chakraId: " + chakraId);
-        }
-    }
-
-    @Deprecated
-    private void validateColorId(UUID colorId) {
-        if (!pranaColorCatalogRepository.existsById(colorId)) {
-            throw new IllegalArgumentException("Invalid colorId: " + colorId);
         }
     }
 

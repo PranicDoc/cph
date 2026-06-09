@@ -22,11 +22,14 @@ public class HealingDetails extends BaseEntity {
     @JoinColumn(name = "healing_case_id", nullable = false, unique = true)
     private HealingCase healingCase;
 
-    @Column(name = "protocol_name", nullable = false)
+    @Column(name = "protocol_name")
     private String protocolName;
 
-    @Column(name = "book_reference", nullable = false)
+    @Column(name = "book_reference")
     private String bookReference;
+
+    @Column(name = "detailed_protocol", columnDefinition = "TEXT")
+    private String detailedProtocol;
 
     @OneToMany(mappedBy = "healingDetails", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
