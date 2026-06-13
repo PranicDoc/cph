@@ -21,6 +21,7 @@ import api from "../lib/axios";
 import { ComputedPatient, Patient, usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
 import { useQueryClient } from "@tanstack/react-query";
+import { UpgradeModal } from "../components/UpgradeModal";
 
 const columnHelper = createColumnHelper<ComputedPatient>();
 
@@ -31,11 +32,22 @@ export default function Patients() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [pendingHealingCaseId, setPendingHealingCaseId] = useState<string | null>(null);
 
-  const generatePdf = (healingCaseId: string) => {
-    api.post("/api/v1/cases/generate-pdf", null, {
-      params: { healingCaseId: healingCaseId },
-    });
+  const generatePdf = async (healingCaseId: string) => {
+    try {
+      await api.post("/api/v1/cases/generate-pdf", null, {
+        params: { healingCaseId },
+      });
+    } catch (err: any) {
+      if (err?.response?.status === 402) {
+        setPendingHealingCaseId(healingCaseId);
+        setShowUpgradeModal(true);
+      } else {
+        console.error("PDF generation failed", err);
+      }
+    }
   };
 
   const columns = [
@@ -308,6 +320,22 @@ export default function Patients() {
           </table>
         </div>
       </div>
+
+      {showUpgradeModal && pendingHealingCaseId && (
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          healingCaseId={pendingHealingCaseId}
+          onClose={() => {
+            setShowUpgradeModal(false);
+            setPendingHealingCaseId(null);
+          }}
+          onRetry={(id) => {
+            setShowUpgradeModal(false);
+            setPendingHealingCaseId(null);
+            generatePdf(id);
+          }}
+        />
+      )}
     </div>
   );
 }
