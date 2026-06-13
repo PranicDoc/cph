@@ -152,17 +152,7 @@ class SessionServiceTest {
                         new ScanRequest(ScanType.POST, "", List.of(reading))
                 ),
                 List.of(),
-                List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", "")),
-                List.of(new ProtocolRequest(
-                        chakraId,
-                        "Crown Chakra",
-                        "General Sweeping",
-                        "",
-                        List.of(new ProtocolRequest.ProtocolColorRequest(colorId, ColorUsageType.CLEANSING)),
-                        "",
-                        "",
-                        ""
-                ))
+                List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", ""))
         );
     }
 
@@ -192,7 +182,6 @@ class SessionServiceTest {
 
         session.setSymptomFeedbacks(List.of());
         session.setQualitativeFeedbacks(List.of());
-        session.setProtocolEntries(List.of(new ProtocolEntry()));
         return session;
     }
 }

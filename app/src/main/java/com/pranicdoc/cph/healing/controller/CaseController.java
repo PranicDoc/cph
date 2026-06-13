@@ -123,6 +123,15 @@ public class CaseController {
         );
     }
 
+    @GetMapping("/{healingCaseId}/summary")
+    public ResponseEntity<ApiResponse<CaseSummaryResponse>> getCaseSummary(
+            @PathVariable UUID healingCaseId) {
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Case summary retrieved",
+                        caseService.getCaseSummary(healingCaseId))
+        );
+    }
+
     @GetMapping("/symptoms")
     public ResponseEntity<PageResponse<SymptomFeedbackDTO>> getSymptomsForFeedback(
             @RequestParam UUID caseId,

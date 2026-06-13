@@ -16,6 +16,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
+import CaseSummary from "./pages/CaseSummary";
 import Unauthorized from "./pages/Unauthorized";
 import PatientFeedback from "./pages/Feedback";
 
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="registration" element={<Registration />} />
                 <Route path="pdf-list" element={<PdfList />} />
                 <Route path="session/:healingCaseId" element={<Session />} />
+                <Route path="cases/:healingCaseId/summary" element={<CaseSummary />} />
               </Route>
             </Route>
           </Routes>

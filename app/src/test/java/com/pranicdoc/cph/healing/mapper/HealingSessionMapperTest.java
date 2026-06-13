@@ -27,7 +27,6 @@ class HealingSessionMapperTest {
                 endTime,
                 List.of(),
                 List.of(),
-                List.of(),
                 List.of()
         ));
 

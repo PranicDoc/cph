@@ -14,8 +14,9 @@ import {
   Eye,
   Play,
   BookText,
+  ClipboardList,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import { ComputedPatient, Patient, usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
@@ -26,8 +27,9 @@ const columnHelper = createColumnHelper<ComputedPatient>();
 export default function Patients() {
   const [openPopup, setOpenPopup] = useState<boolean>(false);
   const [generatedLink, setGeneratedLink] = useState<string>("");
-  const { patients, isLoading, selectPatient } = usePatient(); 
+  const { patients, isLoading, selectPatient } = usePatient();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
 
   const generatePdf = (healingCaseId: string) => {
@@ -108,7 +110,7 @@ export default function Patients() {
                   isActive || isCompleted
                     ? "bg-primary hover:bg-primary-dark cursor-pointer"
                     : "bg-border pointer-events-none"
-                } 
+                }
                 px-3 py-1.5 text-white text-xs font-medium transition-colors`}
             >
               {isCompleted ? (
@@ -123,6 +125,15 @@ export default function Patients() {
                 </>
               )}
             </div>
+            {isCompleted && (
+              <button
+                onClick={() => navigate(`/cases/${patient.healingCaseId}/summary`)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/5 transition-colors"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                Case Summary
+              </button>
+            )}
           </div>
         );
       },

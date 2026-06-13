@@ -256,6 +256,32 @@ public class CaseService {
                 .orElseThrow(() -> new ResourceNotFoundException("HealingCase", id));
     }
 
+    @Transactional(readOnly = true)
+    public CaseSummaryResponse getCaseSummary(UUID healingCaseId) {
+        HealingCase healingCase = findOrThrow(healingCaseId);
+        Patient patient = patientRepository.findById(healingCase.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", healingCase.getPatientId()));
+        return new CaseSummaryResponse(
+                patient.getFirstName(), patient.getLastName(),
+                patient.getDob(), patient.getGender(), patient.getMaritalStatus(),
+                patient.getContact(), patient.getOccupation(),
+                healingCase.getId(), healingCase.getMedicalCondition(),
+                healingCase.getLabFindings(),
+                healingCase.getComplementaryTreatments(), healingCase.getComplementaryDetails(),
+                healingCase.getInfectiousIllness(), healingCase.getInfectiousDetails(),
+                healingCase.getBasicBookPg(), healingCase.getAdvancedBookPg(),
+                healingCase.getPsychotherapyPg(),
+                healingCase.getCreatedAt(),
+                healingCase.getMedicalSnapshot(),
+                healingCase.getSymptoms(),
+                healingCase.getMedications(),
+                healingCase.getSessions().stream()
+                        .sorted(Comparator.comparingInt(HealingSession::getSessionNumber))
+                        .toList(),
+                healingCase.getClosure()
+        );
+    }
+
     private CaseResponse toResponse(HealingCase c) {
         return new CaseResponse(
                 c.getId(), c.getPatientId(), c.getHealerId(),
