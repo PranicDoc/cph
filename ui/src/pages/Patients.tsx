@@ -22,6 +22,7 @@ import { ComputedPatient, Patient, usePatient } from "../context/PatientContext"
 import { ClosurePopup } from "./Closure";
 import { useQueryClient } from "@tanstack/react-query";
 import { UpgradeModal } from "../components/UpgradeModal";
+import { useAuth } from "../context/AuthContext";
 
 const columnHelper = createColumnHelper<ComputedPatient>();
 
@@ -30,6 +31,7 @@ export default function Patients() {
   const [generatedLink, setGeneratedLink] = useState<string>("");
   const { patients, isLoading, selectPatient } = usePatient();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -325,6 +327,8 @@ export default function Patients() {
         <UpgradeModal
           isOpen={showUpgradeModal}
           healingCaseId={pendingHealingCaseId}
+          ownerId={user?.id ?? ""}
+          ownerType="HEALER"
           onClose={() => {
             setShowUpgradeModal(false);
             setPendingHealingCaseId(null);

@@ -6,6 +6,8 @@ import { usePurchasePackage } from "../hooks/usePurchasePackage";
 interface UpgradeModalProps {
   isOpen: boolean;
   healingCaseId: string;
+  ownerId: string;
+  ownerType: string;
   onClose: () => void;
   onRetry: (healingCaseId: string) => void;
 }
@@ -13,6 +15,8 @@ interface UpgradeModalProps {
 export function UpgradeModal({
   isOpen,
   healingCaseId,
+  ownerId,
+  ownerType,
   onClose,
   onRetry,
 }: UpgradeModalProps) {
@@ -30,8 +34,8 @@ export function UpgradeModal({
     purchase(
       {
         packageId: pkg.id,
-        ownerType: "HEALER",
-        ownerId: "",
+        ownerType,
+        ownerId,
         idempotencyKey: crypto.randomUUID(),
       },
       {

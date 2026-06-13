@@ -33,6 +33,13 @@ export const registerSchema: FormSchema = [
     fieldsContainerClassName: "space-y-4",
     fields: [
       {
+        name: "fullName",
+        label: "Full Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter your full name",
+      },
+      {
         name: "email",
         label: "Email Address",
         type: "email",
@@ -44,7 +51,21 @@ export const registerSchema: FormSchema = [
         label: "Password",
         type: "password",
         required: true,
-        placeholder: "Create a password",
+        placeholder: "Min. 6 characters",
+      },
+      {
+        name: "phone",
+        label: "Phone Number",
+        type: "tel",
+        required: false,
+        placeholder: "Enter your phone number",
+      },
+      {
+        name: "clinicCode",
+        label: "Clinic Code",
+        type: "text",
+        required: true,
+        placeholder: "Provided by your clinic admin",
       },
     ],
   },

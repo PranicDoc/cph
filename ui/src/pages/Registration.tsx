@@ -10,7 +10,6 @@ import {
 } from "./schemas/RegistrationSchemas";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
-import { PlanPicker } from "../components/PlanPicker";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
@@ -169,15 +168,13 @@ export default function Registration() {
           👤 New Patient Registration
         </h1>
         <span className="text-sm font-medium bg-white/20 px-3 py-1 rounded-lg">
-          Step {step} of 5 —{" "}
+          Step {step} of 4 —{" "}
           {step === 1
             ? "Personal Details"
             : step === 2
             ? "Medical History"
             : step === 3
             ? "Consent"
-            : step === 4
-            ? "Choose Plan"
             : "Complete"}
         </span>
       </div>
@@ -202,11 +199,6 @@ export default function Registration() {
         <div
           className={`h-1.5 flex-1 rounded-full ${
             step >= 4 ? "bg-primary" : "bg-border"
-          }`}
-        ></div>
-        <div
-          className={`h-1.5 flex-1 rounded-full ${
-            step >= 5 ? "bg-primary" : "bg-border"
           }`}
         ></div>
       </div>
@@ -325,15 +317,7 @@ export default function Registration() {
           </form>
         )}
 
-        {step === 4 && !isSelfRegister && (
-          <PlanPicker
-            ownerId={clinicId ?? ""}
-            ownerType="CLINIC"
-            onComplete={() => setStep(5)}
-          />
-        )}
-
-        {step === 5 && (
+        {step === 4 && (
           <div className="text-center py-12 space-y-4">
             <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10 text-success" />
@@ -342,21 +326,25 @@ export default function Registration() {
               Registration Complete!
             </h2>
             <p className="text-text-light max-w-md mx-auto">
-              The patient demographics, medical history, and consent declaration have been successfully saved.
+              {isSelfRegister
+                ? "Thank you for registering with us. You can now proceed to the session."
+                : "The patient demographics, medical history, and consent declaration have been successfully saved."}
             </p>
             <div className="pt-6">
-              <button
-                onClick={() => {
-                  patientForm.reset();
-                  historyForm.reset();
-                  consentForm.reset();
-                  setPatientId(null);
-                  setStep(1);
-                }}
-                className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
-              >
-                Register Another Patient
-              </button>
+              {!isSelfRegister && (
+                <button
+                  onClick={() => {
+                    patientForm.reset();
+                    historyForm.reset();
+                    consentForm.reset();
+                    setPatientId(null);
+                    setStep(1);
+                  }}
+                  className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Register Another Patient
+                </button>
+              )}
             </div>
           </div>
         )}

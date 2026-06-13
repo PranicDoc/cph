@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfileIconProps } from "./types/user-profile";
+import { CreditCard, X } from "lucide-react";
+import { PlanPicker } from "../PlanPicker";
 
 // ── Helpers ──
 function getInitials(name: string): string {
@@ -19,6 +21,7 @@ export function UserProfileIcon({
 }: UserProfileIconProps) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -48,6 +51,7 @@ export function UserProfileIcon({
   if (!user) return null;
 
   return (
+    <>
     <div ref={containerRef} className={`relative inline-block ${className}`}>
       <button
         type="button"
@@ -92,6 +96,14 @@ export function UserProfileIcon({
           </div>
 
           <div className="py-1">
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setShowUpgradeModal(true); }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <CreditCard className="w-4 h-4 text-gray-400" />
+              Upgrade Plan
+            </button>
             {onSettings && (
               <button
                 type="button"
@@ -150,6 +162,27 @@ export function UserProfileIcon({
         </div>
       )}
     </div>
+
+    {showUpgradeModal && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 max-w-3xl w-full mx-4 relative shadow-xl">
+          <button
+            onClick={() => setShowUpgradeModal(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Your Plan</h2>
+          <PlanPicker
+            ownerId={user?.id ?? ""}
+            ownerType="HEALER"
+            onComplete={() => setShowUpgradeModal(false)}
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

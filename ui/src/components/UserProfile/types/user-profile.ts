@@ -2,6 +2,7 @@
 
 /** Minimal user information displayed in the profile popover */
 export interface UserInfo {
+  id: string;
   fullName: string;
   email: string;
   avatarUrl?: string;
