@@ -60,6 +60,10 @@ storage:
   secret-key: ${R2_SECRET_KEY}
   presigned-expiry-minutes: 10
 
+creditservice:
+  base-url: ${CREDIT_SERVICE_URL:http://localhost:8081}
+  api-key: ${CREDIT_API_KEY:changeme-dev-only}
+
 server:
   port: 9918
   servlet:
