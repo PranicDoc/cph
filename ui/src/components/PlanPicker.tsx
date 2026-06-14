@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, CreditCard } from "lucide-react";
 import {
   useCreditPackages,
@@ -17,22 +17,22 @@ export function PlanPicker({
   ownerId,
   ownerType,
   onComplete,
+  onSkip,
 }: PlanPickerProps) {
   const { data: packages, isLoading, error } = useCreditPackages();
   const { mutate: purchase, isPending } = usePurchasePackage();
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if(error) {
-      onComplete();
-    }
-  }, [error])
+  // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const handleSelectPlan = (pkg: PackageResponse) => {
     if (pkg.price_paise === 0) {
       onComplete();
       return;
+    }
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
     }
     setPurchaseError(null);
     setSelectedPkgId(pkg.id);
@@ -41,11 +41,15 @@ export function PlanPicker({
         packageId: pkg.id,
         ownerType,
         ownerId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKeyRef.current,
       },
       {
-        onSuccess: () => onComplete(),
+        onSuccess: () => {
+          idempotencyKeyRef.current = null;
+          onComplete();
+        },
         onError: () => {
+          // key is kept in ref so a retry reuses the same idempotency key
           setSelectedPkgId(null);
           setPurchaseError("Purchase failed. Please try again.");
         },
@@ -65,6 +69,11 @@ export function PlanPicker({
     return (
       <div className="text-center py-12 text-text-light">
         <p>Failed to load plans. Please try again.</p>
+        {onSkip && (
+          <button onClick={onSkip} className="mt-4 text-sm underline">
+            Skip for now
+          </button>
+        )}
       </div>
     );
   }

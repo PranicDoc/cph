@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, Loader2, CreditCard } from "lucide-react";
 import { useCreditPackages, type PackageResponse } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
@@ -24,11 +24,16 @@ export function UpgradeModal({
   const { mutate: purchase, isPending } = usePurchasePackage();
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleUpgrade = (pkg: PackageResponse) => {
     if (pkg.price_paise === 0) return;
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
+    }
     setPurchaseError(null);
     setSelectedPkgId(pkg.id);
     purchase(
@@ -36,14 +41,16 @@ export function UpgradeModal({
         packageId: pkg.id,
         ownerType,
         ownerId,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: idempotencyKeyRef.current,
       },
       {
         onSuccess: () => {
+          idempotencyKeyRef.current = null;
           onClose();
           onRetry(healingCaseId);
         },
         onError: () => {
+          // key is kept in ref so a retry reuses the same idempotency key
           setSelectedPkgId(null);
           setPurchaseError("Purchase failed. Please try again.");
         },
