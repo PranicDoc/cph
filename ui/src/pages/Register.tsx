@@ -51,9 +51,9 @@ export default function Register() {
     },
   });
 
-  const handlePlanComplete = async () => {
+  const handlePlanComplete = () => {
     try {
-      await logout();
+      logout();
     } catch {
       // ignore logout errors — navigate regardless
     }

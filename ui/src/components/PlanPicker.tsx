@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, CreditCard } from "lucide-react";
-import { useCreditPackages, type PackageResponse } from "../hooks/useCreditPackages";
+import {
+  useCreditPackages,
+  type PackageResponse,
+} from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
 
 interface PlanPickerProps {
@@ -10,11 +13,21 @@ interface PlanPickerProps {
   onSkip?: () => void;
 }
 
-export function PlanPicker({ ownerId, ownerType, onComplete }: PlanPickerProps) {
+export function PlanPicker({
+  ownerId,
+  ownerType,
+  onComplete,
+}: PlanPickerProps) {
   const { data: packages, isLoading, error } = useCreditPackages();
   const { mutate: purchase, isPending } = usePurchasePackage();
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if(error) {
+      onComplete();
+    }
+  }, [error])
 
   const handleSelectPlan = (pkg: PackageResponse) => {
     if (pkg.price_paise === 0) {
@@ -65,7 +78,9 @@ export function PlanPicker({ ownerId, ownerType, onComplete }: PlanPickerProps) 
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">
           <CreditCard className="w-6 h-6 text-primary" />
-          <h2 className="text-2xl font-bold text-primary-dark">Choose a Plan</h2>
+          <h2 className="text-2xl font-bold text-primary-dark">
+            Choose a Plan
+          </h2>
         </div>
         <p className="text-text-light">
           Select a credit plan to start generating patient PDFs.
@@ -89,9 +104,7 @@ export function PlanPicker({ ownerId, ownerType, onComplete }: PlanPickerProps) 
               <p className="text-xl font-bold text-primary-dark">{pkg.name}</p>
               <p className="text-text-light text-sm">{pkg.credits} credits</p>
               <p className="text-lg font-semibold text-primary">
-                {isFree
-                  ? "Free"
-                  : `₹${(pkg.price_paise / 100).toFixed(2)}`}
+                {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
               </p>
               <div className="flex-1" />
               <button
