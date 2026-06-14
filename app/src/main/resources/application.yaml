@@ -9,7 +9,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
   #  Remove later for prod after enabling kafka
   autoconfigure:
@@ -60,9 +60,9 @@ storage:
   secret-key: ${R2_SECRET_KEY}
   presigned-expiry-minutes: 10
 
-creditservice:
-  base-url: ${CREDIT_SERVICE_URL:http://localhost:8081}
-  api-key: ${CREDIT_API_KEY:changeme-dev-only}
+credit-service:
+  base-url: ${CREDIT_SERVICE_URL:http://localhost:9112/credits}
+  api-key: ${CREDIT_API_KEY:my32BitLongApiKey}
 
 server:
   port: 9918
