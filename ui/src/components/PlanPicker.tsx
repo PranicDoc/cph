@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, CreditCard } from "lucide-react";
 import {
   useCreditPackages,
