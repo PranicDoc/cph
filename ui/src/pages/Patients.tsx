@@ -36,6 +36,7 @@ export default function Patients() {
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [pendingHealingCaseId, setPendingHealingCaseId] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const generatePdf = async (healingCaseId: string) => {
     try {
@@ -48,6 +49,7 @@ export default function Patients() {
         setShowUpgradeModal(true);
       } else {
         console.error("PDF generation failed", err);
+        setPdfError("PDF generation failed. Please try again later.");
       }
     }
   };
@@ -322,6 +324,15 @@ export default function Patients() {
           </table>
         </div>
       </div>
+
+      {pdfError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
+          <span className="text-sm">{pdfError}</span>
+          <button onClick={() => setPdfError(null)} className="text-white/80 hover:text-white text-xs underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {showUpgradeModal && pendingHealingCaseId && (
         <UpgradeModal
