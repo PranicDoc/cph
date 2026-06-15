@@ -1,16 +1,19 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
-import com.pranicdoc.cph.analytics.dto.DashboardSessionTrends;
+import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.healing.service.PdfJobService;
+import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
 import com.pranicdoc.cph.patient.service.PatientService;
 import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SessionService sessionService;
     private final CreditService creditService;
     private final PdfJobService pdfJobService;
+    private final CaseService caseService;
 
     @Override
     public ApiResponse<DashboardSummary> getSummary() {
@@ -35,8 +39,8 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public ApiResponse<DashboardSessionTrends> getSessionTrends() {
-        // TODO: implement session trends query — placeholder returning empty data
-        return ApiResponse.of(new DashboardSessionTrends(null));
+    public ApiResponse<List<DashboardSessionTrend>> getSessionTrends() {
+        // TODO: implement session trend mapping from HealingCase
+        return ApiResponse.of(List.of());
     }
 }

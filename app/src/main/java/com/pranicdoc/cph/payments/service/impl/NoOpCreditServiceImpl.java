@@ -24,25 +24,25 @@ public class NoOpCreditServiceImpl implements CreditService {
 
     @Override
     public ResponseEntity<String> getPackages() {
-        log.debug("Using NOOP credit service — getPackages() returning empty list");
+        log.debug("Using NOOP credit service - getPackages() returning empty list");
         return ResponseEntity.ok("[]");
     }
 
     @Override
     public ResponseEntity<String> purchase(String requestBody, @Nullable String idempotencyKey) {
-        log.debug("Using NOOP credit service — purchase() is a no-op");
+        log.debug("Using NOOP credit service - purchase() is a no-op");
         return ResponseEntity.ok("{}");
     }
 
     @Override
     public BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId) {
-        log.debug("Using NOOP credit service — getBalance() returning null");
+        log.debug("Using NOOP credit service - getBalance() returning null");
         return null;
     }
 
     @Override
     public PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size) {
-        log.debug("Using NOOP credit service — getTransactions() returning empty page");
+        log.debug("Using NOOP credit service - getTransactions() returning empty page");
         return new PagedTransactionResponse(List.of(), 0, 0L, 0, 0, true);
     }
 }

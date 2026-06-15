@@ -1,6 +1,6 @@
 package com.pranicdoc.cph.analytics.dto;
 
-public record DashboardSessionTrends(
+public record DashboardSessionTrend(
         String data
 ) {
 }
