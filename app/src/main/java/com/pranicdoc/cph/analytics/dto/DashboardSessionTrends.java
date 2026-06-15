@@ -1,2 +1,6 @@
-package com.pranicdoc.cph.analytics.dto;public class DashboardSessionTrends {
+package com.pranicdoc.cph.analytics.dto;
+
+public record DashboardSessionTrends(
+        String data
+) {
 }
