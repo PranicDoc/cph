@@ -1,8 +1,9 @@
-package com.pranicdoc.cph.healing.service;
+package com.pranicdoc.cph.healing.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -13,6 +14,8 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.service.MessageService;
+import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -458,5 +461,10 @@ public class CaseService {
                     }
                 }
         );
+    }
+
+    public List<HealingCase> getByHealerId() {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return caseRepository.findByHealerId(healerId, Pageable.unpaged()).getContent();
     }
 }
