@@ -13,10 +13,10 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class CreditProxyConfig {
 
-    @Value("${creditservice.base-url}")
+    @Value("${credit-service.base-url}")
     private String baseUrl;
 
-    @Value("${creditservice.api-key}")
+    @Value("${credit-service.api-key}")
     private String apiKey;
 
     @Bean("creditServiceRestClient")

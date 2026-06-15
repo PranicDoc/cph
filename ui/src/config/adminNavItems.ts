@@ -1,0 +1,13 @@
+import { Users, Settings, Package, Sliders } from "lucide-react";
+import type { SidebarNavItem } from "../components/Sidebar";
+
+export interface AdminNavItem extends SidebarNavItem {
+  roles: string[];
+}
+
+export const adminNavItems: AdminNavItem[] = [
+  { label: "Accounts",      path: "/admin/accounts",      icon: Users,    roles: ["ADMIN", "SUPADM"] },
+  { label: "Clinic Config", path: "/admin/clinic-config", icon: Settings, roles: ["ADMIN", "SUPADM"] },
+  { label: "Global Config", path: "/admin/global-config", icon: Sliders,  roles: ["SUPADM"] },
+  { label: "Packages",      path: "/admin/packages",      icon: Package,  roles: ["SUPADM"] },
+];

@@ -6,6 +6,9 @@ export interface UserInfo {
   fullName: string;
   email: string;
   avatarUrl?: string;
+  role?: string;
+  clinicId?: string;
+  clinicCode?: string;
 }
 
 /** Auth context contract the component expects */

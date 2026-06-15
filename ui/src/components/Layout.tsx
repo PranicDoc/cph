@@ -1,54 +1,47 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { Activity } from "lucide-react";
-import { cn } from "../lib/utils";
+import { useState } from "react";
+import { Link, Outlet } from "react-router-dom";
+import { Activity, Menu } from "lucide-react";
 import UserProfileIcon from "./UserProfile";
+import Sidebar from "./Sidebar";
+import { healerNavItems } from "../config/healerNavItems";
 
 export default function Layout() {
-  const location = useLocation();
-
-  const navItems = [
-    { name: "Patients", path: "/" },
-    { name: "Generated PDFs", path: "/pdf-list" },
-    // { name: "Healing Session", path: "/session" },
-  ];
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-gradient-to-r from-primary-dark to-primary text-white sticky top-0 z-50 shadow-lg shadow-primary/20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 text-2xl font-bold">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
-            <span>PranicDoc</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-1 bg-white/10 p-1 rounded-xl">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "px-5 py-2 rounded-lg text-sm font-medium transition-colors",
-                  location.pathname === item.path
-                    ? "bg-white text-primary"
-                    : "text-white/70 hover:bg-white/15 hover:text-white"
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-
-          <div>
-            <UserProfileIcon />
+          <div className="flex items-center gap-3">
+            <button
+              className="-ml-2 p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5 text-white" />
+            </button>
+            <Link to="/" className="flex items-center gap-3 text-2xl font-bold">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <Activity className="w-6 h-6 text-white" />
+              </div>
+              <span>PranicDoc</span>
+            </Link>
           </div>
+
+          <UserProfileIcon />
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 max-w-7xl w-full mx-auto">
+        <Sidebar
+          items={healerNavItems}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+        <main className="flex-1 p-6 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

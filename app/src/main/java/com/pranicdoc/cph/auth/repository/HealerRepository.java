@@ -23,4 +23,6 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
            WHERE h.id = :healerId
        """)
     String findEmailById(UUID healerId);
+
+    boolean existsByIdAndClinicId(UUID id, UUID clinicId);
 }

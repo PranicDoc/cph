@@ -87,7 +87,7 @@ export function PlanPicker({
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">
           <CreditCard className="w-6 h-6 text-primary" />
-          <h2 className="text-2xl font-bold text-primary-dark">
+          <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">
             Choose a Plan
           </h2>
         </div>
@@ -100,7 +100,7 @@ export function PlanPicker({
         <p className="text-center text-sm text-red-500">{purchaseError}</p>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {sorted.map((pkg) => {
           const isFree = pkg.price_paise === 0;
           const isThisSelected = selectedPkgId === pkg.id && isPending;
@@ -108,11 +108,11 @@ export function PlanPicker({
           return (
             <div
               key={pkg.id}
-              className="rounded-xl border border-border p-6 space-y-3 shadow-sm bg-card flex flex-col"
+              className="rounded-xl border border-border p-4 sm:p-5 space-y-2 shadow-sm bg-card flex flex-col"
             >
-              <p className="text-xl font-bold text-primary-dark">{pkg.name}</p>
+              <p className="text-base sm:text-lg font-bold text-primary-dark leading-tight">{pkg.name}</p>
               <p className="text-text-light text-sm">{pkg.credits} credits</p>
-              <p className="text-lg font-semibold text-primary">
+              <p className="text-base sm:text-lg font-semibold text-primary">
                 {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
               </p>
               <div className="flex-1" />

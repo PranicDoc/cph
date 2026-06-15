@@ -63,80 +63,88 @@ export function UpgradeModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div className="bg-card rounded-2xl p-8 max-w-2xl w-full mx-4 relative shadow-xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-text-light hover:text-text transition-colors"
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="space-y-2 mb-6">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-primary-dark">Upgrade Your Plan</h2>
-          </div>
-          <p className="text-text-light">
-            You've run out of credits. Choose a plan to continue generating PDFs.
-          </p>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+      <div className="bg-card w-full sm:max-w-2xl sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-xl relative max-h-[92vh] flex flex-col">
+        {/* Drag handle pill (mobile only) */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 bg-border rounded-full" />
         </div>
 
-        {purchaseError && (
-          <p className="mb-4 text-sm text-red-500">{purchaseError}</p>
-        )}
+        {/* Scrollable body */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-text-light hover:text-text transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="space-y-1.5 mb-5">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+              <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">Upgrade Your Plan</h2>
+            </div>
+            <p className="text-sm text-text-light">
+              You've run out of credits. Choose a plan to continue generating PDFs.
+            </p>
           </div>
-        ) : error ? (
-          <div className="text-center py-8 text-text-light">
-            <p>Failed to load plans. Please try again.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {sorted.map((pkg) => {
-              const isFree = pkg.price_paise === 0;
-              const isThisSelected = selectedPkgId === pkg.id && isPending;
 
-              return (
-                <div
-                  key={pkg.id}
-                  className="rounded-xl border border-border p-6 space-y-3 shadow-sm flex flex-col"
-                >
-                  <p className="text-xl font-bold text-primary-dark">{pkg.name}</p>
-                  <p className="text-text-light text-sm">{pkg.credits} credits</p>
-                  <p className="text-lg font-semibold text-primary">
-                    {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
-                  </p>
-                  <div className="flex-1" />
-                  {isFree ? (
-                    <span className="w-full text-center px-4 py-2 rounded-lg text-sm font-medium bg-border text-text pointer-events-none">
-                      Current Plan
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleUpgrade(pkg)}
-                      disabled={isPending}
-                      className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
-                    >
-                      {isThisSelected ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Processing…
-                        </span>
-                      ) : (
-                        "Upgrade"
-                      )}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+          {purchaseError && (
+            <p className="mb-4 text-sm text-red-500">{purchaseError}</p>
+          )}
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-10 text-text-light">
+              <p>Failed to load plans. Please try again.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {sorted.map((pkg) => {
+                const isFree = pkg.price_paise === 0;
+                const isThisSelected = selectedPkgId === pkg.id && isPending;
+
+                return (
+                  <div
+                    key={pkg.id}
+                    className="rounded-xl border border-border p-4 sm:p-5 space-y-2 shadow-sm flex flex-col"
+                  >
+                    <p className="text-base sm:text-lg font-bold text-primary-dark leading-tight">{pkg.name}</p>
+                    <p className="text-text-light text-sm">{pkg.credits} credits</p>
+                    <p className="text-base sm:text-lg font-semibold text-primary">
+                      {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
+                    </p>
+                    <div className="flex-1" />
+                    {isFree ? (
+                      <span className="w-full text-center px-4 py-2 rounded-lg text-sm font-medium bg-border text-text pointer-events-none">
+                        Current Plan
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleUpgrade(pkg)}
+                        disabled={isPending}
+                        className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
+                      >
+                        {isThisSelected ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing…
+                          </span>
+                        ) : (
+                          "Upgrade"
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
