@@ -48,6 +48,7 @@ app:
     same-site: None   # "None" for cross-origin, "Strict" for same-site only
   enable:
     kafka: false
+    credit-service: false
   feedback:
     url: https://localhost:3000/feedback
     token-expiry-hours: 48
