@@ -5,6 +5,7 @@ import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.enums.Gender;
 import com.pranicdoc.cph.common.enums.MaritalStatus;
 import com.pranicdoc.cph.common.model.TenantEntity;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.patient.dto.MedicalHistoryRequest;
 import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
@@ -73,6 +74,9 @@ public class Patient extends TenantEntity {
     @Column(name = "zip", length = 10)
     private String zip;
 
+    @Column(name = "healer_id", columnDefinition = "uuid")
+    private UUID healerId;
+
     // 1:1 bidirectional with PatientMedicalHistory (living master, updated anytime)
     @OneToOne(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
@@ -81,6 +85,11 @@ public class Patient extends TenantEntity {
     public static Patient create(PatientCreateRequest req) {
         Patient p = new Patient();
         populateIds(p);
+        UUID healerId = new SecurityContextUtil().getCurrentHealerIdOrNull();
+        if (healerId == null) {
+            throw new IllegalStateException("Missing healer context");
+        }
+        p.setHealerId(healerId);
         // business fields
         p.setFirstName(req.firstName());
         p.setLastName(req.lastName());
