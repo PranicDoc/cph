@@ -7,6 +7,7 @@ import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+@ConditionalOnProperty(
+        name = "app.enable.credit-service",
+        havingValue = "true"
+)
 @Service
 @Slf4j
 public class CreditServiceImpl implements CreditService {
@@ -57,13 +62,26 @@ public class CreditServiceImpl implements CreditService {
 
     @Override
     public BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId) {
-        // TODO: implement in Plan 08-B
-        throw new UnsupportedOperationException("getBalance not yet implemented — see Plan 08-B");
+        return creditServiceRestClient.get()
+                .uri("/credits/balance?ownerType={ownerType}&ownerId={ownerId}", ownerType, ownerId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, resp) -> {
+                    throw new ResponseStatusException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                })
+                .body(BalanceCreditResponse.class);
     }
 
     @Override
     public PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size) {
-        // TODO: implement in Plan 08-B
-        throw new UnsupportedOperationException("getTransactions not yet implemented — see Plan 08-B");
+        return creditServiceRestClient.get()
+                .uri("/credits/transactions?ownerType={ownerType}&ownerId={ownerId}&page={page}&size={size}",
+                        ownerType, ownerId, page, size)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, resp) -> {
+                    throw new ResponseStatusException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                })
+                .body(PagedTransactionResponse.class);
     }
 }
