@@ -3,6 +3,7 @@ package com.pranicdoc.cph.payments;
 import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
+import com.pranicdoc.cph.payments.service.impl.CreditServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * avoiding @MockBean/CreditProxyConfig bean-replacement ordering issues.
  */
 @WebMvcTest(CreditProxyController.class)
-@Import({SecurityConfig.class, CreditProxyControllerTest.RestClientTestConfig.class})
+@Import({SecurityConfig.class, CreditProxyControllerTest.RestClientTestConfig.class, CreditServiceImpl.class})
 @TestPropertySource(properties = "app.enable.credit-service=true")
 class CreditProxyControllerTest {
 
