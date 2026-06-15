@@ -6,6 +6,7 @@ import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.SessionIncompleteException;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.util.PhoneNumberFormatter;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.ProtocolRequest;
@@ -44,6 +45,7 @@ public class SessionService {
     private final ChakraCatalogRepository chakraCatalogRepository;
     private final PranaColorCatalogRepository pranaColorCatalogRepository;
     private final NotificationService notificationService;
+    private final SecurityContextUtil securityContextUtil;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -158,5 +160,12 @@ public class SessionService {
                 s.getSessionNumber(), s.getSessionDate(),
                 s.getStartTime(), s.getEndTime(), s.getStatus()
         );
+    }
+
+    @Auditable(action = "FETCH_ALL_SESSIONS_THIS_MONTH")
+    @Transactional(readOnly = true)
+    public long getAllSessionsCountThisMonth() {
+        String healerId = securityContextUtil.getCurrentHealerId().toString();
+        return sessionRepository.getAllSessionsCountThisMonth(healerId);
     }
 }
