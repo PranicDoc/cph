@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
+import com.pranicdoc.cph.analytics.dto.DashboardSessionTrends;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -26,6 +27,16 @@ public class DashboardServiceImpl implements DashboardService {
         long activePatients = patientService.getAllActivePatientsCount();
         long sessionsThisMonth = sessionService.getAllSessionsCountThisMonth();
         long pdfsGeneratedThisMonth = pdfJobService.countPdfsGeneratedThisMonth();
-        return null;
+        return ApiResponse.of(
+            new DashboardSummary(
+                activePatients, sessionsThisMonth, 0, pdfsGeneratedThisMonth
+            )
+        );
+    }
+
+    @Override
+    public ApiResponse<DashboardSessionTrends> getSessionTrends() {
+        // TODO: implement session trends query — placeholder returning empty data
+        return ApiResponse.of(new DashboardSessionTrends(null));
     }
 }
