@@ -77,6 +77,6 @@ public class PatientController {
 
     @PostMapping("/self-register")
     public ResponseEntity<?> selfRegister(@Valid @RequestBody PatientCreateRequest request) {
-        return ResponseEntity.ok(patientService.create(request));
+        return ResponseEntity.ok(patientService.selfRegister(request));
     }
 }

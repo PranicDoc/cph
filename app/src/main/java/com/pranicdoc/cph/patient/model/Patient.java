@@ -5,7 +5,6 @@ import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.enums.Gender;
 import com.pranicdoc.cph.common.enums.MaritalStatus;
 import com.pranicdoc.cph.common.model.TenantEntity;
-import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.patient.dto.MedicalHistoryRequest;
 import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
@@ -82,13 +81,9 @@ public class Patient extends TenantEntity {
     @JsonManagedReference
     private PatientMedicalHistory medicalHistory;
 
-    public static Patient create(PatientCreateRequest req) {
+    public static Patient create(PatientCreateRequest req, UUID healerId) {
         Patient p = new Patient();
         populateIds(p);
-        UUID healerId = new SecurityContextUtil().getCurrentHealerIdOrNull();
-        if (healerId == null) {
-            throw new IllegalStateException("Missing healer context");
-        }
         p.setHealerId(healerId);
         // business fields
         p.setFirstName(req.firstName());

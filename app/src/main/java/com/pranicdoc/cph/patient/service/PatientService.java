@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.patient.dto.*;
 import com.pranicdoc.cph.patient.model.Patient;
@@ -31,12 +32,26 @@ public class PatientService {
 
     private final PatientRepository patientRepository;
     private final RegistrationLinkRepository registrationLinkRepository;
+    private final SecurityContextUtil securityContextUtil;
     @Value("${app.base.url:http://localhost:3000}")
     private String baseUrl;
 
     @Auditable(action = "CREATE_PATIENT")
     public PatientResponse create(PatientCreateRequest request) {
-        Patient patient = Patient.create(request);
+        UUID healerId = securityContextUtil.getCurrentHealerIdOrNull();
+        if (healerId == null) {
+            throw new IllegalStateException("Missing healer context");
+        }
+        Patient patient = Patient.create(request, healerId);
+        return toResponse(patientRepository.save(patient));
+    }
+
+    @Auditable(action = "SELF_REGISTER_PATIENT")
+    public PatientResponse selfRegister(PatientCreateRequest request) {
+        // SELF_REG tokens carry a random UUID as subject — no real healer in context.
+        // healerId is left null; these patients are excluded from dashboard queries
+        // until a healer manually claims them or V4 is applied after orphan cleanup.
+        Patient patient = Patient.create(request, null);
         return toResponse(patientRepository.save(patient));
     }
 
@@ -161,6 +176,7 @@ public class PatientService {
     @Auditable(action = "FETCH_PATIENTS")
     @Transactional(readOnly = true)
     public List<PatientCaseResponse> getAllPatients() {
-        return patientRepository.fetchPatientsWithLatestCaseStatus();
+        String clinicId = securityContextUtil.getCurrentClinicId().toString();
+        return patientRepository.fetchPatientsWithLatestCaseStatus(clinicId);
     }
 }
