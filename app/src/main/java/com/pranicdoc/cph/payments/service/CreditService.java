@@ -1,2 +1,16 @@
-package com.pranicdoc.cph.payments.service;public interface CreditService {
+package com.pranicdoc.cph.payments.service;
+
+import com.pranicdoc.cph.payments.dto.BalanceCreditResponse;
+import com.pranicdoc.cph.payments.dto.OwnerType;
+import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
+import jakarta.annotation.Nullable;
+import org.springframework.http.ResponseEntity;
+
+import java.util.UUID;
+
+public interface CreditService {
+    ResponseEntity<String> getPackages();
+    ResponseEntity<String> purchase(String requestBody, @Nullable String idempotencyKey);
+    BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId);
+    PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size);
 }
