@@ -1,36 +1,28 @@
-package com.pranicdoc.cph.healing.service;
+package com.pranicdoc.cph.healing.service.impl;
 
+import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.common.audit.Auditable;
-import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.SessionIncompleteException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
-import com.pranicdoc.cph.common.util.PhoneNumberFormatter;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
-import com.pranicdoc.cph.healing.dto.ProtocolRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
-import com.pranicdoc.cph.notification.entity.FeedbackLink;
-import com.pranicdoc.cph.notification.entity.NotificationOutbox;
-import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
-import com.pranicdoc.cph.notification.repository.OutboxRepository;
-import com.pranicdoc.cph.patient.service.PatientService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -166,6 +158,23 @@ public class SessionService {
     @Transactional(readOnly = true)
     public long getAllSessionsCountThisMonth() {
         String healerId = securityContextUtil.getCurrentHealerId().toString();
-        return sessionRepository.getAllSessionsCountThisMonth(healerId);
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfMonth =
+                today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime startOfNextMonth =
+                today.plusMonths(1)
+                        .withDayOfMonth(1)
+                        .atStartOfDay();
+        return sessionRepository.getAllSessionsCountThisMonth(healerId, startOfMonth, startOfNextMonth);
+    }
+
+    @Auditable(action = "FETCH_SESSION_TRENDS")
+    @Transactional(readOnly = true)
+    public List<DashboardSessionTrend> getSessionTrends() {
+        String healerId = securityContextUtil.getCurrentHealerId().toString();
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.withDayOfMonth(1);
+        LocalDate endDate = today;
+        return sessionRepository.getSessionTrends(healerId, startDate, endDate);
     }
 }
