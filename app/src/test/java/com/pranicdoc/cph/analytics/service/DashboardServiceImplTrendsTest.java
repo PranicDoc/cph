@@ -143,7 +143,7 @@ class DashboardServiceImplTrendsTest {
                 new DashboardPatientGrowth(from.plusDays(2), 4L),
                 new DashboardPatientGrowth(from.plusDays(5), 2L)
         );
-        when(patientService.getPatientGrowth(eq(HEALER_ID.toString()), eq(from), eq(to))).thenReturn(sparse);
+        when(patientService.getPatientGrowth(eq(HEALER_ID), eq(from), eq(to))).thenReturn(sparse);
 
         ApiResponse<List<DashboardPatientGrowth>> response =
                 dashboardServiceImpl.getPatientGrowth(HEALER_ID, new DateRangeFilter("7d", null, null));
@@ -165,7 +165,7 @@ class DashboardServiceImplTrendsTest {
         LocalDate from = today.minusDays(30);
         LocalDate to = today;
         when(dateRangeResolver.resolve(any())).thenReturn(new DateRangeResolver.DateRange(from, to));
-        when(patientService.getPatientGrowth(eq(HEALER_ID.toString()), eq(from), eq(to))).thenReturn(List.of());
+        when(patientService.getPatientGrowth(eq(HEALER_ID), eq(from), eq(to))).thenReturn(List.of());
 
         ApiResponse<List<DashboardPatientGrowth>> response =
                 dashboardServiceImpl.getPatientGrowth(HEALER_ID, new DateRangeFilter(null, null, null));
