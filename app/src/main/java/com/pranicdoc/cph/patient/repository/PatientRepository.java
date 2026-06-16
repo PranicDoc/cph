@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,6 +55,33 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
                 FROM HealingCase hc2
                 WHERE hc2.patientId = p.id
             )
+        WHERE p.clinicId = :clinicId
     """)
-    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus();
+    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") String clinicId);
+
+    @Query(""" 
+        SELECT COUNT(p) FROM Patient p WHERE p.healerId = :healerId
+    """)
+    long fetchAllActivePatientsCount(@Param("healerId") String healerId);
+
+    @Query(nativeQuery = true, value = """
+        SELECT DATE(p.created_at) AS date,
+               COUNT(*) AS count
+        FROM patient p
+        WHERE p.healer_id = :healerId::uuid
+          AND DATE(p.created_at) >= CAST(:startDate AS DATE)
+          AND DATE(p.created_at) <= CAST(:endDate AS DATE)
+          AND p.is_deleted = false
+        GROUP BY DATE(p.created_at)
+        ORDER BY date ASC
+    """)
+    List<PatientGrowthPoint> getPatientGrowth(
+            @Param("healerId") String healerId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    interface PatientGrowthPoint {
+        java.time.LocalDate getDate();
+        Long getCount();
+    }
 }
