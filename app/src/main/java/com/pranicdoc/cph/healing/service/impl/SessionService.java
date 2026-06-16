@@ -119,7 +119,7 @@ public class SessionService {
     }
 
     /**
-     * Complete a session — validates all required steps are present.
+     * Complete a session -- validates all required steps are present.
      */
     @Auditable(action = "COMPLETE_SESSION")
     public SessionResponse complete(UUID sessionId) {
@@ -170,11 +170,7 @@ public class SessionService {
 
     @Auditable(action = "FETCH_SESSION_TRENDS")
     @Transactional(readOnly = true)
-    public List<DashboardSessionTrend> getSessionTrends() {
-        String healerId = securityContextUtil.getCurrentHealerId().toString();
-        LocalDate today = LocalDate.now();
-        LocalDate startDate = today.withDayOfMonth(1);
-        LocalDate endDate = today;
-        return sessionRepository.getSessionTrends(healerId, startDate, endDate);
+    public List<DashboardSessionTrend> getSessionTrends(String healerId, LocalDate from, LocalDate to) {
+        return sessionRepository.getSessionTrends(healerId, from, to);
     }
 }

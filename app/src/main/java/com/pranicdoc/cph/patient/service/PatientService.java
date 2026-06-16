@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.patient.service;
 
+import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -178,5 +180,19 @@ public class PatientService {
     public List<PatientCaseResponse> getAllPatients() {
         String clinicId = securityContextUtil.getCurrentClinicId().toString();
         return patientRepository.fetchPatientsWithLatestCaseStatus(clinicId);
+    }
+
+    @Auditable(action = "FETCH_ACTIVE_PATIENTS")
+    @Transactional(readOnly = true)
+    public long getAllActivePatientsCount() {
+        String healerId = securityContextUtil.getCurrentHealerId().toString();
+        return patientRepository.fetchAllActivePatientsCount(healerId);
+    }
+    @Auditable(action = "FETCH_PATIENT_GROWTH")
+    @Transactional(readOnly = true)
+    public List<DashboardPatientGrowth> getPatientGrowth(String healerId, LocalDate from, LocalDate to) {
+        return patientRepository.getPatientGrowth(healerId, from, to).stream()
+                .map(p -> new DashboardPatientGrowth(p.getDate(), p.getCount()))
+                .toList();
     }
 }
