@@ -1,9 +1,10 @@
-package com.pranicdoc.cph.clinic.dto;
+package com.pranicdoc.cph.analytics.dto;
 
 public record DashboardSummary(
         long activePatients,
         long sessionsThisMonth,
-        long creditsRemaining,
-        long pdfsGeneratedThisMonth
+        Long creditsRemaining,
+        long pdfsGeneratedThisMonth,
+        boolean creditServiceUnavailable
 ) {
 }

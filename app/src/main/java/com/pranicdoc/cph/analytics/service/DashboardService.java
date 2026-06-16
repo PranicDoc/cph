@@ -1,12 +1,14 @@
 package com.pranicdoc.cph.analytics.service;
 
+import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface DashboardService {
-    ApiResponse<DashboardSummary> getSummary();
-    ApiResponse<List<DashboardSessionTrend>> getSessionTrends();
+    ApiResponse<DashboardSummary> getSummary(UUID healerId);
+    ApiResponse<List<DashboardSessionTrend>> getSessionTrends(UUID healerId, DateRangeFilter filter);
 }
