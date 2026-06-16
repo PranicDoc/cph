@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.analytics.controller;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.analytics.service.DashboardService;
@@ -35,5 +36,12 @@ public class DashboardController {
             @ModelAttribute DateRangeFilter filter) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         return ResponseEntity.ok(dashboardService.getSessionTrends(healerId, filter));
+    }
+
+    @GetMapping("patient-growth")
+    public ResponseEntity<ApiResponse<List<DashboardPatientGrowth>>> getPatientGrowth(
+            @ModelAttribute DateRangeFilter filter) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getPatientGrowth(healerId, filter));
     }
 }

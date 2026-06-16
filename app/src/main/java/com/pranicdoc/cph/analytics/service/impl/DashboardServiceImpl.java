@@ -94,7 +94,7 @@ public class DashboardServiceImpl implements DashboardService {
     public ApiResponse<List<DashboardPatientGrowth>> getPatientGrowth(UUID healerId, DateRangeFilter filter) {
         DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
         List<DashboardPatientGrowth> raw = patientService.getPatientGrowth(
-                healerId.toString(), range.from(), range.to());
+                healerId, range.from(), range.to());
         Map<LocalDate, Long> counts = raw.stream()
                 .collect(Collectors.toMap(DashboardPatientGrowth::date, DashboardPatientGrowth::count));
         List<DashboardPatientGrowth> filled = range.from().datesUntil(range.to().plusDays(1))
