@@ -1,6 +1,9 @@
 package com.pranicdoc.cph.analytics.dto;
 
+import java.time.LocalDate;
+
 public record DashboardSessionTrend(
-        String data
+        LocalDate date,
+        long count
 ) {
 }
