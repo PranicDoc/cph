@@ -80,3 +80,7 @@ management:
       show-details: always
       probes:
         enabled: true
+
+dashboard:
+  cache:
+    ttl-minutes: 5
