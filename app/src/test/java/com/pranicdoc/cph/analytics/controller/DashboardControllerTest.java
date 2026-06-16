@@ -44,14 +44,9 @@ class DashboardControllerTest {
     @MockBean
     private TenantInterceptor tenantInterceptor;
 
-    // Test 5: Unauthenticated request to GET /api/v1/dashboard/summary is blocked (401 or 403)
-    // Note: Spring Security returns 403 for unauthenticated requests in this JWT stateless config
-    // (no custom AuthenticationEntryPoint). The invariant is that unauthenticated access is
-    // blocked — matching the pattern established in CreditProxyControllerTest.
     @Test
-    void getDashboardSummary_unauthenticated_returns4xxClientError() throws Exception {
-        // No Authorization header — JWT filter chain blocks the request
+    void getDashboardSummary_unauthenticated_returns401() throws Exception {
         mockMvc.perform(get("/api/v1/dashboard/summary"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized());
     }
 }
