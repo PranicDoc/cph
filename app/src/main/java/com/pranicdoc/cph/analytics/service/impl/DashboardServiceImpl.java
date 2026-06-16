@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.analytics.service.DashboardService;
@@ -18,8 +19,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -70,7 +74,32 @@ public class DashboardServiceImpl implements DashboardService {
             sync = true
     )
     public ApiResponse<List<DashboardSessionTrend>> getSessionTrends(UUID healerId, DateRangeFilter filter) {
-        dateRangeResolver.resolve(filter);
-        return ApiResponse.of(sessionService.getSessionTrends());
+        DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
+        List<DashboardSessionTrend> raw = sessionService.getSessionTrends(
+                healerId.toString(), range.from(), range.to());
+        Map<LocalDate, Long> counts = raw.stream()
+                .collect(Collectors.toMap(DashboardSessionTrend::date, DashboardSessionTrend::count));
+        List<DashboardSessionTrend> filled = range.from().datesUntil(range.to().plusDays(1))
+                .map(d -> new DashboardSessionTrend(d, counts.getOrDefault(d, 0L)))
+                .toList();
+        return ApiResponse.of(filled);
+    }
+
+    @Override
+    @Cacheable(
+            value = "dashboard.patient-growth",
+            key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate",
+            sync = true
+    )
+    public ApiResponse<List<DashboardPatientGrowth>> getPatientGrowth(UUID healerId, DateRangeFilter filter) {
+        DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
+        List<DashboardPatientGrowth> raw = patientService.getPatientGrowth(
+                healerId.toString(), range.from(), range.to());
+        Map<LocalDate, Long> counts = raw.stream()
+                .collect(Collectors.toMap(DashboardPatientGrowth::date, DashboardPatientGrowth::count));
+        List<DashboardPatientGrowth> filled = range.from().datesUntil(range.to().plusDays(1))
+                .map(d -> new DashboardPatientGrowth(d, counts.getOrDefault(d, 0L)))
+                .toList();
+        return ApiResponse.of(filled);
     }
 }

@@ -21,7 +21,7 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager("healerEmail");
 
-        // Global spec for healerEmail — DO NOT change (12h TTL, 10_000 max entries)
+        // Global spec for healerEmail -- DO NOT change (12h TTL, 10_000 max entries)
         manager.setCaffeine(
                 Caffeine.newBuilder()
                         .maximumSize(10_000)
@@ -42,6 +42,13 @@ public class CacheConfig {
                         .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
                         .build();
         manager.registerCustomCache("dashboard.session-trends", trendsCache);
+
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> growthCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.patient-growth", growthCache);
 
         return manager;
     }
