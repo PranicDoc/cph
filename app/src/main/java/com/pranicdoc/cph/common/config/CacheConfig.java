@@ -63,6 +63,27 @@ public class CacheConfig {
                         .build();
         manager.registerCustomCache("dashboard.top-protocols", topProtocolsCache);
 
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> upcomingSessionsCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.upcoming-sessions", upcomingSessionsCache);
+
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> pendingReportsCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.pending-reports", pendingReportsCache);
+
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> followupsCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.followups", followupsCache);
+
         return manager;
     }
 }

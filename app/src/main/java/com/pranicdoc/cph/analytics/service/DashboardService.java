@@ -1,6 +1,9 @@
 package com.pranicdoc.cph.analytics.service;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
+import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
+import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
@@ -17,4 +20,7 @@ public interface DashboardService {
     ApiResponse<List<DashboardPatientGrowth>> getPatientGrowth(UUID healerId, DateRangeFilter filter);
     ApiResponse<List<DashboardTopSymptom>> getTopSymptoms(UUID healerId, DateRangeFilter filter);
     ApiResponse<List<DashboardTopProtocol>> getTopProtocols(UUID healerId, DateRangeFilter filter);
+    ApiResponse<List<DashboardUpcomingSession>> getUpcomingSessions(UUID healerId);
+    ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId);
+    ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId);
 }

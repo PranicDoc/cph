@@ -1,7 +1,10 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
+import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
+import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
@@ -130,5 +133,26 @@ public class DashboardServiceImpl implements DashboardService {
     public ApiResponse<List<DashboardTopProtocol>> getTopProtocols(UUID healerId, DateRangeFilter filter) {
         DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
         return ApiResponse.of(caseService.getTopProtocols(healerId, range.from(), range.to()));
+    }
+
+    @Override
+    @Cacheable(value = "dashboard.upcoming-sessions", key = "#healerId", sync = true)
+    @Transactional(readOnly = true)
+    public ApiResponse<List<DashboardUpcomingSession>> getUpcomingSessions(UUID healerId) {
+        return ApiResponse.of(sessionService.getUpcomingSessions(healerId));
+    }
+
+    @Override
+    @Cacheable(value = "dashboard.pending-reports", key = "#healerId", sync = true)
+    @Transactional(readOnly = true)
+    public ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId) {
+        return ApiResponse.of(sessionService.getPendingReports(healerId));
+    }
+
+    @Override
+    @Cacheable(value = "dashboard.followups", key = "#healerId", sync = true)
+    @Transactional(readOnly = true)
+    public ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId) {
+        return ApiResponse.of(patientService.getFollowups(healerId));
     }
 }
