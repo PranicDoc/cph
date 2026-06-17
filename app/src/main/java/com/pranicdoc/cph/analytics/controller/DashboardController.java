@@ -1,6 +1,9 @@
 package com.pranicdoc.cph.analytics.controller;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
+import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
+import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
@@ -59,5 +62,23 @@ public class DashboardController {
             @ModelAttribute DateRangeFilter filter) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         return ResponseEntity.ok(dashboardService.getTopProtocols(healerId, filter));
+    }
+
+    @GetMapping("upcoming-sessions")
+    public ResponseEntity<ApiResponse<List<DashboardUpcomingSession>>> getUpcomingSessions() {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getUpcomingSessions(healerId));
+    }
+
+    @GetMapping("pending-reports")
+    public ResponseEntity<ApiResponse<List<DashboardPendingReport>>> getPendingReports() {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getPendingReports(healerId));
+    }
+
+    @GetMapping("followups")
+    public ResponseEntity<ApiResponse<List<DashboardFollowup>>> getFollowups() {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getFollowups(healerId));
     }
 }
