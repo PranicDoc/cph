@@ -2,6 +2,8 @@ package com.pranicdoc.cph.analytics.controller;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
+import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
+import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
 import com.pranicdoc.cph.analytics.service.DashboardService;
@@ -43,5 +45,19 @@ public class DashboardController {
             @ModelAttribute DateRangeFilter filter) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         return ResponseEntity.ok(dashboardService.getPatientGrowth(healerId, filter));
+    }
+
+    @GetMapping("top-symptoms")
+    public ResponseEntity<ApiResponse<List<DashboardTopSymptom>>> getTopSymptoms(
+            @ModelAttribute DateRangeFilter filter) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getTopSymptoms(healerId, filter));
+    }
+
+    @GetMapping("top-protocols")
+    public ResponseEntity<ApiResponse<List<DashboardTopProtocol>>> getTopProtocols(
+            @ModelAttribute DateRangeFilter filter) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getTopProtocols(healerId, filter));
     }
 }
