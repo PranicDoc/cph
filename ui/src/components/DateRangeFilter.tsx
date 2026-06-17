@@ -19,18 +19,34 @@ export function DateRangeFilter() {
         setShowPicker(false);
       }
     }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowPicker(false);
+    }
     if (showPicker) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [showPicker]);
+
+  function toLocalDateString(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
 
   const applyRange = () => {
     if (customRange?.from && customRange?.to) {
-      setSearchParams({
-        period: "custom",
-        from: customRange.from.toISOString().slice(0, 10),
-        to: customRange.to.toISOString().slice(0, 10),
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("period", "custom");
+        next.set("from", toLocalDateString(customRange.from!));
+        next.set("to", toLocalDateString(customRange.to!));
+        return next;
       });
     }
     setShowPicker(false);
@@ -51,7 +67,15 @@ export function DateRangeFilter() {
       {(["7d", "30d", "90d"] as const).map((preset) => (
         <button
           key={preset}
-          onClick={() => setSearchParams({ period: preset })}
+          onClick={() =>
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("period", preset);
+              next.delete("from");
+              next.delete("to");
+              return next;
+            })
+          }
           className={pillClass(activePeriod === preset)}
         >
           {preset}
@@ -74,12 +98,13 @@ export function DateRangeFilter() {
               onSelect={setCustomRange}
             />
             <div className="flex justify-end gap-2 mt-4">
-              <span
+              <button
+                type="button"
                 className="text-sm text-text-light hover:text-text cursor-pointer select-none"
                 onClick={() => setShowPicker(false)}
               >
                 Cancel
-              </span>
+              </button>
               <button
                 onClick={applyRange}
                 disabled={!customRange?.from || !customRange?.to}

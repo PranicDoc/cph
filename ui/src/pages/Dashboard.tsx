@@ -15,7 +15,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useDashboardSummary();
 
-  const firstName = user?.fullName?.split(" ")[0];
+  const firstName = user?.fullName?.split(" ")[0] || undefined;
   const heading = getGreeting(firstName);
 
   return (
