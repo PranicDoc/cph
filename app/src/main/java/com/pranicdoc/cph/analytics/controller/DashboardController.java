@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.analytics.controller;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardCreditUsage;
 import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
@@ -80,5 +81,12 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<List<DashboardFollowup>>> getFollowups() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         return ResponseEntity.ok(dashboardService.getFollowups(healerId));
+    }
+
+    @GetMapping("credit-usage")
+    public ResponseEntity<ApiResponse<List<DashboardCreditUsage>>> getCreditUsage(
+            @ModelAttribute DateRangeFilter filter) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getCreditUsage(healerId, filter));
     }
 }
