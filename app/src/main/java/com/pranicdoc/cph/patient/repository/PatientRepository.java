@@ -57,12 +57,12 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
             )
         WHERE p.clinicId = :clinicId
     """)
-    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") String clinicId);
+    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") UUID clinicId);
 
     @Query(""" 
         SELECT COUNT(p) FROM Patient p WHERE p.healerId = :healerId
     """)
-    long fetchAllActivePatientsCount(@Param("healerId") String healerId);
+    long fetchAllActivePatientsCount(@Param("healerId") UUID healerId);
 
     @Query(nativeQuery = true, value = """
         SELECT DATE(p.created_at) AS date,
@@ -76,12 +76,42 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
         ORDER BY date ASC
     """)
     List<PatientGrowthPoint> getPatientGrowth(
-            @Param("healerId") String healerId,
+            @Param("healerId") UUID healerId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
     interface PatientGrowthPoint {
         java.time.LocalDate getDate();
         Long getCount();
+    }
+
+    @Query(nativeQuery = true, value = """
+        SELECT p.id                          AS patientId,
+               p.first_name                 AS patientFirstName,
+               p.last_name                  AS patientLastName,
+               MAX(hs.session_date)         AS lastSessionDate,
+               CURRENT_DATE - MAX(hs.session_date) AS daysSinceLastSession
+        FROM patient p
+        JOIN healing_case hc ON hc.patient_id = p.id
+        JOIN healing_session hs ON hs.healing_case_id = hc.id
+        WHERE hc.healer_id = :healerId::uuid
+          AND hs.status = 'COMPLETED'
+          AND p.is_deleted  = false
+          AND hc.is_deleted = false
+          AND hs.is_deleted = false
+        GROUP BY p.id, p.first_name, p.last_name
+        HAVING MAX(hs.session_date) < CAST(:cutoffDate AS DATE)
+        ORDER BY MAX(hs.session_date) ASC
+    """)
+    List<FollowupPoint> getFollowups(
+            @Param("healerId") UUID healerId,
+            @Param("cutoffDate") LocalDate cutoffDate);
+
+    interface FollowupPoint {
+        UUID getPatientId();
+        String getPatientFirstName();
+        String getPatientLastName();
+        java.time.LocalDate getLastSessionDate();
+        Long getDaysSinceLastSession();
     }
 }
