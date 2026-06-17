@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
+import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
+import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -26,6 +28,7 @@ import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
+import com.pranicdoc.cph.healing.repository.HealingDetailsRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
@@ -42,6 +45,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
@@ -61,6 +65,7 @@ public class CaseService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final RegistrationLinkRepository registrationLinkRepository;
+    private final HealingDetailsRepository healingDetailsRepository;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     /**
@@ -463,8 +468,15 @@ public class CaseService {
         );
     }
 
-    public List<HealingCase> getByHealerId() {
-        UUID healerId = securityContextUtil.getCurrentHealerId();
-        return caseRepository.findByHealerId(healerId, Pageable.unpaged()).getContent();
+    @Transactional(readOnly = true)
+    public List<DashboardTopSymptom> getTopSymptoms(UUID healerId, LocalDate from, LocalDate to) {
+        return caseRepository.getTopSymptoms(healerId, from, to, PageRequest.of(0, 10));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DashboardTopProtocol> getTopProtocols(UUID healerId, LocalDate from, LocalDate to) {
+        Instant fromInstant = from.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toInstant = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        return healingDetailsRepository.getTopProtocols(healerId, fromInstant, toInstant, PageRequest.of(0, 10));
     }
 }
