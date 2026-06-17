@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.analytics.service;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardCreditUsage;
 import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
@@ -23,4 +24,5 @@ public interface DashboardService {
     ApiResponse<List<DashboardUpcomingSession>> getUpcomingSessions(UUID healerId);
     ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId);
     ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId);
+    ApiResponse<List<DashboardCreditUsage>> getCreditUsage(UUID healerId, DateRangeFilter filter);
 }
