@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardCreditUsage;
 import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
@@ -10,6 +11,8 @@ import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
+import com.pranicdoc.cph.payments.dto.CphTransactionResponse;
+import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
 import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.analytics.service.DateRangeResolver;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -18,6 +21,8 @@ import com.pranicdoc.cph.healing.service.impl.SessionService;
 import com.pranicdoc.cph.patient.service.PatientService;
 import com.pranicdoc.cph.payments.dto.BalanceCreditResponse;
 import com.pranicdoc.cph.payments.dto.OwnerType;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -154,5 +159,43 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional(readOnly = true)
     public ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId) {
         return ApiResponse.of(patientService.getFollowups(healerId));
+    }
+
+    @Override
+    @Cacheable(
+            value = "dashboard.credit-usage",
+            key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate",
+            sync = true
+    )
+    public ApiResponse<List<DashboardCreditUsage>> getCreditUsage(UUID healerId, DateRangeFilter filter) {
+        DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
+        Instant fromInstant = range.from().atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toInstant = range.to().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        List<CphTransactionResponse> transactions;
+        try {
+            PagedTransactionResponse paged =
+                    creditService.getTransactions(OwnerType.HEALER, healerId, 0, 500);
+            transactions = (paged != null && paged.content() != null) ? paged.content() : List.of();
+        } catch (ResponseStatusException e) {
+            log.warn("creditService.getTransactions() failed for healerId={}: {}", healerId, e.getMessage());
+            transactions = List.of();
+        }
+
+        Map<LocalDate, Long> dailyConsumption = transactions.stream()
+                .filter(t -> "DEDUCT".equals(t.type()))
+                .filter(t -> t.createdAt() != null
+                        && !t.createdAt().isBefore(fromInstant)
+                        && t.createdAt().isBefore(toInstant))
+                .collect(Collectors.groupingBy(
+                        t -> t.createdAt().atZone(ZoneOffset.UTC).toLocalDate(),
+                        Collectors.summingLong(CphTransactionResponse::amount)
+                ));
+
+        List<DashboardCreditUsage> result = range.from().datesUntil(range.to().plusDays(1))
+                .map(d -> new DashboardCreditUsage(d, dailyConsumption.getOrDefault(d, 0L)))
+                .toList();
+
+        return ApiResponse.of(result);
     }
 }
