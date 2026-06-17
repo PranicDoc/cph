@@ -1,6 +1,9 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
+import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
+import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardSummary;
@@ -16,6 +19,7 @@ import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -35,6 +39,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final CreditService creditService;
     private final PdfJobService pdfJobService;
     private final DateRangeResolver dateRangeResolver;
+    private final CaseService caseService;
 
     @Override
     @Cacheable(value = "dashboard.summary", key = "#healerId", sync = true)
@@ -101,5 +106,29 @@ public class DashboardServiceImpl implements DashboardService {
                 .map(d -> new DashboardPatientGrowth(d, counts.getOrDefault(d, 0L)))
                 .toList();
         return ApiResponse.of(filled);
+    }
+
+    @Override
+    @Cacheable(
+            value = "dashboard.top-symptoms",
+            key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate",
+            sync = true
+    )
+    @Transactional(readOnly = true)
+    public ApiResponse<List<DashboardTopSymptom>> getTopSymptoms(UUID healerId, DateRangeFilter filter) {
+        DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
+        return ApiResponse.of(caseService.getTopSymptoms(healerId, range.from(), range.to()));
+    }
+
+    @Override
+    @Cacheable(
+            value = "dashboard.top-protocols",
+            key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate",
+            sync = true
+    )
+    @Transactional(readOnly = true)
+    public ApiResponse<List<DashboardTopProtocol>> getTopProtocols(UUID healerId, DateRangeFilter filter) {
+        DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
+        return ApiResponse.of(caseService.getTopProtocols(healerId, range.from(), range.to()));
     }
 }

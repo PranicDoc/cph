@@ -49,6 +49,19 @@ public class CacheConfig {
                         .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
                         .build();
         manager.registerCustomCache("dashboard.patient-growth", growthCache);
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> topSymptomsCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.top-symptoms", topSymptomsCache);
+
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> topProtocolsCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.top-protocols", topProtocolsCache);
 
         return manager;
     }
