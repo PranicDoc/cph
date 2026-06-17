@@ -84,6 +84,13 @@ public class CacheConfig {
                         .build();
         manager.registerCustomCache("dashboard.followups", followupsCache);
 
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> creditUsageCache =
+                Caffeine.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(dashboardTtlMinutes, TimeUnit.MINUTES)
+                        .build();
+        manager.registerCustomCache("dashboard.credit-usage", creditUsageCache);
+
         return manager;
     }
 }
