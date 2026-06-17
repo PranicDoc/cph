@@ -174,10 +174,24 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<CphTransactionResponse> transactions;
         try {
-            PagedTransactionResponse paged =
-                    creditService.getTransactions(OwnerType.HEALER, healerId, 0, 500);
-            transactions = (paged != null && paged.content() != null) ? paged.content() : List.of();
-        } catch (ResponseStatusException e) {
+            List<CphTransactionResponse> collected = new java.util.ArrayList<>();
+            int page = 0;
+            final int PAGE_SIZE = 500;
+            final int MAX_PAGES = 10;
+            PagedTransactionResponse paged;
+            do {
+                paged = creditService.getTransactions(OwnerType.HEALER, healerId, page, PAGE_SIZE);
+                if (paged != null && paged.content() != null) {
+                    collected.addAll(paged.content());
+                }
+                page++;
+            } while (paged != null && !paged.last() && page < MAX_PAGES);
+            if (paged != null && !paged.last()) {
+                log.warn("getCreditUsage: healerId={} has more than {} transactions — results may be incomplete",
+                        healerId, (long) MAX_PAGES * PAGE_SIZE);
+            }
+            transactions = collected;
+        } catch (Exception e) {
             log.warn("creditService.getTransactions() failed for healerId={}: {}", healerId, e.getMessage());
             transactions = List.of();
         }
