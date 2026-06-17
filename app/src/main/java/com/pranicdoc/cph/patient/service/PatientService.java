@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.patient.service;
 
+import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
@@ -178,21 +179,35 @@ public class PatientService {
     @Auditable(action = "FETCH_PATIENTS")
     @Transactional(readOnly = true)
     public List<PatientCaseResponse> getAllPatients() {
-        String clinicId = securityContextUtil.getCurrentClinicId().toString();
+        UUID clinicId = securityContextUtil.getCurrentClinicId();
         return patientRepository.fetchPatientsWithLatestCaseStatus(clinicId);
     }
 
     @Auditable(action = "FETCH_ACTIVE_PATIENTS")
     @Transactional(readOnly = true)
     public long getAllActivePatientsCount() {
-        String healerId = securityContextUtil.getCurrentHealerId().toString();
+        UUID healerId = securityContextUtil.getCurrentHealerId();
         return patientRepository.fetchAllActivePatientsCount(healerId);
     }
     @Auditable(action = "FETCH_PATIENT_GROWTH")
     @Transactional(readOnly = true)
-    public List<DashboardPatientGrowth> getPatientGrowth(String healerId, LocalDate from, LocalDate to) {
+    public List<DashboardPatientGrowth> getPatientGrowth(UUID healerId, LocalDate from, LocalDate to) {
         return patientRepository.getPatientGrowth(healerId, from, to).stream()
                 .map(p -> new DashboardPatientGrowth(p.getDate(), p.getCount()))
+                .toList();
+    }
+
+    @Auditable(action = "FETCH_FOLLOWUPS")
+    @Transactional(readOnly = true)
+    public List<DashboardFollowup> getFollowups(UUID healerId) {
+        LocalDate cutoffDate = LocalDate.now().minusDays(30);
+        return patientRepository.getFollowups(healerId, cutoffDate).stream()
+                .map(f -> new DashboardFollowup(
+                        f.getPatientId(),
+                        f.getPatientFirstName(),
+                        f.getPatientLastName(),
+                        f.getLastSessionDate(),
+                        f.getDaysSinceLastSession()))
                 .toList();
     }
 }
