@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,5 +23,19 @@ public interface PdfJobRepository extends JpaRepository<PdfJobEntity, UUID> {
             ScrollPosition position,
             Limit limit,
             Sort sort
+    );
+    @Query("""
+        SELECT COUNT(p)
+        FROM PdfJobEntity p
+        JOIN HealingCase hc
+          ON p.healingCaseId = hc.id
+        WHERE hc.healerId = :healerId
+          AND p.createdAt >= :startOfMonth
+          AND p.createdAt < :startOfNextMonth
+    """)
+    long countPdfsGeneratedThisMonth(
+            @Param("healerId") UUID healerId,
+            @Param("startOfMonth") Instant startOfMonth,
+            @Param("startOfNextMonth") Instant startOfNextMonth
     );
 }

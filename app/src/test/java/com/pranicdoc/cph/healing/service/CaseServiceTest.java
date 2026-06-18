@@ -13,6 +13,7 @@ import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
+import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.storage.service.StorageService;

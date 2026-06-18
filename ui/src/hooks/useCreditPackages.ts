@@ -14,7 +14,7 @@ export interface PackageResponse {
 export function useCreditPackages() {
   return useQuery<PackageResponse[]>({
     queryKey: ["credit-packages"],
-    queryFn: () => api.get("/api/credits/packages").then((r) => r.data),
+    queryFn: () => api.get("/api/credits/packages").then((r) => r.data?.data),
     staleTime: 5 * 60 * 1000,
   });
 }

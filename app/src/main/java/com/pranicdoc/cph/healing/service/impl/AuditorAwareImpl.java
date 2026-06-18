@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.healing.service;
+package com.pranicdoc.cph.healing.service.impl;
 
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;

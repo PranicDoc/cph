@@ -2,7 +2,7 @@ package com.pranicdoc.cph.healing.controller;
 
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
-import com.pranicdoc.cph.healing.service.FeedbackService;
+import com.pranicdoc.cph.healing.service.impl.FeedbackService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

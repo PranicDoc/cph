@@ -1,10 +1,8 @@
 package com.pranicdoc.cph.healing.service;
 
-import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
-import com.pranicdoc.cph.healing.dto.ProtocolRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.ScanRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
@@ -12,8 +10,9 @@ import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
-import com.pranicdoc.cph.healing.model.ProtocolEntry;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.healing.service.impl.CaseService;
+import com.pranicdoc.cph.healing.service.impl.SessionService;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import org.junit.jupiter.api.Test;

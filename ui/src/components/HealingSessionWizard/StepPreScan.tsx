@@ -22,6 +22,7 @@ export function StepPreScan({
 }: StepPreScanProps) {
   function handleTranscript(transcript: string) {
     const updated = parseChakraTranscript(transcript, availableChakras, value);
+    console.log(updated);
     onChange(updated);
   }
 

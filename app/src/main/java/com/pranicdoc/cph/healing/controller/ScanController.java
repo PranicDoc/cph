@@ -1,7 +1,7 @@
 package com.pranicdoc.cph.healing.controller;
 
 import com.pranicdoc.cph.healing.dto.ScanRequest;
-import com.pranicdoc.cph.healing.service.ScanService;
+import com.pranicdoc.cph.healing.service.impl.ScanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.healing.service;
+package com.pranicdoc.cph.healing.service.impl;
 
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.healing.dto.ScanRequest;

@@ -15,7 +15,7 @@ export function usePatientGrowth(healerId: string, period: ChartPeriod) {
         .get("/api/v1/dashboard/patient-growth", {
           params: periodToApiParams(period),
         })
-        .then((r) => r.data),
+        .then((r) => r.data?.data),
     staleTime: 5 * 60 * 1000,
   });
 }

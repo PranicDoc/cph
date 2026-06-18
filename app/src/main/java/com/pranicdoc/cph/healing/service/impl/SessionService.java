@@ -22,9 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.List;
 import java.util.UUID;
 
@@ -159,20 +157,24 @@ public class SessionService {
     @Auditable(action = "FETCH_ALL_SESSIONS_THIS_MONTH")
     @Transactional(readOnly = true)
     public long getAllSessionsCountThisMonth() {
-        String healerId = securityContextUtil.getCurrentHealerId().toString();
-        LocalDate today = LocalDate.now();
-        LocalDateTime startOfMonth =
-                today.withDayOfMonth(1).atStartOfDay();
-        LocalDateTime startOfNextMonth =
-                today.plusMonths(1)
-                        .withDayOfMonth(1)
-                        .atStartOfDay();
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        ZoneId zone = ZoneId.systemDefault();
+        Instant startOfMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .atStartOfDay(zone)
+                .toInstant();
+        Instant startOfNextMonth = LocalDate.now()
+                .plusMonths(1)
+                .withDayOfMonth(1)
+                .atStartOfDay(zone)
+                .toInstant();
+
         return sessionRepository.getAllSessionsCountThisMonth(healerId, startOfMonth, startOfNextMonth);
     }
 
     @Auditable(action = "FETCH_SESSION_TRENDS")
     @Transactional(readOnly = true)
-    public List<DashboardSessionTrend> getSessionTrends(String healerId, LocalDate from, LocalDate to) {
+    public List<DashboardSessionTrend> getSessionTrends(UUID healerId, LocalDate from, LocalDate to) {
         return sessionRepository.getSessionTrends(healerId, from, to);
     }
 

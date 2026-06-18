@@ -18,10 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-@ConditionalOnProperty(
-        name = "app.enable.credit-service",
-        havingValue = "true"
-)
 @Service
 @Slf4j
 public class CreditServiceImpl implements CreditService {

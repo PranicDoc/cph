@@ -8,8 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,14 +24,18 @@ public class PdfJobServiceImpl implements PdfJobService {
 
     @Override
     public long countPdfsGeneratedThisMonth() {
-        String healerId = securityContextUtil.getCurrentHealerId().toString();
-        LocalDate today = LocalDate.now();
-        LocalDateTime startOfMonth =
-                today.withDayOfMonth(1).atStartOfDay();
-        LocalDateTime startOfNextMonth =
-                today.plusMonths(1)
-                        .withDayOfMonth(1)
-                        .atStartOfDay();
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        ZoneId zone = ZoneId.systemDefault();
+        Instant startOfMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .atStartOfDay(zone)
+                .toInstant();
+        Instant startOfNextMonth = LocalDate.now()
+                .plusMonths(1)
+                .withDayOfMonth(1)
+                .atStartOfDay(zone)
+                .toInstant();
+
         return pdfJobRepository.countPdfsGeneratedThisMonth(healerId, startOfMonth, startOfNextMonth);
     }
 }

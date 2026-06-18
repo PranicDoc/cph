@@ -1,2 +1,5 @@
-package com.pranicdoc.cph.analytics.service.impl;public class PdfJobService {
+package com.pranicdoc.cph.healing.service;
+
+public interface PdfJobService {
+    long countPdfsGeneratedThisMonth();
 }

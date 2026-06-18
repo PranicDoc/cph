@@ -68,7 +68,7 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
         SELECT DATE(p.created_at) AS date,
                COUNT(*) AS count
         FROM patient p
-        WHERE p.healer_id = :healerId::uuid
+        WHERE p.healer_id = :healerId
           AND DATE(p.created_at) >= CAST(:startDate AS DATE)
           AND DATE(p.created_at) <= CAST(:endDate AS DATE)
           AND p.is_deleted = false

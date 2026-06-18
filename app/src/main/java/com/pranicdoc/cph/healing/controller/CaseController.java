@@ -3,12 +3,11 @@ package com.pranicdoc.cph.healing.controller;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.healing.dto.*;
-import com.pranicdoc.cph.healing.service.CaseService;
+import com.pranicdoc.cph.healing.service.impl.CaseService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.ScrollPosition;
 import org.springframework.data.domain.Window;
@@ -17,8 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController

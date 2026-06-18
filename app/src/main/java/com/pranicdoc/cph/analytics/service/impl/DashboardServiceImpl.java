@@ -89,7 +89,7 @@ public class DashboardServiceImpl implements DashboardService {
     public ApiResponse<List<DashboardSessionTrend>> getSessionTrends(UUID healerId, DateRangeFilter filter) {
         DateRangeResolver.DateRange range = dateRangeResolver.resolve(filter);
         List<DashboardSessionTrend> raw = sessionService.getSessionTrends(
-                healerId.toString(), range.from(), range.to());
+                healerId, range.from(), range.to());
         Map<LocalDate, Long> counts = raw.stream()
                 .collect(Collectors.toMap(DashboardSessionTrend::date, DashboardSessionTrend::count));
         List<DashboardSessionTrend> filled = range.from().datesUntil(range.to().plusDays(1))

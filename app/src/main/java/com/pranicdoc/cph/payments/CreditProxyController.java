@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.payments;
 
+import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
@@ -23,8 +24,7 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class CreditProxyController {
 
-    @Qualifier("creditServiceRestClient")
-    private final RestClient creditServiceRestClient;
+    private final CreditService creditService;
 
     /**
      * GET /api/credits/packages — returns available credit packages from creditService.
@@ -33,14 +33,7 @@ public class CreditProxyController {
      */
     @GetMapping("/packages")
     public ResponseEntity<String> getPackages() {
-        return creditServiceRestClient.get()
-                .uri("/credits/packages")
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, (req, resp) -> {
-                    throw new ResponseStatusException(resp.getStatusCode(),
-                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
-                })
-                .toEntity(String.class);
+        return creditService.getPackages();
     }
 
     /**
@@ -54,18 +47,6 @@ public class CreditProxyController {
     public ResponseEntity<String> purchase(
             @RequestBody String requestBody,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
-        var spec = creditServiceRestClient.post()
-                .uri("/credits/purchase")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(requestBody);
-        if (idempotencyKey != null) {
-            spec = spec.header("X-Idempotency-Key", idempotencyKey);
-        }
-        return spec.retrieve()
-                .onStatus(HttpStatusCode::isError, (req, resp) -> {
-                    throw new ResponseStatusException(resp.getStatusCode(),
-                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
-                })
-                .toEntity(String.class);
+        return creditService.purchase(requestBody, idempotencyKey);
     }
 }

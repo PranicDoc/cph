@@ -9,8 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +30,7 @@ public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
         ORDER BY s.sessionDate ASC
     """)
     List<DashboardSessionTrend> getSessionTrends(
-            @Param("healerId") String healerId,
+            @Param("healerId") UUID healerId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
@@ -42,7 +42,9 @@ public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
           AND s.createdAt >= :startOfMonth
           AND s.createdAt < :startOfNextMonth
     """)
-    long getAllSessionsCountThisMonth(String healerId, LocalDateTime startOfMonth, LocalDateTime startOfNextMonth);
+    long getAllSessionsCountThisMonth(@Param("healerId") UUID healerId,
+                                      @Param("startOfMonth") Instant startOfMonth,
+                                      @Param("startOfNextMonth") Instant startOfNextMonth);
 
     @Query("""
         SELECT new com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession(

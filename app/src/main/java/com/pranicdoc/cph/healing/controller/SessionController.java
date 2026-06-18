@@ -2,7 +2,7 @@ package com.pranicdoc.cph.healing.controller;
 
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
-import com.pranicdoc.cph.healing.service.SessionService;
+import com.pranicdoc.cph.healing.service.impl.SessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
