@@ -14,8 +14,11 @@ import org.springframework.data.domain.Window;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -85,9 +88,11 @@ public class CaseController {
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping
-    public ResponseEntity<CaseResponse> updateCaseDetails(@RequestBody CaseUpdateRequest caseUpdateRequest) {
-        return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest));
+    @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CaseResponse> updateCaseDetails(
+            @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
+            @RequestPart(value = "labFindings", required = false) List<MultipartFile> labFindings) {
+        return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest, labFindings));
     }
 
     @PostMapping("/generate-pdf")

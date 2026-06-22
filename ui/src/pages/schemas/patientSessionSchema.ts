@@ -15,7 +15,7 @@ export const patientSessionSchema: FormSchema = [
       {
         name: "labFindings",
         label: "Lab Findings",
-        type: "textarea",
+        type: "file",
         placeholder: "Please mention lab findings if any...",
       },
     ],
@@ -44,19 +44,27 @@ export const patientSessionSchema: FormSchema = [
       {
         name: "medications",
         label: "Medications",
-        type: "tag",
+        type: "table",
         placeholder: "Type to add more medications...",
         displayKey: "medicationName",
-        displayFormatter: (m: any) =>
-          m.dosage ? `${m.medicationName} (${m.dosage})` : m.medicationName,
         editableFields: {
           dosage: { label: "Dosage", placeholder: "e.g. 500mg" },
+          timing: {
+            label: "When to take",
+            type: "checkbox-group" as const,
+            options: [
+              { label: "Morning", value: "morningDose" },
+              { label: "Afternoon", value: "afternoonDose" },
+              { label: "Night", value: "nightDose" },
+            ],
+          },
         },
         createNewTag: (name: string) => ({
           medicationName: name,
           dosage: "",
-          frequency: "",
-          notes: "",
+          morningDose: false,
+          afternoonDose: false,
+          nightDose: false,
         }),
       },
     ],
@@ -74,18 +82,12 @@ export const patientSessionSchema: FormSchema = [
       },
       {
         name: "healingDetails.detailedProtocol",
-        label: "Detailed Protocol",
+        label: "Marilltte Protocol",
         type: "textarea",
         display: false,
         wrapperClassName: "row-span-2",
         rows: 4,
-      },
-      {
-        name: "healingDetails.bookReference",
-        label: "Reference Book",
-        display: false,
-        wrapperClassName: "col-span-1",
-      },
+      }
     ],
   },
   {
@@ -103,16 +105,16 @@ export const patientSessionSchema: FormSchema = [
     fields: [
       {
         name: "complementaryDetails",
-        label: "Complementary Modalities",
+        label: "Complementary Modalities (Treatments other than main doctor consulting)",
         type: "textarea",
-        placeholder: "Please mention complementary modalities if any...",
+        placeholder: "Example: Physiotherapy, Accupunture...",
         enableToggle: true,
       },
       {
         name: "infectiousDetails",
         label: "Infectious Illness",
         type: "textarea",
-        placeholder: "Please mention infectious illness if any...",
+        placeholder: "Example: Cold...",
         enableToggle: true,
       },
     ],

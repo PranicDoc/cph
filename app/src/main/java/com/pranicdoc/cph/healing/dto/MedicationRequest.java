@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 public record MedicationRequest(
         @NotBlank String medicationName,
         String dosage,
-        String frequency,
+        Boolean morningDose,
+        Boolean afternoonDose,
+        Boolean nightDose,
         String notes
 ) {}

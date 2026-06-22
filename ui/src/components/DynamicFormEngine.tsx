@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { CustomDOBPicker } from "./CustomDOBPicker";
 import { TagInput } from "./TagInput";
+import { FileUpload } from "./FileUPload";
+import { TableInput } from "./TableInput";
 
 export type FieldType =
   | "text"
@@ -14,7 +16,9 @@ export type FieldType =
   | "number"
   | "tag"
   | "time"
-  | "chip";
+  | "chip"
+  | "table"
+  | "file";
 
 export type FieldConfig = {
   name: string;
@@ -33,8 +37,14 @@ export type FieldConfig = {
   valueKey?: string;
   displayKey?: string;
   displayFormatter?: (tag: any) => string;
-  editableFields?: Record<string, { label: string; placeholder?: string }>;
+  editableFields?: Record<string, {
+    label: string;
+    placeholder?: string;
+    type?: "text" | "checkbox-group";
+    options?: { label: string; value: string }[];
+  }>;
   createNewTag?: (input: string) => any;
+  readOnly?: boolean;
   enableToggle?: boolean;
   trimSpaces?: boolean;
   validate?: (
@@ -160,6 +170,37 @@ export function DynamicField({
           );
         }
 
+        if (type === "file") {
+          return (
+            <div className={wrapperClassName}>
+              <label className="block text-sm font-semibold mb-2">{label}</label>
+              <FileUpload
+                value={field.state.value ?? []}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+                readOnly={fieldConfig.readOnly}
+              />
+            </div>
+          );
+        }
+
+        if (type === "table") {
+          return (
+            <div className={wrapperClassName}>
+              <label className="block text-sm font-semibold mb-2">{label}</label>
+              <TableInput
+                value={field.state.value ?? []}
+                onChange={field.handleChange}
+                placeholder={fieldConfig.placeholder}
+                displayKey={fieldConfig.displayKey!}
+                editableFields={fieldConfig.editableFields}
+                createNewTag={fieldConfig.createNewTag}
+                readOnly={fieldConfig.readOnly}
+              />
+            </div>
+          );
+        }
+
         // Toggle switch UI
         const toggleSwitch = enableToggle && (
           <button
@@ -272,40 +313,43 @@ export function DynamicFormEngine({
         // Skip the group entirely when every field has display: false
         if (group.fields.every((f) => f.display === false)) return null;
         return (
-        <div key={groupIdx} className={group.containerClassName}>
-          {group.title && (
-            <h3 className="text-sm font-semibold text-text-light uppercase tracking-wider mb-4">
-              {group.title}
-            </h3>
-          )}
-          <div className={group.fieldsContainerClassName}>
-            {group.fields.map((fieldConfig) => {
-              if (fieldConfig.condition) {
+          <div key={groupIdx} className={group.containerClassName}>
+            {group.title && (
+              <h3 className="text-sm font-semibold text-text-light uppercase tracking-wider mb-4">
+                {group.title}
+              </h3>
+            )}
+            <div className={group.fieldsContainerClassName}>
+              {group.fields.map((fieldConfig) => {
+                if (fieldConfig.condition) {
+                  return (
+                    <form.Subscribe
+                      key={fieldConfig.name}
+                      selector={(state: any) => state.values}
+                      children={(values: any) => {
+                        if (fieldConfig.condition!(values)) {
+                          return (
+                            <DynamicField
+                              form={form}
+                              fieldConfig={fieldConfig}
+                            />
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  );
+                }
                 return (
-                  <form.Subscribe
+                  <DynamicField
                     key={fieldConfig.name}
-                    selector={(state: any) => state.values}
-                    children={(values: any) => {
-                      if (fieldConfig.condition!(values)) {
-                        return (
-                          <DynamicField form={form} fieldConfig={fieldConfig} />
-                        );
-                      }
-                      return null;
-                    }}
+                    form={form}
+                    fieldConfig={fieldConfig}
                   />
                 );
-              }
-              return (
-                <DynamicField
-                  key={fieldConfig.name}
-                  form={form}
-                  fieldConfig={fieldConfig}
-                />
-              );
-            })}
+              })}
+            </div>
           </div>
-        </div>
         );
       })}
     </>

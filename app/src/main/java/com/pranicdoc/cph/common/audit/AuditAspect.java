@@ -8,13 +8,12 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 
-/**
- * AOP aspect that intercepts methods annotated with @Auditable
- * and writes an entry to the audit_log table.
- */
 @Aspect
 @Component
 @RequiredArgsConstructor
@@ -24,32 +23,31 @@ public class AuditAspect {
     private final AuditLogRepository auditLogRepository;
     private final SecurityContextUtil securityContextUtil;
     private final HttpServletRequest httpServletRequest;
+    private final PlatformTransactionManager transactionManager;
 
     @Around("@annotation(auditable)")
     public Object audit(ProceedingJoinPoint joinPoint, Auditable auditable) throws Throwable {
-        // Execute the original method
         Object result = joinPoint.proceed();
 
-        // Build audit log entry
         try {
             AuditLog auditLog = new AuditLog();
             auditLog.setAction(auditable.action());
             auditLog.setPerformedAt(Instant.now());
             auditLog.setIpAddress(httpServletRequest.getRemoteAddr());
+            auditLog.setEntityType(joinPoint.getTarget().getClass().getSimpleName());
 
             try {
                 auditLog.setHealerId(securityContextUtil.getCurrentHealerId());
                 auditLog.setClinicId(securityContextUtil.getCurrentClinicId());
-            } catch (IllegalStateException ignored) {
-                // No auth context (e.g., system operations)
-            }
+            } catch (IllegalStateException ignored) {}
 
-            // Capture entity type from the method's declaring class
-            auditLog.setEntityType(joinPoint.getTarget().getClass().getSimpleName());
-
-            auditLogRepository.save(auditLog);
+            TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            tx.execute(status -> {
+                auditLogRepository.save(auditLog);
+                return null;
+            });
         } catch (Exception ex) {
-            // Audit failure should not break the main flow
             log.error("Failed to write audit log for action: {}", auditable.action(), ex);
         }
 

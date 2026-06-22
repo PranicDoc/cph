@@ -13,7 +13,7 @@ public record CaseResponse(
         UUID healerId,
         String medicalCondition,
         HealingDetails healingDetails,
-        String labFindings,
+        List<String> labFindings,
         Boolean complementaryTreatments,
         String complementaryDetails,
         Boolean infectiousIllness,

@@ -1,9 +1,9 @@
 package com.pranicdoc.cph.healing.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.common.audit.Auditable;
@@ -16,12 +16,15 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
-import com.pranicdoc.cph.payments.CreditGateService;
+import com.pranicdoc.cph.healing.event.HealingSessionCompletedEvent;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.healing.service.MessageService;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
@@ -70,6 +73,8 @@ public class CaseService {
     private final HealingDetailsRepository healingDetailsRepository;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
+    private final ApplicationEventPublisher eventPublisher;
+
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
      */
@@ -188,7 +193,9 @@ public class CaseService {
                 .healingCase(healingCase)
                 .medicationName(request.medicationName())
                 .dosage(request.dosage())
-                .frequency(request.frequency())
+                .morningDose(Boolean.TRUE.equals(request.morningDose()))
+                .afternoonDose(Boolean.TRUE.equals(request.afternoonDose()))
+                .nightDose(Boolean.TRUE.equals(request.nightDose()))
                 .notes(request.notes())
                 .build();
         healingCase.getMedications().add(medication);
@@ -239,7 +246,9 @@ public class CaseService {
                 .build();
         healingCase.setClosure(closure);
         healingCase.setStatus(CaseStatus.CLOSED);
-        caseRepository.save(healingCase);
+        HealingCase saved = caseRepository.save(healingCase);
+        eventPublisher.publishEvent(new HealingSessionCompletedEvent(
+                this, saved.getId(), saved.getClinicId()));
         if(!request.isHealingContinued()) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
@@ -276,7 +285,7 @@ public class CaseService {
                 patient.getDob(), patient.getGender(), patient.getMaritalStatus(),
                 patient.getContact(), patient.getOccupation(),
                 healingCase.getId(), healingCase.getMedicalCondition(),
-                healingCase.getLabFindings(),
+                parseLabFindingKeys(healingCase.getLabFindings()),
                 healingCase.getComplementaryTreatments(), healingCase.getComplementaryDetails(),
                 healingCase.getInfectiousIllness(), healingCase.getInfectiousDetails(),
                 healingCase.getBasicBookPg(), healingCase.getAdvancedBookPg(),
@@ -292,10 +301,19 @@ public class CaseService {
         );
     }
 
+    private List<String> parseLabFindingKeys(String labFindings) {
+        if (labFindings == null || labFindings.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(labFindings, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     private CaseResponse toResponse(HealingCase c) {
         return new CaseResponse(
                 c.getId(), c.getPatientId(), c.getHealerId(),
-                c.getMedicalCondition(), c.getHealingDetails(), c.getLabFindings(),
+                c.getMedicalCondition(), c.getHealingDetails(), parseLabFindingKeys(c.getLabFindings()),
                 c.getComplementaryTreatments(), c.getComplementaryDetails(),
                 c.getInfectiousIllness(), c.getInfectiousDetails(),
                 c.getBasicBookPg(), c.getAdvancedBookPg(), c.getPsychotherapyPg(),
@@ -310,11 +328,10 @@ public class CaseService {
 
     @Auditable(action = "UPDATE_CASE")
     @Transactional
-    public CaseResponse updateCaseDetails(CaseUpdateRequest caseUpdateRequest) {
+    public CaseResponse updateCaseDetails(CaseUpdateRequest caseUpdateRequest, List<MultipartFile> labFindings) {
         if(!securityContextUtil.getCurrentRole().equalsIgnoreCase("Patient")
                 && caseUpdateRequest.healingDetails().detailedProtocol().isBlank() &&
-            (caseUpdateRequest.healingDetails().protocolName().isBlank() ||
-                    caseUpdateRequest.healingDetails().bookReference().isBlank())
+                caseUpdateRequest.healingDetails().protocolName().isBlank()
         ) throw new IllegalArgumentException("No valid protocol found");
         HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
@@ -366,6 +383,26 @@ public class CaseService {
                     step.setHealingDetails(existingDetails);
                     existingDetails.getTreatmentSteps().add(step);
                 }
+            }
+        }
+        if (labFindings != null && !labFindings.isEmpty()) {
+            List<String> keys = new ArrayList<>();
+            for (MultipartFile file : labFindings) {
+                String original = file.getOriginalFilename();
+                String ext = (original != null && original.contains("."))
+                        ? original.substring(original.lastIndexOf('.')) : "";
+                String key = "lab-findings/" + entity.getId() + "/" + UUID.randomUUID() + ext;
+                try {
+                    storageService.upload(key, file.getBytes(), file.getContentType());
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to upload lab finding: " + original, e);
+                }
+                keys.add(key);
+            }
+            try {
+                entity.setLabFindings(objectMapper.writeValueAsString(keys));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to persist lab findings", e);
             }
         }
         if(!securityContextUtil.getCurrentRole().equalsIgnoreCase("Patient")

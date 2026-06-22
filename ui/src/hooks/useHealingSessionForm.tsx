@@ -7,7 +7,7 @@ type HealingSessionFormValues = {
   sessionDate: string;
   startTime: string;
   endTime: string;
-  symptomFeedbacks: SymptomFeedbackRequest[];
+  symptomFeedbacks?: SymptomFeedbackRequest[];
   protocolName: string;
   referenceBook: string;
   detailedProtocol: string;
@@ -31,7 +31,7 @@ export function useHealingSessionForm(symptoms: any[]) {
     sessionDate: currentDate,
     startTime,
     endTime,
-    symptomFeedbacks: initialSymptomFeedbacks,
+    // symptomFeedbacks: initialSymptomFeedbacks,
     protocolName: "",
     referenceBook: "",
     detailedProtocol: "",

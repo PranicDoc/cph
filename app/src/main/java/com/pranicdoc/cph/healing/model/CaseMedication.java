@@ -31,8 +31,14 @@ public class CaseMedication extends BaseEntity {
     @Column(name = "dosage")
     private String dosage;
 
-    @Column(name = "frequency")
-    private String frequency;
+    @Column(name = "morning_dose")
+    private Boolean morningDose;
+
+    @Column(name = "afternoon_dose")
+    private Boolean afternoonDose;
+
+    @Column(name = "night_dose")
+    private Boolean nightDose;
 
     @Column(name = "notes")
     private String notes;

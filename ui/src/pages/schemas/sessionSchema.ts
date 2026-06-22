@@ -24,8 +24,8 @@ export const sessionSchema: FormSchema = [
       {
         name: "labFindings",
         label: "Lab Findings",
-        type: "textarea",
-        placeholder: "Please mention lab findings if any...",
+        type: "file",
+        readOnly: true,
       },
     ],
   },
@@ -53,19 +53,27 @@ export const sessionSchema: FormSchema = [
       {
         name: "medications",
         label: "Medications",
-        type: "tag",
-        placeholder: "Type to add more medications...",
+        type: "table",
+        readOnly: true,
         displayKey: "medicationName",
-        displayFormatter: (m: any) =>
-          m.dosage ? `${m.medicationName} (${m.dosage})` : m.medicationName,
         editableFields: {
           dosage: { label: "Dosage", placeholder: "e.g. 500mg" },
+          timing: {
+            label: "When to take",
+            type: "checkbox-group" as const,
+            options: [
+              { label: "Morning", value: "morningDose" },
+              { label: "Afternoon", value: "afternoonDose" },
+              { label: "Night", value: "nightDose" },
+            ],
+          },
         },
         createNewTag: (name: string) => ({
           medicationName: name,
           dosage: "",
-          frequency: "",
-          notes: "",
+          morningDose: false,
+          afternoonDose: false,
+          nightDose: false,
         }),
       },
     ],
@@ -82,16 +90,11 @@ export const sessionSchema: FormSchema = [
       },
       {
         name: "healingDetails.detailedProtocol",
-        label: "Detailed Protocol",
+        label: "Marilltte Protocol",
         type: "textarea",
         wrapperClassName: "row-span-2",
         rows: 4,
-      },
-      {
-        name: "healingDetails.bookReference",
-        label: "Reference Book",
-        wrapperClassName: "col-span-1",
-      },
+      }
     ],
   },
   {

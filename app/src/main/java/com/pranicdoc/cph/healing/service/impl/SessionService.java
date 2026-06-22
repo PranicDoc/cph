@@ -11,6 +11,7 @@ import com.pranicdoc.cph.common.exception.SessionIncompleteException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
+import com.pranicdoc.cph.healing.event.HealingSessionCompletedEvent;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -19,6 +20,7 @@ import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class SessionService {
     private final PranaColorCatalogRepository pranaColorCatalogRepository;
     private final NotificationService notificationService;
     private final SecurityContextUtil securityContextUtil;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -128,7 +131,8 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setEndTime(LocalTime.now());
         session.setStatus(SessionStatus.COMPLETED);
-        return toResponse(sessionRepository.save(session));
+        HealingSession saved = sessionRepository.save(session);
+        return toResponse(saved);
     }
 
     public HealingSession findOrThrow(UUID id) {

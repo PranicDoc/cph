@@ -1,7 +1,9 @@
-package com.pranicdoc.cph.payments;
+package com.pranicdoc.cph.payments.service.impl;
 
 import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
+import com.pranicdoc.cph.payments.CreditServiceClient;
 import com.pranicdoc.cph.payments.dto.DeductResponse;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -12,12 +14,13 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class CreditGateService {
+public class CreditGateServiceImpl implements CreditGateService {
 
     private static final Logger log = LoggerFactory.getLogger(CreditGateService.class);
 
     private final CreditServiceClient creditServiceClient;
 
+    @Override
     @CircuitBreaker(name = "creditService", fallbackMethod = "checkAndDeductFallback")
     public void checkAndDeduct(UUID healerId, UUID clinicId, UUID healingCaseId) {
         String idempotencyKey = clinicId + "-" + healingCaseId;

@@ -38,3 +38,5 @@ out/
 
 ../ui/node_modules/
 .env
+.remember/
+gradle/

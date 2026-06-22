@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.payments;
+package com.pranicdoc.cph.payments.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

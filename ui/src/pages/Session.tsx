@@ -10,6 +10,7 @@ import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { FieldDisplay } from "../components/FieldDisplay";
 import { HealingSessionWizard } from "../components/HealingSession";
+import { LabFindingsView, MedicationsView } from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
 
 type SessionFormValues = {
@@ -19,7 +20,7 @@ type SessionFormValues = {
   basicBookPg: string;
   advancedBookPg: string;
   psychotherapyPg: string;
-  labFindings: string;
+  labFindings: (File | string)[];
   complementaryDetails: string;
   infectiousDetails: string;
   healingDetails: {
@@ -49,7 +50,7 @@ export default function Session() {
     basicBookPg: "",
     advancedBookPg: "",
     psychotherapyPg: "",
-    labFindings: "",
+    labFindings: [] as (File | string)[],
     complementaryDetails: "",
     infectiousDetails: "",
     healingDetails: {
@@ -68,7 +69,7 @@ export default function Session() {
       basicBookPg: "",
       advancedBookPg: "",
       psychotherapyPg: "",
-      labFindings: "",
+      labFindings: [] as (File | string)[],
       complementaryDetails: "",
       infectiousDetails: "",
       healingDetails: {
@@ -80,13 +81,21 @@ export default function Session() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
+        const { labFindings: _, ...rest } = value;
         const payload = {
-          ...value,
+          ...rest,
           healingCaseId,
           complementaryTreatments: !!value.complementaryDetails,
           infectiousIllness: !!value.infectiousDetails,
         };
-        const { data } = await api.patch("/api/v1/cases", payload);
+        const formData = new FormData();
+        formData.append(
+          "data",
+          new Blob([JSON.stringify(payload)], { type: "application/json" })
+        );
+        const { data } = await api.patch("/api/v1/cases", formData, {
+          headers: { "Content-Type": undefined },
+        });
         setSessionData(data);
         const updatedValues = mapResponseToFormValues(data);
         populateForm(updatedValues);
@@ -106,8 +115,8 @@ export default function Session() {
     basicBookPg: data.basicBookPg || "",
     advancedBookPg: data.advancedBookPg || "",
     psychotherapyPg: data.psychotherapyPg || "",
-    labFindings: data.labFindings || "",
-    complementaryDetails: data.complementaryModalities || "", // Note the mapping here based on your useEffect
+    labFindings: [],
+    complementaryDetails: data.complementaryModalities || "",
     infectiousDetails: data.infectiousIllness || "",
     healingDetails: {
       protocolName: data.healingDetails?.protocolName || "",
@@ -140,7 +149,7 @@ export default function Session() {
           basicBookPg: data.basicBookPg || "",
           advancedBookPg: data.advancedBookPg || "",
           psychotherapyPg: data.psychotherapyPg || "",
-          labFindings: data.labFindings || "",
+          labFindings: data?.labFindings || [],
           complementaryDetails: data.complementaryModalities || "",
           infectiousDetails: data.infectiousIllness || "",
           healingDetails: {
@@ -259,30 +268,14 @@ export default function Session() {
                 ?.map((s: any) => s.symptomName)
                 .join(", ")}
             />
-            <FieldDisplay
-              label="Medications"
-              value={sessionData.medications
-                ?.map((m: any) =>
-                  m.dosage ? `${m.medicationName} (${m.dosage})` : m.medicationName
-                )
-                .join(", ")}
-            />
-            <FieldDisplay
-              label="Basic Page Number"
-              value={sessionData?.basicBookPg}
-            />
-            <FieldDisplay
-              label="Advanced Page Number"
-              value={sessionData?.advancedBookPg}
-            />
-            <FieldDisplay
-              label="Psychotherapy Page Number"
-              value={sessionData?.psychotherapyPg}
-            />
-            <FieldDisplay
-              label="Lab Findings"
-              value={sessionData.labFindings}
-            />
+            <div className="space-y-1">
+              <dt className="text-sm font-medium text-muted-foreground">Medications</dt>
+              <dd><MedicationsView medications={sessionData.medications ?? []} /></dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="text-sm font-medium text-muted-foreground">Lab Findings</dt>
+              <dd><LabFindingsView keys={sessionData.labFindings ?? []} /></dd>
+            </div>
             <FieldDisplay
               label="Complementary Details"
               value={sessionData.complementaryDetails}
@@ -296,8 +289,16 @@ export default function Session() {
               value={
                 sessionData.healingDetails ? (
                   <div>
-                    <p>Protocol: {sessionData.healingDetails.protocolName}</p>
-                    <p>Book: {sessionData.healingDetails.bookReference}</p>
+                    <p>{sessionData.healingDetails.protocolName}</p>
+                    {sessionData?.basicBookPg && (
+                      <p>Basic book pg: {sessionData?.basicBookPg}</p>
+                    )}
+                    {sessionData?.advancedBookPg && (
+                      <p>Basic book pg: {sessionData?.advancedBookPg}</p>
+                    )}
+                    {sessionData?.psychotherapyPg && (
+                      <p>Basic book pg: {sessionData?.psychotherapyPg}</p>
+                    )}
                   </div>
                 ) : null
               }

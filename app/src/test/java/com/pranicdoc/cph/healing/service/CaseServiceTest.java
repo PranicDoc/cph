@@ -3,7 +3,6 @@ package com.pranicdoc.cph.healing.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -17,6 +16,7 @@ import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.storage.service.StorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.pranicdoc.cph.payments.CreditGateService;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 
 import static org.junit.jupiter.api.Assertions.*;

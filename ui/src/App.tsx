@@ -22,6 +22,7 @@ import TransactionsPage from "./pages/admin/TransactionsPage";
 import ClinicConfigPage from "./pages/admin/ClinicConfigPage";
 import GlobalConfigPage from "./pages/admin/GlobalConfigPage";
 import PackagesPage from "./pages/admin/PackagesPage";
+import MasterDataPage from "./pages/admin/MasterDataPage";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
@@ -73,6 +74,7 @@ export default function App() {
                 <Route path="clinic-config" element={<ClinicConfigPage />} />
                 <Route path="global-config" element={<GlobalConfigPage />} />
                 <Route path="packages" element={<PackagesPage />} />
+                <Route path="master-data" element={<MasterDataPage />} />
               </Route>
             </Route>
           </Routes>

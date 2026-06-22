@@ -74,7 +74,7 @@ export function useHealingSessionWizard({
         endTime: values.endTime,
         preScanData: preScanChakraData.map(mapScanEntry),
         postScanData: postScanChakraData.map(mapScanEntry),
-        symptomFeedbacks: values.symptomFeedbacks,
+        // symptomFeedbacks: values.symptomFeedbacks,
         protocolEntries,
         feedbackType: values.feedbackType,
         feedbackText: values.feedbackText,

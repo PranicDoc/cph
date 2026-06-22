@@ -18,7 +18,6 @@ export function StepPreScan({
   value,
   onChange,
   availableChakras,
-  pranaColorCatalog,
 }: StepPreScanProps) {
   function handleTranscript(transcript: string) {
     const updated = parseChakraTranscript(transcript, availableChakras, value);

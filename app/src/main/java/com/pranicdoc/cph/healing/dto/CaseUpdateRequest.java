@@ -14,7 +14,6 @@ public record CaseUpdateRequest(
         String basicBookPg,
         String advancedBookPg,
         String psychotherapyPg,
-        String labFindings,
         boolean complementaryTreatments,
         String complementaryDetails,
         boolean infectiousIllness,

@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BookText, User, Stethoscope, Pill, Activity, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, BookText, User, Stethoscope, Pill, Activity, CheckCircle2, XCircle, Download } from "lucide-react";
 import api from "../lib/axios";
+import { useState } from "react";
 import { Skeleton } from "../components/ui/skeleton";
 
 // ---- Types ----
@@ -61,7 +62,9 @@ interface CaseMedication {
   id: string;
   medicationName: string;
   dosage?: string;
-  frequency?: string;
+  morningDose?: boolean;
+  afternoonDose?: boolean;
+  nightDose?: boolean;
   notes?: string;
 }
 
@@ -98,7 +101,7 @@ interface CaseSummaryData {
   occupation?: string;
   caseId: string;
   medicalCondition?: string;
-  labFindings?: string;
+  labFindings?: string[];
   complementaryTreatments?: boolean;
   complementaryDetails?: string;
   infectiousIllness?: boolean;
@@ -291,6 +294,43 @@ function SessionCard({
   );
 }
 
+function LabFindingsList({ keys }: { keys: string[] }) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  if (!keys.length) return <span className="text-sm text-text-light">—</span>;
+
+  const download = async (key: string) => {
+    setLoading(key);
+    try {
+      const { data } = await api.get("/api/v1/cases/download", { params: { fileUrl: key } });
+      window.open(data.data.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const fileName = (key: string) => key.split("/").pop() ?? key;
+
+  return (
+    <ul className="space-y-1.5 mt-1">
+      {keys.map((key) => (
+        <li key={key}>
+          <button
+            type="button"
+            onClick={() => download(key)}
+            disabled={loading === key}
+            className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate max-w-xs">{fileName(key)}</span>
+            {loading === key && <span className="text-xs text-text-light">Opening...</span>}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ---- Main Page ----
 
 export default function CaseSummary() {
@@ -382,7 +422,12 @@ export default function CaseSummary() {
         <div className="bg-card border border-border rounded-xl p-4">
           <SectionHeading icon={<Stethoscope className="w-4 h-4" />} label="Case Details" />
           <InfoRow label="Medical Condition" value={fmt(data.medicalCondition)} />
-          <InfoRow label="Lab Findings" value={fmt(data.labFindings)} />
+          {data.labFindings && data.labFindings.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border">
+              <span className="text-xs font-medium text-text-light w-40 shrink-0">Lab Findings</span>
+              <LabFindingsList keys={data.labFindings} />
+            </div>
+          )}
           <InfoRow label="Complementary Treatments" value={yesNo(data.complementaryTreatments)} />
           {data.complementaryTreatments && (
             <InfoRow label="Complementary Details" value={fmt(data.complementaryDetails)} />
@@ -479,19 +524,26 @@ export default function CaseSummary() {
                 <tr className="text-xs text-text-light font-medium border-b border-border">
                   <th className="pb-2 text-left">Medication</th>
                   <th className="pb-2 text-left">Dosage</th>
-                  <th className="pb-2 text-left">Frequency</th>
+                  <th className="pb-2 text-left">When to Take</th>
                   <th className="pb-2 text-left">Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {data.medications.map((m) => (
-                  <tr key={m.id} className="border-b border-border last:border-0">
-                    <td className="py-2 pr-4 font-medium text-text">{m.medicationName}</td>
-                    <td className="py-2 pr-4 text-text-light">{fmt(m.dosage)}</td>
-                    <td className="py-2 pr-4 text-text-light">{fmt(m.frequency)}</td>
-                    <td className="py-2 text-text-light">{fmt(m.notes)}</td>
-                  </tr>
-                ))}
+                {data.medications.map((m) => {
+                  const timing = [
+                    m.morningDose && "Morning",
+                    m.afternoonDose && "Afternoon",
+                    m.nightDose && "Night",
+                  ].filter(Boolean).join(", ") || "—";
+                  return (
+                    <tr key={m.id} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4 font-medium text-text">{m.medicationName}</td>
+                      <td className="py-2 pr-4 text-text-light">{fmt(m.dosage)}</td>
+                      <td className="py-2 pr-4 text-text-light">{timing}</td>
+                      <td className="py-2 text-text-light">{fmt(m.notes)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

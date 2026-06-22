@@ -15,10 +15,15 @@ import {
   Play,
   BookText,
   ClipboardList,
+  Pen,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
-import { ComputedPatient, Patient, usePatient } from "../context/PatientContext";
+import {
+  ComputedPatient,
+  Patient,
+  usePatient,
+} from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
 import { useQueryClient } from "@tanstack/react-query";
 import { UpgradeModal } from "../components/UpgradeModal";
@@ -35,7 +40,9 @@ export default function Patients() {
   const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [pendingHealingCaseId, setPendingHealingCaseId] = useState<string | null>(null);
+  const [pendingHealingCaseId, setPendingHealingCaseId] = useState<
+    string | null
+  >(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   const generatePdf = async (healingCaseId: string) => {
@@ -221,7 +228,7 @@ export default function Patients() {
           onClose={() => setClosurePatient(null)}
           onSuccess={() => {
             setClosurePatient(null);
-            queryClient.invalidateQueries({ queryKey: ['patients'] });
+            queryClient.invalidateQueries({ queryKey: ["patients"] });
           }}
         />
       )}
@@ -328,7 +335,10 @@ export default function Patients() {
       {pdfError && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
           <span className="text-sm">{pdfError}</span>
-          <button onClick={() => setPdfError(null)} className="text-white/80 hover:text-white text-xs underline">
+          <button
+            onClick={() => setPdfError(null)}
+            className="text-white/80 hover:text-white text-xs underline"
+          >
             Dismiss
           </button>
         </div>

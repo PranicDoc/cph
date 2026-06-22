@@ -101,7 +101,7 @@ export function constructHealingSessionPayload({
     activationLevel?: string;
     notes?: string;
   }>;
-  symptomFeedbacks: Array<{
+  symptomFeedbacks?: Array<{
     caseSymptomId: string;
     rating: number;
     notes?: string;
@@ -140,30 +140,30 @@ export function constructHealingSessionPayload({
         })),
       },
     ],
-    symptomFeedbacks: symptomFeedbacks.map((fb) => ({
-      caseSymptomId: fb.caseSymptomId,
-      rating: fb.rating,
-      notes: fb.notes || "",
-    })),
-    qualitativeFeedbacks: [
-      {
-        feedbackType,
-        feedbackText,
-        patientRemarks,
-      },
-    ],
-    protocolEntries: protocolEntries.map((entry) => ({
-      chakraId: entry.chakraId || null,
-      targetArea: entry.targetArea,
-      technique: entry.technique,
-      notes: entry.notes || "",
-      colors: (entry.colors ?? []).map((color) => ({
-        colorId: color.colorId,
-        usageType: color.usageType,
-      })),
-      protocolName: entry.protocolName || "",
-      referenceBook: entry.referenceBook || "",
-      detailedProtocol: entry.detailedProtocol || "",
-    })),
+    // symptomFeedbacks: symptomFeedbacks?.map((fb) => ({
+    //   caseSymptomId: fb.caseSymptomId,
+    //   rating: fb.rating,
+    //   notes: fb.notes || "",
+    // })),
+    // qualitativeFeedbacks: [
+    //   {
+    //     feedbackType,
+    //     feedbackText,
+    //     patientRemarks,
+    //   },
+    // ],
+    // protocolEntries: protocolEntries.map((entry) => ({
+    //   chakraId: entry.chakraId || null,
+    //   targetArea: entry.targetArea,
+    //   technique: entry.technique,
+    //   notes: entry.notes || "",
+    //   colors: (entry.colors ?? []).map((color) => ({
+    //     colorId: color.colorId,
+    //     usageType: color.usageType,
+    //   })),
+    //   protocolName: entry.protocolName || "",
+    //   referenceBook: entry.referenceBook || "",
+    //   detailedProtocol: entry.detailedProtocol || "",
+    // })),
   };
 }

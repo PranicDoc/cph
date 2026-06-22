@@ -137,7 +137,7 @@ export const patientMedicalHistorySchema: FormSchema = [
     fieldsContainerClassName: "grid grid-cols-2 md:grid-cols-4 gap-4",
     fields: [
       { name: "hypertension", label: "Hypertension", type: "checkbox" },
-      { name: "giIssues", label: "GI Issues", type: "checkbox" },
+      { name: "giIssues", label: "Acidity or Ulcer or any gut issues...", type: "checkbox" },
       {
         name: "stressDepressionAnxiety",
         label: "Stress / Anxiety",

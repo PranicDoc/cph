@@ -14,7 +14,7 @@ type PatientFormValues = {
   basicBookPg: string;
   advancedBookPg: string;
   psychotherapyPg: string;
-  labFindings: string;
+  labFindings: File[];
   complementaryDetails: string;
   infectiousDetails: string;
   healingDetails: {
@@ -41,7 +41,7 @@ export default function PatientHealthForm() {
       basicBookPg: "",
       advancedBookPg: "",
       psychotherapyPg: "",
-      labFindings: "",
+      labFindings: [] as File[],
       complementaryDetails: "",
       infectiousDetails: "",
       healingDetails: {
@@ -54,13 +54,17 @@ export default function PatientHealthForm() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
+        const { labFindings, ...rest } = value;
         const payload = {
-          ...value,
+          ...rest,
           healingCaseId: caseId,
           complementaryTreatments: !!value.complementaryDetails,
           infectiousIllness: !!value.infectiousDetails,
         };
-        await api.patch("/api/v1/cases", payload);
+        const formData = new FormData();
+        formData.append("data", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+        labFindings.forEach((f) => formData.append("labFindings", f));
+        await api.patch("/api/v1/cases", formData, { headers: { "Content-Type": undefined } });
         await api.post("/api/v1/auth/clear-patient-session");
         setIsSubmitted(true);
       } catch (err) {
@@ -87,7 +91,7 @@ export default function PatientHealthForm() {
           basicBookPg: data.basicBookPg || "",
           advancedBookPg: data.advancedBookPg || "",
           psychotherapyPg: data.psychotherapyPg || "",
-          labFindings: data.labFindings || "",
+          labFindings: [],
           complementaryDetails: data.complementaryModalities || "",
           infectiousDetails: data.infectiousIllness || "",
           healingDetails: {

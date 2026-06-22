@@ -5,7 +5,7 @@ export interface HealingSession {
 
   medicalCondition?: string;
   healingDetails?: HealingDetails;
-  labFindings?: string;
+  labFindings?: string[];
 
   complementaryTreatments?: boolean;
   complementaryDetails?: string;
@@ -24,7 +24,7 @@ export interface HealingSession {
   medicalSnapshot: MedicalSnapshot;
   healingSession: any;
   symptoms: any;
-  medications: any;
+  medications: Medication[];
 }
 
 export interface MedicalSnapshot {
@@ -59,6 +59,14 @@ export interface TreatmentStep {
 }
 
 export type CaseStatus = "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+export interface Medication {
+  medicationName: string;
+  dosage?: string;
+  morningDose?: boolean;
+  afternoonDose?: boolean;
+  nightDose?: boolean;
+}
 
 // ChakraScan Data
 export interface ChakraData {
@@ -153,9 +161,9 @@ export interface CreateSessionPayload {
   startTime: string;
   endTime: string;
   scans: ChakraScanRequest[];
-  symptomFeedbacks: SymptomFeedbackRequest[];
-  qualitativeFeedbacks: QualitativeFeedbackRequest[];
-  protocolEntries: Array<{
+  symptomFeedbacks?: SymptomFeedbackRequest[];
+  qualitativeFeedbacks?: QualitativeFeedbackRequest[];
+  protocolEntries?: Array<{
     chakraId: string | null;
     targetArea?: string;
     technique?: string;
