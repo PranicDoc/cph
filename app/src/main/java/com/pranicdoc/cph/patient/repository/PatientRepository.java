@@ -54,8 +54,10 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
                 SELECT MAX(hc2.createdAt)
                 FROM HealingCase hc2
                 WHERE hc2.patientId = p.id
+                AND hc2.isDeleted = false
             )
         WHERE p.clinicId = :clinicId
+        AND p.isDeleted = false
     """)
     List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") UUID clinicId);
 

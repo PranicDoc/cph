@@ -28,6 +28,7 @@ import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
 import Unauthorized from "./pages/Unauthorized";
 import PatientFeedback from "./pages/Feedback";
+import OAuth2Success from "./components/OAuth2Success";
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/oauth2/success" element={<OAuth2Success />} />
 
             {/* Public pages — minimal branded shell, no nav */}
             <Route element={<PublicShell />}>

@@ -23,7 +23,7 @@ import java.util.UUID;
  * JWT authentication filter — reads accessToken from HttpOnly cookie,
  * validates via JwtService, and populates SecurityContext.
  *
- * Cookie-based auth (matching JIT project pattern):
+ * Cookie-based auth:
  *   - accessToken  → HttpOnly cookie set on login/register/bootstrap
  *   - refreshToken → HttpOnly cookie set on login/register/bootstrap
  */

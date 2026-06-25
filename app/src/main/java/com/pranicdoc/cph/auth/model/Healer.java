@@ -30,8 +30,22 @@ public class Healer extends TenantEntity {
     @Column(name = "phone")
     private String phone;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    /**
+     * Stores the sub value provided by the Google as the emails may change but this sub wont
+     * <p>
+     * Future fool proofing field
+     * TODO later check how to populate this field after oauth login success
+     */
+//    @Column(name = "provider_user_id")
+//    private String providerUserId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
@@ -44,4 +58,8 @@ public class Healer extends TenantEntity {
     @Column(name = "active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    enum AuthProvider{
+        LOCAL, GOOGLE
+    }
 }

@@ -33,3 +33,46 @@ CREATE TABLE healer_protocol_understanding (
 
 CREATE INDEX idx_hpu_healing_case    ON healer_protocol_understanding(healing_case_id);
 CREATE INDEX idx_pcm_protocol_name   ON protocol_color_mapping(protocol_name);
+
+-- Envers audit tables for the two new @Audited entities introduced in this migration.
+-- Required for fresh installs where V0 does not yet include these tables.
+
+CREATE TABLE protocol_color_mapping_aud (
+    id             UUID,
+    rev            BIGINT      NOT NULL,
+    revtype        SMALLINT,
+    created_at     TIMESTAMPTZ,
+    updated_at     TIMESTAMPTZ,
+    created_by     VARCHAR(255),
+    updated_by     VARCHAR(255),
+    is_deleted     BOOLEAN,
+    version        BIGINT,
+    protocol_name  VARCHAR(255),
+    color_id       UUID,
+    usage_type     VARCHAR(20),
+    clinic_id      UUID,
+    CONSTRAINT pk_protocol_color_mapping_aud     PRIMARY KEY (id, rev),
+    CONSTRAINT fk_protocol_color_mapping_aud_rev FOREIGN KEY (rev) REFERENCES revinfo(rev)
+);
+
+CREATE TABLE healer_protocol_understanding_aud (
+    id                      UUID,
+    rev                     BIGINT      NOT NULL,
+    revtype                 SMALLINT,
+    created_at              TIMESTAMPTZ,
+    updated_at              TIMESTAMPTZ,
+    created_by              VARCHAR(255),
+    updated_by              VARCHAR(255),
+    is_deleted              BOOLEAN,
+    version                 BIGINT,
+    clinic_id               UUID,
+    healing_case_id         UUID,
+    healer_id               UUID,
+    completion_date         DATE,
+    protocol_name           VARCHAR(255),
+    cleansing_colors_json   TEXT,
+    energising_colors_json  TEXT,
+    chakra_readings_json    TEXT,
+    CONSTRAINT pk_healer_protocol_understanding_aud     PRIMARY KEY (id, rev),
+    CONSTRAINT fk_healer_protocol_understanding_aud_rev FOREIGN KEY (rev) REFERENCES revinfo(rev)
+);

@@ -169,7 +169,7 @@ public class PatientService {
         RegistrationLink link = new RegistrationLink();
         link.setUuid(randomUuid);
         link.setStatus(RegistrationLink.Status.ACTIVE);
-        link.setExpiresAt(Instant.now().plusSeconds(1800)); // 30 min
+        link.setExpiresAt(Instant.now().plusSeconds(172800)); // 48 hours
         registrationLinkRepository.save(link);
         return Map.of(
                 "link", baseUrl + "/self-register/" + clinicId + "/" + randomUuid
