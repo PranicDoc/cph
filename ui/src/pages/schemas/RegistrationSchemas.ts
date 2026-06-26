@@ -185,7 +185,7 @@ export const patientMedicalHistorySchema: FormSchema = [
   },
 ];
 
-export const consentDeclarationSchema: FormSchema = [
+export const consentDeclarationSchema = (patientName: string): FormSchema => [
   {
     title: "Patient Consent & Declaration",
     containerClassName:
@@ -227,6 +227,7 @@ export const consentDeclarationSchema: FormSchema = [
         type: "text",
         required: true,
         placeholder: "Enter patient's full name",
+        validate: (value, _, __) => value != patientName ? "Signature mismatch" : undefined  
       },
     ],
   },

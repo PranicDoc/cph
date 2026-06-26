@@ -50,6 +50,7 @@ export interface ProtocolMappingPayload {
   colorIds: string[];
   usageType: "CLEANSING" | "ENERGISING";
   clinicId?: string | null;
+  chakraName: string;
 }
 
 // ── Query Keys ────────────────────────────────────────────────────────────────

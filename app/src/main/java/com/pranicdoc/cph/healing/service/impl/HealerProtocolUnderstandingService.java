@@ -50,28 +50,24 @@ public class HealerProtocolUnderstandingService {
         HealingDetails details = healingCase.getHealingDetails();
         String protocolName = details != null ? details.getProtocolName() : null;
 
-        List<ColorUsedSnapshot> cleansingColors;
-        List<ColorUsedSnapshot> energisingColors;
+        List<ChakraReadingSummarySnapshot> chakraReadings =
+                healingCase.getSessions()
+                        .stream()
+                        .flatMap(session -> buildChakraReadings(session).stream())
+                        .toList();
+
 
         List<ProtocolColorMapping> mappings = protocolName != null
                 ? resolveColorMappings(protocolName, healingCase.getClinicId())
                 : Collections.emptyList();
 
-        if (!mappings.isEmpty()) {
-            cleansingColors = buildColorsFromMappings(mappings, ColorUsageType.CLEANSING);
-            energisingColors = buildColorsFromMappings(mappings, ColorUsageType.ENERGISING);
-        } else {
-            List<TreatmentStep> steps = details != null ? details.getTreatmentSteps() : Collections.emptyList();
-            cleansingColors = buildColorsFromSteps(steps, true);
-            energisingColors = buildColorsFromSteps(steps, false);
+        if (mappings.isEmpty()) {
+            log.error("No protocol color mapping found for {}", protocolName);
+            return;
         }
 
-        List<ChakraReadingSummarySnapshot> chakraReadings =
-            healingCase.getSessions()
-                .stream()
-                .flatMap(session -> buildChakraReadings(session).stream())
-                .toList();
-
+        Map<String, List<ColorUsedSnapshot>> cleansingColors = buildColorsFromMappings(mappings, ColorUsageType.CLEANSING);;
+        Map<String, List<ColorUsedSnapshot>> energisingColors = buildColorsFromMappings(mappings, ColorUsageType.ENERGISING);
         HealerProtocolUnderstanding hpu = new HealerProtocolUnderstanding();
         hpu.setHealingCaseId(healingCase.getId());
         hpu.setHealerId(healingCase.getHealerId());
@@ -86,13 +82,14 @@ public class HealerProtocolUnderstandingService {
 
     // ── Deserializers (used by mapper) ───────────────────────────────────────
 
-    public List<ColorUsedSnapshot> deserializeColors(String json) {
-        if (json == null || json.isBlank()) return Collections.emptyList();
+    public Map<String, List<ColorUsedSnapshot>> deserializeColors(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyMap();
         try {
-            return objectMapper.readValue(json, new TypeReference<>() {});
+            return objectMapper.readValue(json, new TypeReference<>() {
+            });
         } catch (Exception e) {
             log.warn("Failed to deserialize colors JSON", e);
-            return Collections.emptyList();
+            return Collections.emptyMap();
         }
     }
 
@@ -115,33 +112,28 @@ public class HealerProtocolUnderstandingService {
         return protocolColorMappingRepository.findByProtocolNameAndClinicIdIsNull(protocolName);
     }
 
-    private List<ColorUsedSnapshot> buildColorsFromMappings(
-            List<ProtocolColorMapping> mappings, ColorUsageType usageType) {
-        return mappings.stream()
-                .filter(m -> m.getUsageType() == usageType)
-                .map(m -> pranaColorCatalogRepository.findById(m.getColorId())
-                        .map(c -> new ColorUsedSnapshot(c.getCode(), c.getName(), c.getProperties()))
-                        .orElse(null))
-                .filter(Objects::nonNull)
-                .toList();
-    }
+    private Map<String, List<ColorUsedSnapshot>> buildColorsFromMappings(
+            List<ProtocolColorMapping> mappings,
+            ColorUsageType usageType) {
 
-    private List<ColorUsedSnapshot> buildColorsFromSteps(List<TreatmentStep> steps, boolean cleansing) {
-        return steps.stream()
-                .filter(s -> {
-                    String st = s.getSweepType();
-                    boolean isSweep = st != null && (
-                            st.toUpperCase().contains("SWEEP") ||
-                            st.toUpperCase().contains("CLEAN"));
-                    return cleansing == isSweep;
-                })
-                .filter(s -> s.getColor() != null && !s.getColor().isBlank())
-                .map(s -> pranaColorCatalogRepository.findByCode(s.getColor().toUpperCase())
-                        .map(c -> new ColorUsedSnapshot(c.getCode(), c.getName(), c.getProperties()))
-                        .orElse(null))
+        return mappings.stream()
                 .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+                .filter(m -> m.getUsageType() == usageType)
+                .collect(Collectors.groupingBy(
+                        ProtocolColorMapping::getChakraName,
+                        Collectors.mapping(
+                                m -> pranaColorCatalogRepository.findById(m.getColorId())
+                                        .map(c -> new ColorUsedSnapshot(
+                                                c.getCode(),
+                                                c.getName(),
+                                                c.getProperties()))
+                                        .orElse(null),
+                                Collectors.filtering(
+                                        Objects::nonNull,
+                                        Collectors.toList()
+                                )
+                        )
+                ));
     }
 
     private List<ChakraReadingSummarySnapshot> buildChakraReadings(HealingSession session) {

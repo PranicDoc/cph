@@ -144,6 +144,7 @@ public class MasterDataService {
             m.setColorId(colorId);
             m.setUsageType(req.usageType());
             m.setClinicId(req.clinicId());
+            m.setChakraName(req.chakraName());
             return m;
         }).toList();
         return mappingRepo.saveAll(entities);
