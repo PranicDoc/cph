@@ -53,7 +53,7 @@ export default function Login() {
 
   const handleGoogleLogin = () => {
     window.location.href =
-      "http://localhost:9918/cph/oauth2/authorization/google";
+      '/cph/oauth2/authorization/google';
   };
 
   if (isAuthenticated) {
