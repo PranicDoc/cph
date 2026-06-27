@@ -1,0 +1,87 @@
+name: Build & Push — cph
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'app/**'           # only rebuild when the Spring Boot app changes, not ui/
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'app/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository_owner }}/cph
+
+jobs:
+  build:
+    name: Build & Push cph
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}   # used by deploy job
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: app                 # Dockerfile lives in cph/app/
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GPR_USER=${{ github.actor }}
+            GPR_KEY=${{ secrets.GPR_KEY }}
+          cache-from: type=gha,scope=cph
+          cache-to: type=gha,mode=max,scope=cph
+
+  # ── Optional: auto-deploy to VM after a successful push ────────────────────
+  # Requires three repo secrets:
+  #   VM_HOST     — Contabo VM IP or hostname
+  #   VM_USER     — SSH user (e.g. root)
+  #   VM_SSH_KEY  — private SSH key whose public key is in ~/.ssh/authorized_keys on the VM
+  deploy:
+    name: Deploy cph on VM
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Redeploy cph only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            cd /opt/pranicdoc
+            docker compose pull cph
+            docker compose up -d --no-deps cph
+            docker image prune -f

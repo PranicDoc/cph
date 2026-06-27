@@ -6,17 +6,14 @@ ARG GPR_USER
 ARG GPR_KEY
 
 # Dependency layer — cached unless build files change
-COPY gradlew gradlew.bat ./
-COPY gradle/ gradle/
 COPY build.gradle settings.gradle ./
-RUN chmod +x gradlew && \
-    ./gradlew dependencies --no-daemon \
+RUN gradle dependencies --no-daemon \
       -Pgpr.user=${GPR_USER} -Pgpr.key=${GPR_KEY} \
       --quiet 2>/dev/null || true
 
 # Source layer
 COPY src/ src/
-RUN ./gradlew bootJar -x test --no-daemon --quiet \
+RUN gradle bootJar -x test --no-daemon --quiet \
       -Pgpr.user=${GPR_USER} -Pgpr.key=${GPR_KEY} && \
     find build/libs/ -name "*.jar" ! -name "*-plain.jar" \
       -exec mv {} build/libs/app.jar \;
