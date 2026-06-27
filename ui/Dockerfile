@@ -10,7 +10,7 @@ RUN npm ci --frozen-lockfile
 COPY . .
 
 # VITE_* env vars are baked at build time; override via build args if needed
-ARG VITE_API_BASE_URL=/cph
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build

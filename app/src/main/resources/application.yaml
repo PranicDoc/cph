@@ -46,6 +46,9 @@ management:
       show-details: always
       probes:
         enabled: true
+  health:
+    redis:
+      enabled: false
 
 app:
   jwt:
