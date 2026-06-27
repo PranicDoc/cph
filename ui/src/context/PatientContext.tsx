@@ -140,6 +140,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const computedPatients = useMemo<ComputedPatient[]>(() => {
+    if (!Array.isArray(rawPatients)) return [];
     return rawPatients.map((p) => {
       const patientSessions = rawCases
         .filter((s) => s.patientId === p.id)

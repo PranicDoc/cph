@@ -56,7 +56,7 @@ export function CreditUsageChart({ healerId, initialPeriod }: Props) {
       );
     }
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return (
         <div className="h-[250px] flex items-center justify-center">
           <p className="text-sm text-text-light">No data for this period</p>
