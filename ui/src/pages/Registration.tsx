@@ -14,6 +14,7 @@ import { usePatient } from "../context/PatientContext";
 export default function Registration() {
   const [step, setStep] = useState(1);
   const [patientId, setPatientId] = useState<string | null>(null);
+  const [patientFullName, setPatientFullName] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { clinicId, uuid } = useParams();
   const { selectPatient } = usePatient();
@@ -112,6 +113,7 @@ export default function Registration() {
         });
         setStep(3);
         setPatientId(res.data.id);
+        setPatientFullName(res.data.firstName + " " + res.data.lastName);
       } catch (error) {
         console.error("Failed to save medical history.", error);
         alert("Something went wrong");
@@ -288,7 +290,7 @@ export default function Registration() {
           >
             <DynamicFormEngine
               form={consentForm}
-              schema={consentDeclarationSchema}
+              schema={consentDeclarationSchema(patientFullName)}
             />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">

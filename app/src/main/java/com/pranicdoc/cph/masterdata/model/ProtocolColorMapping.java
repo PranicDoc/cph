@@ -33,4 +33,7 @@ public class ProtocolColorMapping extends BaseEntity {
     /** NULL = system-wide; non-null = clinic-specific override */
     @Column(name = "clinic_id")
     private UUID clinicId;
+
+    @Column(name = "chakra_name")
+    private String chakraName;
 }

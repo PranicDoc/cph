@@ -582,6 +582,7 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: boolean }) {
   const { data: colors } = usePranaColors();
   const [protocolName, setProtocolName] = useState("");
+  const [chakraName, setChakraName] = useState("");
   const [usageType, setUsageType] = useState<"CLEANSING" | "ENERGISING">("CLEANSING");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
@@ -604,6 +605,7 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
         colorIds: Array.from(selectedIds),
         usageType,
         clinicId: null,
+        chakraName
       });
       onClose();
     } catch {
@@ -621,6 +623,17 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
             onChange={(e) => setProtocolName(e.target.value)}
             className={inputCls()}
             placeholder="e.g. STRESS_RELIEF"
+            required
+          />
+        </Field>
+
+        <Field label="Chakra Name">
+          <input
+            type="text"
+            value={chakraName}
+            onChange={(e) => setChakraName(e.target.value)}
+            className={inputCls()}
+            placeholder="e.g. Crown Chakra"
             required
           />
         </Field>
