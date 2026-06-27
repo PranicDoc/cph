@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/pranic_doc
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: [openid, email, profile]
+
+app:
+  base:
+    url: ${APP_BASE_URL}
+  jwt:
+    secret: ${JWT_SECRET}
+  encryption:
+    key: ${ENCRYPTION_KEY}
+  cookies:
+    secure: true
+    same-site: None
+  feedback:
+    url: ${APP_FEEDBACK_URL}
+
+storage:
+  endpoint: ${R2_ENDPOINT}
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+
+credit-service:
+  base-url: ${CREDIT_SERVICE_URL:http://creditservice:9112/credits}
+  api-key: ${CREDIT_API_KEY}

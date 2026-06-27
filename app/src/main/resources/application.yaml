@@ -1,28 +1,14 @@
 spring:
   application:
     name: cph
-  datasource:
-    url: jdbc:postgresql://localhost:5432/pranic_doc
-    username: postgres
-    password: root123
-    driver-class-name: org.postgresql.Driver
 
-  jpa:
-    hibernate:
-      ddl-auto: none
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-
-  #  Remove later for prod after enabling kafka
+  # Kafka producer disabled until Kafka is deployed — remove this exclude when ready
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 
   kafka:
     bootstrap-servers: localhost:9092
-
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -34,53 +20,16 @@ spring:
       batch-size: 16384
       linger-ms: 5
       compression-type: snappy
-
     template:
       default-topic: pdf-jobs
 
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - openid
-              - email
-              - profile
+  jpa:
+    hibernate:
+      ddl-auto: none
 
-app:
-  base:
-    url: http://localhost:3000
-  jwt:
-    # Base64-encoded 64-byte secret for HS512 — CHANGE THIS IN PRODUCTION
-    secret: Y2hhbmdlLXRoaXMtdG8tYS1sb25nLXNlY3JldC1rZXktaW4tcHJvZHVjdGlvbi1lbnZpcm9ubWVudC1wbGVhc2U=
-    access-token-expiration-ms: 3600000     # 1 hour
-    refresh-token-expiration-ms: 604800000  # 7 days
-  encryption:
-    # Base64-encoded 32-byte AES key — CHANGE THIS IN PRODUCTION
-    key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
-  cookies:
-    secure: true    # true in production (HTTPS only)
-    same-site: None   # "None" for cross-origin, "Strict" for same-site only
-  enable:
-    kafka: false
-  feedback:
-    url: http://localhost:3000/feedback
-    token-expiry-hours: 48
-
-storage:
-  provider: R2
-  bucket: pranicdoc-pdfs
-  endpoint: ${R2_ENDPOINT}
-  access-key: ${R2_ACCESS_KEY}
-  secret-key: ${R2_SECRET_KEY}
-  presigned-expiry-minutes: 10
-
-credit-service:
-  base-url: ${CREDIT_SERVICE_URL:http://localhost:9112/credits}
-  api-key: ${CREDIT_API_KEY:my32BitLongApiKey}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 server:
   port: 9918
@@ -97,6 +46,20 @@ management:
       show-details: always
       probes:
         enabled: true
+
+app:
+  jwt:
+    access-token-expiration-ms: 3600000
+    refresh-token-expiration-ms: 604800000
+  enable:
+    kafka: false
+  feedback:
+    token-expiry-hours: 48
+
+storage:
+  provider: R2
+  bucket: pranicdoc-pdfs
+  presigned-expiry-minutes: 10
 
 dashboard:
   cache:
