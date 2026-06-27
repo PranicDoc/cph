@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pranic_doc
+    username: postgres
+    password: root123
+    driver-class-name: org.postgresql.Driver
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:dev-placeholder}
+            client-secret: ${GOOGLE_CLIENT_SECRET:dev-placeholder}
+            scope: [openid, email, profile]
+
+app:
+  base:
+    url: http://localhost:3000
+  jwt:
+    # Dev-only — NOT safe for production
+    secret: Y2hhbmdlLXRoaXMtdG8tYS1sb25nLXNlY3JldC1rZXktaW4tcHJvZHVjdGlvbi1lbnZpcm9ubWVudC1wbGVhc2U=
+  encryption:
+    # Dev-only — NOT safe for production
+    key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+  cookies:
+    secure: false
+    same-site: Lax
+  feedback:
+    url: http://localhost:3000/feedback
+
+storage:
+  endpoint: ${R2_ENDPOINT:}
+  access-key: ${R2_ACCESS_KEY:}
+  secret-key: ${R2_SECRET_KEY:}
+
+credit-service:
+  base-url: http://localhost:9112/credits
+  api-key: my32BitLongApiKey
