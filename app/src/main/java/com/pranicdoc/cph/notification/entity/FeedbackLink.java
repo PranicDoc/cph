@@ -32,7 +32,7 @@ public class FeedbackLink {
     @Builder.Default
     private LinkStatus status = LinkStatus.ACTIVE;
 
-    @Column(name = "final")
+    @Column(name = "is_final")
     @Builder.Default
     private boolean isFinal = false;
 

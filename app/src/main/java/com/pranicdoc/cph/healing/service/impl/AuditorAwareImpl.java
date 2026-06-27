@@ -24,5 +24,6 @@ public class AuditorAwareImpl implements AuditorAware<String> {
         }
         return Optional.ofNullable(
                 healerCacheService.getEmail(healerId)
-        );    }
+        );
+    }
 }

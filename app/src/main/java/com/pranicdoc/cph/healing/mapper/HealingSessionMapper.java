@@ -35,7 +35,9 @@ public interface HealingSessionMapper {
                 scan.getReadings().forEach(reading -> reading.setChakraScan(scan));
             }
         });
-        session.getSymptomFeedbacks().forEach(fb -> fb.setHealingSession(session));
-        session.getQualitativeFeedbacks().forEach(q -> q.setHealingSession(session));
+        if (session.getSymptomFeedbacks() != null)
+            session.getSymptomFeedbacks().forEach(fb -> fb.setHealingSession(session));
+        if (session.getQualitativeFeedbacks() != null)
+            session.getQualitativeFeedbacks().forEach(q -> q.setHealingSession(session));
     }
 }

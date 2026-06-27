@@ -20,9 +20,9 @@ public record CreateSessionRequest(
         LocalTime endTime,
         @NotNull @Valid
         List<ScanRequest> scans,
-        @NotNull @Valid
+        @Valid
         List<SymptomFeedbackRequest> symptomFeedbacks,
-        @NotNull @Valid
+        @Valid
         List<QualitativeFeedbackRequest> qualitativeFeedbacks
 ) {
 }

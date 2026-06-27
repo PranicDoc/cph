@@ -106,16 +106,14 @@ export default function Registration() {
         medicalHistory: value,
       };
       try {
-        // Attach patientId to the payload implicitly via the URL or explicitly in the body
-        // POST call to save medical history
-        const res = await api.post(`/api/v1/patients`, {
+        const url = isSelfRegister ? "/api/v1/patients/self-register" : "/api/v1/patients";
+        const res = await api.post(url, {
           ...payload,
         });
         setStep(3);
         setPatientId(res.data.id);
       } catch (error) {
         console.error("Failed to save medical history.", error);
-        // Fallback for UI demonstration
         alert("Something went wrong");
       } finally {
         setIsSubmitting(false);

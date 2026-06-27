@@ -405,6 +405,13 @@ public class CaseService {
                 throw new RuntimeException("Failed to persist lab findings", e);
             }
         }
+        if(securityContextUtil.getCurrentRole().equalsIgnoreCase("Healer")
+            && CaseStatus.DRAFT.equals(entity.getStatus())
+            && entity.getHealerId() == null
+            && securityContextUtil.getCurrentHealerId() != null
+        ) {
+            entity.setHealerId(securityContextUtil.getCurrentHealerId());
+        }
         if(!securityContextUtil.getCurrentRole().equalsIgnoreCase("Patient")
                 && CaseStatus.DRAFT.equals(entity.getStatus())) {
             entity.setStatus(CaseStatus.ACTIVE);

@@ -5,19 +5,16 @@ import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
-import com.pranicdoc.cph.auth.service.AuthService;
+import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -81,6 +78,11 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(authentication.getPrincipal());
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<HealerResponse> getCurrentHealer() {
+        return ResponseEntity.ok(authService.getCurrentHealer());
     }
 
     @PostMapping("/init-session")

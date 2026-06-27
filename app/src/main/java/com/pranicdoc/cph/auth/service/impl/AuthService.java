@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.auth.service;
+package com.pranicdoc.cph.auth.service.impl;
 
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
@@ -174,6 +174,7 @@ public class AuthService {
 
     // ─── Get current healer (/me) ───────────────────────────────
 
+    @Auditable(action = "GET_PROFILE")
     @Transactional(readOnly = true)
     public HealerResponse getCurrentHealer() {
         UUID healerId = securityContextUtil.getCurrentHealerId();

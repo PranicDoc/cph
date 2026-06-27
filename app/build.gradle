@@ -67,6 +67,10 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	// --- Flyway ---
+	implementation 'org.flywaydb:flyway-core'
+	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+
 	// --- Observability ---
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
@@ -108,6 +112,9 @@ dependencies {
 
 	// --- Lib Phone Number ---
 	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.31'
+
+	// --- Oauth2 ---
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 }
 
 tasks.named('test') {
