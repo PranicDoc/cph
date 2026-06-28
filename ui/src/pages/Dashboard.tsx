@@ -10,6 +10,9 @@ import { PatientGrowthChart } from "../components/PatientGrowthChart";
 import { TopSymptomsChart } from "../components/TopSymptomsChart";
 import { TopProtocolsChart } from "../components/TopProtocolsChart";
 import { CreditUsageChart } from "../components/CreditUsageChart";
+import { UpcomingSessionsTable } from "../components/UpcomingSessionsTable";
+import { PendingReportsTable } from "../components/PendingReportsTable";
+import { FollowupTable } from "../components/FollowupTable";
 
 function getGreeting(firstName?: string): string {
   const hour = new Date().getHours();
@@ -124,6 +127,20 @@ export default function Dashboard() {
           Credit Usage
         </p>
         <CreditUsageChart healerId={healerId} initialPeriod={initialPeriod} />
+      </div>
+
+      {/* Work Queue section */}
+      <div className="mt-8">
+        <p className="text-sm font-semibold text-text-light uppercase tracking-wide mb-4">
+          Work Queue
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <UpcomingSessionsTable healerId={healerId} />
+          <PendingReportsTable healerId={healerId} />
+        </div>
+        <div className="mt-6">
+          <FollowupTable healerId={healerId} />
+        </div>
       </div>
     </div>
   );
