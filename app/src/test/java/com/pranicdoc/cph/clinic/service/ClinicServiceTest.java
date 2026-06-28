@@ -6,6 +6,7 @@ import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.payments.CreditServiceClient;
 import com.pranicdoc.cph.payments.dto.AccountResponse;
+import com.pranicdoc.cph.payments.dto.OwnerType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,12 +45,12 @@ class ClinicServiceTest {
         AccountResponse accountResponse = new AccountResponse(UUID.randomUUID(), "CLINIC", clinicId, 3);
 
         when(clinicRepository.save(any())).thenReturn(clinic);
-        when(creditServiceClient.createAccount(eq("CLINIC"), any())).thenReturn(accountResponse);
+        when(creditServiceClient.createAccount(eq(OwnerType.CLINIC), any())).thenReturn(accountResponse);
 
         ClinicResponse response = clinicService.create(sampleRequest());
 
         assertNotNull(response);
-        verify(creditServiceClient).createAccount(eq("CLINIC"), any());
+        verify(creditServiceClient).createAccount(eq(OwnerType.CLINIC), any());
         verify(clinicRepository).save(any());
     }
 

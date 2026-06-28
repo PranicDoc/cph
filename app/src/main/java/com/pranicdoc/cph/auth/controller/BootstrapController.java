@@ -6,6 +6,7 @@ import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,7 +65,7 @@ public class BootstrapController {
                 .fullName(request.fullName())
                 .email(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
-                .role(request.role())
+                .role(Role.SUPADM)
                 .active(true)
                 .build();
         healer.setClinicId(clinic.getId());

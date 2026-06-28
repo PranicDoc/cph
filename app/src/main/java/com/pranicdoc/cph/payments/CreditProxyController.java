@@ -1,5 +1,8 @@
 package com.pranicdoc.cph.payments;
 
+import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.payments.dto.AccountResponse;
+import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,8 +35,8 @@ public class CreditProxyController {
      * WR-02: upstream 4xx/5xx are forwarded with their original status code and body.
      */
     @GetMapping("/packages")
-    public ResponseEntity<String> getPackages() {
-        return creditService.getPackages();
+    public ResponseEntity<ApiResponse<String>> getPackages() {
+        return ResponseEntity.ok(creditService.getPackages());
     }
 
     /**
@@ -47,6 +50,13 @@ public class CreditProxyController {
     public ResponseEntity<String> purchase(
             @RequestBody String requestBody,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
-        return creditService.purchase(requestBody, idempotencyKey);
+        return ResponseEntity.ok(creditService.purchase(requestBody, idempotencyKey));
+    }
+
+    @PostMapping("/account")
+    public ResponseEntity<ApiResponse<AccountResponse>> createAccount(
+            @RequestParam(defaultValue = "HEALER") OwnerType ownerType
+    ) {
+        return ResponseEntity.ok(ApiResponse.of(creditService.createAccount(ownerType)));
     }
 }
