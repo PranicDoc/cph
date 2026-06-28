@@ -39,5 +39,5 @@ storage:
   secret-key: ${R2_SECRET_KEY}
 
 credit-service:
-  base-url: ${CREDIT_SERVICE_URL:http://creditservice:9112/credits}
+  base-url: ${CREDIT_SERVICE_URL:http://creditservice:9112}
   api-key: ${CREDIT_API_KEY}
