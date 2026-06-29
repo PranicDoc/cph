@@ -300,10 +300,10 @@ export default function Session() {
                       <p>Basic book pg: {sessionData?.basicBookPg}</p>
                     )}
                     {sessionData?.advancedBookPg && (
-                      <p>Basic book pg: {sessionData?.advancedBookPg}</p>
+                      <p>Advanced book pg: {sessionData?.advancedBookPg}</p>
                     )}
                     {sessionData?.psychotherapyPg && (
-                      <p>Basic book pg: {sessionData?.psychotherapyPg}</p>
+                      <p>Psychotherapy book pg: {sessionData?.psychotherapyPg}</p>
                     )}
                   </div>
                 ) : null
