@@ -157,8 +157,8 @@ export default function Session() {
           advancedBookPg: data.advancedBookPg || "",
           psychotherapyPg: data.psychotherapyPg || "",
           labFindings: data?.labFindings || [],
-          complementaryDetails: data.complementaryModalities || "",
-          infectiousDetails: data.infectiousIllness || "",
+          complementaryDetails: data?.complementaryDetails || "",
+          infectiousDetails: data?.infectiousDetails || "",
           healingDetails: {
             protocolName: data.healingDetails?.protocolName || "",
             detailedProtocol: data.healingDetails?.detailedProtocol || "",
@@ -318,7 +318,7 @@ export default function Session() {
               onClick={() => navigate('/patients')}
               className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
-              ← Back to Patients
+              Back to Patients
             </button>
             <button
               type="button"
@@ -369,7 +369,7 @@ export default function Session() {
               onClick={() => navigate('/patients')}
               className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
-              ← Back to Patients
+              Back to Patients
             </button>
 
             {sessionData.status !== "DRAFT" && (

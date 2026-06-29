@@ -29,7 +29,7 @@ export function WizardNavigation({
         onClick={onSubmit}
         className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
-        {isSubmitting ? "Saving..." : step === 4 ? "Submit" : "Next"}
+        {isSubmitting ? "Saving..." : step === 2 ? "Submit" : "Next"}
       </button>
     </div>
   );
