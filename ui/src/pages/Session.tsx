@@ -228,7 +228,6 @@ export default function Session() {
         {healingCaseId && (
           <HealingSessionWizard
             caseId={healingCaseId}
-            sessionNumber={sessionData?.healingSession?.length}
             symptoms={sessionData?.symptoms}
             onClose={goToPreviousStep}
           />

@@ -16,7 +16,6 @@ import { WizardProgress } from "./HealingSessionWizard/WizardProgress";
 
 interface HealingSessionWizardProps {
   caseId: string;
-  sessionNumber: number;
   symptoms: any[];
   onClose: () => void;
 }
