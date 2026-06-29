@@ -279,9 +279,9 @@ export function DynamicField({
               <input
                 type={type}
                 value={
-                  trimSpaces
+                  trimSpaces && typeof field.state.value === "string"
                     ? field.state.value.replace(/\s+/g, "")
-                    : field.state.value
+                    : (field.state.value ?? "")
                 }
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
