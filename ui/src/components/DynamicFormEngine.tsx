@@ -97,6 +97,11 @@ export function DynamicField({
     });
   }, [form, name]);
 
+  useEffect(() => {
+    if (!enableToggle) return;
+    setEnabled(Boolean(form.state.values[name]));
+  }, [form.state.values[name], enableToggle, name]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!display) return null;
 
   return (
