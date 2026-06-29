@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useHealingSessionWizard } from "../hooks/useHealingSessionWizard";
 import {
   buildBackendChakraCatalog,
@@ -37,6 +38,14 @@ export const HealingSessionWizard = ({
     handleBack,
     handleNext,
   } = useHealingSessionWizard({ caseId, symptoms });
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (step !== 3) return;
+    const timer = setTimeout(() => navigate('/patients'), 2000);
+    return () => clearTimeout(timer);
+  }, [step, navigate]);
 
   const { colors, chakras, loading } = referenceData;
   const availableChakras = useMemo(

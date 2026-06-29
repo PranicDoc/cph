@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
@@ -38,6 +38,7 @@ export default function Session() {
   const [sessionData, setSessionData] = useState<HealingSession | null>(null);
   const [isEdit, setIsEdit] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const navigate = useNavigate();
 
   // Persist edit mode per step (only step 0 for now)
   const stepEditModeRef = useRef<Record<number, boolean>>({ 0: false });
@@ -309,11 +310,10 @@ export default function Session() {
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-6 border-t border-border">
             <button
               type="button"
-              onClick={goToPreviousStep}
-              disabled={currentStep === 0} // first step disabled
-              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => navigate('/patients')}
+              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
-              Previous
+              ← Back to Patients
             </button>
             <button
               type="button"
@@ -357,11 +357,10 @@ export default function Session() {
           <div className="flex w-full sm:w-auto gap-3">
             <button
               type="button"
-              onClick={goToPreviousStep}
-              disabled={currentStep === 0}
-              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => navigate('/patients')}
+              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
-              Previous
+              ← Back to Patients
             </button>
 
             {sessionData.status !== "DRAFT" && (
