@@ -76,6 +76,7 @@ export default function Session() {
       healingDetails: {
         protocolName: "",
         bookReference: "",
+        detailedProtocol: "",
         treatmentSteps: [],
       },
     },
