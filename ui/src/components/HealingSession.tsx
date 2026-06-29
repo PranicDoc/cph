@@ -58,7 +58,7 @@ export const HealingSessionWizard = ({
   );
 
   const handleWizardBack = () => {
-    if (step == 1) {
+    if (step === 1) {
       onClose();
     } else {
       handleBack();
