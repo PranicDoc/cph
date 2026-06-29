@@ -15,11 +15,16 @@ export function FollowupTable({ healerId }: Props) {
   const { data, isLoading, isError, refetch } = useFollowups(healerId);
   const [resending, setResending] = useState<string | null>(null);
 
+  const [resendError, setResendError] = useState<string | null>(null);
+
   async function handleResend(caseId: string, isFinal: boolean) {
     setResending(caseId);
+    setResendError(null);
     try {
       await api.post(`/api/v1/cases/${caseId}/resend-feedback?isFinal=${isFinal}`);
       refetch();
+    } catch {
+      setResendError("Failed to resend — please try again.");
     } finally {
       setResending(null);
     }
@@ -70,6 +75,9 @@ export function FollowupTable({ healerId }: Props) {
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
       <p className="text-sm font-semibold text-text mb-4">Follow-Up Required</p>
+      {resendError && (
+        <p className="text-xs text-danger mb-3">{resendError}</p>
+      )}
       <WorkQueueTable<FollowupPatient>
         columns={columns}
         data={data ?? []}
