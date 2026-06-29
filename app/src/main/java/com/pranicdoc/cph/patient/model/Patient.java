@@ -12,6 +12,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.envers.Audited;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -53,6 +56,9 @@ public class Patient extends TenantEntity {
     @Column(name = "contact_whatsapp")
     private String contact; // 🔒 Encrypted
 
+    @Column(name = "contact_hash")
+    private String contactHash;
+
     @Column(name = "occupation")
     private String occupation;
 
@@ -93,6 +99,7 @@ public class Patient extends TenantEntity {
         p.setMaritalStatus(req.maritalStatus());
         p.setEmail(req.email());
         p.setContact(req.contact());
+        p.setContactHash(hashContact(req.contact()));
         p.setOccupation(req.occupation());
         p.setAddressLine1(req.addressLine1());
         p.setAddressLine2(req.addressLine2());
@@ -123,5 +130,20 @@ public class Patient extends TenantEntity {
         history.setAdditionalNotes(historyReq.additionalNotes());
         history.setPatient(p);
         return history;
+    }
+
+    private static String hashContact(String contact) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(contact.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 }
