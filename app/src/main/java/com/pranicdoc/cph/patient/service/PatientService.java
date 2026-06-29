@@ -1,6 +1,5 @@
 package com.pranicdoc.cph.patient.service;
 
-import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
@@ -197,17 +196,4 @@ public class PatientService {
                 .toList();
     }
 
-    @Auditable(action = "FETCH_FOLLOWUPS")
-    @Transactional(readOnly = true)
-    public List<DashboardFollowup> getFollowups(UUID healerId) {
-        LocalDate cutoffDate = LocalDate.now().minusDays(30);
-        return patientRepository.getFollowups(healerId, cutoffDate).stream()
-                .map(f -> new DashboardFollowup(
-                        f.getPatientId(),
-                        f.getPatientFirstName(),
-                        f.getPatientLastName(),
-                        f.getLastSessionDate(),
-                        f.getDaysSinceLastSession()))
-                .toList();
-    }
 }

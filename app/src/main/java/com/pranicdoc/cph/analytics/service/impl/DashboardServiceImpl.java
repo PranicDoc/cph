@@ -18,6 +18,7 @@ import com.pranicdoc.cph.analytics.service.DateRangeResolver;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.healing.service.PdfJobService;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.patient.service.PatientService;
 import com.pranicdoc.cph.payments.dto.BalanceCreditResponse;
 import com.pranicdoc.cph.payments.dto.OwnerType;
@@ -32,10 +33,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +51,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final PdfJobService pdfJobService;
     private final DateRangeResolver dateRangeResolver;
     private final CaseService caseService;
+    private final FeedbackLinkRepository feedbackLinkRepository;
 
     @Override
     @Cacheable(value = "dashboard.summary", key = "#healerId", sync = true)
@@ -144,21 +148,29 @@ public class DashboardServiceImpl implements DashboardService {
     @Cacheable(value = "dashboard.upcoming-sessions", key = "#healerId", sync = true)
     @Transactional(readOnly = true)
     public ApiResponse<List<DashboardUpcomingSession>> getUpcomingSessions(UUID healerId) {
-        return ApiResponse.of(sessionService.getUpcomingSessions(healerId));
+        List<DashboardUpcomingSession> drafts = sessionService.getDraftSessions(healerId);
+        List<DashboardUpcomingSession> activeCases = caseService.getActiveCasesForQueue(healerId);
+        return ApiResponse.of(Stream.concat(drafts.stream(), activeCases.stream()).toList());
     }
 
     @Override
     @Cacheable(value = "dashboard.pending-reports", key = "#healerId", sync = true)
     @Transactional(readOnly = true)
     public ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId) {
-        return ApiResponse.of(sessionService.getPendingReports(healerId));
+        return ApiResponse.of(caseService.getPendingReports(healerId));
     }
 
     @Override
     @Cacheable(value = "dashboard.followups", key = "#healerId", sync = true)
     @Transactional(readOnly = true)
     public ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId) {
-        return ApiResponse.of(patientService.getFollowups(healerId));
+        Instant sentBefore = Instant.now().minus(24, ChronoUnit.HOURS);
+        return ApiResponse.of(feedbackLinkRepository.getFollowupsForQueue(healerId, sentBefore).stream()
+                .map(f -> new DashboardFollowup(
+                        f.getCaseId(), f.getPatientFirstName(), f.getPatientLastName(),
+                        f.getFeedbackToken(), f.getSentAt(), f.getIsFinal()
+                ))
+                .toList());
     }
 
     @Override

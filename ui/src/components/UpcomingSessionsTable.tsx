@@ -15,13 +15,16 @@ export function UpcomingSessionsTable({ healerId }: Props) {
   const columnHelper = createColumnHelper<UpcomingSession>();
 
   const columns = [
-    columnHelper.accessor((row) => `${row.patientFirstName} ${row.patientLastName}`, {
-      id: "patient",
-      header: "Patient",
-    }),
-    columnHelper.accessor("sessionDate", {
+    columnHelper.accessor(
+      (row) => `${row.patientFirstName} ${row.patientLastName}`,
+      { id: "patient", header: "Patient" }
+    ),
+    columnHelper.accessor("date", {
       header: "Date",
-      cell: (info) => format(parseISO(info.getValue()), "dd MMM yyyy"),
+      cell: (info) => {
+        const v = info.getValue();
+        return v ? format(parseISO(v), "dd MMM yyyy") : "—";
+      },
     }),
     columnHelper.accessor("startTime", {
       header: "Time",
@@ -30,22 +33,29 @@ export function UpcomingSessionsTable({ healerId }: Props) {
         return v ? v.substring(0, 5) : "—";
       },
     }),
-    columnHelper.accessor("status", {
+    columnHelper.accessor("type", {
       header: "Status",
       cell: (info) => {
-        const s = info.getValue();
-        const cls =
-          s === "DRAFT"
-            ? "bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-medium"
-            : "bg-green-100 text-green-700 rounded-full px-2 py-0.5 text-xs font-medium";
-        return <span className={cls}>{s}</span>;
+        const t = info.getValue();
+        if (t === "DRAFT_SESSION") {
+          return (
+            <span className="bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-medium">
+              Draft Session
+            </span>
+          );
+        }
+        return (
+          <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-medium">
+            Active Case
+          </span>
+        );
       },
     }),
   ];
 
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
-      <p className="text-sm font-semibold text-text mb-4">Upcoming Sessions</p>
+      <p className="text-sm font-semibold text-text mb-4">Active Work</p>
       <WorkQueueTable<UpcomingSession>
         columns={columns}
         data={data ?? []}
@@ -53,7 +63,7 @@ export function UpcomingSessionsTable({ healerId }: Props) {
         isError={isError}
         refetch={refetch}
         emptyIcon={CalendarCheck}
-        emptyMessage="No upcoming sessions"
+        emptyMessage="No draft sessions or active cases"
       />
     </div>
   );

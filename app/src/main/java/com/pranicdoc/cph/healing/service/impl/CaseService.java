@@ -4,8 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
+import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
+import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -74,6 +78,7 @@ public class CaseService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final ApplicationEventPublisher eventPublisher;
+    private final FeedbackLinkRepository feedbackLinkRepository;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -526,5 +531,47 @@ public class CaseService {
         Instant fromInstant = from.atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant toInstant = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         return healingDetailsRepository.getTopProtocols(healerId, fromInstant, toInstant, PageRequest.of(0, 10));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DashboardUpcomingSession> getActiveCasesForQueue(UUID healerId) {
+        return caseRepository.getActiveCasesForQueue(healerId).stream()
+                .map(p -> new DashboardUpcomingSession(
+                        p.getId(),
+                        p.getPatientFirstName(),
+                        p.getPatientLastName(),
+                        p.getLastSessionDate(),
+                        null,
+                        "ACTIVE_CASE"
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DashboardPendingReport> getPendingReports(UUID healerId) {
+        return caseRepository.getPendingReportsForQueue(healerId).stream()
+                .map(p -> new DashboardPendingReport(
+                        p.getCaseId(),
+                        p.getPatientFirstName(),
+                        p.getPatientLastName(),
+                        p.getClosureDate()
+                ))
+                .toList();
+    }
+
+    @Auditable(action = "RESEND_FEEDBACK")
+    @Transactional
+    public void resendFeedback(UUID caseId, boolean isFinal) {
+        HealingCase healingCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+        if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Not authorized");
+        }
+        feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
+        HealingSession latestSession = healingCase.getSessions().stream()
+                .filter(s -> s.getSessionDate() != null)
+                .max(java.util.Comparator.comparing(HealingSession::getSessionDate))
+                .orElseThrow(() -> new ResourceNotFoundException("HealingSession", caseId));
+        notificationService.sendFeedbackNotification(latestSession, isFinal);
     }
 }

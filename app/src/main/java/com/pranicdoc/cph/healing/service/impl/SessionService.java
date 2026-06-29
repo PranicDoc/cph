@@ -1,6 +1,5 @@
 package com.pranicdoc.cph.healing.service.impl;
 
-import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.common.audit.Auditable;
@@ -182,15 +181,9 @@ public class SessionService {
         return sessionRepository.getSessionTrends(healerId, from, to);
     }
 
-    @Auditable(action = "FETCH_UPCOMING_SESSIONS")
+    @Auditable(action = "FETCH_DRAFT_SESSIONS")
     @Transactional(readOnly = true)
-    public List<DashboardUpcomingSession> getUpcomingSessions(UUID healerId) {
-        return sessionRepository.getUpcomingSessions(healerId, LocalDate.now());
-    }
-
-    @Auditable(action = "FETCH_PENDING_REPORTS")
-    @Transactional(readOnly = true)
-    public List<DashboardPendingReport> getPendingReports(UUID healerId) {
-        return sessionRepository.getPendingReports(healerId);
+    public List<DashboardUpcomingSession> getDraftSessions(UUID healerId) {
+        return sessionRepository.getDraftSessions(healerId);
     }
 }

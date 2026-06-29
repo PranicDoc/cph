@@ -15,13 +15,16 @@ export function PendingReportsTable({ healerId }: Props) {
   const columnHelper = createColumnHelper<PendingReport>();
 
   const columns = [
-    columnHelper.accessor((row) => `${row.patientFirstName} ${row.patientLastName}`, {
-      id: "patient",
-      header: "Patient",
-    }),
-    columnHelper.accessor("sessionDate", {
-      header: "Session Date",
-      cell: (info) => format(parseISO(info.getValue()), "dd MMM yyyy"),
+    columnHelper.accessor(
+      (row) => `${row.patientFirstName} ${row.patientLastName}`,
+      { id: "patient", header: "Patient" }
+    ),
+    columnHelper.accessor("closureDate", {
+      header: "Closed On",
+      cell: (info) => {
+        const v = info.getValue();
+        return v ? format(parseISO(v), "dd MMM yyyy") : "—";
+      },
     }),
     columnHelper.display({
       id: "reportStatus",

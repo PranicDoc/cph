@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +23,34 @@ public interface FeedbackLinkRepository extends JpaRepository<FeedbackLink, Stri
     int markUsedBySessionId(@Param("caseId") UUID sessionId,
                             @Param("used") LinkStatus used,
                             @Param("active") LinkStatus active);
+
+    @Query(nativeQuery = true, value = """
+        SELECT hc.id         AS caseId,
+               p.first_name  AS patientFirstName,
+               p.last_name   AS patientLastName,
+               fl.token      AS feedbackToken,
+               fl.created_at AS sentAt,
+               fl.is_final   AS isFinal
+        FROM feedback_link fl
+        JOIN healing_case hc ON hc.id = fl.case_id
+        JOIN patient p ON p.id = hc.patient_id
+        WHERE hc.healer_id = :healerId::uuid
+          AND fl.status     = 'ACTIVE'
+          AND fl.created_at <= :sentBefore
+          AND p.is_deleted  = false
+          AND hc.is_deleted = false
+        ORDER BY fl.is_final DESC, fl.created_at ASC
+    """)
+    List<FollowupPoint> getFollowupsForQueue(
+            @Param("healerId") UUID healerId,
+            @Param("sentBefore") Instant sentBefore);
+
+    interface FollowupPoint {
+        UUID getCaseId();
+        String getPatientFirstName();
+        String getPatientLastName();
+        String getFeedbackToken();
+        Instant getSentAt();
+        boolean getIsFinal();
+    }
 }

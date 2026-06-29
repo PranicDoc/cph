@@ -1,23 +1,24 @@
 export interface UpcomingSession {
-  sessionId: string;
+  id: string;
   patientFirstName: string;
   patientLastName: string;
-  sessionDate: string;
+  date: string;
   startTime: string | null;
-  status: "DRAFT" | "COMPLETED";
+  type: "DRAFT_SESSION" | "ACTIVE_CASE";
 }
 
 export interface PendingReport {
-  sessionId: string;
+  caseId: string;
   patientFirstName: string;
   patientLastName: string;
-  sessionDate: string;
+  closureDate: string | null;
 }
 
 export interface FollowupPatient {
-  patientId: string;
+  caseId: string;
   patientFirstName: string;
   patientLastName: string;
-  lastSessionDate: string;
-  daysSinceLastSession: number;
+  feedbackToken: string;
+  sentAt: string;
+  isFinal: boolean;
 }

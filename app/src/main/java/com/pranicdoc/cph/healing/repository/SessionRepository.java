@@ -1,6 +1,5 @@
 package com.pranicdoc.cph.healing.repository;
 
-import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -12,12 +11,15 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
 
     List<HealingSession> findByHealingCaseIdOrderBySessionNumberAsc(UUID healingCaseId);
+
+    Optional<HealingSession> findFirstByHealingCase_IdOrderBySessionDateDesc(UUID caseId);
 
     @Query("""
         SELECT new com.pranicdoc.cph.analytics.dto.DashboardSessionTrend(s.sessionDate, COUNT(s))
@@ -48,35 +50,14 @@ public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
 
     @Query("""
         SELECT new com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession(
-            hs.id, p.firstName, p.lastName, hs.sessionDate, hs.startTime, hs.status
+            hs.id, p.firstName, p.lastName, hs.sessionDate, hs.startTime, 'DRAFT_SESSION'
         )
         FROM HealingSession hs
         JOIN hs.healingCase hc
         JOIN com.pranicdoc.cph.patient.model.Patient p ON p.id = hc.patientId
         WHERE hc.healerId = :healerId
-          AND hs.sessionDate >= :today
-        ORDER BY hs.sessionDate ASC, hs.startTime ASC
+          AND hs.status = com.pranicdoc.cph.common.enums.SessionStatus.DRAFT
+        ORDER BY hs.sessionDate DESC NULLS LAST
     """)
-    List<DashboardUpcomingSession> getUpcomingSessions(
-            @Param("healerId") UUID healerId,
-            @Param("today") LocalDate today);
-
-    @Query("""
-        SELECT new com.pranicdoc.cph.analytics.dto.DashboardPendingReport(
-            hs.id, p.firstName, p.lastName, hs.sessionDate
-        )
-        FROM HealingSession hs
-        JOIN hs.healingCase hc
-        JOIN com.pranicdoc.cph.patient.model.Patient p ON p.id = hc.patientId
-        WHERE hc.healerId = :healerId
-          AND hs.status = com.pranicdoc.cph.common.enums.SessionStatus.COMPLETED
-          AND NOT EXISTS (
-              SELECT pj FROM com.pranicdoc.cph.healing.model.PdfJobEntity pj
-              WHERE pj.healingCaseId = hc.id
-                AND pj.status = com.pranicdoc.cph.common.enums.JobStatus.COMPLETED
-          )
-        ORDER BY hs.sessionDate DESC
-    """)
-    List<DashboardPendingReport> getPendingReports(
-            @Param("healerId") UUID healerId);
+    List<DashboardUpcomingSession> getDraftSessions(@Param("healerId") UUID healerId);
 }

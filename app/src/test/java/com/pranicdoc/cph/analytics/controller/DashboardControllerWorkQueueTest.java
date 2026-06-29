@@ -6,7 +6,6 @@ import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.analytics.service.DateRangeResolver;
 import com.pranicdoc.cph.common.dto.ApiResponse;
-import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityConfig;
@@ -21,28 +20,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * MockMvc tests for DashboardController work-queue endpoints:
- * upcoming-sessions, pending-reports, and followups.
- *
- * Uses @WebMvcTest + @Import(SecurityConfig, GlobalExceptionHandler, DateRangeResolver)
- * pattern -- identical to DashboardControllerInsightsTest.
- *
- * Auth approach: @WithMockUser bypasses the JWT filter for authenticated tests.
- * Unauthenticated tests return 401 from the stateless JWT security config.
- * D-01: No DateRangeFilter parameter on any of these endpoints.
- */
 @WebMvcTest(DashboardController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, DateRangeResolver.class})
 class DashboardControllerWorkQueueTest {
@@ -83,7 +70,7 @@ class DashboardControllerWorkQueueTest {
         when(dashboardService.getUpcomingSessions(any(UUID.class)))
                 .thenReturn(ApiResponse.of(List.of(
                         new DashboardUpcomingSession(UUID.randomUUID(), "Jane", "Doe",
-                                LocalDate.now().plusDays(1), LocalTime.of(10, 0), SessionStatus.DRAFT))));
+                                LocalDate.now(), null, "DRAFT_SESSION"))));
 
         mockMvc.perform(get("/api/v1/dashboard/upcoming-sessions"))
                 .andExpect(status().isOk());
@@ -143,7 +130,7 @@ class DashboardControllerWorkQueueTest {
         when(dashboardService.getFollowups(any(UUID.class)))
                 .thenReturn(ApiResponse.of(List.of(
                         new DashboardFollowup(UUID.randomUUID(), "Bob", "Jones",
-                                LocalDate.now().minusDays(45), 45L))));
+                                "test-token-abc", Instant.now().minusSeconds(90_000), true))));
 
         mockMvc.perform(get("/api/v1/dashboard/followups"))
                 .andExpect(status().isOk());

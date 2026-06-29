@@ -4,8 +4,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record DashboardPendingReport(
-        UUID sessionId,
+        UUID caseId,
         String patientFirstName,
         String patientLastName,
-        LocalDate sessionDate
+        LocalDate closureDate
 ) {}

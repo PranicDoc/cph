@@ -143,4 +143,10 @@ public class CaseController {
                 caseService.getSymptomsForFeedback(caseId, pageable)
         );
     }
+
+    @PostMapping("/{id}/resend-feedback")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void resendFeedback(@PathVariable UUID id, @RequestParam boolean isFinal) {
+        caseService.resendFeedback(id, isFinal);
+    }
 }

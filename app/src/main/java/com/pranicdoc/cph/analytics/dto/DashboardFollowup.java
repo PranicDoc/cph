@@ -1,12 +1,13 @@
 package com.pranicdoc.cph.analytics.dto;
 
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.UUID;
 
 public record DashboardFollowup(
-        UUID patientId,
+        UUID caseId,
         String patientFirstName,
         String patientLastName,
-        LocalDate lastSessionDate,
-        long daysSinceLastSession
+        String feedbackToken,
+        Instant sentAt,
+        boolean isFinal
 ) {}
