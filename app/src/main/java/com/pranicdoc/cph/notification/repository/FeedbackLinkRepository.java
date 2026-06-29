@@ -34,7 +34,7 @@ public interface FeedbackLinkRepository extends JpaRepository<FeedbackLink, Stri
         FROM feedback_link fl
         JOIN healing_case hc ON hc.id = fl.case_id
         JOIN patient p ON p.id = hc.patient_id
-        WHERE hc.healer_id = :healerId::uuid
+        WHERE hc.healer_id = CAST(:healerId AS uuid)
           AND fl.status     = 'ACTIVE'
           AND fl.created_at <= :sentBefore
           AND p.is_deleted  = false

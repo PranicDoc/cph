@@ -24,7 +24,7 @@ export default function Layout() {
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <Activity className="w-6 h-6 text-white" />
               </div>
-              <span>PranicDoc</span>
+              <span>HealingDoc</span>
             </Link>
           </div>
 

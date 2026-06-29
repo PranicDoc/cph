@@ -69,7 +69,7 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
         JOIN patient p ON p.id = hc.patient_id
         LEFT JOIN healing_session hs
                ON hs.healing_case_id = hc.id AND hs.is_deleted = false
-        WHERE hc.healer_id = :healerId::uuid
+        WHERE hc.healer_id = CAST(:healerId AS uuid)
           AND hc.status = 'ACTIVE'
           AND hc.is_deleted = false
           AND p.is_deleted  = false
@@ -99,7 +99,7 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
         FROM healing_case hc
         JOIN patient p ON p.id = hc.patient_id
         LEFT JOIN case_closure cc ON cc.healing_case_id = hc.id
-        WHERE hc.healer_id = :healerId::uuid
+        WHERE hc.healer_id = CAST(:healerId AS uuid)
           AND hc.status = 'CLOSED'
           AND hc.is_deleted = false
           AND p.is_deleted  = false
