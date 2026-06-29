@@ -8,8 +8,6 @@ import {
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";
 import { StepPostScan } from "./HealingSessionWizard/StepPostScan";
 import { StepPreScan } from "./HealingSessionWizard/StepPreScan";
-import { StepProtocolEntries } from "./HealingSessionWizard/StepProtocolEntries";
-import { StepSymptomsFeedback } from "./HealingSessionWizard/StepSymptomsFeedback";
 import { WizardHeader } from "./HealingSessionWizard/WizardHeader";
 import { WizardNavigation } from "./HealingSessionWizard/WizardNavigation";
 import { WizardProgress } from "./HealingSessionWizard/WizardProgress";
@@ -83,8 +81,6 @@ export const HealingSessionWizard = ({
           />
         )}
 
-        {/* {step === 2 && <StepProtocolEntries form={form} />} */}
-
         {step === 2 && (
           <StepPostScan
             value={postScanChakraData}
@@ -93,16 +89,6 @@ export const HealingSessionWizard = ({
             pranaColorCatalog={pranaColorCatalog}
           />
         )}
-
-        {/* {step === 4 && (
-          <StepSymptomsFeedback
-            form={form}
-            symptoms={symptoms}
-            onAddSymptom={handleAddSymptomFeedback}
-            onUpdateSymptom={handleUpdateSymptomFeedback}
-            onRemoveSymptom={handleRemoveSymptomFeedback}
-          />
-        )} */}
 
         {step === 3 && <CompletionScreen />}
 
