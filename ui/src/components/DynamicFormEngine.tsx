@@ -190,6 +190,10 @@ export function DynamicField({
         }
 
         if (type === "table") {
+          if (!fieldConfig.displayKey) {
+            console.error(`DynamicField: 'table' field "${name}" requires displayKey`);
+            return null;
+          }
           return (
             <div className={wrapperClassName}>
               <label className="block text-sm font-semibold mb-2">{label}</label>
@@ -197,7 +201,7 @@ export function DynamicField({
                 value={field.state.value ?? []}
                 onChange={field.handleChange}
                 placeholder={fieldConfig.placeholder}
-                displayKey={fieldConfig.displayKey!}
+                displayKey={fieldConfig.displayKey}
                 editableFields={fieldConfig.editableFields}
                 createNewTag={fieldConfig.createNewTag}
                 readOnly={fieldConfig.readOnly}
