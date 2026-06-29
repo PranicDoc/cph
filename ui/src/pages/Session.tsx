@@ -108,6 +108,7 @@ export default function Session() {
         initialFormValuesRef.current = updatedValues;
       } catch (err) {
         console.error(err);
+        throw err;
       } finally {
         setIsSubmitting(false);
       }
@@ -338,10 +339,14 @@ export default function Session() {
       <SessionHeader healingSession={sessionData} />
 
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          sessionForm.handleSubmit();
-          goToNextStep();
+          try {
+            await sessionForm.handleSubmit();
+            goToNextStep();
+          } catch {
+            // error already logged in onSubmit
+          }
         }}
         className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
       >
