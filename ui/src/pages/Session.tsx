@@ -83,9 +83,12 @@ export default function Session() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings: _, ...rest } = value;
+        const { labFindings, ...rest } = value;
+        const files = labFindings.filter((f): f is File => f instanceof File);
+        const existingKeys = labFindings.filter((f): f is string => typeof f === "string");
         const payload = {
           ...rest,
+          labFindings: existingKeys,
           healingCaseId,
           complementaryTreatments: !!value.complementaryDetails,
           infectiousIllness: !!value.infectiousDetails,
@@ -95,6 +98,7 @@ export default function Session() {
           "data",
           new Blob([JSON.stringify(payload)], { type: "application/json" })
         );
+        files.forEach((file) => formData.append("labFindings", file));
         const { data } = await api.patch("/api/v1/cases", formData, {
           headers: { "Content-Type": undefined },
         });
@@ -117,7 +121,7 @@ export default function Session() {
     basicBookPg: data.basicBookPg || "",
     advancedBookPg: data.advancedBookPg || "",
     psychotherapyPg: data.psychotherapyPg || "",
-    labFindings: [],
+    labFindings: data.labFindings || [],
     complementaryDetails: data.complementaryModalities || "",
     infectiousDetails: data.infectiousIllness || "",
     healingDetails: {
