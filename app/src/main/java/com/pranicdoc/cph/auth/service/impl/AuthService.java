@@ -18,12 +18,15 @@ import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
+import com.pranicdoc.cph.payments.dto.OwnerType;
+import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -46,6 +49,7 @@ public class AuthService {
     private final CookieUtil cookieUtil;
     private final SecurityContextUtil securityContextUtil;
     private final RegistrationLinkRepository registrationLinkRepository;
+    private final CreditService creditService;
     private final FeedbackLinkRepository feedbackLinkRepository;
     private static final String PATIENT = "PATIENT";
 
@@ -76,7 +80,7 @@ public class AuthService {
 
         healer.setClinicId(clinic.getId());
         Healer saved = healerRepository.save(healer);
-
+        creditService.createAccount(OwnerType.HEALER, healer.getId());
         // Set auth cookies
         setAuthCookies(response, saved, clinic.getCode());
 

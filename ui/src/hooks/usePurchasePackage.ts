@@ -18,12 +18,19 @@ export function usePurchasePackage() {
   return useMutation<PurchaseResponse, Error, PurchasePayload>({
     mutationFn: (payload: PurchasePayload) =>
       api
-        .post("/api/credits/purchase", {
-          package_id: payload.packageId,
-          owner_type: payload.ownerType,
-          owner_id: payload.ownerId,
-          idempotency_key: payload.idempotencyKey,
-        })
+        .post(
+          "/api/credits/purchase",
+          {
+            packageId: payload.packageId,
+            ownerType: payload.ownerType,
+            ownerId: payload.ownerId,
+          },
+          {
+            headers: {
+              "X-Idempotency-Key": payload.idempotencyKey,
+            },
+          }
+        )
         .then((r) => r.data),
   });
 }

@@ -100,7 +100,7 @@ export function PlanPicker({
         <p className="text-center text-sm text-red-500">{purchaseError}</p>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {sorted.map((pkg) => {
           const isFree = pkg.price_paise === 0;
           const isThisSelected = selectedPkgId === pkg.id && isPending;
@@ -108,7 +108,7 @@ export function PlanPicker({
           return (
             <div
               key={pkg.id}
-              className="rounded-xl border border-border p-4 sm:p-5 space-y-2 shadow-sm bg-card flex flex-col"
+              className="rounded-xl border border-border p-5 space-y-3 shadow-sm bg-card flex flex-col"
             >
               <p className="text-base sm:text-lg font-bold text-primary-dark leading-tight">{pkg.name}</p>
               <p className="text-text-light text-sm">{pkg.credits} credits</p>

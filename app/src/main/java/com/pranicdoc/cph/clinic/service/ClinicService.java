@@ -7,6 +7,7 @@ import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.payments.CreditServiceClient;
+import com.pranicdoc.cph.payments.dto.OwnerType;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,7 @@ public class ClinicService {
 
         Clinic saved = clinicRepository.save(clinic);
         try {
-            creditServiceClient.createAccount("CLINIC", saved.getId());
+            creditServiceClient.createAccount(OwnerType.CLINIC, saved.getId());
         } catch (Exception e) {
             log.warn("CREDIT_ACCOUNT_PROVISION_FAILED clinicId={} reason={} (clinic registration completed; manual provisioning may be needed)",
                     saved.getId(), e.getMessage());

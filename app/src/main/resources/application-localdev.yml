@@ -35,5 +35,5 @@ storage:
   secret-key: ${R2_SECRET_KEY:}
 
 credit-service:
-  base-url: http://localhost:9112/credits
+  base-url: http://localhost:9112/
   api-key: my32BitLongApiKey

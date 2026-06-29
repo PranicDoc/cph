@@ -62,7 +62,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className={`sm:mx-auto sm:w-full ${step === 2 ? "sm:max-w-2xl" : "sm:max-w-md"}`}>
         <div className="flex justify-center">
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
             <Activity className="w-8 h-8 text-white" />
@@ -84,7 +84,7 @@ export default function Register() {
         )}
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className={`mt-8 sm:mx-auto sm:w-full ${step === 2 ? "sm:max-w-2xl" : "sm:max-w-md"}`}>
         <div className="bg-card py-8 px-4 shadow sm:rounded-xl sm:px-10 border border-border">
           {step === 1 && (
             <form
@@ -117,7 +117,6 @@ export default function Register() {
               />
             </form>
           )}
-
           {step === 2 && (
             <PlanPicker
               ownerId={healerId}
