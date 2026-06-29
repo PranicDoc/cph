@@ -175,7 +175,7 @@ export default function Session() {
     };
 
     fetchData();
-  }, [healingCaseId, sessionForm.reset]);
+  }, [healingCaseId]);
 
   // ---- Navigation handlers ----
   const goToNextStep = () => {
