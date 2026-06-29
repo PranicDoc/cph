@@ -71,7 +71,7 @@ export const HealingSessionWizard = ({
 
   return (
     <div className="mx-auto space-y-6">
-      <WizardHeader step={step} />
+      <WizardHeader step={step} totalSteps={2} />
       <WizardProgress step={step} totalSteps={2} />
 
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
