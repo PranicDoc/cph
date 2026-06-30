@@ -21,7 +21,6 @@ export function PlanPicker({
 }: PlanPickerProps) {
   const { data: packages, isLoading, error } = useCreditPackages();
   const { mutate: purchase, isPending } = usePurchasePackage();
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -34,7 +33,6 @@ export function PlanPicker({
     if (!idempotencyKeyRef.current) {
       idempotencyKeyRef.current = crypto.randomUUID();
     }
-    setPurchaseError(null);
     setSelectedPkgId(pkg.id);
     purchase(
       {
@@ -51,7 +49,6 @@ export function PlanPicker({
         onError: () => {
           // key is kept in ref so a retry reuses the same idempotency key
           setSelectedPkgId(null);
-          setPurchaseError("Purchase failed. Please try again.");
         },
       }
     );
@@ -95,10 +92,6 @@ export function PlanPicker({
           Select a credit plan to start generating patient PDFs.
         </p>
       </div>
-
-      {purchaseError && (
-        <p className="text-center text-sm text-red-500">{purchaseError}</p>
-      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {sorted.map((pkg) => {
