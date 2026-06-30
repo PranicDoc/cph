@@ -22,7 +22,6 @@ export function UpgradeModal({
 }: UpgradeModalProps) {
   const { data: packages, isLoading, error } = useCreditPackages();
   const { mutate: purchase, isPending } = usePurchasePackage();
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -34,7 +33,6 @@ export function UpgradeModal({
     if (!idempotencyKeyRef.current) {
       idempotencyKeyRef.current = crypto.randomUUID();
     }
-    setPurchaseError(null);
     setSelectedPkgId(pkg.id);
     purchase(
       {
@@ -52,7 +50,6 @@ export function UpgradeModal({
         onError: () => {
           // key is kept in ref so a retry reuses the same idempotency key
           setSelectedPkgId(null);
-          setPurchaseError("Purchase failed. Please try again.");
         },
       }
     );
@@ -89,10 +86,6 @@ export function UpgradeModal({
               You've run out of credits. Choose a plan to continue generating PDFs.
             </p>
           </div>
-
-          {purchaseError && (
-            <p className="mb-4 text-sm text-red-500">{purchaseError}</p>
-          )}
 
           {isLoading ? (
             <div className="flex items-center justify-center py-10">
