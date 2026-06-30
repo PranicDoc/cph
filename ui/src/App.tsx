@@ -4,6 +4,7 @@
  */
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "sonner";
 import Layout from "./components/Layout";
 import PublicShell from "./components/PublicShell";
 import Patients from "./pages/Patients";
@@ -81,6 +82,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
+        <Toaster position="top-right" richColors duration={3000} />
       </PatientProvider>
     </AuthProvider>
   );
