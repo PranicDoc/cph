@@ -18,7 +18,7 @@ export const sessionSchema: FormSchema = [
         name: "medicalCondition",
         label: "Chief Complaint",
         type: "textarea",
-        placeholder: "Please state the main ailment that will be treated...",
+        placeholder: "E.g. Stomachache for 4 days or Neck pain for 5 days...",
         required: true,
       },
       {
