@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../lib/axios";
+import { toast } from "sonner";
+import { extractDetail } from "../lib/utils";
 import { CheckCircle2 } from "lucide-react";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import {
@@ -22,6 +25,7 @@ export default function Registration() {
   const hasCalled = useRef(false);
   const [isSelfRegister, setIsSelfRegister] = useState(false);
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (!location.pathname.startsWith("/self-register")) {
@@ -114,9 +118,9 @@ export default function Registration() {
         setStep(3);
         setPatientId(res.data.id);
         setPatientFullName(res.data.firstName + " " + res.data.lastName);
+        toast.success("Patient registered");
       } catch (error) {
-        console.error("Failed to save medical history.", error);
-        alert("Something went wrong");
+        toast.error(extractDetail(error) || "Registration failed — please try again", { duration: 5000 });
       } finally {
         setIsSubmitting(false);
       }
@@ -148,13 +152,15 @@ export default function Registration() {
           selectPatient(patientId);
           const caseId = res.data?.id;
           sessionStorage.setItem("caseId", caseId);
+          toast.success("Registration complete");
           navigate(`/patient-health/${caseId}`);
         } else {
-          setStep(4);
+          toast.success("Registration complete");
+          await qc.invalidateQueries({ queryKey: ["patients"] });
+          navigate("/patients");
         }
       } catch (error) {
-        console.error("Failed to save declaration.", error);
-        setStep(4);
+        toast.error(extractDetail(error) || "Failed to save declaration — please try again", { duration: 5000 });
       } finally {
         setIsSubmitting(false);
       }
