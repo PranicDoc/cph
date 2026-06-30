@@ -83,6 +83,7 @@ export function useHealingSessionWizard({
       });
 
       await api.post("/api/v1/sessions/case", payload);
+      toast.success("Session saved");
       setStep(COMPLETED_STEP);
     } catch (error) {
       toast.error(extractDetail(error) || "Failed to save session — please try again", { duration: 5000 });
