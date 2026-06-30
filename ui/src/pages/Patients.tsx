@@ -182,7 +182,7 @@ export default function Patients() {
     if (res.status === 200) {
       setGeneratedLink(res.data.link);
     } else {
-      console.error("Failed to generate registration link");
+      toast.error("Failed to generate registration link", { duration: 5000 });
     }
   };
 
@@ -205,8 +205,13 @@ export default function Patients() {
                 className="flex-1 border border-border rounded-lg px-3 py-2 text-sm"
               />
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedLink);
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(generatedLink);
+                    toast.success("Link copied to clipboard");
+                  } catch {
+                    toast.error("Copy failed — please copy the link manually", { duration: 5000 });
+                  }
                 }}
                 className="bg-primary text-white px-3 py-2 rounded-lg text-sm"
               >
