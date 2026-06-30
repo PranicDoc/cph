@@ -1,7 +1,9 @@
 import { createColumnHelper } from "@tanstack/react-table";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { extractDetail } from "../lib/utils";
 import { format, parseISO } from "date-fns";
 import { UserCheck } from "lucide-react";
-import { useState } from "react";
 import { WorkQueueTable } from "./WorkQueueTable";
 import { useFollowups } from "../hooks/useFollowups";
 import api from "../lib/axios";
@@ -13,22 +15,13 @@ interface Props {
 
 export function FollowupTable({ healerId }: Props) {
   const { data, isLoading, isError, refetch } = useFollowups(healerId);
-  const [resending, setResending] = useState<string | null>(null);
-
-  const [resendError, setResendError] = useState<string | null>(null);
-
-  async function handleResend(caseId: string, isFinal: boolean) {
-    setResending(caseId);
-    setResendError(null);
-    try {
-      await api.post(`/api/v1/cases/${caseId}/resend-feedback?isFinal=${isFinal}`);
-      refetch();
-    } catch {
-      setResendError("Failed to resend — please try again.");
-    } finally {
-      setResending(null);
-    }
-  }
+  const resendMutation = useMutation({
+    mutationKey: ["resend-feedback"],
+    mutationFn: ({ caseId, isFinal }: { caseId: string; isFinal: boolean }) =>
+      api.post(`/api/v1/cases/${caseId}/resend-feedback?isFinal=${isFinal}`),
+    onSuccess: () => { toast.success("Feedback sent"); refetch(); },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to resend feedback", { duration: 5000 }),
+  });
 
   const columnHelper = createColumnHelper<FollowupPatient>();
 
@@ -58,11 +51,11 @@ export function FollowupTable({ healerId }: Props) {
       id: "action",
       header: "",
       cell: ({ row }) => {
-        const isSending = resending === row.original.caseId;
+        const isSending = resendMutation.isPending && resendMutation.variables?.caseId === row.original.caseId;
         return (
           <button
-            onClick={() => handleResend(row.original.caseId, row.original.isFinal)}
-            disabled={isSending}
+            onClick={() => resendMutation.mutate({ caseId: row.original.caseId, isFinal: row.original.isFinal })}
+            disabled={resendMutation.isPending}
             className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
           >
             {isSending ? "Sending…" : "Resend"}
@@ -75,9 +68,6 @@ export function FollowupTable({ healerId }: Props) {
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
       <p className="text-sm font-semibold text-text mb-4">Follow-Up Required</p>
-      {resendError && (
-        <p className="text-xs text-danger mb-3">{resendError}</p>
-      )}
       <WorkQueueTable<FollowupPatient>
         columns={columns}
         data={data ?? []}
