@@ -61,9 +61,9 @@ public class AuditAspect {
             auditLog.setEntityId(entityId);
 
             // payload: serialize all method args as JSON, capped at 4000 chars
-            if (args.length > 0) {
+            if (args.length > 0 && !"LOGIN".equalsIgnoreCase(auditable.action())) {
                 try {
-                    String json = objectMapper.writeValueAsString(args);
+                    String json = objectMapper.writeValueAsString(args[0]);
                     auditLog.setPayload(json.length() > 4000 ? json.substring(0, 4000) + "…" : json);
                 } catch (Exception ignored) {}
             }

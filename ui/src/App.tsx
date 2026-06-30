@@ -27,6 +27,7 @@ import MasterDataPage from "./pages/admin/MasterDataPage";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
+import Profile from "./pages/Profile";
 import Unauthorized from "./pages/Unauthorized";
 import PatientFeedback from "./pages/Feedback";
 import OAuth2Success from "./components/OAuth2Success";
@@ -62,6 +63,7 @@ export default function App() {
                 <Route path="pdf-list" element={<PdfList />} />
                 <Route path="session/:healingCaseId" element={<Session />} />
                 <Route path="cases/:healingCaseId/summary" element={<CaseSummary />} />
+                <Route path="profile" element={<Profile />} />
               </Route>
             </Route>
 
