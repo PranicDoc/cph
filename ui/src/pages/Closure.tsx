@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { extractDetail } from "../lib/utils";
 import { X } from "lucide-react";
 import api from "../lib/axios";
 import { Patient } from "../context/PatientContext";
@@ -16,25 +19,15 @@ export function ClosurePopup({
 }: ClosurePopupProps) {
   const [comments, setComments] = useState("");
   const [isHealingContinued, setIsHealingContinued] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleCloseCase = async () => {
-    setIsSubmitting(true);
-    try {
-      const res = await api.post(`/api/v1/cases/${patient.healingCaseId}/close`, {
+  const closeMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/api/v1/cases/${patient.healingCaseId}/close`, {
         comments,
         isHealingContinued,
-      });
-
-      if (res.status === 200 || res.status === 201) {
-        onSuccess();
-      }
-    } catch (error) {
-      console.error("Failed to close case:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      }),
+    onSuccess: () => { toast.success("Case closed"); onSuccess(); },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to close case", { duration: 5000 }),
+  });
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -79,17 +72,17 @@ export function ClosurePopup({
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={closeMutation.isPending}
             className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={handleCloseCase}
-            disabled={isSubmitting}
+            onClick={() => closeMutation.mutate()}
+            disabled={closeMutation.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {isSubmitting ? "Closing..." : "Close Case"}
+            {closeMutation.isPending ? "Closing..." : "Close Case"}
           </button>
         </div>
       </div>
