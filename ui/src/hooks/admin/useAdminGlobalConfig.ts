@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import api from "../../lib/axios";
+import { extractDetail } from "../../lib/utils";
 
 export interface CreditConfigEntry {
   config_key: string;
@@ -24,6 +26,10 @@ export function useUpdateGlobalConfig() {
       api
         .put(`/api/admin/credit/config/${key}`, { config_value: value })
         .then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
