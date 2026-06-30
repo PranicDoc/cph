@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import api from "../../lib/axios";
+import { extractDetail } from "../../lib/utils";
 
 export interface AdminPackage {
   id: string;
@@ -44,7 +46,11 @@ export function useCreatePackage() {
   return useMutation({
     mutationFn: (payload: CreatePackagePayload) =>
       api.post("/api/admin/credit/packages", payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -53,7 +59,11 @@ export function useUpdatePackage() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdatePackagePayload }) =>
       api.put(`/api/admin/credit/packages/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -62,6 +72,10 @@ export function useDeactivatePackage() {
   return useMutation({
     mutationFn: (id: string) =>
       api.delete(`/api/admin/credit/packages/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success("Deleted");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
   });
 }
