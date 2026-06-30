@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import api from "../../lib/axios";
+import { extractDetail } from "../../lib/utils";
 
 export interface FallbackPolicy {
   clinic_id: string;
@@ -27,7 +29,11 @@ export function useUpsertFallbackPolicy(clinicId: string) {
           allow_individual_fallback: allowIndividualFallback,
         })
         .then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["fallback-policy", clinicId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fallback-policy", clinicId] });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -52,6 +58,8 @@ export function useAdminAdjust() {
           notes,
         })
         .then((r) => r.data),
+    onSuccess: () => toast.success("Saved"),
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -76,5 +84,7 @@ export function useAdminPaygToggle() {
           bundle_credits: bundleCredits,
         })
         .then((r) => r.data),
+    onSuccess: () => toast.success("Saved"),
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
