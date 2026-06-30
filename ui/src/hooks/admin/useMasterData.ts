@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import api from "../../lib/axios";
+import { extractDetail } from "../../lib/utils";
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
+// -- Interfaces -------------------------------------------------------------------------
 
 export interface PranaColor {
   id: string;
@@ -53,13 +55,13 @@ export interface ProtocolMappingPayload {
   chakraName: string;
 }
 
-// ── Query Keys ────────────────────────────────────────────────────────────────
+// -- Query Keys -------------------------------------------------------------------------
 
 const COLOR_QK = ["master-colors"] as const;
 const CHAKRA_QK = ["master-chakras"] as const;
 const MAPPING_QK = ["master-mappings"] as const;
 
-// ── Prana Colors ─────────────────────────────────────────────────────────────
+// -- Prana Colors -----------------------------------------------------------------------
 
 export function usePranaColors() {
   return useQuery<PranaColor[]>({
@@ -74,7 +76,11 @@ export function useCreateColor() {
   return useMutation({
     mutationFn: (payload: PranaColorPayload) =>
       api.post("/api/v1/masterdata/colors", payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: COLOR_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: COLOR_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -83,7 +89,11 @@ export function useUpdateColor() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: PranaColorPayload }) =>
       api.put(`/api/v1/masterdata/colors/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: COLOR_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: COLOR_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -92,11 +102,15 @@ export function useDeleteColor() {
   return useMutation({
     mutationFn: (id: string) =>
       api.delete(`/api/v1/masterdata/colors/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: COLOR_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: COLOR_QK });
+      toast.success("Deleted");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
   });
 }
 
-// ── Chakras ──────────────────────────────────────────────────────────────────
+// -- Chakras ----------------------------------------------------------------------------
 
 export function useChakras() {
   return useQuery<Chakra[]>({
@@ -111,7 +125,11 @@ export function useCreateChakra() {
   return useMutation({
     mutationFn: (payload: ChakraPayload) =>
       api.post("/api/v1/masterdata/chakras", payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CHAKRA_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAKRA_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -120,7 +138,11 @@ export function useUpdateChakra() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: ChakraPayload }) =>
       api.put(`/api/v1/masterdata/chakras/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CHAKRA_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAKRA_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -129,11 +151,15 @@ export function useDeleteChakra() {
   return useMutation({
     mutationFn: (id: string) =>
       api.delete(`/api/v1/masterdata/chakras/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CHAKRA_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAKRA_QK });
+      toast.success("Deleted");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
   });
 }
 
-// ── Protocol Color Mappings ───────────────────────────────────────────────────
+// -- Protocol Color Mappings ------------------------------------------------------------
 
 export function useProtocolMappings() {
   return useQuery<ProtocolMapping[]>({
@@ -148,7 +174,11 @@ export function useCreateMapping() {
   return useMutation({
     mutationFn: (payload: ProtocolMappingPayload) =>
       api.post("/api/v1/masterdata/protocol-mappings", payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: MAPPING_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MAPPING_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
   });
 }
 
@@ -157,6 +187,10 @@ export function useDeleteMapping() {
   return useMutation({
     mutationFn: (id: string) =>
       api.delete(`/api/v1/masterdata/protocol-mappings/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: MAPPING_QK }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MAPPING_QK });
+      toast.success("Deleted");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
   });
 }
