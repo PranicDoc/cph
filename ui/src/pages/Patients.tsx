@@ -130,11 +130,13 @@ export default function Patients() {
               )}
             </Link>
             <div
-              onClick={() => handleClosureButtonClick(patient)}
+              onClick={() => !generatePdfMutation.isPending && handleClosureButtonClick(patient)}
               className={`inline-flex items-center gap-1.5 rounded-lg
                 ${
                   isActive || isCompleted
-                    ? "bg-primary hover:bg-primary-dark cursor-pointer"
+                    ? generatePdfMutation.isPending
+                      ? "bg-border pointer-events-none"
+                      : "bg-primary hover:bg-primary-dark cursor-pointer"
                     : "bg-border pointer-events-none"
                 }
                 px-3 py-1.5 text-white text-xs font-medium transition-colors`}
@@ -178,11 +180,12 @@ export default function Patients() {
 
   const handleGenerateLink = async () => {
     setOpenPopup(true);
-    const res = await api.get("/api/v1/patients/generate-link");
-    if (res.status === 200) {
+    try {
+      const res = await api.get("/api/v1/patients/generate-link");
       setGeneratedLink(res.data.link);
-    } else {
-      toast.error("Failed to generate registration link", { duration: 5000 });
+    } catch (err) {
+      setOpenPopup(false);
+      toast.error(extractDetail(err) || "Failed to generate registration link", { duration: 5000 });
     }
   };
 

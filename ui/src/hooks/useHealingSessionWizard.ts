@@ -2,11 +2,10 @@ import { useCallback, useState } from "react";
 import type { ChakraDocEntry } from "../components/ChakraScan";
 import { useReferenceData } from "./useReferenceData";
 import { useHealingSessionForm } from "./useHealingSessionForm";
-import { constructHealingSessionPayload } from "../lib/utils";
+import { constructHealingSessionPayload, extractDetail } from "../lib/utils";
 import api from "../lib/axios";
 import type { SymptomFeedbackRequest } from "../interfaces";
 import { toast } from "sonner";
-import { extractDetail } from "../lib/utils";
 
 const FINAL_FORM_STEP = 2;
 const COMPLETED_STEP = 3;
