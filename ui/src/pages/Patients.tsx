@@ -25,9 +25,11 @@ import {
   usePatient,
 } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UpgradeModal } from "../components/UpgradeModal";
 import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
+import { extractDetail } from "../lib/utils";
 
 const columnHelper = createColumnHelper<ComputedPatient>();
 
@@ -43,23 +45,24 @@ export default function Patients() {
   const [pendingHealingCaseId, setPendingHealingCaseId] = useState<
     string | null
   >(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-
-  const generatePdf = async (healingCaseId: string) => {
-    try {
-      await api.post("/api/v1/cases/generate-pdf", null, {
+  const generatePdfMutation = useMutation({
+    mutationKey: ["generate-pdf"],
+    mutationFn: (healingCaseId: string) =>
+      api.post("/api/v1/cases/generate-pdf", null, {
         params: { healingCaseId },
-      });
-    } catch (err: any) {
+      }),
+    onSuccess: () => toast.success("PDF queued successfully"),
+    onError: (err: any, healingCaseId: string) => {
       if (err?.response?.status === 402) {
         setPendingHealingCaseId(healingCaseId);
         setShowUpgradeModal(true);
       } else {
-        console.error("PDF generation failed", err);
-        setPdfError("PDF generation failed. Please try again later.");
+        toast.error(extractDetail(err) || "Failed to generate PDF", {
+          duration: 5000,
+        });
       }
-    }
-  };
+    },
+  });
 
   const columns = [
     columnHelper.accessor("firstName", {
@@ -103,7 +106,7 @@ export default function Patients() {
 
         const handleClosureButtonClick = (patient: Patient) => {
           if (isActive) setClosurePatient(patient);
-          if (isCompleted) generatePdf(patient.healingCaseId);
+          if (isCompleted) generatePdfMutation.mutate(patient.healingCaseId);
         };
 
         return (
@@ -332,18 +335,6 @@ export default function Patients() {
         </div>
       </div>
 
-      {pdfError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
-          <span className="text-sm">{pdfError}</span>
-          <button
-            onClick={() => setPdfError(null)}
-            className="text-white/80 hover:text-white text-xs underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {showUpgradeModal && pendingHealingCaseId && (
         <UpgradeModal
           isOpen={showUpgradeModal}
@@ -357,7 +348,7 @@ export default function Patients() {
           onRetry={(id) => {
             setShowUpgradeModal(false);
             setPendingHealingCaseId(null);
-            generatePdf(id);
+            generatePdfMutation.mutate(id);
           }}
         />
       )}
