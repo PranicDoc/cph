@@ -5,6 +5,8 @@ import { useHealingSessionForm } from "./useHealingSessionForm";
 import { constructHealingSessionPayload } from "../lib/utils";
 import api from "../lib/axios";
 import type { SymptomFeedbackRequest } from "../interfaces";
+import { toast } from "sonner";
+import { extractDetail } from "../lib/utils";
 
 const FINAL_FORM_STEP = 2;
 const COMPLETED_STEP = 3;
@@ -84,8 +86,7 @@ export function useHealingSessionWizard({
       await api.post("/api/v1/sessions/case", payload);
       setStep(COMPLETED_STEP);
     } catch (error) {
-      console.error("Failed to submit healing session:", error);
-      window.alert("Failed to submit. Please try again.");
+      toast.error(extractDetail(error) || "Failed to save session — please try again", { duration: 5000 });
     } finally {
       setIsSubmitting(false);
     }
