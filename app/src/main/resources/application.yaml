@@ -58,6 +58,9 @@ app:
     kafka: false
   feedback:
     token-expiry-hours: 48
+  whatsapp:
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:placeholder-phone-number-id}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:placeholder-access-token}
 
 storage:
   provider: R2
