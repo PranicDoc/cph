@@ -50,6 +50,13 @@ public class ClinicController {
         return ResponseEntity.ok(clinicService.update(id, request));
     }
 
+    @PatchMapping("/{id}/active")
+    @PreAuthorize("hasRole('SUPADM')")
+    public ResponseEntity<ClinicResponse> setActive(@PathVariable UUID id,
+                                                    @RequestParam boolean active) {
+        return ResponseEntity.ok(clinicService.setActive(id, active));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {

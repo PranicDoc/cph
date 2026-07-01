@@ -1,12 +1,14 @@
 import { useState } from "react";
 import {
-  User, Mail, Phone, Hash, ShieldCheck, Activity,
+  User, Mail, Phone, Building2, Activity,
   CreditCard, Pencil, CheckCircle2, X, Lock,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { PlanPicker } from "../components/PlanPicker";
 import { Skeleton } from "../components/ui/skeleton";
 import { useHealerProfile, useUpdateProfile } from "../hooks/useHealerProfile";
+import api from "../lib/axios";
 
 function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
@@ -46,8 +48,17 @@ export default function Profile() {
   const displayEmail = profile?.email ?? user?.email ?? "";
   const displayPhone = profile?.phone ?? user?.phone ?? "";
   const displayRole = profile?.role ?? user?.role ?? "";
-  const displayCode = profile?.clinicCode ?? user?.clinicCode ?? "";
   const displayLevel = profile?.healingLevel;
+  const clinicId = profile?.clinicId ?? user?.clinicId;
+
+  const { data: clinicDetail } = useQuery<{ name: string; code: string }>({
+    queryKey: ["clinic-detail", clinicId],
+    queryFn: () => api.get(`/api/v1/clinics/${clinicId}`).then((r) => r.data),
+    enabled: !!clinicId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const displayClinicName = clinicDetail?.name ?? profile?.clinicCode ?? user?.clinicCode ?? "";
 
   const enterEdit = () => {
     setDraft({ fullName: displayName, email: displayEmail, phone: displayPhone });
@@ -224,9 +235,8 @@ export default function Profile() {
           </div>
         ) : (
           <div className="space-y-4">
-            <ReadField icon={ShieldCheck} label="Role" value={displayRole} />
             {displayLevel && <ReadField icon={Activity} label="Healing Level" value={displayLevel} />}
-            <ReadField icon={Hash} label="Clinic Code" value={displayCode} mono />
+            <ReadField icon={Building2} label="Clinic" value={displayClinicName} />
           </div>
         )}
       </div>

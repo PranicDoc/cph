@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +26,6 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
     String findEmailById(UUID healerId);
 
     boolean existsByIdAndClinicId(UUID id, UUID clinicId);
+
+    List<Healer> findAllByClinicId(UUID clinicId);
 }

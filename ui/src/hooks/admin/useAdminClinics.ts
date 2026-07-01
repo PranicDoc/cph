@@ -20,6 +20,17 @@ export interface ClinicCreatePayload {
   name: string;
   phone?: string;
   email?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface ClinicUpdatePayload {
+  code: string; // required by backend validation, not changed
+  name: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  state?: string;
 }
 
 const QK = ["admin-clinics"] as const;
@@ -42,5 +53,33 @@ export function useCreateClinic() {
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to create clinic", { duration: 5000 }),
+  });
+}
+
+export function useUpdateClinic(clinicId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ClinicUpdatePayload) =>
+      api.put<ClinicItem>(`/api/v1/clinics/${clinicId}`, payload).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success("Clinic updated");
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update clinic", { duration: 5000 }),
+  });
+}
+
+export function useToggleClinicActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      api.patch<ClinicItem>(`/api/v1/clinics/${id}/active`, null, { params: { active } }).then((r) => r.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: QK });
+      toast.success(`Clinic ${data.active ? "activated" : "deactivated"}`);
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update clinic status", { duration: 5000 }),
   });
 }

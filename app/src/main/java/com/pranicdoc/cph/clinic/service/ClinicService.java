@@ -82,6 +82,13 @@ public class ClinicService {
         return toResponse(clinicRepository.save(clinic));
     }
 
+    @Auditable(action = "TOGGLE_CLINIC_ACTIVE")
+    public ClinicResponse setActive(UUID id, boolean active) {
+        Clinic clinic = findOrThrow(id);
+        clinic.setActive(active);
+        return toResponse(clinicRepository.save(clinic));
+    }
+
     @Auditable(action = "DELETE_CLINIC")
     public void softDelete(UUID id) {
         Clinic clinic = findOrThrow(id);

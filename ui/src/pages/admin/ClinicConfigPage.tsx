@@ -6,6 +6,7 @@ import {
   useAdminAdjust,
   useAdminPaygToggle,
 } from "../../hooks/admin/useAdminClinicConfig";
+import { useClinicHealers, useToggleHealerActive } from "../../hooks/admin/useAdminHealers";
 
 export default function ClinicConfigPage() {
   const { user } = useAuth();
@@ -58,6 +59,9 @@ export default function ClinicConfigPage() {
       setPaygMsg("Failed to update PAYG settings.");
     }
   };
+
+  const { data: healers = [], isLoading: healersLoading } = useClinicHealers();
+  const toggleHealer = useToggleHealerActive();
 
   return (
     <div className="space-y-4 md:space-y-8 max-w-2xl">
@@ -137,6 +141,44 @@ export default function ClinicConfigPage() {
             </p>
           )}
         </form>
+      </section>
+
+      {/* Healers */}
+      <section className="border border-border rounded-xl p-4 md:p-6 space-y-3 md:space-y-4">
+        <h2 className="text-base md:text-lg font-semibold text-text">Healers</h2>
+        <p className="text-sm text-text-light">Activate or deactivate healer accounts in your clinic.</p>
+        {healersLoading ? (
+          <p className="text-text-light text-sm">Loading…</p>
+        ) : healers.length === 0 ? (
+          <p className="text-text-light text-sm">No healers found in your clinic.</p>
+        ) : (
+          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+            {healers.map((h) => (
+              <div key={h.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-text">{h.fullName}</p>
+                  <p className="text-xs text-text-light">{h.email} · {h.role}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${h.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    {h.active ? "Active" : "Inactive"}
+                  </span>
+                  <button
+                    onClick={() => toggleHealer.mutate({ id: h.id, active: !h.active })}
+                    disabled={toggleHealer.isPending}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                      h.active
+                        ? "text-red-600 border border-red-200 hover:bg-red-50"
+                        : "text-green-600 border border-green-200 hover:bg-green-50"
+                    }`}
+                  >
+                    {h.active ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* PAYG Settings */}
