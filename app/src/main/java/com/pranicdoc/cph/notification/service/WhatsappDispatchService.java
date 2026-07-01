@@ -1,8 +1,13 @@
 package com.pranicdoc.cph.notification.service;
 
-import com.pranicdoc.cph.notification.dto.WhatsappMessageDto;
+import com.pranicdoc.cph.notification.dto.WhatsappCloudMessageDto;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
 import com.pranicdoc.cph.notification.repository.OutboxRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +18,12 @@ public class WhatsappDispatchService {
 
     private final OutboxRepository outboxRepository;
     private final RestTemplate restTemplate;
-    private static final String WHATSAPP_API_URL = "https://api.whatsapp.com/v1/messages";
+
+    @Value("${app.whatsapp.phone-number-id}")
+    private String phoneNumberId;
+
+    @Value("${app.whatsapp.access-token}")
+    private String accessToken;
 
     public WhatsappDispatchService(OutboxRepository outboxRepository, RestTemplate restTemplate) {
         this.outboxRepository = outboxRepository;
@@ -24,8 +34,13 @@ public class WhatsappDispatchService {
     @Transactional
     public void executeNotification(NotificationOutbox outbox) {
         try {
-            WhatsappMessageDto payload = new WhatsappMessageDto(outbox.getPhoneNumber(), outbox.getPayload());
-            restTemplate.postForEntity(WHATSAPP_API_URL, payload, String.class);
+            String url = "https://graph.facebook.com/v18.0/" + phoneNumberId + "/messages";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            WhatsappCloudMessageDto dto = WhatsappCloudMessageDto.textMessage(outbox.getPhoneNumber(), outbox.getPayload());
+            HttpEntity<WhatsappCloudMessageDto> entity = new HttpEntity<>(dto, headers);
+            restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
             outbox.setStatus(NotificationOutbox.NotificationStatus.PROCESSED);
         } catch (Exception e) {
             outbox.setRetryCount(outbox.getRetryCount() + 1);
