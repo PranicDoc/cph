@@ -18,6 +18,7 @@ export default function Registration() {
   const [step, setStep] = useState(1);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientFullName, setPatientFullName] = useState<string>("");
+  const [pendingHistory, setPendingHistory] = useState<Record<string, unknown> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { clinicId, uuid } = useParams();
   const { selectPatient } = usePatient();
@@ -106,19 +107,17 @@ export default function Registration() {
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
-      const payload = {
-        ...patientForm.state.values,
-        medicalHistory: value,
-      };
       try {
-        const url = isSelfRegister ? "/api/v1/patients/self-register" : "/api/v1/patients";
-        const res = await api.post(url, {
-          ...payload,
-        });
+        if (isSelfRegister) {
+          const payload = { ...patientForm.state.values, medicalHistory: value };
+          const res = await api.post("/api/v1/patients/self-register", payload);
+          setPatientId(res.data.id);
+          setPatientFullName(res.data.firstName + " " + res.data.lastName);
+          toast.success("Patient registered");
+        } else {
+          setPendingHistory(value);
+        }
         setStep(3);
-        setPatientId(res.data.id);
-        setPatientFullName(res.data.firstName + " " + res.data.lastName);
-        toast.success("Patient registered");
       } catch (error) {
         toast.error(extractDetail(error) || "Registration failed — please try again", { duration: 5000 });
       } finally {
@@ -143,18 +142,18 @@ export default function Registration() {
           patientSignature: value.patientSignature,
           signedAt: new Date().toISOString(),
         };
-        const payload = {
-          patientId: patientId,
-          declaration: declaration,
-        };
-        const res = await api.post(`/api/v1/cases`, payload);
         if (isSelfRegister) {
+          const res = await api.post(`/api/v1/cases`, { patientId, declaration });
           selectPatient(patientId);
           const caseId = res.data?.id;
           sessionStorage.setItem("caseId", caseId);
           toast.success("Registration complete");
           navigate(`/patient-health/${caseId}`);
         } else {
+          await api.post("/api/v1/patients/register", {
+            patient: { ...patientForm.state.values, medicalHistory: pendingHistory },
+            declaration,
+          });
           toast.success("Registration complete");
           await qc.invalidateQueries({ queryKey: ["patients"] });
           navigate("/patients");

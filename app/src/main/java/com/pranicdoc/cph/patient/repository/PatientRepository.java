@@ -58,6 +58,7 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
             )
         WHERE p.clinicId = :clinicId
         AND p.isDeleted = false
+        AND hc.id IS NOT NULL
     """)
     List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") UUID clinicId);
 

@@ -83,22 +83,27 @@ export default function Patients() {
     }),
     columnHelper.accessor("status", {
       header: "Status",
-      cell: (info) => (
-        <span
-          className={`px-2 py-1 rounded-md text-xs font-semibold ${
-            info.getValue() === "ACTIVE"
-              ? "bg-success/10 text-success"
-              : "bg-text-light/10 text-text-light"
-          }`}
-        >
-          {info.getValue()}
-        </span>
-      ),
+      cell: (info) => {
+        const status = info.getValue();
+        if (!status) return <span className="px-2 py-1 rounded-md text-xs font-semibold bg-text-light/10 text-text-light">—</span>;
+        return (
+          <span
+            className={`px-2 py-1 rounded-md text-xs font-semibold ${
+              status === "ACTIVE"
+                ? "bg-success/10 text-success"
+                : "bg-text-light/10 text-text-light"
+            }`}
+          >
+            {status}
+          </span>
+        );
+      },
     }),
     columnHelper.accessor("id", {
       header: "Actions",
       cell: (info) => {
         const patient = info.row.original;
+        if (!patient.healingCaseId) return <span className="text-xs text-text-light">No case</span>;
 
         const isDraft = patient.status === "DRAFT";
         const isActive = patient.status === "ACTIVE";

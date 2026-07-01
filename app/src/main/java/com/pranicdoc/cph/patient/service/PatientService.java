@@ -7,6 +7,10 @@ import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
+import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
+import com.pranicdoc.cph.healing.model.Declaration;
+import com.pranicdoc.cph.healing.model.HealingCase;
+import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.patient.dto.*;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
@@ -34,6 +38,8 @@ public class PatientService {
 
     private final PatientRepository patientRepository;
     private final RegistrationLinkRepository registrationLinkRepository;
+    private final CaseRepository caseRepository;
+    private final DeclarationMapper declarationMapper;
     private final SecurityContextUtil securityContextUtil;
     @Value("${app.base.url:http://localhost:3000}")
     private String baseUrl;
@@ -55,6 +61,25 @@ public class PatientService {
         // until a healer manually claims them or V4 is applied after orphan cleanup.
         Patient patient = Patient.create(request, null);
         return toResponse(patientRepository.save(patient));
+    }
+
+    @Auditable(action = "REGISTER_PATIENT_WITH_CASE")
+    @Transactional
+    public PatientRegisterResponse register(PatientRegisterRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerIdOrNull();
+        if (healerId == null) throw new IllegalStateException("Missing healer context");
+
+        Patient patient = patientRepository.save(Patient.create(request.patient(), healerId));
+
+        Declaration declaration = declarationMapper.toEntity(request.declaration());
+        if (!declaration.getPatientSignature().equals(patient.getFirstName() + " " + patient.getLastName())) {
+            throw new IllegalStateException("Signature mismatch in declaration");
+        }
+
+        HealingCase healingCase = HealingCase.create(patient.getId(), healerId, declaration);
+        HealingCase savedCase = caseRepository.save(healingCase);
+
+        return new PatientRegisterResponse(patient.getId(), savedCase.getId(), patient.getFirstName(), patient.getLastName());
     }
 
     @Transactional(readOnly = true)

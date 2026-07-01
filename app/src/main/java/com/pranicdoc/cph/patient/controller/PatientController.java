@@ -27,6 +27,11 @@ public class PatientController {
         return ResponseEntity.status(HttpStatus.CREATED).body(patientService.create(request));
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<PatientRegisterResponse> register(@Valid @RequestBody PatientRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientService.register(request));
+    }
+
     @GetMapping
     public ResponseEntity<List<PatientCaseResponse>> getAllPatients() {
         return ResponseEntity.ok(patientService.getAllPatients());
