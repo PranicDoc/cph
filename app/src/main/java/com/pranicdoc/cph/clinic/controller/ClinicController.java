@@ -7,7 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 import java.util.UUID;
 
@@ -18,7 +21,14 @@ public class ClinicController {
 
     private final ClinicService clinicService;
 
+    @GetMapping
+    @PreAuthorize("hasRole('SUPADM')")
+    public ResponseEntity<List<ClinicResponse>> getAll() {
+        return ResponseEntity.ok(clinicService.getAll());
+    }
+
     @PostMapping
+    @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<ClinicResponse> create(@Valid @RequestBody ClinicCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(clinicService.create(request));
     }
@@ -34,12 +44,14 @@ public class ClinicController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<ClinicResponse> update(@PathVariable UUID id,
                                                  @Valid @RequestBody ClinicCreateRequest request) {
         return ResponseEntity.ok(clinicService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         clinicService.softDelete(id);
         return ResponseEntity.noContent().build();

@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.auth.service.impl;
 
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
+import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.model.Healer;
@@ -185,6 +186,19 @@ public class AuthService {
         Healer healer = findOrThrow(healerId);
         String clinicCode = securityContextUtil.getCurrentClinicCode();
         return toResponse(healer, clinicCode);
+    }
+
+    // ─── Update current healer profile ─────────────────────────
+
+    @Auditable(action = "UPDATE_PROFILE")
+    public HealerResponse updateProfile(HealerRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+        healer.setFullName(request.fullName());
+        healer.setEmail(request.email());
+        healer.setPhone(request.phone());
+        Healer saved = healerRepository.save(healer);
+        return toResponse(saved, securityContextUtil.getCurrentClinicCode());
     }
 
     // ─── Get healer by ID ───────────────────────────────────────

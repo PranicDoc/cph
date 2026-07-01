@@ -1,26 +1,33 @@
 import { useState } from "react";
-import { User, Mail, Building2, Hash, ShieldCheck, CreditCard, X } from "lucide-react";
+import {
+  User, Mail, Phone, Hash, ShieldCheck, Activity,
+  CreditCard, Pencil, CheckCircle2, X, Lock,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PlanPicker } from "../components/PlanPicker";
+import { Skeleton } from "../components/ui/skeleton";
+import { useHealerProfile, useUpdateProfile } from "../hooks/useHealerProfile";
 
 function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
 }
 
-function Field({ label, value, icon: Icon }: { label: string; value?: string | null; icon: React.ElementType }) {
+const inputCls =
+  "w-full border border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary";
+const readCls =
+  "bg-background rounded-lg px-3 py-2 text-sm text-text";
+
+function ReadField({
+  icon: Icon, label, value, mono = false,
+}: { icon: React.ElementType; label: string; value?: string | null; mono?: boolean }) {
   return (
-    <div className="flex items-start gap-3 py-4 border-b border-border last:border-0">
-      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+    <div className="flex items-start gap-3">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
         <Icon className="w-4 h-4 text-primary" />
       </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-text-light uppercase tracking-wide">{label}</p>
-        <p className="mt-0.5 text-sm font-medium text-text truncate">{value || "—"}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-text-light uppercase tracking-wide mb-1">{label}</p>
+        <p className={`${readCls} ${mono ? "font-mono" : ""} truncate`}>{value || "—"}</p>
       </div>
     </div>
   );
@@ -28,47 +35,206 @@ function Field({ label, value, icon: Icon }: { label: string; value?: string | n
 
 export default function Profile() {
   const { user } = useAuth();
+  const { data: profile, isLoading } = useHealerProfile();
+  const updateMutation = useUpdateProfile();
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ fullName: "", email: "", phone: "" });
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const displayName = profile?.fullName ?? user?.fullName ?? "";
+  const displayEmail = profile?.email ?? user?.email ?? "";
+  const displayPhone = profile?.phone ?? user?.phone ?? "";
+  const displayRole = profile?.role ?? user?.role ?? "";
+  const displayCode = profile?.clinicCode ?? user?.clinicCode ?? "";
+  const displayLevel = profile?.healingLevel;
+
+  const enterEdit = () => {
+    setDraft({ fullName: displayName, email: displayEmail, phone: displayPhone });
+    setEditing(true);
+  };
+
+  const cancelEdit = () => setEditing(false);
+
+  const saveEdit = () => {
+    updateMutation.mutate(
+      { fullName: draft.fullName, email: draft.email, phone: draft.phone || undefined },
+      { onSuccess: () => setEditing(false) }
+    );
+  };
 
   if (!user) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-primary text-white p-4 rounded-xl">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <User className="w-5 h-5" />
-          My Profile
-        </h1>
-      </div>
+    <div className="max-w-2xl mx-auto space-y-5">
 
-      <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-2">
-        {/* Avatar + name header */}
-        <div className="flex items-center gap-4 pb-4 border-b border-border">
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.fullName}
-              className="w-16 h-16 rounded-full object-cover"
-            />
+      {/* ── Hero banner ── */}
+      <div className="bg-gradient-to-r from-primary-dark to-primary rounded-2xl p-6 flex items-center gap-5">
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={displayName}
+            className="w-20 h-20 rounded-full object-cover ring-2 ring-white/40 shrink-0"
+          />
+        ) : (
+          <span className="w-20 h-20 flex items-center justify-center rounded-full bg-white/20 text-white text-2xl font-bold ring-2 ring-white/40 shrink-0">
+            {getInitials(displayName || "?")}
+          </span>
+        )}
+        <div className="min-w-0">
+          {isLoading ? (
+            <>
+              <Skeleton className="h-7 w-40 bg-white/20 mb-2" />
+              <Skeleton className="h-4 w-52 bg-white/20" />
+            </>
           ) : (
-            <span className="w-16 h-16 flex items-center justify-center rounded-full bg-primary text-white text-xl font-bold shrink-0">
-              {getInitials(user.fullName)}
+            <>
+              <p className="text-2xl font-bold text-white truncate">{displayName}</p>
+              <p className="text-sm text-white/70 truncate mt-0.5">{displayEmail}</p>
+            </>
+          )}
+          {displayRole && (
+            <span className="mt-2 inline-block px-2.5 py-0.5 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
+              {displayRole}
             </span>
           )}
-          <div>
-            <p className="text-lg font-semibold text-primary-dark">{user.fullName}</p>
-            <p className="text-sm text-text-light">{user.email}</p>
-          </div>
         </div>
-
-        <Field label="Full Name"   value={user.fullName}  icon={User} />
-        <Field label="Email"       value={user.email}     icon={Mail} />
-        <Field label="Role"        value={user.role}      icon={ShieldCheck} />
-        <Field label="Clinic Code" value={user.clinicCode} icon={Hash} />
       </div>
 
-      <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-        <h2 className="text-sm font-semibold text-primary-dark mb-3">Subscription</h2>
+      {/* ── Personal Information ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-primary-dark">Personal Information</h2>
+          {!editing ? (
+            <button
+              onClick={enterEdit}
+              className="p-1.5 rounded hover:bg-background text-text-light hover:text-primary transition-colors"
+              title="Edit"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={saveEdit}
+                disabled={updateMutation.isPending}
+                className="p-1.5 rounded hover:bg-success/10 text-success disabled:opacity-50 transition-colors"
+                title="Save"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={cancelEdit}
+                disabled={updateMutation.isPending}
+                className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50 transition-colors"
+                title="Cancel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-9 w-full rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : editing ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                <User className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Full Name</label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={draft.fullName}
+                  onChange={(e) => setDraft((d) => ({ ...d, fullName: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                <Mail className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Email</label>
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={draft.email}
+                  onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                <Phone className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Phone</label>
+                <input
+                  type="tel"
+                  className={inputCls}
+                  value={draft.phone}
+                  placeholder="Optional"
+                  onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <ReadField icon={User} label="Full Name" value={displayName} />
+            <ReadField icon={Mail} label="Email" value={displayEmail} />
+            <ReadField icon={Phone} label="Phone" value={displayPhone} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Account Details (read-only) ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-primary-dark">Account Details</h2>
+          <Lock className="w-3.5 h-3.5 text-text-light" />
+        </div>
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-9 w-full rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <ReadField icon={ShieldCheck} label="Role" value={displayRole} />
+            {displayLevel && <ReadField icon={Activity} label="Healing Level" value={displayLevel} />}
+            <ReadField icon={Hash} label="Clinic Code" value={displayCode} mono />
+          </div>
+        )}
+      </div>
+
+      {/* ── Subscription ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-primary-dark mb-1">Plan & Billing</h2>
+        <p className="text-xs text-text-light mb-4">View and upgrade your subscription plan.</p>
         <button
           onClick={() => setShowUpgrade(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors"
@@ -78,7 +244,8 @@ export default function Profile() {
         </button>
       </div>
 
-      {showUpgrade && (
+      {/* ── Upgrade modal ── */}
+      {showUpgrade && user && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
           <div className="bg-card w-full sm:max-w-3xl sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-xl relative max-h-[92vh] flex flex-col">
             <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">

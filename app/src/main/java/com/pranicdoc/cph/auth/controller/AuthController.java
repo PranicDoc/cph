@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.auth.controller;
 
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
+import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
@@ -83,6 +84,11 @@ public class AuthController {
     @GetMapping("/profile")
     public ResponseEntity<HealerResponse> getCurrentHealer() {
         return ResponseEntity.ok(authService.getCurrentHealer());
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<HealerResponse> updateProfile(@Valid @RequestBody HealerRequest request) {
+        return ResponseEntity.ok(authService.updateProfile(request));
     }
 
     @PostMapping("/init-session")

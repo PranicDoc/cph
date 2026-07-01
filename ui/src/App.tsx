@@ -31,6 +31,8 @@ import Profile from "./pages/Profile";
 import Unauthorized from "./pages/Unauthorized";
 import PatientFeedback from "./pages/Feedback";
 import OAuth2Success from "./components/OAuth2Success";
+import ClinicsPage from "./pages/admin/ClinicsPage";
+import HealerRegistrationPage from "./pages/admin/HealerRegistrationPage";
 
 export default function App() {
   return (
@@ -80,6 +82,8 @@ export default function App() {
                 <Route path="global-config" element={<GlobalConfigPage />} />
                 <Route path="packages" element={<PackagesPage />} />
                 <Route path="master-data" element={<MasterDataPage />} />
+                <Route path="clinics" element={<ClinicsPage />} />
+                <Route path="healer-registration" element={<HealerRegistrationPage />} />
               </Route>
             </Route>
           </Routes>

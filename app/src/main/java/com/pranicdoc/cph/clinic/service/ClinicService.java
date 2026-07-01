@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -49,6 +50,11 @@ public class ClinicService {
                     saved.getId(), e.getMessage());
         }
         return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClinicResponse> getAll() {
+        return clinicRepository.findAll().stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
