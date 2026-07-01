@@ -55,6 +55,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         // All other requests require authentication
