@@ -37,13 +37,15 @@ public class ProtocolService {
                     .notes(req.notes())
                     .build();
 
-            for (ProtocolRequest.ProtocolColorRequest colorReq : req.colors()) {
-                ProtocolColor color = ProtocolColor.builder()
-                        .protocolEntry(entry)
-                        .colorId(colorReq.colorId())
-                        .usageType(colorReq.usageType())
-                        .build();
-                entry.getColors().add(color);
+            if (req.colors() != null) {
+                for (ProtocolRequest.ProtocolColorRequest colorReq : req.colors()) {
+                    ProtocolColor color = ProtocolColor.builder()
+                            .protocolEntry(entry)
+                            .colorId(colorReq.colorId())
+                            .usageType(colorReq.usageType())
+                            .build();
+                    entry.getColors().add(color);
+                }
             }
 
             protocolEntryRepository.save(entry);
