@@ -16,6 +16,7 @@ export interface HealerProfile {
   clinicCode: string;
   createdAt: string;
   hasPassword: boolean;
+  hasGoogleLinked: boolean;
 }
 
 export function useHealerProfile() {
@@ -47,5 +48,32 @@ export function useChangePassword() {
       api.post("/api/v1/auth/change-password", body).then((r) => r.data),
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to update password", { duration: 5000 }),
+  });
+}
+
+export function useLinkGoogle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { idToken: string }) =>
+      api.post("/api/v1/auth/link-google", body).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["healer-profile"] });
+      toast.success("Google account linked");
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Couldn't link your Google account. Please try again.", { duration: 5000 }),
+  });
+}
+
+export function useUnlinkGoogle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/api/v1/auth/unlink-google").then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["healer-profile"] });
+      toast.success("Google account unlinked");
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to unlink Google account", { duration: 5000 }),
   });
 }

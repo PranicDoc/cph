@@ -6,6 +6,7 @@ import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
+import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -97,6 +98,26 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(request);
         return ResponseEntity.ok(new ApiResponse<>(true, "Password changed", null));
+    }
+
+    /**
+     * Link the authenticated healer's account to a verified Google identity.
+     * POST /api/v1/auth/link-google
+     */
+    @PostMapping("/link-google")
+    public ResponseEntity<ApiResponse<String>> linkGoogle(@Valid @RequestBody LinkGoogleRequest request) {
+        authService.linkGoogleAccount(request);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Google account linked", null));
+    }
+
+    /**
+     * Unlink the authenticated healer's Google identity.
+     * POST /api/v1/auth/unlink-google
+     */
+    @PostMapping("/unlink-google")
+    public ResponseEntity<ApiResponse<String>> unlinkGoogle() {
+        authService.unlinkGoogleAccount();
+        return ResponseEntity.ok(new ApiResponse<>(true, "Google account unlinked", null));
     }
 
     @PostMapping("/init-session")

@@ -4,6 +4,7 @@ import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
@@ -15,6 +16,7 @@ import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
+import com.pranicdoc.cph.common.security.GoogleTokenVerifier;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
@@ -25,6 +27,7 @@ import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +56,7 @@ public class AuthService {
     private final RegistrationLinkRepository registrationLinkRepository;
     private final CreditService creditService;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    private final GoogleTokenVerifier googleTokenVerifier;
     private static final String PATIENT = "PATIENT";
 
     // ─── Register ───────────────────────────────────────────────
@@ -234,6 +238,46 @@ public class AuthService {
         healerRepository.save(healer);
     }
 
+    // ─── Link / unlink Google account ───────────────────────────
+
+    @Auditable(action = "LINK_GOOGLE")
+    public void linkGoogleAccount(LinkGoogleRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+
+        GoogleTokenVerifier.VerifiedGoogleUser verified = googleTokenVerifier.verify(request.idToken());
+
+        if (!verified.email().equalsIgnoreCase(healer.getEmail())) {
+            throw new IllegalArgumentException("That Google account's email doesn't match your profile email.");
+        }
+
+        if (healerRepository.existsByProviderUserId(verified.sub())) {
+            throw new IllegalArgumentException("This Google account is already linked to another PranicDoc account.");
+        }
+
+        healer.setProviderUserId(verified.sub());
+        try {
+            healerRepository.save(healer);
+        } catch (DataIntegrityViolationException ex) {
+            // Race: two concurrent link requests both passed the pre-check; the DB UNIQUE
+            // constraint (uk_healer_provider_user_id) is the suspenders here.
+            throw new IllegalArgumentException("This Google account is already linked to another PranicDoc account.");
+        }
+    }
+
+    @Auditable(action = "UNLINK_GOOGLE")
+    public void unlinkGoogleAccount() {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+
+        if (healer.getPasswordHash() == null) {
+            throw new IllegalArgumentException("Set a password first");
+        }
+
+        healer.setProviderUserId(null);
+        healerRepository.save(healer);
+    }
+
     // ─── Get healer by ID ───────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -264,7 +308,7 @@ public class AuthService {
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(),
                 h.getClinicId(), clinicCode, h.getCreatedAt(),
-                h.getPasswordHash() != null
+                h.getPasswordHash() != null, h.getProviderUserId() != null
         );
     }
 }

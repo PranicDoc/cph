@@ -1,15 +1,20 @@
 import { useState } from "react";
 import {
   User, Mail, Phone, Building2, Activity,
-  CreditCard, Pencil, CheckCircle2, X, Lock,
+  CreditCard, Pencil, CheckCircle2, X, Lock, Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { PlanPicker } from "../components/PlanPicker";
 import { Skeleton } from "../components/ui/skeleton";
-import { useHealerProfile, useUpdateProfile, useChangePassword } from "../hooks/useHealerProfile";
+import {
+  useHealerProfile, useUpdateProfile, useChangePassword,
+  useLinkGoogle, useUnlinkGoogle,
+} from "../hooks/useHealerProfile";
 import { toast } from "sonner";
 import api from "../lib/axios";
+
+const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
 function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
@@ -41,17 +46,19 @@ export default function Profile() {
   const { data: profile, isLoading } = useHealerProfile();
   const updateMutation = useUpdateProfile();
   const changePwMutation = useChangePassword();
+  const linkGoogleMutation = useLinkGoogle();
+  const unlinkGoogleMutation = useUnlinkGoogle();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ fullName: "", email: "", phone: "" });
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pwEditing, setPwEditing] = useState(false);
   const [pwDraft, setPwDraft] = useState({ current: "", newPwd: "", confirm: "" });
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
 
   const displayName = profile?.fullName ?? user?.fullName ?? "";
   const displayEmail = profile?.email ?? user?.email ?? "";
   const displayPhone = profile?.phone ?? user?.phone ?? "";
-  const displayRole = profile?.role ?? user?.role ?? "";
   const displayLevel = profile?.healingLevel;
   const clinicId = profile?.clinicId ?? user?.clinicId;
 
@@ -108,6 +115,42 @@ export default function Profile() {
     );
   };
 
+  const handleLinkGoogle = () => {
+    if (!window.google) {
+      toast.error("Couldn't link your Google account. Please try again.", { duration: 5000 });
+      return;
+    }
+    window.google.accounts.id.initialize({
+      client_id: process.env.GOOGLE_CLIENT_ID as string,
+      callback: (response) => {
+        if (response?.credential) {
+          linkGoogleMutation.mutate({ idToken: response.credential });
+        }
+        // Popup dismissed by the user without choosing an account: GIS never
+        // invokes this callback in that case — silent no-op, no toast.
+      },
+    });
+    window.google.accounts.id.prompt((notification) => {
+      // DEBUG: temporary — surfaces why One Tap didn't display/was skipped
+      // instead of failing completely silently. Remove once GIS is confirmed
+      // working end-to-end.
+      if (notification.isNotDisplayed()) {
+        console.warn("GIS not displayed:", notification.getNotDisplayedReason());
+        toast.error(`Google sign-in unavailable: ${notification.getNotDisplayedReason()}`, {
+          duration: 8000,
+        });
+      } else if (notification.isSkippedMoment()) {
+        console.warn("GIS skipped:", notification.getSkippedReason());
+      }
+    });
+  };
+
+  const handleConfirmUnlink = () => {
+    unlinkGoogleMutation.mutate(undefined, {
+      onSuccess: () => setConfirmingUnlink(false),
+    });
+  };
+
   if (!user) return null;
 
   return (
@@ -137,11 +180,6 @@ export default function Profile() {
               <p className="text-2xl font-bold text-white truncate">{displayName}</p>
               <p className="text-sm text-white/70 truncate mt-0.5">{displayEmail}</p>
             </>
-          )}
-          {displayRole && (
-            <span className="mt-2 inline-block px-2.5 py-0.5 bg-white/20 text-white text-xs font-semibold rounded-full uppercase tracking-wide">
-              {displayRole}
-            </span>
           )}
         </div>
       </div>
@@ -362,6 +400,99 @@ export default function Profile() {
               <p className={`${readCls} truncate`}>
                 {profile?.hasPassword !== false ? "••••••••" : "No password set"}
               </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Google Account ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-primary-dark">Google Account</h2>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-start gap-3">
+            <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-9 w-full rounded-lg" />
+            </div>
+          </div>
+        ) : profile?.hasGoogleLinked ? (
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <img src={GOOGLE_G_ICON} alt="Google" className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="flex items-center gap-1.5 text-sm text-success truncate">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                Connected as {profile.email}
+              </p>
+              {confirmingUnlink ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConfirmUnlink}
+                    disabled={unlinkGoogleMutation.isPending}
+                    className="px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-medium disabled:opacity-50 transition-colors"
+                  >
+                    {unlinkGoogleMutation.isPending ? "Unlinking…" : "Confirm Unlink"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingUnlink(false)}
+                    disabled={unlinkGoogleMutation.isPending}
+                    className="px-3 py-1.5 text-xs font-medium text-text-light disabled:opacity-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : profile?.hasPassword !== false ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingUnlink(true)}
+                  className="text-xs font-medium text-danger hover:underline transition-colors"
+                >
+                  Unlink Google Account
+                </button>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    disabled
+                    className="text-xs font-medium text-danger opacity-50 cursor-not-allowed"
+                  >
+                    Unlink Google Account
+                  </button>
+                  <p className="text-xs text-danger mt-1">Set a password first</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <img src={GOOGLE_G_ICON} alt="Google" className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="bg-background rounded-lg px-3 py-2 text-sm text-text-light truncate">Not linked</p>
+              <p className="text-xs text-text-light">Link your Google account for faster sign-in.</p>
+              <button
+                type="button"
+                onClick={handleLinkGoogle}
+                disabled={linkGoogleMutation.isPending}
+                className="inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-border bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {linkGoogleMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-700" />
+                ) : (
+                  <img src={GOOGLE_G_ICON} alt="Google" className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium text-gray-700">
+                  {linkGoogleMutation.isPending ? "Linking…" : "Link Google Account"}
+                </span>
+              </button>
             </div>
           </div>
         )}

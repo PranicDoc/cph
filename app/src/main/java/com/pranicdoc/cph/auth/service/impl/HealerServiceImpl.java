@@ -77,7 +77,7 @@ public class HealerServiceImpl implements HealerService {
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(),
                 h.getClinicId(), clinicCode, h.getCreatedAt(),
-                h.getPasswordHash() != null
+                h.getPasswordHash() != null, h.getProviderUserId() != null
         );
     }
 }

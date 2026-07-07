@@ -17,5 +17,6 @@ public record HealerResponse(
         UUID clinicId,
         String clinicCode,
         Instant createdAt,
-        boolean hasPassword
+        boolean hasPassword,
+        boolean hasGoogleLinked
 ) {}

@@ -39,13 +39,12 @@ public class Healer extends TenantEntity {
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
     /**
-     * Stores the sub value provided by the Google as the emails may change but this sub wont
-     * <p>
-     * Future fool proofing field
-     * TODO later check how to populate this field after oauth login success
+     * Stores the sub value provided by the Google as the emails may change but this sub wont.
+     * NULL means "not linked" — providerUserId != null is the sole source of truth for
+     * Google account link state (authProvider is left untouched per 21-google-oauth-linking D-09).
      */
-//    @Column(name = "provider_user_id")
-//    private String providerUserId;
+    @Column(name = "provider_user_id")
+    private String providerUserId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)

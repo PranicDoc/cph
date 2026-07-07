@@ -41,6 +41,16 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             return;
         }
 
+        // D-01 link-gate: Google login is only permitted when the healer has explicitly
+        // linked this Google account (providerUserId matches the authenticated sub).
+        // Without this gate, any healer row whose email happens to match a Google account
+        // could log in without ever having linked — this closes that pre-existing bypass.
+        String googleSub = oAuth2User.getAttribute("sub");
+        if (healer.getProviderUserId() == null || !healer.getProviderUserId().equals(googleSub)) {
+            response.sendRedirect(appBaseUrl + "/login?error=not_linked");
+            return;
+        }
+
         String clinicCode = clinicService.getById(healer.getClinicId()).code();
         String accessToken = jwtService.generateAccessToken(
                 healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
