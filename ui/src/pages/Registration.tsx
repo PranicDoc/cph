@@ -112,11 +112,11 @@ export default function Registration() {
           const payload = { ...patientForm.state.values, medicalHistory: value };
           const res = await api.post("/api/v1/patients/self-register", payload);
           setPatientId(res.data.id);
-          setPatientFullName(res.data.firstName + " " + res.data.lastName);
           toast.success("Patient registered");
         } else {
           setPendingHistory(value);
         }
+        setPatientFullName(patientForm.state.values.firstName + " " + patientForm.state.values.lastName);
         setStep(3);
       } catch (error) {
         toast.error(extractDetail(error) || "Registration failed — please try again", { duration: 5000 });
