@@ -48,10 +48,15 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/register",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/init-session",
-                                "/api/v1/auth/init-feedback-session"
+                                "/api/v1/auth/init-feedback-session",
+                                "/api/v1/auth/accept-invite",
+                                // No /register mapping exists anymore (D-10) — permitAll here only
+                                // lets the request reach the dispatcher's NoHandlerFoundException ->
+                                // 404 handler instead of the auth filter's 401, so unauthenticated
+                                // callers see the same literal 404 as authenticated ones (ROADMAP SC-4).
+                                "/api/v1/auth/register"
                         ).permitAll()
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()

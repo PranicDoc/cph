@@ -13,7 +13,6 @@ import Registration from "./pages/Registration";
 import Session from "./pages/Session";
 import PatientHealthForm from "./pages/PatientHealthForm";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/admin/AdminRoute";
@@ -29,10 +28,13 @@ import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
 import Profile from "./pages/Profile";
 import Unauthorized from "./pages/Unauthorized";
+import Forbidden from "./pages/Forbidden";
+import NotFound from "./pages/NotFound";
 import PatientFeedback from "./pages/Feedback";
 import OAuth2Success from "./components/OAuth2Success";
 import ClinicsPage from "./pages/admin/ClinicsPage";
 import HealerRegistrationPage from "./pages/admin/HealerRegistrationPage";
+import AcceptInvite from "./pages/AcceptInvite";
 
 export default function App() {
   return (
@@ -41,8 +43,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/forbidden" element={<Forbidden />} />
             <Route path="/oauth2/success" element={<OAuth2Success />} />
 
             {/* Public pages — minimal branded shell, no nav */}
@@ -54,6 +56,7 @@ export default function App() {
               />
               <Route path="/feedback" element={<PatientFeedback />} />
               <Route path="/patient-health/:caseId" element={<PatientHealthForm />} />
+              <Route path="/accept-invite" element={<AcceptInvite />} />
             </Route>
 
             {/* Protected healer routes */}
@@ -86,6 +89,8 @@ export default function App() {
                 <Route path="healer-registration" element={<HealerRegistrationPage />} />
               </Route>
             </Route>
+
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
         <Toaster position="top-right" richColors duration={3000} />

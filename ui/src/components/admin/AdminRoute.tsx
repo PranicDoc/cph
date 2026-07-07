@@ -20,7 +20,7 @@ export default function AdminRoute() {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!user?.role || !ADMIN_ROLES.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/forbidden" replace />;
   }
 
   return <Outlet />;

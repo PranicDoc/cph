@@ -1,7 +1,7 @@
 package com.pranicdoc.cph.auth.controller;
 
+import com.pranicdoc.cph.auth.dto.AcceptInviteRequest;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
-import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
@@ -9,6 +9,7 @@ import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
+import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,16 +26,20 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final InviteService inviteService;
 
     /**
-     * Register a new healer. Sets HttpOnly auth cookies.
-     * POST /api/v1/auth/register
+     * Activate an invited healer's account: sets full name + password, marks the
+     * invite ACCEPTED, and logs the healer in via HttpOnly auth cookies (D-08).
+     * Public, token-authenticated — not JWT/session-authenticated.
+     * POST /api/v1/auth/accept-invite?token=...
      */
-    @PostMapping("/register")
-    public ResponseEntity<HealerResponse> register(
-            @Valid @RequestBody HealerCreateRequest request,
+    @PostMapping("/accept-invite")
+    public ResponseEntity<HealerResponse> acceptInvite(
+            @RequestParam("token") String token,
+            @Valid @RequestBody AcceptInviteRequest request,
             HttpServletResponse response) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request, response));
+        return ResponseEntity.status(HttpStatus.CREATED).body(inviteService.acceptInvite(token, request, response));
     }
 
     /**

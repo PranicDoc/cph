@@ -84,8 +84,8 @@ export default function PatientFeedback() {
         await api.post("/api/v1/auth/init-feedback-session", {
           token,
         });
-      } catch {
-        navigate("/unauthorized");
+      } catch (err) {
+        navigate("/unauthorized", { state: { error: err } });
         return;
       }
 

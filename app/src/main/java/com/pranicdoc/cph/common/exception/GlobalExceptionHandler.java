@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -101,6 +102,16 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
         pd.setTitle("Insufficient Credits");
         pd.setType(URI.create("https://pranicdoc.com/errors/insufficient-credits"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ProblemDetail handleNoHandlerFound(NoHandlerFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,
+                "No endpoint " + ex.getHttpMethod() + " " + ex.getRequestURL());
+        pd.setTitle("Not Found");
+        pd.setType(URI.create("https://pranicdoc.com/errors/not-found"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }

@@ -28,7 +28,7 @@ export const loginSchema: FormSchema = [
   },
 ];
 
-export const registerSchema: FormSchema = [
+export const acceptInviteSchema: FormSchema = [
   {
     fieldsContainerClassName: "space-y-4",
     fields: [
@@ -40,32 +40,15 @@ export const registerSchema: FormSchema = [
         placeholder: "Enter your full name",
       },
       {
-        name: "email",
-        label: "Email Address",
-        type: "email",
-        required: true,
-        placeholder: "Enter your email",
-      },
-      {
         name: "password",
         label: "Password",
         type: "password",
         required: true,
         placeholder: "Min. 6 characters",
-      },
-      {
-        name: "phone",
-        label: "Phone Number",
-        type: "tel",
-        required: false,
-        placeholder: "Enter your phone number",
-      },
-      {
-        name: "clinicCode",
-        label: "Clinic Code",
-        type: "text",
-        required: true,
-        placeholder: "Provided by your clinic admin",
+        validate: (value) =>
+          value && value.length < 6
+            ? "Password must be at least 6 characters"
+            : undefined,
       },
     ],
   },

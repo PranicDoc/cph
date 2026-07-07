@@ -11,6 +11,18 @@ spring:
       idle-timeout: 30000
       max-lifetime: 1800000
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
   security:
     oauth2:
       client:
@@ -32,6 +44,8 @@ app:
     same-site: None
   feedback:
     url: ${APP_FEEDBACK_URL}
+  invite:
+    url: ${APP_INVITE_URL}
 
 storage:
   endpoint: ${R2_ENDPOINT}

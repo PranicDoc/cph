@@ -5,6 +5,17 @@ spring:
     password: root123
     driver-class-name: org.postgresql.Driver
 
+  # Mailpit — local SMTP capture + web UI (localhost:8025), no auth/TLS needed.
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
   security:
     oauth2:
       client:
@@ -28,6 +39,8 @@ app:
     same-site: Lax
   feedback:
     url: http://localhost:3000/feedback
+  invite:
+    url: http://localhost:3000/accept-invite
 
 storage:
   endpoint: ${R2_ENDPOINT:}

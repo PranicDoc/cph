@@ -1,7 +1,6 @@
 package com.pranicdoc.cph.auth.service.impl;
 
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
-import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
@@ -22,8 +21,6 @@ import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
-import com.pranicdoc.cph.payments.dto.OwnerType;
-import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -54,44 +51,9 @@ public class AuthService {
     private final CookieUtil cookieUtil;
     private final SecurityContextUtil securityContextUtil;
     private final RegistrationLinkRepository registrationLinkRepository;
-    private final CreditService creditService;
     private final FeedbackLinkRepository feedbackLinkRepository;
     private final GoogleTokenVerifier googleTokenVerifier;
     private static final String PATIENT = "PATIENT";
-
-    // ─── Register ───────────────────────────────────────────────
-
-    @Auditable(action = "REGISTER_HEALER")
-    public HealerResponse register(HealerCreateRequest request, HttpServletResponse response) {
-        // Resolve clinic code → clinic entity
-        Clinic clinic = clinicRepository.findByCode(request.clinicCode())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Invalid clinic code: " + request.clinicCode()));
-
-        // Check for duplicate email within the same clinic
-        if (healerRepository.existsByEmailAndClinicId(request.email(), clinic.getId())) {
-            throw new IllegalArgumentException(
-                    "A healer with this email already exists in clinic " + request.clinicCode());
-        }
-
-        Healer healer = Healer.builder()
-                .fullName(request.fullName())
-                .email(request.email())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .phone(request.phone())
-                .role(request.role())
-                .healingLevel(request.healingLevel())
-                .active(true)
-                .build();
-
-        healer.setClinicId(clinic.getId());
-        Healer saved = healerRepository.save(healer);
-        creditService.createAccount(OwnerType.HEALER, healer.getId());
-        // Set auth cookies
-        setAuthCookies(response, saved, clinic.getCode());
-
-        return toResponse(saved, clinic.getCode());
-    }
 
     // ─── Login ──────────────────────────────────────────────────
 

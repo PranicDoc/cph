@@ -1,0 +1,14 @@
+-- Fix for Phase 22 code review Critical finding: healer.email had no uniqueness
+-- enforcement at all (per-clinic or global). AuthService.login() and
+-- HealerServiceImpl.findHealerByEmail() both look up healers by email globally
+-- (Optional<Healer>, single-result), so two healers sharing an email across
+-- different clinics makes both accounts unable to log in.
+--
+-- The application layer (InviteService.createInvite/acceptInvite) now checks
+-- HealerRepository.existsByEmail(email) globally before creating an account.
+-- This index is the DB-level backstop closing the same check-then-insert race
+-- that V13's uk_healer_invite_pending_email_clinic index closes for invites.
+--
+-- NOTE: if this migration fails, it means duplicate healer emails already exist
+-- across clinics in this database — resolve those rows manually before retrying.
+CREATE UNIQUE INDEX uk_healer_email ON healer (email);

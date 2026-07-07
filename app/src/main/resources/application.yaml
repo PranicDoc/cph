@@ -31,6 +31,32 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # Explicit bounded SMTP timeouts (Pitfall 3 mitigation) — a slow/misconfigured
+  # SMTP server must never hang the invite-creation HTTP request indefinitely.
+  mail:
+    properties:
+      mail:
+        smtp:
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  # This backend serves no static content (the SPA is hosted separately on
+  # Cloudflare Pages, per PROJECT.md) — disable Spring Boot's default static
+  # resource handler so genuinely unmapped paths (e.g. the deleted /register
+  # endpoint, D-10) return a real 404 instead of silently falling through to
+  # ResourceHttpRequestHandler's empty 200 response.
+  web:
+    resources:
+      add-mappings: false
+
+  mvc:
+    # Route unmapped paths through DispatcherServlet's NoHandlerFoundException
+    # (caught by GlobalExceptionHandler) instead of the servlet container's
+    # default 404 page, so unmapped-path responses stay in the same RFC 7807
+    # ProblemDetail shape as every other error in this API.
+    throw-exception-if-no-handler-found: true
+
 server:
   port: 9918
   servlet:
@@ -58,6 +84,8 @@ app:
     kafka: false
   feedback:
     token-expiry-hours: 48
+  invite:
+    token-expiry-hours: 72
   whatsapp:
     phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:placeholder-phone-number-id}
     access-token: ${WHATSAPP_ACCESS_TOKEN:placeholder-access-token}

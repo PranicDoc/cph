@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.auth.controller;
 
 import com.pranicdoc.cph.auth.service.impl.AuthService;
+import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,6 +29,9 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private InviteService inviteService;
 
     @MockBean
     private SecurityContextUtil securityContextUtil;
@@ -49,5 +54,30 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newPassword\":\"newPass123\",\"confirmPassword\":\"newPass123\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser
+    void register_deletedEndpoint_authenticatedCaller_returns404() throws Exception {
+        // D-10: /register is deleted outright, not gated — with a request that clears the
+        // security-authorization gate (authenticated), the request reaches the dispatcher,
+        // which finds no handler for the removed mapping and returns 404. Never 403 (403
+        // would mean the mapping still exists but is access-controlled).
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void register_deletedEndpoint_unauthenticatedCaller_returns404() throws Exception {
+        // /api/v1/auth/register is on SecurityConfig's permitAll list purely so the request
+        // reaches the dispatcher instead of being rejected by the auth filter — no mapping
+        // exists for it (D-10), so it falls through to NoHandlerFoundException -> 404, giving
+        // unauthenticated callers the same literal 404 as authenticated ones (ROADMAP SC-4).
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound());
     }
 }

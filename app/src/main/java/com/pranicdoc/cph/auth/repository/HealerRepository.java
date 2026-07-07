@@ -18,8 +18,6 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
 
     boolean existsByProviderUserId(String providerUserId);
 
-    boolean existsByEmailAndClinicId(String email, UUID clinicId);
-
     @Query("""
            SELECT h.email
            FROM Healer h
