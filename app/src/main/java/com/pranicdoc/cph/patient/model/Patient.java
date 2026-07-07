@@ -107,7 +107,9 @@ public class Patient extends TenantEntity {
         p.setState(req.state());
         p.setZip(req.zip());
 
-        PatientMedicalHistory history = getPatientMedicalHistory(req.medicalHistory(), p);
+        PatientMedicalHistory history = req.medicalHistory() != null
+                ? getPatientMedicalHistory(req.medicalHistory(), p)
+                : null;
         p.setMedicalHistory(history);
 
         return p;
