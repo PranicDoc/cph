@@ -7,7 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { PlanPicker } from "../components/PlanPicker";
 import { Skeleton } from "../components/ui/skeleton";
-import { useHealerProfile, useUpdateProfile } from "../hooks/useHealerProfile";
+import { useHealerProfile, useUpdateProfile, useChangePassword } from "../hooks/useHealerProfile";
+import { toast } from "sonner";
 import api from "../lib/axios";
 
 function getInitials(name: string): string {
@@ -39,10 +40,13 @@ export default function Profile() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useHealerProfile();
   const updateMutation = useUpdateProfile();
+  const changePwMutation = useChangePassword();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ fullName: "", email: "", phone: "" });
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [pwEditing, setPwEditing] = useState(false);
+  const [pwDraft, setPwDraft] = useState({ current: "", newPwd: "", confirm: "" });
 
   const displayName = profile?.fullName ?? user?.fullName ?? "";
   const displayEmail = profile?.email ?? user?.email ?? "";
@@ -71,6 +75,36 @@ export default function Profile() {
     updateMutation.mutate(
       { fullName: draft.fullName, email: draft.email, phone: draft.phone || undefined },
       { onSuccess: () => setEditing(false) }
+    );
+  };
+
+  const cancelPwEdit = () => {
+    setPwEditing(false);
+    setPwDraft({ current: "", newPwd: "", confirm: "" });
+  };
+
+  const savePw = () => {
+    if (pwDraft.newPwd.length < 8) {
+      toast.error("Password must be at least 8 characters", { duration: 5000 });
+      return;
+    }
+    if (pwDraft.newPwd !== pwDraft.confirm) {
+      toast.error("Passwords do not match", { duration: 5000 });
+      return;
+    }
+    changePwMutation.mutate(
+      {
+        currentPassword: profile?.hasPassword !== false ? (pwDraft.current || undefined) : undefined,
+        newPassword: pwDraft.newPwd,
+        confirmPassword: pwDraft.confirm,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Password updated");
+          setPwEditing(false);
+          setPwDraft({ current: "", newPwd: "", confirm: "" });
+        },
+      }
     );
   };
 
@@ -211,6 +245,124 @@ export default function Profile() {
             <ReadField icon={User} label="Full Name" value={displayName} />
             <ReadField icon={Mail} label="Email" value={displayEmail} />
             <ReadField icon={Phone} label="Phone" value={displayPhone} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Password / Security ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-primary-dark">
+            {profile?.hasPassword !== false ? "Change Password" : "Set Password"}
+          </h2>
+          {!pwEditing ? (
+            <button
+              onClick={() => setPwEditing(true)}
+              className="p-1.5 rounded hover:bg-background text-text-light hover:text-primary transition-colors"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={savePw}
+                disabled={changePwMutation.isPending}
+                className="p-1.5 rounded hover:bg-success/10 text-success disabled:opacity-50 transition-colors"
+                title={profile?.hasPassword !== false ? "Change Password" : "Set Password"}
+                aria-label={profile?.hasPassword !== false ? "Change Password" : "Set Password"}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={cancelPwEdit}
+                disabled={changePwMutation.isPending}
+                className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50 transition-colors"
+                title="Discard"
+                aria-label="Discard"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-start gap-3">
+            <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-9 w-full rounded-lg" />
+            </div>
+          </div>
+        ) : pwEditing ? (
+          <div className="space-y-4">
+            {profile?.hasPassword !== false && (
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                  <Lock className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    className={inputCls}
+                    autoComplete="current-password"
+                    value={pwDraft.current}
+                    onChange={(e) => setPwDraft((d) => ({ ...d, current: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                <Lock className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  className={inputCls}
+                  autoComplete="new-password"
+                  value={pwDraft.newPwd}
+                  onChange={(e) => setPwDraft((d) => ({ ...d, newPwd: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-6">
+                <Lock className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  className={inputCls}
+                  autoComplete="new-password"
+                  value={pwDraft.confirm}
+                  onChange={(e) => setPwDraft((d) => ({ ...d, confirm: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Lock className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-text-light uppercase tracking-wide mb-1">Password</p>
+              <p className={`${readCls} truncate`}>
+                {profile?.hasPassword !== false ? "••••••••" : "No password set"}
+              </p>
+            </div>
           </div>
         )}
       </div>

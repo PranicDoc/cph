@@ -76,7 +76,8 @@ public class HealerServiceImpl implements HealerService {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(),
-                h.getClinicId(), clinicCode, h.getCreatedAt()
+                h.getClinicId(), clinicCode, h.getCreatedAt(),
+                h.getPasswordHash() != null
         );
     }
 }

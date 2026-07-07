@@ -69,7 +69,7 @@ class DashboardServiceImplTrendsTest {
                 new DashboardSessionTrend(from.plusDays(20), 1L),
                 new DashboardSessionTrend(from.plusDays(28), 4L)
         );
-        when(sessionService.getSessionTrends(eq(HEALER_ID.toString()), eq(from), eq(to))).thenReturn(sparse);
+        when(sessionService.getSessionTrends(eq(HEALER_ID), eq(from), eq(to))).thenReturn(sparse);
 
         ApiResponse<List<DashboardSessionTrend>> response =
                 dashboardServiceImpl.getSessionTrends(HEALER_ID, new DateRangeFilter(null, null, null));
@@ -90,7 +90,7 @@ class DashboardServiceImplTrendsTest {
         LocalDate from = today.minusDays(7);
         LocalDate to = today;
         when(dateRangeResolver.resolve(any())).thenReturn(new DateRangeResolver.DateRange(from, to));
-        when(sessionService.getSessionTrends(eq(HEALER_ID.toString()), eq(from), eq(to))).thenReturn(List.of());
+        when(sessionService.getSessionTrends(eq(HEALER_ID), eq(from), eq(to))).thenReturn(List.of());
 
         ApiResponse<List<DashboardSessionTrend>> response =
                 dashboardServiceImpl.getSessionTrends(HEALER_ID, new DateRangeFilter("7d", null, null));
@@ -117,7 +117,7 @@ class DashboardServiceImplTrendsTest {
         LocalDate from = LocalDate.of(2026, 5, 1);
         LocalDate to = LocalDate.of(2026, 5, 3);
         when(dateRangeResolver.resolve(any())).thenReturn(new DateRangeResolver.DateRange(from, to));
-        when(sessionService.getSessionTrends(eq(HEALER_ID.toString()), eq(from), eq(to)))
+        when(sessionService.getSessionTrends(eq(HEALER_ID), eq(from), eq(to)))
                 .thenReturn(List.of(new DashboardSessionTrend(LocalDate.of(2026, 5, 2), 5L)));
 
         ApiResponse<List<DashboardSessionTrend>> response = dashboardServiceImpl.getSessionTrends(

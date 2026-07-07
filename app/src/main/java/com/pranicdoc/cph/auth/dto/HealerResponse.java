@@ -16,5 +16,6 @@ public record HealerResponse(
         boolean active,
         UUID clinicId,
         String clinicCode,
-        Instant createdAt
+        Instant createdAt,
+        boolean hasPassword
 ) {}

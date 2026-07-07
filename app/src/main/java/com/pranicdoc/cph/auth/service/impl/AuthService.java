@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.auth.service.impl;
 
+import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
@@ -201,6 +202,38 @@ public class AuthService {
         return toResponse(saved, securityContextUtil.getCurrentClinicCode());
     }
 
+    // ─── Change current healer password ─────────────────────────
+
+    @Auditable(action = "CHANGE_PASSWORD")
+    public void changePassword(ChangePasswordRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+
+        boolean hasPassword = healer.getPasswordHash() != null;
+
+        if (hasPassword) {
+            if (request.currentPassword() == null || request.currentPassword().isBlank()) {
+                throw new IllegalArgumentException("Current password is required");
+            }
+            if (!passwordEncoder.matches(request.currentPassword(), healer.getPasswordHash())) {
+                throw new IllegalArgumentException("Current password is incorrect");
+            }
+        }
+
+        if (request.newPassword().length() < 8) {
+            throw new IllegalArgumentException("Password must be at least 8 characters");
+        }
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+        if (hasPassword && request.newPassword().equals(request.currentPassword())) {
+            throw new IllegalArgumentException("New password must differ from current password");
+        }
+
+        healer.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        healerRepository.save(healer);
+    }
+
     // ─── Get healer by ID ───────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -230,7 +263,8 @@ public class AuthService {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(),
-                h.getClinicId(), clinicCode, h.getCreatedAt()
+                h.getClinicId(), clinicCode, h.getCreatedAt(),
+                h.getPasswordHash() != null
         );
     }
 }

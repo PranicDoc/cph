@@ -15,6 +15,7 @@ export interface HealerProfile {
   clinicId: string;
   clinicCode: string;
   createdAt: string;
+  hasPassword: boolean;
 }
 
 export function useHealerProfile() {
@@ -37,5 +38,14 @@ export function useUpdateProfile() {
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to update profile", { duration: 5000 }),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { currentPassword?: string; newPassword: string; confirmPassword: string }) =>
+      api.post("/api/v1/auth/change-password", body).then((r) => r.data),
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update password", { duration: 5000 }),
   });
 }

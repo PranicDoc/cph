@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.auth.controller;
 
+import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerCreateRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
@@ -89,6 +90,13 @@ public class AuthController {
     @PutMapping("/profile")
     public ResponseEntity<HealerResponse> updateProfile(@Valid @RequestBody HealerRequest request) {
         return ResponseEntity.ok(authService.updateProfile(request));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Password changed", null));
     }
 
     @PostMapping("/init-session")
