@@ -35,6 +35,7 @@ import OAuth2Success from "./components/OAuth2Success";
 import ClinicsPage from "./pages/admin/ClinicsPage";
 import HealerRegistrationPage from "./pages/admin/HealerRegistrationPage";
 import AcceptInvite from "./pages/AcceptInvite";
+import Signup from "./pages/Signup";
 
 export default function App() {
   return (
@@ -57,6 +58,7 @@ export default function App() {
               <Route path="/feedback" element={<PatientFeedback />} />
               <Route path="/patient-health/:caseId" element={<PatientHealthForm />} />
               <Route path="/accept-invite" element={<AcceptInvite />} />
+              <Route path="/signup" element={<Signup />} />
             </Route>
 
             {/* Protected healer routes */}

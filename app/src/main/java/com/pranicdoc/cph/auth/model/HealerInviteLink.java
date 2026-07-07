@@ -42,11 +42,16 @@ public class HealerInviteLink {
     @Column(nullable = false, length = 20)
     private Role role;
 
-    @Column(name = "clinic_id", nullable = false)
+    @Column(name = "clinic_id")
     private UUID clinicId;
 
-    @Column(name = "invited_by_healer_id", nullable = false)
+    @Column(name = "invited_by_healer_id")
     private UUID invitedByHealerId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Source source = Source.ADMIN_INVITE;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -64,4 +69,6 @@ public class HealerInviteLink {
     private Instant createdAt;
 
     public enum Status { PENDING, ACCEPTED, REVOKED }
+
+    public enum Source { ADMIN_INVITE, SELF_SIGNUP }
 }

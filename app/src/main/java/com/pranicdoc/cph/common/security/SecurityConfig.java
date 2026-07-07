@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/init-session",
                                 "/api/v1/auth/init-feedback-session",
                                 "/api/v1/auth/accept-invite",
+                                "/api/v1/auth/signup",
                                 // No /register mapping exists anymore (D-10) — permitAll here only
                                 // lets the request reach the dispatcher's NoHandlerFoundException ->
                                 // 404 handler instead of the auth filter's 401, so unauthenticated

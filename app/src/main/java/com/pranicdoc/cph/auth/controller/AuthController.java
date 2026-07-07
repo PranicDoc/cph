@@ -8,6 +8,7 @@ import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
+import com.pranicdoc.cph.auth.dto.SignupRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -40,6 +41,20 @@ public class AuthController {
             @Valid @RequestBody AcceptInviteRequest request,
             HttpServletResponse response) {
         return ResponseEntity.status(HttpStatus.CREATED).body(inviteService.acceptInvite(token, request, response));
+    }
+
+    /**
+     * Request self-signup verification (SELFREG-01, D-01). Public, unauthenticated.
+     * Deliberately returns a fixed generic body regardless of outcome (D-08) — whether
+     * the email has an active account, a pending admin invite, a pending self-signup
+     * token, or is brand new, the response is identical (no enumeration leak). No healer
+     * or clinic is created here; that happens when the emailed token is accepted on the
+     * existing /accept-invite endpoint.
+     * POST /api/v1/auth/signup
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<String>> signup(@Valid @RequestBody SignupRequest request) {
+        return ResponseEntity.ok(inviteService.requestSelfSignup(request.email()));
     }
 
     /**

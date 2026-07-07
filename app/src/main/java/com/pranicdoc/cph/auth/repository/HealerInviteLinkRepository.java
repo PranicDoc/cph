@@ -20,6 +20,20 @@ public interface HealerInviteLinkRepository extends JpaRepository<HealerInviteLi
     Optional<HealerInviteLink> findByEmailAndClinicIdAndStatus(
             String email, UUID clinicId, HealerInviteLink.Status status);
 
+    /**
+     * D-09: find a pending self-signup token for an email, so resubmission
+     * can rotate it in place instead of creating a duplicate row.
+     */
+    Optional<HealerInviteLink> findByEmailAndSourceAndStatus(
+            String email, HealerInviteLink.Source source, HealerInviteLink.Status status);
+
+    /**
+     * D-10: detect a pending admin invite for an email so self-signup can
+     * silently no-op (generic success, no email sent) instead of racing it.
+     */
+    boolean existsByEmailAndSourceAndStatus(
+            String email, HealerInviteLink.Source source, HealerInviteLink.Status status);
+
     Page<HealerInviteLink> findByClinicId(UUID clinicId, Pageable pageable);
 
     /**

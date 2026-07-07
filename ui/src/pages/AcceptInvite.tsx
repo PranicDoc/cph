@@ -22,6 +22,7 @@ export default function AcceptInvite() {
     defaultValues: {
       fullName: "",
       password: "",
+      phone: "",
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
@@ -32,6 +33,7 @@ export default function AcceptInvite() {
           {
             fullName: value.fullName,
             password: value.password,
+            phone: value.phone,
           },
           { params: { token } }
         );

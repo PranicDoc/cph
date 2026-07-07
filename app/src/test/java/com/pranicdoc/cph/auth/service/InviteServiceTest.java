@@ -10,6 +10,7 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
@@ -37,7 +38,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -184,6 +187,151 @@ class InviteServiceTest {
 
         assertEquals(email, response.email());
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
+    }
+
+    // ─── requestSelfSignup ──────────────────────────────────────
+
+    @Test
+    void requestSelfSignup_existingAccount_returnsGenericNoEmail() {
+        String email = "existing-healer@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(true);
+
+        ApiResponse<String> response = inviteService.requestSelfSignup(email);
+
+        assertTrue(response.success());
+        assertEquals("If that email is eligible, a verification link has been sent.", response.message());
+        verify(inviteRepository, never()).save(any());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void requestSelfSignup_pendingAdminInvite_returnsGenericNoEmail() {
+        String email = "collides-with-admin-invite@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING))
+                .thenReturn(true);
+
+        ApiResponse<String> response = inviteService.requestSelfSignup(email);
+
+        assertTrue(response.success());
+        assertEquals("If that email is eligible, a verification link has been sent.", response.message());
+        verify(inviteRepository, never()).save(any());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void requestSelfSignup_newEmail_savesSelfSignupRowAndSendsEmail() {
+        String email = "new-self-signup@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING))
+                .thenReturn(false);
+        when(inviteRepository.findByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.SELF_SIGNUP, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.empty());
+
+        ArgumentCaptor<HealerInviteLink> captor = ArgumentCaptor.forClass(HealerInviteLink.class);
+        when(inviteRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        ApiResponse<String> response = inviteService.requestSelfSignup(email);
+
+        assertTrue(response.success());
+        HealerInviteLink saved = captor.getValue();
+        assertEquals(HealerInviteLink.Source.SELF_SIGNUP, saved.getSource());
+        assertNull(saved.getClinicId());
+        assertNull(saved.getInvitedByHealerId());
+        assertEquals(Role.HEALER, saved.getRole());
+        assertEquals(HealerInviteLink.Status.PENDING, saved.getStatus());
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void requestSelfSignup_existingPendingToken_rotatesInPlace() {
+        String email = "resubmits-self-signup@example.com";
+        String oldToken = "old-self-signup-token";
+        HealerInviteLink existing = HealerInviteLink.builder()
+                .id(UUID.randomUUID())
+                .token(oldToken)
+                .email(email)
+                .role(Role.HEALER)
+                .source(HealerInviteLink.Source.SELF_SIGNUP)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING))
+                .thenReturn(false);
+        when(inviteRepository.findByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.SELF_SIGNUP, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.of(existing));
+        when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ApiResponse<String> response = inviteService.requestSelfSignup(email);
+
+        assertTrue(response.success());
+        // Only ONE save call — the existing row is mutated and re-saved, no second row inserted.
+        verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
+        assertNotEquals(oldToken, existing.getToken());
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
+
+    @Test
+    void acceptInvite_selfSignupSource_createsSoloClinicAndHealerRole() {
+        String token = "self-signup-accept-token";
+        UUID inviteId = UUID.randomUUID();
+        HealerInviteLink invite = HealerInviteLink.builder()
+                .id(inviteId)
+                .token(token)
+                .email("solo-healer@example.com")
+                .role(Role.HEALER)
+                .source(HealerInviteLink.Source.SELF_SIGNUP)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+        UUID savedClinicId = UUID.randomUUID();
+        UUID savedHealerId = UUID.randomUUID();
+
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq(token), eq(HealerInviteLink.Status.PENDING), any()))
+                .thenReturn(Optional.of(invite));
+        when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
+        when(clinicRepository.existsByCode(any())).thenReturn(false);
+        when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
+
+        ArgumentCaptor<Clinic> clinicCaptor = ArgumentCaptor.forClass(Clinic.class);
+        when(clinicRepository.save(clinicCaptor.capture())).thenAnswer(inv -> {
+            Clinic c = inv.getArgument(0);
+            c.setId(savedClinicId);
+            return c;
+        });
+
+        ArgumentCaptor<Healer> healerCaptor = ArgumentCaptor.forClass(Healer.class);
+        when(healerRepository.save(healerCaptor.capture())).thenAnswer(inv -> {
+            Healer h = inv.getArgument(0);
+            h.setId(savedHealerId);
+            return h;
+        });
+
+        AcceptInviteRequest request = new AcceptInviteRequest("Solo Healer", "password1", "555-1234");
+        HealerResponse response = inviteService.acceptInvite(token, request, httpServletResponse);
+
+        Clinic savedClinic = clinicCaptor.getValue();
+        assertTrue(savedClinic.getCode().startsWith("SOLO-"));
+        assertEquals("Solo Healer's Practice", savedClinic.getName());
+
+        Healer savedHealer = healerCaptor.getValue();
+        assertEquals(Role.HEALER, savedHealer.getRole());
+        assertEquals(savedClinicId, savedHealer.getClinicId());
+
+        assertEquals(savedHealerId, response.id());
+        verify(creditService).createAccount(OwnerType.CLINIC, savedClinicId);
+        verify(creditService).createAccount(OwnerType.HEALER, savedHealerId);
     }
 
     // ─── resend ─────────────────────────────────────────────────
@@ -373,7 +521,7 @@ class InviteServiceTest {
             return h;
         });
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
         HealerResponse response = inviteService.acceptInvite(token, request, httpServletResponse);
 
         assertEquals(savedHealerId, response.id());
@@ -393,7 +541,7 @@ class InviteServiceTest {
                 eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.empty());
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
 
         assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));
@@ -411,7 +559,7 @@ class InviteServiceTest {
                 eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.empty());
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
 
         TokenExpiredException ex = assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));
@@ -428,7 +576,7 @@ class InviteServiceTest {
                 eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.empty());
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
 
         assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));
@@ -462,7 +610,7 @@ class InviteServiceTest {
         when(clinicRepository.findById(clinicId)).thenReturn(Optional.of(clinic));
         when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(true);
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
 
         assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));
@@ -493,7 +641,7 @@ class InviteServiceTest {
         // The loser: markAccepted returns 0 because a concurrent accept already flipped the row.
         when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(0);
 
-        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1");
+        AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
 
         assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));

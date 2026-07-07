@@ -76,7 +76,7 @@ export default function Login() {
         <p className="mt-2 text-center text-sm text-text-light">
           Or{" "}
           <Link
-            to="/register"
+            to="/signup"
             className="font-medium text-primary hover:text-primary-dark"
           >
             create a new account

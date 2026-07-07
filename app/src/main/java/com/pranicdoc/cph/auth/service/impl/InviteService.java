@@ -10,6 +10,7 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.clinic.model.Clinic;
 import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
@@ -21,6 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -104,6 +107,66 @@ public class InviteService {
         return toResponse(saved);
     }
 
+    // ─── Self-Signup Request (SELFREG-01) ──────────────────────
+
+    private static final String SELF_SIGNUP_GENERIC_MESSAGE =
+            "If that email is eligible, a verification link has been sent.";
+
+    /**
+     * Public, unauthenticated self-signup request handler (D-08). NEVER throws for a
+     * collision — an active account, a pending admin invite (D-10), or a concurrent
+     * insert race (D-09's partial unique index) all resolve to the exact same generic
+     * response, so a caller cannot distinguish any of these cases from a brand-new email.
+     */
+    @Auditable(action = "REQUEST_SELF_SIGNUP")
+    public ApiResponse<String> requestSelfSignup(String email) {
+        ApiResponse<String> genericResponse = new ApiResponse<>(true, SELF_SIGNUP_GENERIC_MESSAGE, null);
+
+        if (healerRepository.existsByEmail(email)) {
+            // An active account already exists — no save, no email, no enumeration signal.
+            return genericResponse;
+        }
+
+        if (inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING)) {
+            // D-10: a pending admin invite wins — self-signup silently no-ops.
+            return genericResponse;
+        }
+
+        try {
+            HealerInviteLink invite = inviteRepository
+                    .findByEmailAndSourceAndStatus(email, HealerInviteLink.Source.SELF_SIGNUP, HealerInviteLink.Status.PENDING)
+                    .orElse(null);
+
+            String token = UUID.randomUUID().toString();
+            Instant expiresAt = Instant.now().plus(inviteExpiryHours, ChronoUnit.HOURS);
+
+            if (invite != null) {
+                // D-09: rotate the existing PENDING self-signup row in place — no duplicate row.
+                invite.setToken(token);
+                invite.setExpiresAt(expiresAt);
+            } else {
+                invite = HealerInviteLink.builder()
+                        .token(token)
+                        .email(email)
+                        .role(Role.HEALER)
+                        .source(HealerInviteLink.Source.SELF_SIGNUP)
+                        .status(HealerInviteLink.Status.PENDING)
+                        .expiresAt(expiresAt)
+                        .build();
+            }
+
+            HealerInviteLink saved = inviteRepository.save(invite);
+            sendSelfSignupEmail(saved.getEmail(), saved.getToken());
+        } catch (DataIntegrityViolationException ex) {
+            // Two concurrent first-time requests both tried to insert — the partial unique
+            // index (D-09) rejected the loser. Still no enumeration signal on the response.
+            log.warn("Self-signup insert race for email {}: {}", email, ex.getMessage());
+        }
+
+        return genericResponse;
+    }
+
     // ─── Resend ─────────────────────────────────────────────────
 
     @Auditable(action = "RESEND_INVITE")
@@ -161,29 +224,92 @@ public class InviteService {
             throw new TokenExpiredException("This invite link is invalid, expired, or already used.");
         }
 
-        Clinic clinic = clinicRepository.findById(invite.getClinicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", invite.getClinicId()));
+        Clinic clinic;
+        if (invite.getSource() == HealerInviteLink.Source.SELF_SIGNUP) {
+            // D-05/D-06: auto-provision a personal one-person clinic instead of joining one.
+            clinic = createSoloClinic(request.fullName());
+        } else {
+            clinic = clinicRepository.findById(invite.getClinicId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Clinic", invite.getClinicId()));
+        }
 
         if (healerRepository.existsByEmail(invite.getEmail())) {
             // An account already exists (any clinic) — the invite is effectively already consumed.
             throw new TokenExpiredException("This invite link is invalid, expired, or already used.");
         }
 
+        // D-04: never trust the token's role for self-signup — always plain HEALER.
+        Role role = invite.getSource() == HealerInviteLink.Source.SELF_SIGNUP ? Role.HEALER : invite.getRole();
+
         Healer healer = Healer.builder()
                 .fullName(request.fullName())
                 .email(invite.getEmail())
+                .phone(request.phone())
                 .passwordHash(passwordEncoder.encode(request.password()))
-                .role(invite.getRole())
+                .role(role)
                 .active(true)
                 .build();
-        healer.setClinicId(invite.getClinicId());
+        healer.setClinicId(clinic.getId());
         Healer saved = healerRepository.save(healer);
 
-        creditService.createAccount(OwnerType.HEALER, saved.getId());
+        // T-22.1-09: a creditService outage must never fail account activation.
+        try {
+            creditService.createAccount(OwnerType.HEALER, saved.getId());
+        } catch (Exception e) {
+            log.warn("CREDIT_ACCOUNT_PROVISION_FAILED healerId={} reason={} (account activated; manual provisioning may be needed)",
+                    saved.getId(), e.getMessage());
+        }
 
         setAuthCookies(response, saved, clinic.getCode());
 
         return toHealerResponse(saved, clinic.getCode());
+    }
+
+    // ─── Solo Clinic Auto-Provisioning (D-05/D-06/D-07) ────────
+
+    private static final String SOLO_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I (D-06)
+    private static final int SOLO_CODE_SUFFIX_LENGTH = 4;
+    private static final int SOLO_CODE_MAX_ATTEMPTS = 10;
+    private static final SecureRandom SOLO_CODE_RANDOM = new SecureRandom();
+
+    private Clinic createSoloClinic(String fullName) {
+        String code = null;
+        for (int attempt = 0; attempt < SOLO_CODE_MAX_ATTEMPTS; attempt++) {
+            String candidate = "SOLO-" + randomSoloCodeSuffix();
+            if (!clinicRepository.existsByCode(candidate)) {
+                code = candidate;
+                break;
+            }
+        }
+        if (code == null) {
+            throw new IllegalStateException("Unable to generate a unique solo clinic code");
+        }
+
+        Clinic clinic = Clinic.builder()
+                .code(code)
+                .name(fullName + "'s Practice")
+                .active(true)
+                .build();
+        Clinic saved = clinicRepository.save(clinic);
+
+        // T-22.1-09: replicate ClinicService.create()'s non-fatal provisioning idiom —
+        // a creditService outage must never roll back the created solo clinic.
+        try {
+            creditService.createAccount(OwnerType.CLINIC, saved.getId());
+        } catch (Exception e) {
+            log.warn("CREDIT_ACCOUNT_PROVISION_FAILED clinicId={} reason={} (clinic registration completed; manual provisioning may be needed)",
+                    saved.getId(), e.getMessage());
+        }
+
+        return saved;
+    }
+
+    private String randomSoloCodeSuffix() {
+        StringBuilder sb = new StringBuilder(SOLO_CODE_SUFFIX_LENGTH);
+        for (int i = 0; i < SOLO_CODE_SUFFIX_LENGTH; i++) {
+            sb.append(SOLO_CODE_ALPHABET.charAt(SOLO_CODE_RANDOM.nextInt(SOLO_CODE_ALPHABET.length())));
+        }
+        return sb.toString();
     }
 
     // ─── List ───────────────────────────────────────────────────
@@ -235,6 +361,23 @@ public class InviteService {
         } catch (MailException ex) {
             // Don't let SMTP downtime block invite creation — the admin has Resend (D-06/Pitfall 3).
             log.warn("Failed to send invite email to {}: {}", email, ex.getMessage());
+        }
+    }
+
+    private void sendSelfSignupEmail(String email, String token) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            message.setSubject("Verify your email to complete PranicDoc registration");
+            message.setText(
+                    "You requested to register as a healer on PranicDoc.\n\n"
+                            + "Click the link below to verify your email and complete registration:\n"
+                            + inviteUrl + "?token=" + token + "\n\n"
+                            + "This link expires in 72 hours.");
+            mailSender.send(message);
+        } catch (MailException ex) {
+            // Don't let SMTP downtime block the request — resubmitting /signup rotates the token.
+            log.warn("Failed to send self-signup verification email to {}: {}", email, ex.getMessage());
         }
     }
 

@@ -50,6 +50,27 @@ export const acceptInviteSchema: FormSchema = [
             ? "Password must be at least 6 characters"
             : undefined,
       },
+      {
+        name: "phone",
+        label: "Phone Number",
+        type: "text",
+        placeholder: "Optional",
+      },
+    ],
+  },
+];
+
+export const signupSchema: FormSchema = [
+  {
+    fieldsContainerClassName: "space-y-4",
+    fields: [
+      {
+        name: "email",
+        label: "Email Address",
+        type: "email",
+        required: true,
+        placeholder: "Enter your email",
+      },
     ],
   },
 ];
