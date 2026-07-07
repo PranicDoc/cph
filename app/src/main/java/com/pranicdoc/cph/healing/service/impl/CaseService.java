@@ -230,6 +230,9 @@ public class CaseService {
     public void closeCase(UUID caseId, CaseClosureRequest request) {
         HealingCase healingCase = findOrThrow(caseId);
         List<HealingSession> sessions = healingCase.getSessions();
+        if (sessions.isEmpty()) {
+            throw new IllegalArgumentException("Cannot close a case with no recorded sessions");
+        }
         int healingCount = sessions.size();
         HealingSession lastSession = sessions.get(sessions.size() - 1);
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
