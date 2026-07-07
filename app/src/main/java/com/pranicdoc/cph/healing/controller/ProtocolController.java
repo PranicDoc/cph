@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/sessions/{caseId}/protocol")
+@RequestMapping("/api/v1/sessions/{sessionId}/protocol")
 @RequiredArgsConstructor
 public class ProtocolController {
 

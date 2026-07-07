@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/sessions/{caseId}/scans")
+@RequestMapping("/api/v1/sessions/{sessionId}/scans")
 @RequiredArgsConstructor
 public class ScanController {
 
