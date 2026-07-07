@@ -67,6 +67,9 @@ management:
     web:
       exposure:
         include: health,prometheus
+  metrics:
+    tags:
+      application: cph
   endpoint:
     health:
       show-details: always
