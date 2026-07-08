@@ -70,6 +70,9 @@ management:
   metrics:
     tags:
       application: cph
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoint:
     health:
       show-details: always
