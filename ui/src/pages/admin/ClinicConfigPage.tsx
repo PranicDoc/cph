@@ -9,7 +9,7 @@ import {
 } from "../../hooks/admin/useAdminClinicConfig";
 import { useClinicHealers, useToggleHealerActive } from "../../hooks/admin/useAdminHealers";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -212,14 +212,7 @@ export default function ClinicConfigPage() {
                   <p className="text-xs text-text-light">{h.email} · {h.role}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <Badge
-                    className={cn(
-                      "font-semibold px-2",
-                      h.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                    )}
-                  >
-                    {h.active ? "Active" : "Inactive"}
-                  </Badge>
+                  <StatusBadge active={h.active} />
                   <Button
                     variant="outline"
                     size="sm"
