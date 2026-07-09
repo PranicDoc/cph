@@ -1,5 +1,9 @@
 import { useRef, useState } from "react";
 import { X } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface EditableFieldConfig {
   label: string;
@@ -37,23 +41,12 @@ function MedicationPopup({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-xl shadow-xl p-6 w-80 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-80 p-6 gap-4 space-y-0">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-text-dark text-base">{row[displayKey]}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-light hover:text-danger transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <DialogTitle className="font-semibold text-text-dark text-base">
+            {row[displayKey]}
+          </DialogTitle>
         </div>
 
         <div className="space-y-3 text-sm">
@@ -85,8 +78,8 @@ function MedicationPopup({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -2,9 +2,13 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { extractDetail } from "../lib/utils";
-import { X } from "lucide-react";
 import api from "../lib/axios";
 import { Patient } from "../context/PatientContext";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 type ClosurePopupProps = {
   patient: Patient;
@@ -30,39 +34,32 @@ export function ClosurePopup({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md space-y-4">
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-full max-w-md space-y-4 gap-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-dark">
+          <DialogTitle className="text-lg font-semibold text-primary-dark">
             Close Case: {patient.firstName} {patient.lastName}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors "
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          </DialogTitle>
         </div>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">
+            <Label className="text-sm font-medium text-gray-700">
               Additional Comments
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-h-[100px] resize-none"
+              className="border px-3 py-2 min-h-[100px] resize-none"
               placeholder="Add any final notes or observations here..."
             />
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer w-fit">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={isHealingContinued}
-              onChange={(e) => setIsHealingContinued(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              onCheckedChange={(checked) =>
+                setIsHealingContinued(checked === true)
+              }
             />
             <span className="text-sm font-medium text-gray-700">
               Is healing continued?
@@ -70,22 +67,23 @@ export function ClosurePopup({
           </label>
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button
+          <Button
+            variant="outline"
             onClick={onClose}
             disabled={closeMutation.isPending}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="hover:bg-gray-50"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => closeMutation.mutate()}
             disabled={closeMutation.isPending}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="gap-2"
           >
             {closeMutation.isPending ? "Closing..." : "Close Case"}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

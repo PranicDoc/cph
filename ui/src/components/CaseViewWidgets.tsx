@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { X, FileText, Download } from "lucide-react";
+import { FileText, Download } from "lucide-react";
 import api from "../lib/axios";
 import { Medication } from "../interfaces";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 function Popup({
   title,
@@ -13,27 +15,16 @@ function Popup({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-xl shadow-xl w-96 max-h-[80vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-96 max-h-[80vh] overflow-hidden flex flex-col gap-0 p-0">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-semibold text-text-dark text-sm">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-light hover:text-danger transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <DialogTitle className="font-semibold text-text-dark text-sm">
+            {title}
+          </DialogTitle>
         </div>
         <div className="px-5 py-4 overflow-y-auto">{children}</div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -76,15 +67,17 @@ function LabFindingsPopup({
                 {keyToFilename(key)}
               </span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => openFile(key)}
               disabled={loading === key}
-              className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-dark transition-colors flex-shrink-0 disabled:opacity-50"
+              className="h-auto p-0 gap-1.5 text-xs font-medium text-primary hover:text-primary-dark hover:bg-transparent flex-shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
               {loading === key ? "Opening..." : "Download"}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -100,13 +93,14 @@ export function LabFindingsView({ keys }: { keys: string[] }) {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => setOpen(true)}
-        className="text-sm text-primary underline underline-offset-2 decoration-primary/40 hover:decoration-primary transition-colors"
+        className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary"
       >
         Click to view
-      </button>
+      </Button>
 
       {open && <LabFindingsPopup keys={keys} onClose={() => setOpen(false)} />}
     </>
@@ -170,13 +164,14 @@ export function MedicationsView({
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => setOpen(true)}
-        className="text-sm text-primary underline underline-offset-2 decoration-primary/40 hover:decoration-primary transition-colors"
+        className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary"
       >
         Click to view
-      </button>
+      </Button>
 
       {open && (
         <MedicationsPopup

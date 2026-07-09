@@ -1,7 +1,10 @@
 import { useRef, useState } from "react";
-import { X, Loader2, CreditCard } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { useCreditPackages, type PackageResponse } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -25,8 +28,6 @@ export function UpgradeModal({
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
   const idempotencyKeyRef = useRef<string | null>(null);
-
-  if (!isOpen) return null;
 
   const handleUpgrade = (pkg: PackageResponse) => {
     if (pkg.price_paise === 0) return;
@@ -60,8 +61,8 @@ export function UpgradeModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
-      <div className="bg-card w-full sm:max-w-2xl sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-xl relative max-h-[92vh] flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="w-full sm:max-w-2xl gap-0 rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col p-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:max-w-full">
         {/* Drag handle pill (mobile only) */}
         <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 bg-border rounded-full" />
@@ -69,18 +70,12 @@ export function UpgradeModal({
 
         {/* Scrollable body */}
         <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-text-light hover:text-text transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
           <div className="space-y-1.5 mb-5">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
-              <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">Upgrade Your Plan</h2>
+              <DialogTitle className="text-xl sm:text-2xl font-bold text-primary-dark">
+                Upgrade Your Plan
+              </DialogTitle>
             </div>
             <p className="text-sm text-text-light">
               You've run out of credits. Choose a plan to continue generating PDFs.
@@ -89,7 +84,7 @@ export function UpgradeModal({
 
           {isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <Spinner size="lg" />
             </div>
           ) : error ? (
             <div className="text-center py-10 text-text-light">
@@ -117,20 +112,20 @@ export function UpgradeModal({
                         Current Plan
                       </span>
                     ) : (
-                      <button
+                      <Button
                         onClick={() => handleUpgrade(pkg)}
                         disabled={isPending}
-                        className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
+                        className="w-full"
                       >
                         {isThisSelected ? (
                           <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Spinner size="sm" className="text-current" />
                             Processing…
                           </span>
                         ) : (
                           "Upgrade"
                         )}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 );
@@ -138,7 +133,7 @@ export function UpgradeModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

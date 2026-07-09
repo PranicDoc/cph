@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Search,
   Plus,
@@ -185,47 +192,46 @@ export default function Patients() {
 
   return (
     <div className="space-y-6">
-      {openPopup && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold text-primary-dark">
-              Self Registration Link
-            </h2>
-            <p className="text-sm text-text-light">
-              Share this link with the patient. It will expire in 30 minutes.
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={generatedLink}
-                readOnly
-                className="flex-1 border border-border rounded-lg px-3 py-2 text-sm"
-              />
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(generatedLink);
-                    toast.success("Link copied to clipboard");
-                  } catch {
-                    toast.error("Copy failed — please copy the link manually", { duration: 5000 });
-                  }
-                }}
-                className="bg-primary text-white px-3 py-2 rounded-lg text-sm"
-              >
-                Copy
-              </button>
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setOpenPopup(false)}
-                className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-gray-100"
-              >
-                Close
-              </button>
-            </div>
+      <Dialog open={openPopup} onOpenChange={setOpenPopup}>
+        <DialogContent className="w-full max-w-md space-y-4 gap-0">
+          <DialogTitle className="text-lg font-semibold text-primary-dark">
+            Self Registration Link
+          </DialogTitle>
+          <p className="text-sm text-text-light">
+            Share this link with the patient. It will expire in 30 minutes.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={generatedLink}
+              readOnly
+              className="flex-1 border px-3 py-2"
+            />
+            <Button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(generatedLink);
+                  toast.success("Link copied to clipboard");
+                } catch {
+                  toast.error("Copy failed — please copy the link manually", { duration: 5000 });
+                }
+              }}
+              className="px-3 font-normal"
+            >
+              Copy
+            </Button>
           </div>
-        </div>
-      )}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setOpenPopup(false)}
+              className="font-normal hover:bg-gray-100"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {closurePatient && (
         <ClosurePopup

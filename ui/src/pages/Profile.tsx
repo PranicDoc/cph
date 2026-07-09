@@ -13,6 +13,7 @@ import {
 } from "../hooks/useHealerProfile";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
@@ -538,28 +539,22 @@ export default function Profile() {
       </div>
 
       {/* ── Upgrade modal ── */}
-      {showUpgrade && user && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
-          <div className="bg-card w-full sm:max-w-3xl sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-xl relative max-h-[92vh] flex flex-col">
+      {user && (
+        <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
+          <DialogContent className="w-full sm:max-w-3xl gap-0 rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col p-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:max-w-full">
+            <DialogTitle className="sr-only">Upgrade Plan</DialogTitle>
             <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 bg-border rounded-full" />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8">
-              <button
-                onClick={() => setShowUpgrade(false)}
-                className="absolute top-4 right-4 text-text-light hover:text-text transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
               <PlanPicker
                 ownerId={user.id}
                 ownerType="HEALER"
                 onComplete={() => setShowUpgrade(false)}
               />
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
