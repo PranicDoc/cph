@@ -52,8 +52,8 @@ function matchActivation(segment: string): ActivationLevel | null {
 
 function segmentTranscript(transcript: string): string[] {
   return transcript
-    .replace(/\.\s+/g, "|||")
-    .replace(/,\s*(then|next|also|and)\s+/gi, "|||")
+    .replace(/[.!?]\s*/g, "|||")
+    .replace(/\b(?:then|next|also|and)\b/gi, "|||")
     .split("|||")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -85,27 +85,47 @@ export function parseChakraTranscript(
 
   const entryMap = new Map(currentEntries.map((e) => [e.id, { ...e }]));
 
+  let currentChakra: ChakraCatalogEntry | null = null;
+
   for (const segment of segmentTranscript(transcript)) {
-    const chakra = findChakra(segment, sortedCatalog);
-    if (!chakra) continue;
+    // Update current chakra only if one is explicitly mentioned
+    const detectedChakra = findChakra(segment, sortedCatalog);
+    if (detectedChakra) {
+      currentChakra = detectedChakra;
+    }
+
+    // Ignore anything before the first chakra is spoken
+    if (!currentChakra) {
+      continue;
+    }
 
     const energy = matchEnergy(segment);
     const activation = matchActivation(segment);
 
-    if (!energy && !activation) continue;
+    // If this segment contains only a chakra name,
+    // wait for the next segment.
+    if (!energy && !activation) {
+      continue;
+    }
 
-    let entry = entryMap.get(chakra.id);
+    let entry = entryMap.get(currentChakra.id);
+
     if (!entry) {
       entry = {
-        id: chakra.id,
-        name: chakra.name,
+        id: currentChakra.id,
+        name: currentChakra.name,
       } as ChakraDocEntry;
     }
 
-    if (energy) entry.energyLevel = energy;
-    if (activation) entry.activationLevel = activation;
+    if (energy) {
+      entry.energyLevel = energy;
+    }
 
-    entryMap.set(chakra.id, entry);
+    if (activation) {
+      entry.activationLevel = activation;
+    }
+
+    entryMap.set(currentChakra.id, entry);
   }
 
   return Array.from(entryMap.values());

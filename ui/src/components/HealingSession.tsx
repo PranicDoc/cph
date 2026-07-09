@@ -25,7 +25,6 @@ export const HealingSessionWizard = ({
 }: HealingSessionWizardProps) => {
   const {
     step,
-    form,
     referenceData,
     preScanChakraData,
     postScanChakraData,
@@ -44,14 +43,10 @@ export const HealingSessionWizard = ({
     return () => clearTimeout(timer);
   }, [step, navigate]);
 
-  const { colors, chakras, loading } = referenceData;
+  const { chakras, loading } = referenceData;
   const availableChakras = useMemo(
     () => buildBackendChakraCatalog(chakras),
     [chakras]
-  );
-  const pranaColorCatalog = useMemo(
-    () => buildPranaColorCatalog(colors),
-    [colors]
   );
 
   const handleWizardBack = () => {
@@ -77,7 +72,6 @@ export const HealingSessionWizard = ({
             value={preScanChakraData}
             onChange={setPreScanChakraData}
             availableChakras={availableChakras}
-            pranaColorCatalog={pranaColorCatalog}
           />
         )}
 
@@ -86,7 +80,6 @@ export const HealingSessionWizard = ({
             value={postScanChakraData}
             onChange={setPostScanChakraData}
             availableChakras={availableChakras}
-            pranaColorCatalog={pranaColorCatalog}
           />
         )}
 

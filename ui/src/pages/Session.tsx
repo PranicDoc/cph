@@ -6,12 +6,20 @@ import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { sessionSchema } from "./schemas/sessionSchema";
 import { SessionHeader } from "./SessionHeader";
-import { TreatmentSteps } from "../components/TreatmentSteps";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { FieldDisplay } from "../components/FieldDisplay";
 import { HealingSessionWizard } from "../components/HealingSession";
-import { LabFindingsView, MedicationsView } from "../components/CaseViewWidgets";
+import {
+  LabFindingsView,
+  MedicationsView,
+} from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../components/ui/accordion";
 
 type SessionFormValues = {
   medicalCondition: string;
@@ -85,7 +93,9 @@ export default function Session() {
       try {
         const { labFindings, ...rest } = value;
         const files = labFindings.filter((f): f is File => f instanceof File);
-        const existingKeys = labFindings.filter((f): f is string => typeof f === "string");
+        const existingKeys = labFindings.filter(
+          (f): f is string => typeof f === "string"
+        );
         const payload = {
           ...rest,
           labFindings: existingKeys,
@@ -275,12 +285,20 @@ export default function Session() {
                 .join(", ")}
             />
             <div className="space-y-1">
-              <dt className="text-sm font-medium text-muted-foreground">Medications</dt>
-              <dd><MedicationsView medications={sessionData.medications ?? []} /></dd>
+              <dt className="text-sm font-medium text-muted-foreground">
+                Medications
+              </dt>
+              <dd>
+                <MedicationsView medications={sessionData.medications ?? []} />
+              </dd>
             </div>
             <div className="space-y-1">
-              <dt className="text-sm font-medium text-muted-foreground">Lab Findings</dt>
-              <dd><LabFindingsView keys={sessionData.labFindings ?? []} /></dd>
+              <dt className="text-sm font-medium text-muted-foreground">
+                Lab Findings
+              </dt>
+              <dd>
+                <LabFindingsView keys={sessionData.labFindings ?? []} />
+              </dd>
             </div>
             <FieldDisplay
               label="Complementary Details"
@@ -303,19 +321,79 @@ export default function Session() {
                       <p>Advanced book pg: {sessionData?.advancedBookPg}</p>
                     )}
                     {sessionData?.psychotherapyPg && (
-                      <p>Psychotherapy book pg: {sessionData?.psychotherapyPg}</p>
+                      <p>
+                        Psychotherapy book pg: {sessionData?.psychotherapyPg}
+                      </p>
                     )}
                   </div>
                 ) : null
               }
             />
+            {sessionData?.healingSession?.length > 0 && (
+              <div className="sm:col-span-2">
+                <Accordion type="multiple">
+                  {sessionData.healingSession.map((session) => (
+                    <AccordionItem
+                      key={session.id}
+                      value={`session-${session.id}`}
+                    >
+                      <AccordionTrigger>
+                        Session {session.sessionNumber}
+                      </AccordionTrigger>
+
+                      <AccordionContent className="space-y-6">
+                        {session.scans.map((scan) => (
+                          <div key={scan.id}>
+                            <h4 className="font-semibold mb-2">
+                              {scan.scanType} Scan
+                            </h4>
+
+                            <table className="w-full border rounded-lg overflow-hidden">
+                              <thead className="bg-muted">
+                                <tr>
+                                  <th className="text-left px-3 py-2">
+                                    Chakra
+                                  </th>
+                                  <th className="text-left px-3 py-2">
+                                    Energy
+                                  </th>
+                                  <th className="text-left px-3 py-2">
+                                    Activation
+                                  </th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {scan.readings.map((reading) => (
+                                  <tr key={reading.id} className="border-t">
+                                    <td className="px-3 py-2">
+                                      {reading.chakraName}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {reading.energyLevel}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {reading.activationLevel}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
           </dl>
 
           {/* Navigation buttons */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-6 border-t border-border">
             <button
               type="button"
-              onClick={() => navigate('/patients')}
+              onClick={() => navigate("/patients")}
               className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
               Back to Patients
@@ -366,7 +444,7 @@ export default function Session() {
           <div className="flex w-full sm:w-auto gap-3">
             <button
               type="button"
-              onClick={() => navigate('/patients')}
+              onClick={() => navigate("/patients")}
               className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
             >
               Back to Patients

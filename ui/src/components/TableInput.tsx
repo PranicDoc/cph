@@ -219,6 +219,7 @@ export function TableInput({
     })),
   ];
 
+  // TODO change this input to button and keep this input in the name field
   return (
     <div className="space-y-3">
       <input

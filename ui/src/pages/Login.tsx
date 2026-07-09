@@ -7,6 +7,7 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { loginSchema } from "./schemas/AuthSchema";
 import { useAuth } from "../context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { extractDetail } from "../lib/utils";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,7 +45,8 @@ export default function Login() {
         queryClient.clear();
         navigate("/");
       } catch (err: any) {
-        setError(err.message);
+        const errMsg = extractDetail(err);
+        setError(errMsg ?? "Retry After Sometime");
       } finally {
         setIsSubmitting(false);
       }

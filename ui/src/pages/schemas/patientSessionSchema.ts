@@ -9,7 +9,7 @@ export const patientSessionSchema: FormSchema = [
         name: "medicalCondition",
         label: "Chief Complaint",
         type: "textarea",
-        placeholder: "Please state the main ailment that will be treated...",
+        placeholder: "Please state the main ailment that will be treated...", // TODO add examples
         required: true,
       },
       {
