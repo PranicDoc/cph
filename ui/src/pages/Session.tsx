@@ -21,6 +21,7 @@ import {
   AccordionTrigger,
 } from "../components/ui/accordion";
 import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
 
 const scanReadingColumns: ColumnDef<
@@ -273,14 +274,16 @@ export default function Session() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Patient Medical Details</h2>
             {sessionData.status !== "COMPLETED" && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={toggleEdit}
-                className="p-2 rounded-lg hover:bg-background transition-colors"
+                className="hover:bg-background"
                 aria-label="Edit session"
               >
                 <Pencil className="w-5 h-5 text-primary" />
-              </button>
+              </Button>
             )}
           </div>
 
@@ -380,20 +383,21 @@ export default function Session() {
 
           {/* Navigation buttons */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-6 border-t border-border">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => navigate("/patients")}
-              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+              className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
             >
               Back to Patients
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={goToNextStep}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
+              className="flex-1 sm:flex-none px-6 py-2.5 h-auto"
             >
               {getNextButtonLabel()}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -431,33 +435,35 @@ export default function Session() {
         {/* Navigation buttons */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-border">
           <div className="flex w-full sm:w-auto gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => navigate("/patients")}
-              className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+              className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
             >
               Back to Patients
-            </button>
+            </Button>
 
             {sessionData.status !== "DRAFT" && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleCancel}
-                className="w-full sm:w-auto px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
               >
                 Cancel
-              </button>
+              </Button>
             )}
           </div>
 
-          <button
+          <Button
             type={isEdit ? "submit" : "button"}
             onClick={isEdit ? undefined : goToNextStep}
             disabled={isSubmitting}
-            className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2"
           >
             {getNextButtonLabel()}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

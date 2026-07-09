@@ -13,6 +13,7 @@ import {
 } from "./schemas/RegistrationSchemas";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
+import { Button } from "@/components/ui/button";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
@@ -224,22 +225,23 @@ export default function Registration() {
             />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
-              <button
+              <Button
                 type="button"
-                className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+                variant="outline"
+                className="px-6 py-2.5 h-auto border-2 text-text"
               >
                 Cancel
-              </button>
+              </Button>
               <patientForm.Subscribe
                 selector={(state) => [state.canSubmit, state.isSubmitting]}
                 children={([canSubmit, isFormSubmitting]) => (
-                  <button
+                  <Button
                     type="submit"
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                    className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 h-auto"
                   >
                     {isSubmitting ? "Saving..." : "Save & Next"}
-                  </button>
+                  </Button>
                 )}
               />
             </div>
@@ -261,23 +263,24 @@ export default function Registration() {
             />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setStep(1)}
-                className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+                className="px-6 py-2.5 h-auto border-2 text-text"
               >
                 Back
-              </button>
+              </Button>
               <historyForm.Subscribe
                 selector={(state) => [state.canSubmit, state.isSubmitting]}
                 children={([canSubmit, isFormSubmitting]) => (
-                  <button
+                  <Button
                     type="submit"
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                    className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 h-auto"
                   >
                     {isSubmitting ? "Saving..." : "Save & Next"}
-                  </button>
+                  </Button>
                 )}
               />
             </div>
@@ -299,23 +302,24 @@ export default function Registration() {
             />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+                className="px-6 py-2.5 h-auto border-2 text-text"
               >
                 Back
-              </button>
+              </Button>
               <consentForm.Subscribe
                 selector={(state) => [state.canSubmit, state.isSubmitting]}
                 children={([canSubmit, isFormSubmitting]) => (
-                  <button
+                  <Button
                     type="submit"
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                    className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 h-auto"
                   >
                     {isSubmitting ? "Saving..." : "Complete Registration"}
-                  </button>
+                  </Button>
                 )}
               />
             </div>
@@ -337,7 +341,7 @@ export default function Registration() {
             </p>
             <div className="pt-6">
               {!isSelfRegister && (
-                <button
+                <Button
                   onClick={() => {
                     patientForm.reset();
                     historyForm.reset();
@@ -345,10 +349,10 @@ export default function Registration() {
                     setPatientId(null);
                     setStep(1);
                   }}
-                  className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors"
+                  className="px-6 py-2.5 h-auto"
                 >
                   Register Another Patient
-                </button>
+                </Button>
               )}
             </div>
           </div>
