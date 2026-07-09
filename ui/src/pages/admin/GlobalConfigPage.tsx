@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useAdminGlobalConfig, useUpdateGlobalConfig } from "../../hooks/admin/useAdminGlobalConfig";
 import type { CreditConfigEntry } from "../../hooks/admin/useAdminGlobalConfig";
 import { Pencil, Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function ConfigCard({ entry }: { entry: CreditConfigEntry }) {
   const [editing, setEditing] = useState(false);
@@ -26,35 +28,36 @@ function ConfigCard({ entry }: { entry: CreditConfigEntry }) {
         <div className="shrink-0">
           {editing ? (
             <div className="flex gap-1">
-              <button onClick={save} disabled={update.isPending}
-                className="p-1.5 rounded-lg hover:bg-green-100 text-green-600 disabled:opacity-50">
+              <Button variant="ghost" size="icon-sm" onClick={save} disabled={update.isPending}
+                className="h-auto w-auto p-1.5 hover:bg-green-100 text-green-600">
                 <Check className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setDraft(entry.config_value); setEditing(false); }}
-                className="p-1.5 rounded-lg hover:bg-red-100 text-red-500">
+              </Button>
+              <Button variant="ghost" size="icon-sm"
+                onClick={() => { setDraft(entry.config_value); setEditing(false); }}
+                className="h-auto w-auto p-1.5 hover:bg-red-100 text-red-500 hover:text-red-500">
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           ) : (
-            <button onClick={() => setEditing(true)}
-              className="p-1.5 rounded-lg hover:bg-surface text-text-light">
+            <Button variant="ghost" size="icon-sm" onClick={() => setEditing(true)}
+              className="h-auto w-auto p-1.5 text-text-light">
               <Pencil className="w-4 h-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <div className="mt-3 flex items-center gap-3">
         {editing ? (
-          <input
+          <Input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="border border-primary rounded-lg px-3 py-1.5 text-sm font-mono w-28"
+            className="border border-primary px-3 py-1.5 font-mono w-28"
             autoFocus
           />
         ) : (
-          <span className="font-mono text-sm bg-surface px-3 py-1.5 rounded-lg">{entry.config_value}</span>
+          <span className="font-mono text-sm bg-muted/50 px-3 py-1.5 rounded-lg">{entry.config_value}</span>
         )}
         <span className="text-xs text-text-light">{new Date(entry.updated_at).toLocaleDateString()}</span>
       </div>
