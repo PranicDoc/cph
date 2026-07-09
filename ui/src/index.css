@@ -1,12 +1,11 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "react-day-picker/style.css";
 
 @theme {
   --color-primary: #6C3FC5;
   --color-primary-light: #8B6AD6;
   --color-primary-dark: #4E2A9E;
-  --color-secondary: #E8A838;
-  --color-accent: #2EC4B6;
   --color-background: #F7F5FB;
   --color-card: #FFFFFF;
   --color-text: #2D2B35;
@@ -23,6 +22,56 @@
   --color-chakra-solar: #F1C40F;
   --color-chakra-navel: #E67E22;
   --color-chakra-basic: #E74C3C;
+
+  /* brand hues formerly --color-secondary / --color-accent (unused in app code);
+     those names now carry shadcn semantics below */
+  --color-brand-gold: #E8A838;
+  --color-brand-teal: #2EC4B6;
+
+  /* shadcn semantic tokens mapped onto the existing palette */
+  --color-foreground: #2D2B35;
+  --color-card-foreground: #2D2B35;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #2D2B35;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F1EEF8;
+  --color-secondary-foreground: #2D2B35;
+  --color-muted: #F1EEF8;
+  --color-muted-foreground: #6B6880;
+  --color-accent: #F1EEF8;
+  --color-accent-foreground: #2D2B35;
+  --color-destructive: #FF3B30;
+  --color-destructive-foreground: #FFFFFF;
+  --color-input: #E4E0ED;
+  --color-ring: #8B6AD6;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+/* bare variables referenced directly (not via Tailwind utilities) by shadcn components */
+:root {
+  --secondary: #F1EEF8;
+  --foreground: #2D2B35;
+  --radius: 0.5rem;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
 }
 
 body {
