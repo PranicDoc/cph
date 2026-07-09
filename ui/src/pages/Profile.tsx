@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   User, Mail, Phone, Building2, Activity,
-  CreditCard, Pencil, CheckCircle2, X, Lock, Loader2,
+  CreditCard, Pencil, CheckCircle2, X, Lock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
@@ -14,6 +14,11 @@ import {
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
@@ -21,8 +26,7 @@ function getInitials(name: string): string {
   return name.split(" ").map((p) => p[0]).join("").toUpperCase().slice(0, 2);
 }
 
-const inputCls =
-  "w-full border border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary";
+const inputCls = "border border-primary px-3 py-2";
 const readCls =
   "bg-background rounded-lg px-3 py-2 text-sm text-text";
 
@@ -190,31 +194,37 @@ export default function Profile() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-primary-dark">Personal Information</h2>
           {!editing ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={enterEdit}
-              className="p-1.5 rounded hover:bg-background text-text-light hover:text-primary transition-colors"
+              className="h-auto w-auto p-1.5 hover:bg-background text-text-light hover:text-primary"
               title="Edit"
             >
               <Pencil className="w-4 h-4" />
-            </button>
+            </Button>
           ) : (
             <div className="flex items-center gap-1">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={saveEdit}
                 disabled={updateMutation.isPending}
-                className="p-1.5 rounded hover:bg-success/10 text-success disabled:opacity-50 transition-colors"
+                className="h-auto w-auto p-1.5 hover:bg-success/10 text-success hover:text-success"
                 title="Save"
               >
                 <CheckCircle2 className="w-4 h-4" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={cancelEdit}
                 disabled={updateMutation.isPending}
-                className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50 transition-colors"
+                className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
                 title="Cancel"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -238,8 +248,8 @@ export default function Profile() {
                 <User className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Full Name</label>
-                <input
+                <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Full Name</Label>
+                <Input
                   type="text"
                   className={inputCls}
                   value={draft.fullName}
@@ -253,8 +263,8 @@ export default function Profile() {
                 <Mail className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Email</label>
-                <input
+                <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Email</Label>
+                <Input
                   type="email"
                   className={inputCls}
                   value={draft.email}
@@ -268,8 +278,8 @@ export default function Profile() {
                 <Phone className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Phone</label>
-                <input
+                <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">Phone</Label>
+                <Input
                   type="tel"
                   className={inputCls}
                   value={draft.phone}
@@ -295,34 +305,40 @@ export default function Profile() {
             {profile?.hasPassword !== false ? "Change Password" : "Set Password"}
           </h2>
           {!pwEditing ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setPwEditing(true)}
-              className="p-1.5 rounded hover:bg-background text-text-light hover:text-primary transition-colors"
+              className="h-auto w-auto p-1.5 hover:bg-background text-text-light hover:text-primary"
               title="Edit"
               aria-label="Edit"
             >
               <Pencil className="w-4 h-4" />
-            </button>
+            </Button>
           ) : (
             <div className="flex items-center gap-1">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={savePw}
                 disabled={changePwMutation.isPending}
-                className="p-1.5 rounded hover:bg-success/10 text-success disabled:opacity-50 transition-colors"
+                className="h-auto w-auto p-1.5 hover:bg-success/10 text-success hover:text-success"
                 title={profile?.hasPassword !== false ? "Change Password" : "Set Password"}
                 aria-label={profile?.hasPassword !== false ? "Change Password" : "Set Password"}
               >
                 <CheckCircle2 className="w-4 h-4" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={cancelPwEdit}
                 disabled={changePwMutation.isPending}
-                className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50 transition-colors"
+                className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
                 title="Discard"
                 aria-label="Discard"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -343,10 +359,10 @@ export default function Profile() {
                   <Lock className="w-4 h-4 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                  <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">
                     Current Password
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="password"
                     className={inputCls}
                     autoComplete="current-password"
@@ -361,10 +377,10 @@ export default function Profile() {
                 <Lock className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">
                   New Password
-                </label>
-                <input
+                </Label>
+                <Input
                   type="password"
                   className={inputCls}
                   autoComplete="new-password"
@@ -378,10 +394,10 @@ export default function Profile() {
                 <Lock className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                <Label className="block text-xs font-medium text-text-light uppercase tracking-wide mb-1">
                   Confirm Password
-                </label>
-                <input
+                </Label>
+                <Input
                   type="password"
                   className={inputCls}
                   autoComplete="new-password"
@@ -430,42 +446,25 @@ export default function Profile() {
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 Connected as {profile.email}
               </p>
-              {confirmingUnlink ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleConfirmUnlink}
-                    disabled={unlinkGoogleMutation.isPending}
-                    className="px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-medium disabled:opacity-50 transition-colors"
-                  >
-                    {unlinkGoogleMutation.isPending ? "Unlinking…" : "Confirm Unlink"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingUnlink(false)}
-                    disabled={unlinkGoogleMutation.isPending}
-                    className="px-3 py-1.5 text-xs font-medium text-text-light disabled:opacity-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : profile?.hasPassword !== false ? (
-                <button
+              {profile?.hasPassword !== false ? (
+                <Button
                   type="button"
+                  variant="link"
                   onClick={() => setConfirmingUnlink(true)}
-                  className="text-xs font-medium text-danger hover:underline transition-colors"
+                  className="h-auto p-0 text-xs font-medium text-danger hover:text-danger"
                 >
                   Unlink Google Account
-                </button>
+                </Button>
               ) : (
                 <div>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
                     disabled
-                    className="text-xs font-medium text-danger opacity-50 cursor-not-allowed"
+                    className="h-auto p-0 text-xs font-medium text-danger cursor-not-allowed"
                   >
                     Unlink Google Account
-                  </button>
+                  </Button>
                   <p className="text-xs text-danger mt-1">Set a password first</p>
                 </div>
               )}
@@ -479,21 +478,22 @@ export default function Profile() {
             <div className="flex-1 min-w-0 space-y-2">
               <p className="bg-background rounded-lg px-3 py-2 text-sm text-text-light truncate">Not linked</p>
               <p className="text-xs text-text-light">Link your Google account for faster sign-in.</p>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleLinkGoogle}
                 disabled={linkGoogleMutation.isPending}
-                className="inline-flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-border bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="gap-2 py-2 px-3 h-auto bg-white hover:bg-gray-50"
               >
                 {linkGoogleMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-700" />
+                  <Spinner size="sm" className="text-gray-700" />
                 ) : (
                   <img src={GOOGLE_G_ICON} alt="Google" className="w-4 h-4" />
                 )}
                 <span className="text-sm font-medium text-gray-700">
                   {linkGoogleMutation.isPending ? "Linking…" : "Link Google Account"}
                 </span>
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -529,14 +529,25 @@ export default function Profile() {
       <div className="bg-card border border-border rounded-xl shadow-sm p-5">
         <h2 className="text-sm font-semibold text-primary-dark mb-1">Plan & Billing</h2>
         <p className="text-xs text-text-light mb-4">View and upgrade your subscription plan.</p>
-        <button
+        <Button
           onClick={() => setShowUpgrade(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors"
+          className="gap-2 px-4 py-2 h-auto"
         >
           <CreditCard className="w-4 h-4" />
           Upgrade Plan
-        </button>
+        </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmingUnlink}
+        onOpenChange={setConfirmingUnlink}
+        title="Unlink Google account?"
+        description="You will no longer be able to sign in with Google."
+        confirmLabel={unlinkGoogleMutation.isPending ? "Unlinking…" : "Confirm Unlink"}
+        destructive
+        loading={unlinkGoogleMutation.isPending}
+        onConfirm={handleConfirmUnlink}
+      />
 
       {/* ── Upgrade modal ── */}
       {user && (

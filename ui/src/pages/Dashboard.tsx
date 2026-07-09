@@ -13,6 +13,7 @@ import { CreditUsageChart } from "../components/CreditUsageChart";
 import { UpcomingSessionsTable } from "../components/UpcomingSessionsTable";
 import { PendingReportsTable } from "../components/PendingReportsTable";
 import { FollowupTable } from "../components/FollowupTable";
+import { Button } from "@/components/ui/button";
 
 function getGreeting(firstName?: string): string {
   const hour = new Date().getHours();
@@ -60,13 +61,13 @@ export default function Dashboard() {
             <p className="text-sm text-danger">
               Unable to load dashboard data — try refreshing.
             </p>
-            <button
+            <Button
               onClick={() => refetch()}
-              className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 hover:bg-primary-dark transition-colors flex-shrink-0"
+              className="font-semibold gap-2 flex-shrink-0"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh Dashboard
-            </button>
+            </Button>
           </div>
         ) : (
           <>

@@ -136,17 +136,13 @@ export default function Patients() {
                 </>
               )}
             </Link>
-            <div
-              onClick={() => !generatePdfMutation.isPending && handleClosureButtonClick(patient)}
-              className={`inline-flex items-center gap-1.5 rounded-lg
-                ${
-                  isActive || isCompleted
-                    ? generatePdfMutation.isPending
-                      ? "bg-border pointer-events-none"
-                      : "bg-primary hover:bg-primary-dark cursor-pointer"
-                    : "bg-border pointer-events-none"
-                }
-                px-3 py-1.5 text-white text-xs font-medium transition-colors`}
+            <Button
+              size="sm"
+              onClick={() => handleClosureButtonClick(patient)}
+              disabled={
+                generatePdfMutation.isPending || !(isActive || isCompleted)
+              }
+              className="gap-1.5 px-3 py-1.5 h-auto text-xs disabled:bg-border disabled:opacity-100"
             >
               {isCompleted ? (
                 <>
@@ -159,15 +155,17 @@ export default function Patients() {
                   Complete
                 </>
               )}
-            </div>
+            </Button>
             {isCompleted && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => navigate(`/cases/${patient.healingCaseId}/summary`)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/5 transition-colors"
+                className="gap-1.5 border-primary text-primary px-3 py-1.5 h-auto text-xs hover:bg-primary/5 hover:text-primary"
               >
                 <ClipboardList className="w-3.5 h-3.5" />
                 Case Summary
-              </button>
+              </Button>
             )}
           </div>
         );
@@ -254,13 +252,13 @@ export default function Patients() {
           </p>
         </div>
         <div className="flex gap-x-4">
-          <button
+          <Button
             onClick={handleGenerateLink}
-            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors hover:cursor-pointer"
+            className="px-4 py-2 h-auto gap-2 text-base font-medium hover:cursor-pointer"
           >
             <URLIcon className="w-4 h-4" />
             Generate Self Registration Link
-          </button>
+          </Button>
           <Link
             to="/registration"
             className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -275,10 +273,10 @@ export default function Patients() {
         <div className="p-4 border-b border-border flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-            <input
+            <Input
               type="text"
               placeholder="Search patients..."
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="pl-9 pr-4 py-2 border"
             />
           </div>
         </div>

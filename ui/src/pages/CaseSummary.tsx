@@ -6,6 +6,7 @@ import api from "../lib/axios";
 import { useState } from "react";
 import { Skeleton } from "../components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 
 // ---- Types ----
 
@@ -417,16 +418,17 @@ function LabFindingsList({ keys }: { keys: string[] }) {
     <ul className="space-y-1.5 mt-1">
       {keys.map((key) => (
         <li key={key}>
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => download(key)}
             disabled={loading === key}
-            className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+            className="h-auto p-0 gap-2 text-sm font-normal"
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate max-w-xs">{fileName(key)}</span>
             {loading === key && <span className="text-xs text-text-light">Opening...</span>}
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
@@ -463,12 +465,13 @@ export default function CaseSummary() {
       <div className="flex flex-col items-center justify-center py-16 text-text-light gap-3">
         <XCircle className="w-10 h-10 text-error" />
         <p className="text-sm">Failed to load case summary.</p>
-        <button
+        <Button
+          variant="link"
           onClick={() => navigate(-1)}
-          className="text-primary text-sm underline underline-offset-2"
+          className="h-auto p-0 text-sm font-normal underline underline-offset-2"
         >
           Go back
-        </button>
+        </Button>
       </div>
     );
   }
@@ -480,13 +483,14 @@ export default function CaseSummary() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-sm text-text-light hover:text-primary transition-colors mb-2"
+            className="h-auto p-0 gap-1.5 text-sm font-normal text-text-light hover:text-primary hover:bg-transparent mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Patients
-          </button>
+          </Button>
           <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
           <p className="text-sm text-text-light">
             {patientName} · Opened {formatDate(data.caseCreatedAt)}
@@ -496,13 +500,13 @@ export default function CaseSummary() {
 
         {/* TODO: wire up once pdfWorker supports DocumentType.SUMMARY_DOC */}
         <div className="relative group">
-          <button
+          <Button
             disabled
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-border text-text-light text-sm font-medium cursor-not-allowed"
+            className="gap-2 px-4 py-2 h-auto bg-border text-text-light hover:bg-border disabled:opacity-100 cursor-not-allowed"
           >
             <BookText className="w-4 h-4" />
             Generate PDF
-          </button>
+          </Button>
           <div className="absolute right-0 top-full mt-1 hidden group-hover:block bg-text-dark text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
             Coming soon
           </div>

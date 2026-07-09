@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ComputedPatient, usePatient } from "../context/PatientContext";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Search, Download } from "lucide-react";
 import api from "../lib/axios";
@@ -207,12 +208,12 @@ export function PdfList() {
       <div className="p-4 border-b border-border flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-          <input
+          <Input
             type="text"
             value={searchTerm}
             onChange={handleSearchChange}
             placeholder="Search patients..."
-            className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="pl-9 pr-4 py-2 border"
           />
         </div>
       </div>
