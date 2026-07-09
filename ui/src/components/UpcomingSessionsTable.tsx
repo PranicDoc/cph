@@ -1,7 +1,8 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { CalendarCheck } from "lucide-react";
-import { WorkQueueTable } from "./WorkQueueTable";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
 import { useUpcomingSessions } from "../hooks/useUpcomingSessions";
 import type { UpcomingSession } from "../types/workqueue";
 
@@ -39,16 +40,10 @@ export function UpcomingSessionsTable({ healerId }: Props) {
         const t = info.getValue();
         if (t === "DRAFT_SESSION") {
           return (
-            <span className="bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-medium">
-              Draft Session
-            </span>
+            <Badge className="bg-amber-100 text-amber-700">Draft Session</Badge>
           );
         }
-        return (
-          <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-medium">
-            Active Case
-          </span>
-        );
+        return <Badge className="bg-blue-100 text-blue-700">Active Case</Badge>;
       },
     }),
   ];
@@ -56,7 +51,7 @@ export function UpcomingSessionsTable({ healerId }: Props) {
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
       <p className="text-sm font-semibold text-text mb-4">Active Work</p>
-      <WorkQueueTable<UpcomingSession>
+      <DataTable<UpcomingSession>
         columns={columns}
         data={data ?? []}
         isLoading={isLoading}

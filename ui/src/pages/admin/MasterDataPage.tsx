@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, X, Lock } from "lucide-react";
+import { useForm } from "@tanstack/react-form";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
   usePranaColors,
@@ -18,21 +20,28 @@ import {
   type PranaColorPayload,
   type ChakraPayload,
 } from "../../hooks/admin/useMasterData";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DataTable } from "@/components/ui/data-table";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { SelectField, TextField, TextareaField } from "@/components/form/Field";
+import { cn } from "@/lib/utils";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 function SourceBadge({ clinicId }: { clinicId?: string | null }) {
-  if (!clinicId) {
-    return (
-      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
-        System
-      </span>
-    );
-  }
   return (
-    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-      Clinic
-    </span>
+    <Badge
+      className={cn(
+        "font-semibold px-2",
+        clinicId ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+      )}
+    >
+      {clinicId ? "Clinic" : "System"}
+    </Badge>
   );
 }
 
@@ -42,6 +51,14 @@ function ColorSwatch({ hex }: { hex?: string }) {
       className="inline-block w-5 h-5 rounded-full border border-border flex-shrink-0"
       style={{ backgroundColor: hex ?? "#ccc" }}
     />
+  );
+}
+
+function LockIcon() {
+  return (
+    <div className="flex justify-end">
+      <Lock className="w-4 h-4 text-text-light/40" />
+    </div>
   );
 }
 
@@ -57,25 +74,16 @@ function ModalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl p-5 relative max-h-[90vh] overflow-y-auto">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 text-text-light hover:text-text"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <h2 className="text-lg font-bold text-text mb-4">{title}</h2>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 gap-0 max-h-[90vh] overflow-y-auto max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:max-w-full">
+        <DialogTitle className="text-lg font-bold text-text mb-4">{title}</DialogTitle>
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function inputCls() {
-  return "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary";
-}
+const fieldCls = "border px-3 py-2.5";
 
 function Field({
   label,
@@ -86,21 +94,75 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs text-text-light mb-1">{label}</label>
+      <Label className="block text-xs text-text-light mb-1">{label}</Label>
       {children}
     </div>
   );
 }
 
-// ── Prana Colors Tab ──────────────────────────────────────────────────────────
+function ModalFooter({
+  isPending,
+  submitLabel,
+  onClose,
+}: {
+  isPending: boolean;
+  submitLabel: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex gap-2 pt-1">
+      <Button type="submit" disabled={isPending} className="flex-1 py-2.5 h-auto">
+        {isPending ? "Saving…" : submitLabel}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClose}
+        className="px-4 py-2.5 h-auto font-normal text-text"
+      >
+        Cancel
+      </Button>
+    </div>
+  );
+}
 
-const EMPTY_COLOR: PranaColorPayload = {
-  name: "",
-  code: "",
-  colorHex: "#ffffff",
-  properties: "",
-  clinicId: null,
-};
+// ── Row action buttons (edit/delete or lock) ─────────────────────────────────
+
+function RowActions({
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  onEdit?: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  return (
+    <div className="flex gap-1 justify-end">
+      {onEdit && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onEdit}
+          className="h-auto w-auto p-1.5 text-text-light"
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onDelete}
+        disabled={deleting}
+        className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
+
+// ── Prana Colors Tab ──────────────────────────────────────────────────────────
 
 function ColorModal({
   initial,
@@ -109,104 +171,98 @@ function ColorModal({
   initial?: PranaColor;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<PranaColorPayload>(
-    initial
-      ? {
-          name: initial.name,
-          code: initial.code,
-          colorHex: initial.colorHex ?? "#ffffff",
-          properties: initial.properties ?? "",
-          clinicId: initial.clinicId,
-        }
-      : EMPTY_COLOR
-  );
   const [error, setError] = useState("");
   const create = useCreateColor();
   const update = useUpdateColor();
 
-  const set =
-    (key: keyof PranaColorPayload) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    try {
-      if (initial) {
-        await update.mutateAsync({ id: initial.id, payload: form });
-      } else {
-        await create.mutateAsync(form);
+  const form = useForm({
+    defaultValues: {
+      name: initial?.name ?? "",
+      code: initial?.code ?? "",
+      colorHex: initial?.colorHex ?? "#ffffff",
+      properties: initial?.properties ?? "",
+    },
+    onSubmit: async ({ value }) => {
+      setError("");
+      const payload: PranaColorPayload = {
+        name: value.name,
+        code: value.code.toUpperCase(),
+        colorHex: value.colorHex,
+        properties: value.properties,
+        clinicId: initial ? initial.clinicId : null,
+      };
+      try {
+        if (initial) {
+          await update.mutateAsync({ id: initial.id, payload });
+        } else {
+          await create.mutateAsync(payload);
+        }
+        onClose();
+      } catch {
+        setError("Failed to save. Please try again.");
       }
-      onClose();
-    } catch {
-      setError("Failed to save. Please try again.");
-    }
-  };
+    },
+  });
 
   const isPending = create.isPending || update.isPending;
 
   return (
     <ModalShell title={initial ? "Edit Prana Color" : "Add Prana Color"} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+        className="space-y-3"
+      >
         <Field label="Name">
-          <input type="text" value={form.name} onChange={set("name")} className={inputCls()} required />
+          <form.Field
+            name="name"
+            children={(field) => <TextField field={field} className={fieldCls} />}
+          />
         </Field>
         <Field label="Code (e.g. VIOLET)">
-          <input
-            type="text"
-            value={form.code}
-            onChange={set("code")}
-            onBlur={() => setForm((f) => ({ ...f, code: f.code.toUpperCase() }))}
-            className={inputCls()}
-            required
-            disabled={!!initial}
+          <form.Field
+            name="code"
+            children={(field) => (
+              <TextField field={field} disabled={!!initial} className={fieldCls} />
+            )}
           />
         </Field>
         <Field label="Color">
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={form.colorHex}
-              onChange={set("colorHex")}
-              className="w-10 h-10 rounded cursor-pointer border border-border p-0.5"
-            />
-            <input
-              type="text"
-              value={form.colorHex}
-              onChange={set("colorHex")}
-              maxLength={7}
-              placeholder="#ffffff"
-              className={inputCls()}
-            />
-          </div>
+          <form.Field
+            name="colorHex"
+            children={(field) => (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="color"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer border p-0.5"
+                />
+                <TextField field={field} placeholder="#ffffff" className={fieldCls} />
+              </div>
+            )}
+          />
         </Field>
         <Field label="Healing Properties">
-          <textarea
-            value={form.properties ?? ""}
-            onChange={set("properties")}
-            rows={4}
-            className={inputCls()}
-            placeholder="Describe the healing properties of this color…"
+          <form.Field
+            name="properties"
+            children={(field) => (
+              <TextareaField
+                field={field}
+                className={cn(fieldCls, "p-2.5")}
+                placeholder="Describe the healing properties of this color…"
+              />
+            )}
           />
         </Field>
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60"
-          >
-            {isPending ? "Saving…" : initial ? "Save Changes" : "Add Color"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 border border-border rounded-lg text-sm text-text hover:bg-surface"
-          >
-            Cancel
-          </button>
-        </div>
+        <ModalFooter
+          isPending={isPending}
+          submitLabel={initial ? "Save Changes" : "Add Color"}
+          onClose={onClose}
+        />
       </form>
     </ModalShell>
   );
@@ -216,8 +272,62 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const { data, isLoading, isError } = usePranaColors();
   const deleteColor = useDeleteColor();
   const [modal, setModal] = useState<PranaColor | null | "new">(null);
+  const [deleteTarget, setDeleteTarget] = useState<PranaColor | null>(null);
 
   const canModify = (item: PranaColor) => isSuperAdmin || !!item.clinicId;
+
+  const columns: ColumnDef<PranaColor, unknown>[] = [
+    {
+      id: "swatch",
+      header: "",
+      cell: ({ row }) => <ColorSwatch hex={row.original.colorHex} />,
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: (info) => (
+        <span className="font-medium text-text">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: (info) => (
+        <span className="font-mono text-xs text-text-light">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "properties",
+      header: "Properties",
+      cell: (info) => {
+        const props = info.getValue() as string | undefined;
+        return (
+          <span className="text-text-light max-w-xs truncate block">
+            {props ? props.slice(0, 60) + (props.length > 60 ? "…" : "") : "—"}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "clinicId",
+      header: "Source",
+      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) =>
+        canModify(row.original) ? (
+          <RowActions
+            onEdit={() => setModal(row.original)}
+            onDelete={() => setDeleteTarget(row.original)}
+            deleting={deleteColor.isPending}
+          />
+        ) : (
+          <LockIcon />
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -225,13 +335,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System colors are seeded globally. Clinic colors are custom additions.
         </p>
-        <button
-          onClick={() => setModal("new")}
-          className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark shrink-0"
-        >
+        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Color</span>
-        </button>
+        </Button>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -240,59 +347,13 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {data && (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-text-light uppercase text-xs tracking-wide">
-                <tr>
-                  <th className="px-4 py-3 text-left w-8" />
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Code</th>
-                  <th className="px-4 py-3 text-left">Properties</th>
-                  <th className="px-4 py-3 text-left">Source</th>
-                  <th className="px-4 py-3 w-20" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data.map((item) => (
-                  <tr key={item.id} className="hover:bg-surface/50">
-                    <td className="px-4 py-3">
-                      <ColorSwatch hex={item.colorHex} />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-text">{item.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-light">{item.code}</td>
-                    <td className="px-4 py-3 text-text-light max-w-xs truncate">
-                      {item.properties ? item.properties.slice(0, 60) + (item.properties.length > 60 ? "…" : "") : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <SourceBadge clinicId={item.clinicId} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {canModify(item) ? (
-                        <div className="flex gap-1 justify-end">
-                          <button
-                            onClick={() => setModal(item)}
-                            className="p-1.5 rounded hover:bg-surface text-text-light"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteColor.mutate(item.id)}
-                            disabled={deleteColor.isPending}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end">
-                          <Lock className="w-4 h-4 text-text-light/40" />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="hidden md:block">
+            <DataTable<PranaColor>
+              columns={columns}
+              data={data}
+              enableSorting={false}
+              emptyMessage="No colors found."
+            />
           </div>
 
           {/* Mobile cards */}
@@ -306,18 +367,11 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                     <SourceBadge clinicId={item.clinicId} />
                   </div>
                   {canModify(item) ? (
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button onClick={() => setModal(item)} className="p-1.5 rounded hover:bg-surface text-text-light">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteColor.mutate(item.id)}
-                        disabled={deleteColor.isPending}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <RowActions
+                      onEdit={() => setModal(item)}
+                      onDelete={() => setDeleteTarget(item)}
+                      deleting={deleteColor.isPending}
+                    />
                   ) : (
                     <Lock className="w-4 h-4 text-text-light/40 mt-1" />
                   )}
@@ -334,19 +388,41 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {modal !== null && (
         <ColorModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete prana color?"
+        description={deleteTarget ? `"${deleteTarget.name}" will be removed.` : undefined}
+        confirmLabel="Delete"
+        destructive
+        loading={deleteColor.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteColor.mutate(deleteTarget.id, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
     </div>
   );
 }
 
 // ── Chakras Tab ───────────────────────────────────────────────────────────────
 
-const EMPTY_CHAKRA: ChakraPayload = {
-  name: "",
-  code: "",
-  category: "major",
-  location: "",
-  clinicId: null,
-};
+function CategoryBadge({ category }: { category?: string | null }) {
+  return (
+    <Badge
+      className={cn(
+        "font-semibold px-2",
+        category === "major" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
+      )}
+    >
+      {category ?? "—"}
+    </Badge>
+  );
+}
 
 function ChakraModal({
   initial,
@@ -355,86 +431,93 @@ function ChakraModal({
   initial?: Chakra;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<ChakraPayload>(
-    initial
-      ? {
-          name: initial.name,
-          code: initial.code,
-          category: initial.category ?? "major",
-          location: initial.location ?? "",
-          clinicId: initial.clinicId,
-        }
-      : EMPTY_CHAKRA
-  );
   const [error, setError] = useState("");
   const create = useCreateChakra();
   const update = useUpdateChakra();
 
-  const set =
-    (key: keyof ChakraPayload) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    try {
-      if (initial) {
-        await update.mutateAsync({ id: initial.id, payload: form });
-      } else {
-        await create.mutateAsync(form);
+  const form = useForm({
+    defaultValues: {
+      name: initial?.name ?? "",
+      code: initial?.code ?? "",
+      category: initial?.category ?? "major",
+      location: initial?.location ?? "",
+    },
+    onSubmit: async ({ value }) => {
+      setError("");
+      const payload: ChakraPayload = {
+        name: value.name,
+        code: value.code.toUpperCase(),
+        category: value.category,
+        location: value.location,
+        clinicId: initial ? initial.clinicId : null,
+      };
+      try {
+        if (initial) {
+          await update.mutateAsync({ id: initial.id, payload });
+        } else {
+          await create.mutateAsync(payload);
+        }
+        onClose();
+      } catch {
+        setError("Failed to save. Please try again.");
       }
-      onClose();
-    } catch {
-      setError("Failed to save. Please try again.");
-    }
-  };
+    },
+  });
 
   const isPending = create.isPending || update.isPending;
 
   return (
     <ModalShell title={initial ? "Edit Chakra" : "Add Chakra"} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+        className="space-y-3"
+      >
         <Field label="Name">
-          <input type="text" value={form.name} onChange={set("name")} className={inputCls()} required />
+          <form.Field
+            name="name"
+            children={(field) => <TextField field={field} className={fieldCls} />}
+          />
         </Field>
         <Field label="Code (e.g. CROWN)">
-          <input
-            type="text"
-            value={form.code}
-            onChange={set("code")}
-            onBlur={() => setForm((f) => ({ ...f, code: f.code.toUpperCase() }))}
-            className={inputCls()}
-            required
-            disabled={!!initial}
+          <form.Field
+            name="code"
+            children={(field) => (
+              <TextField field={field} disabled={!!initial} className={fieldCls} />
+            )}
           />
         </Field>
         <Field label="Category">
-          <select value={form.category ?? "major"} onChange={set("category")} className={inputCls()}>
-            <option value="major">Major</option>
-            <option value="minor">Minor</option>
-          </select>
+          <form.Field
+            name="category"
+            children={(field) => (
+              <SelectField
+                field={field}
+                options={[
+                  { label: "Major", value: "major" },
+                  { label: "Minor", value: "minor" },
+                ]}
+                className={fieldCls}
+              />
+            )}
+          />
         </Field>
         <Field label="Location">
-          <input type="text" value={form.location ?? ""} onChange={set("location")} className={inputCls()} placeholder="e.g. Top of the head" />
+          <form.Field
+            name="location"
+            children={(field) => (
+              <TextField field={field} placeholder="e.g. Top of the head" className={fieldCls} />
+            )}
+          />
         </Field>
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60"
-          >
-            {isPending ? "Saving…" : initial ? "Save Changes" : "Add Chakra"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 border border-border rounded-lg text-sm text-text hover:bg-surface"
-          >
-            Cancel
-          </button>
-        </div>
+        <ModalFooter
+          isPending={isPending}
+          submitLabel={initial ? "Save Changes" : "Add Chakra"}
+          onClose={onClose}
+        />
       </form>
     </ModalShell>
   );
@@ -444,8 +527,59 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const { data, isLoading, isError } = useChakras();
   const deleteChakra = useDeleteChakra();
   const [modal, setModal] = useState<Chakra | null | "new">(null);
+  const [deleteTarget, setDeleteTarget] = useState<Chakra | null>(null);
 
   const canModify = (item: Chakra) => isSuperAdmin || !!item.clinicId;
+
+  const columns: ColumnDef<Chakra, unknown>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: (info) => (
+        <span className="font-medium text-text">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: (info) => (
+        <span className="font-mono text-xs text-text-light">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: ({ row }) => <CategoryBadge category={row.original.category} />,
+    },
+    {
+      accessorKey: "location",
+      header: "Location",
+      cell: (info) => (
+        <span className="text-text-light text-xs max-w-xs truncate block">
+          {(info.getValue() as string | null) ?? "—"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "clinicId",
+      header: "Source",
+      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) =>
+        canModify(row.original) ? (
+          <RowActions
+            onEdit={() => setModal(row.original)}
+            onDelete={() => setDeleteTarget(row.original)}
+            deleting={deleteChakra.isPending}
+          />
+        ) : (
+          <LockIcon />
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -453,13 +587,10 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System chakras (26 seeded) are global. Add custom chakras for your clinic.
         </p>
-        <button
-          onClick={() => setModal("new")}
-          className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark shrink-0"
-        >
+        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Chakra</span>
-        </button>
+        </Button>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -468,64 +599,13 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {data && (
         <>
           {/* Desktop */}
-          <div className="hidden md:block rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-text-light uppercase text-xs tracking-wide">
-                <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Code</th>
-                  <th className="px-4 py-3 text-left">Category</th>
-                  <th className="px-4 py-3 text-left">Location</th>
-                  <th className="px-4 py-3 text-left">Source</th>
-                  <th className="px-4 py-3 w-20" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data.map((item) => (
-                  <tr key={item.id} className="hover:bg-surface/50">
-                    <td className="px-4 py-3 font-medium text-text">{item.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-light">{item.code}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          item.category === "major"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {item.category ?? "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-text-light text-xs max-w-xs truncate">
-                      {item.location ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <SourceBadge clinicId={item.clinicId} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {canModify(item) ? (
-                        <div className="flex gap-1 justify-end">
-                          <button onClick={() => setModal(item)} className="p-1.5 rounded hover:bg-surface text-text-light">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteChakra.mutate(item.id)}
-                            disabled={deleteChakra.isPending}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end">
-                          <Lock className="w-4 h-4 text-text-light/40" />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="hidden md:block">
+            <DataTable<Chakra>
+              columns={columns}
+              data={data}
+              enableSorting={false}
+              emptyMessage="No chakras found."
+            />
           </div>
 
           {/* Mobile */}
@@ -536,29 +616,16 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   <div>
                     <span className="font-semibold text-text">{item.name}</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          item.category === "major" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {item.category ?? "—"}
-                      </span>
+                      <CategoryBadge category={item.category} />
                       <SourceBadge clinicId={item.clinicId} />
                     </div>
                   </div>
                   {canModify(item) ? (
-                    <div className="flex gap-1">
-                      <button onClick={() => setModal(item)} className="p-1.5 rounded hover:bg-surface text-text-light">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteChakra.mutate(item.id)}
-                        disabled={deleteChakra.isPending}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <RowActions
+                      onEdit={() => setModal(item)}
+                      onDelete={() => setDeleteTarget(item)}
+                      deleting={deleteChakra.isPending}
+                    />
                   ) : (
                     <Lock className="w-4 h-4 text-text-light/40 mt-1" />
                   )}
@@ -573,20 +640,73 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {modal !== null && (
         <ChakraModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete chakra?"
+        description={deleteTarget ? `"${deleteTarget.name}" will be removed.` : undefined}
+        confirmLabel="Delete"
+        destructive
+        loading={deleteChakra.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteChakra.mutate(deleteTarget.id, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
     </div>
   );
 }
 
 // ── Protocol Mappings Tab ─────────────────────────────────────────────────────
 
+function UsageBadge({ usageType }: { usageType: string }) {
+  return (
+    <Badge
+      className={cn(
+        "font-semibold px-2",
+        usageType === "CLEANSING"
+          ? "bg-green-100 text-green-700"
+          : "bg-orange-100 text-orange-700"
+      )}
+    >
+      {usageType}
+    </Badge>
+  );
+}
+
 function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperAdmin: boolean }) {
   const { data: colors } = usePranaColors();
-  const [protocolName, setProtocolName] = useState("");
-  const [chakraName, setChakraName] = useState("");
   const [usageType, setUsageType] = useState<"CLEANSING" | "ENERGISING">("CLEANSING");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const create = useCreateMapping();
+
+  const form = useForm({
+    defaultValues: {
+      protocolName: "",
+      chakraName: "",
+    },
+    onSubmit: async ({ value }) => {
+      if (selectedIds.size === 0) { setError("Select at least one color."); return; }
+      setError("");
+      try {
+        await create.mutateAsync({
+          protocolName: value.protocolName,
+          colorIds: Array.from(selectedIds),
+          usageType,
+          clinicId: null,
+          chakraName: value.chakraName,
+        });
+        onClose();
+      } catch {
+        setError("Failed to save. Please try again.");
+      }
+    },
+  });
 
   const toggle = (id: string) =>
     setSelectedIds((prev) => {
@@ -595,90 +715,79 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
       return next;
     });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedIds.size === 0) { setError("Select at least one color."); return; }
-    setError("");
-    try {
-      await create.mutateAsync({
-        protocolName,
-        colorIds: Array.from(selectedIds),
-        usageType,
-        clinicId: null,
-        chakraName
-      });
-      onClose();
-    } catch {
-      setError("Failed to save. Please try again.");
-    }
-  };
-
   return (
     <ModalShell title="Add Protocol Mapping" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+        className="space-y-4"
+      >
         <Field label="Protocol Name">
-          <input
-            type="text"
-            value={protocolName}
-            onChange={(e) => setProtocolName(e.target.value)}
-            className={inputCls()}
-            placeholder="e.g. STRESS_RELIEF"
-            required
+          <form.Field
+            name="protocolName"
+            children={(field) => (
+              <TextField field={field} placeholder="e.g. STRESS_RELIEF" className={fieldCls} />
+            )}
           />
         </Field>
 
         <Field label="Chakra Name">
-          <input
-            type="text"
-            value={chakraName}
-            onChange={(e) => setChakraName(e.target.value)}
-            className={inputCls()}
-            placeholder="e.g. Crown Chakra"
-            required
+          <form.Field
+            name="chakraName"
+            children={(field) => (
+              <TextField field={field} placeholder="e.g. Crown Chakra" className={fieldCls} />
+            )}
           />
         </Field>
 
         <Field label="Usage Type">
           <div className="flex gap-2">
             {(["CLEANSING", "ENERGISING"] as const).map((type) => (
-              <button
+              <Button
                 key={type}
                 type="button"
+                variant="outline"
                 onClick={() => setUsageType(type)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                className={cn(
+                  "flex-1 py-2 h-auto font-medium",
                   usageType === type
                     ? type === "CLEANSING"
-                      ? "bg-green-100 border-green-400 text-green-700"
-                      : "bg-orange-100 border-orange-400 text-orange-700"
-                    : "border-border text-text-light hover:bg-surface"
-                }`}
+                      ? "bg-green-100 border-green-400 text-green-700 hover:bg-green-100 hover:text-green-700"
+                      : "bg-orange-100 border-orange-400 text-orange-700 hover:bg-orange-100 hover:text-orange-700"
+                    : "text-text-light"
+                )}
               >
                 {type}
-              </button>
+              </Button>
             ))}
           </div>
         </Field>
 
         <div>
-          <label className="block text-xs text-text-light mb-2">
+          <Label className="block text-xs text-text-light mb-2">
             Prana Colors
             {selectedIds.size > 0 && (
               <span className="ml-1.5 text-primary font-medium">({selectedIds.size} selected)</span>
             )}
-          </label>
+          </Label>
           <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto pr-1">
             {colors?.map((c) => {
               const selected = selectedIds.has(c.id);
               return (
-                <button
+                <Button
                   key={c.id}
                   type="button"
+                  variant="outline"
+                  size="xs"
                   onClick={() => toggle(c.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  className={cn(
+                    "h-auto gap-1.5 px-2.5 py-1.5 rounded-full font-medium",
                     selected
-                      ? "border-primary bg-primary/10 text-primary shadow-sm"
-                      : "border-border text-text-light hover:border-primary/50 hover:text-text"
-                  }`}
+                      ? "border-primary bg-primary/10 text-primary shadow-sm hover:bg-primary/10 hover:text-primary"
+                      : "text-text-light hover:border-primary/50 hover:text-text"
+                  )}
                 >
                   <span
                     className="w-3 h-3 rounded-full flex-shrink-0 border border-black/10"
@@ -686,7 +795,7 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
                   />
                   {c.name}
                   {selected && <span className="text-primary">✓</span>}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -698,39 +807,81 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
           </p>
         )}
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex gap-2 pt-1">
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60"
-          >
-            {create.isPending
-              ? "Saving…"
-              : selectedIds.size > 1
-              ? `Add ${selectedIds.size} Mappings`
-              : "Add Mapping"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 border border-border rounded-lg text-sm text-text hover:bg-surface"
-          >
-            Cancel
-          </button>
-        </div>
+        <ModalFooter
+          isPending={create.isPending}
+          submitLabel={
+            selectedIds.size > 1 ? `Add ${selectedIds.size} Mappings` : "Add Mapping"
+          }
+          onClose={onClose}
+        />
       </form>
     </ModalShell>
   );
 }
+
+type MappingItem = {
+  id: string;
+  protocolName: string;
+  colorId: string;
+  usageType: string;
+  clinicId?: string | null;
+};
 
 function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const { data: mappings, isLoading, isError } = useProtocolMappings();
   const { data: colors } = usePranaColors();
   const deleteMapping = useDeleteMapping();
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MappingItem | null>(null);
 
   const colorById = (id: string) => colors?.find((c) => c.id === id);
   const canDelete = (m: { clinicId?: string | null }) => isSuperAdmin || !!m.clinicId;
+
+  const columns: ColumnDef<MappingItem, unknown>[] = [
+    {
+      accessorKey: "protocolName",
+      header: "Protocol",
+      cell: (info) => (
+        <span className="font-medium text-text">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "colorId",
+      header: "Color",
+      cell: ({ row }) => {
+        const color = colorById(row.original.colorId);
+        return (
+          <div className="flex items-center gap-2">
+            <ColorSwatch hex={color?.colorHex} />
+            <span className="text-text-light">{color?.name ?? row.original.colorId}</span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "usageType",
+      header: "Usage",
+      cell: ({ row }) => <UsageBadge usageType={row.original.usageType} />,
+    },
+    {
+      accessorKey: "clinicId",
+      header: "Source",
+      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) =>
+        canDelete(row.original) ? (
+          <RowActions
+            onDelete={() => setDeleteTarget(row.original)}
+            deleting={deleteMapping.isPending}
+          />
+        ) : (
+          <LockIcon />
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -738,13 +889,10 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           Maps a protocol name to cleansing or energising prana colors.
         </p>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark shrink-0"
-        >
+        <Button onClick={() => setShowModal(true)} className="px-3 py-2 h-auto shrink-0">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Add Mapping</span>
-        </button>
+        </Button>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -753,61 +901,13 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {mappings && (
         <>
           {/* Desktop */}
-          <div className="hidden md:block rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-text-light uppercase text-xs tracking-wide">
-                <tr>
-                  <th className="px-4 py-3 text-left">Protocol</th>
-                  <th className="px-4 py-3 text-left">Color</th>
-                  <th className="px-4 py-3 text-left">Usage</th>
-                  <th className="px-4 py-3 text-left">Source</th>
-                  <th className="px-4 py-3 w-12" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {mappings.map((m) => {
-                  const color = colorById(m.colorId);
-                  return (
-                    <tr key={m.id} className="hover:bg-surface/50">
-                      <td className="px-4 py-3 font-medium text-text">{m.protocolName}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <ColorSwatch hex={color?.colorHex} />
-                          <span className="text-text-light">{color?.name ?? m.colorId}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            m.usageType === "CLEANSING"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {m.usageType}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <SourceBadge clinicId={m.clinicId} />
-                      </td>
-                      <td className="px-4 py-3">
-                        {canDelete(m) ? (
-                          <button
-                            onClick={() => deleteMapping.mutate(m.id)}
-                            disabled={deleteMapping.isPending}
-                            className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <Lock className="w-4 h-4 text-text-light/40" />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="hidden md:block">
+            <DataTable<MappingItem>
+              columns={columns}
+              data={mappings}
+              enableSorting={false}
+              emptyMessage="No mappings found."
+            />
           </div>
 
           {/* Mobile */}
@@ -822,25 +922,14 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                       <div className="flex items-center gap-2 mt-1">
                         <ColorSwatch hex={color?.colorHex} />
                         <span className="text-xs text-text-light">{color?.name ?? "—"}</span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            m.usageType === "CLEANSING"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {m.usageType}
-                        </span>
+                        <UsageBadge usageType={m.usageType} />
                       </div>
                     </div>
                     {canDelete(m) ? (
-                      <button
-                        onClick={() => deleteMapping.mutate(m.id)}
-                        disabled={deleteMapping.isPending}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <RowActions
+                        onDelete={() => setDeleteTarget(m)}
+                        deleting={deleteMapping.isPending}
+                      />
                     ) : (
                       <Lock className="w-4 h-4 text-text-light/40 mt-1" />
                     )}
@@ -855,6 +944,25 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {showModal && (
         <MappingModal onClose={() => setShowModal(false)} isSuperAdmin={isSuperAdmin} />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete protocol mapping?"
+        description={
+          deleteTarget ? `The "${deleteTarget.protocolName}" mapping will be removed.` : undefined
+        }
+        confirmLabel="Delete"
+        destructive
+        loading={deleteMapping.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMapping.mutate(deleteTarget.id, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
     </div>
   );
 }
@@ -886,18 +994,20 @@ export default function MasterDataPage() {
       {/* Tab bar */}
       <div className="flex border-b border-border mb-6 overflow-x-auto">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
             type="button"
+            variant="ghost"
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors -mb-px ${
+            className={cn(
+              "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent",
               activeTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-text-light hover:text-text"
-            }`}
+                ? "border-b-primary text-primary hover:text-primary"
+                : "border-b-transparent text-text-light hover:text-text"
+            )}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 

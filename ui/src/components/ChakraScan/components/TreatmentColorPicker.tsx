@@ -5,6 +5,10 @@ import type {
   PranaColorEntry,
   TreatmentColor,
 } from "../types/spatial-chakra";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface TreatmentColorPickerProps {
   value: TreatmentColor[];
@@ -30,16 +34,16 @@ export function TreatmentColorPicker({
 
   return (
     <div>
-      <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+      <Label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
         Treatment Colors
-      </label>
+      </Label>
 
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {value.map((color) => (
-            <span
+            <Badge
               key={`${color.id}-${color.usageType}`}
-              className="inline-flex items-center gap-1.5 pl-1 pr-1.5 py-0.5 rounded-full bg-gray-50 border border-gray-200 text-[10px]"
+              className="h-auto gap-1.5 pl-1 pr-1.5 py-0.5 bg-gray-50 border-gray-200 text-[10px] font-normal"
             >
               <span
                 className="w-3 h-3 rounded-full flex-shrink-0 border border-white"
@@ -51,43 +55,49 @@ export function TreatmentColorPicker({
               <span className="text-gray-600 font-medium">{color.name}</span>
               <span className="text-gray-300">-</span>
               <span className="text-gray-400">{color.usageType}</span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => onRemoveColor(color.id)}
-                className="ml-0.5 text-gray-300 hover:text-red-400 transition-colors"
+                className="h-auto w-auto ml-0.5 p-0 text-gray-300 hover:text-red-400 hover:bg-transparent"
                 aria-label={`Remove ${color.name}`}
               >
                 <X className="h-3 w-3" />
-              </button>
-            </span>
+              </Button>
+            </Badge>
           ))}
         </div>
       )}
 
       {!isPicking ? (
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={() => setIsPicking(true)}
-          className="text-xs text-violet-600 font-medium hover:text-violet-700 transition-colors"
+          className="h-auto p-0 text-xs text-violet-600 font-medium hover:text-violet-700"
         >
           + Add Color
-        </button>
+        </Button>
       ) : (
         <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50/50">
           <div className="flex gap-1 mb-2">
             {USAGE_TYPES.map((type) => (
-              <button
+              <Button
                 key={type}
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => setUsageType(type)}
-                className={`flex-1 text-[10px] font-medium py-1 rounded-md transition-all ${
+                className={cn(
+                  "flex-1 h-auto text-[10px] font-medium py-1 rounded-md",
                   usageType === type
-                    ? "bg-white shadow-sm text-violet-600 border border-violet-200"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                    ? "bg-white shadow-sm text-violet-600 border border-violet-200 hover:bg-white hover:text-violet-600"
+                    : "text-gray-400 hover:text-gray-600 hover:bg-transparent"
+                )}
               >
                 {type.charAt(0).toUpperCase() + type.slice(1)}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -96,16 +106,18 @@ export function TreatmentColorPicker({
               const alreadyAdded = selectedColorIds.has(color.id);
 
               return (
-                <button
+                <Button
                   key={color.id}
                   type="button"
+                  variant="ghost"
                   onClick={() => !alreadyAdded && onAddColor(color, usageType)}
                   disabled={alreadyAdded}
-                  className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 h-auto p-1.5 rounded-lg",
                     alreadyAdded
                       ? "opacity-30 cursor-not-allowed"
                       : "hover:bg-white hover:shadow-sm cursor-pointer"
-                  }`}
+                  )}
                   title={`${color.name} - ${color.primaryUses}`}
                 >
                   <span
@@ -118,18 +130,19 @@ export function TreatmentColorPicker({
                   <span className="text-[8px] text-gray-500 font-medium leading-tight text-center">
                     {color.code}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => setIsPicking(false)}
-            className="mt-2 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="mt-2 h-auto p-0 text-[10px] font-normal text-gray-400 hover:text-gray-600"
           >
             Done
-          </button>
+          </Button>
         </div>
       )}
     </div>

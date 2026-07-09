@@ -1,6 +1,16 @@
 import { GripVertical, X } from "lucide-react";
 import { TagInput } from "../TagInput";
 import type { TreatmentStep } from "../../interfaces";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   CHAKRA_SUGGESTIONS,
   CYCLE_TECHNIQUES,
@@ -22,6 +32,8 @@ function includesTechnique(options: string[], technique: string) {
   return options.includes(technique);
 }
 
+const compactSelectCls = "w-full p-2 border border-border rounded-lg text-xs";
+
 export function TreatmentStepCard({
   step,
   index,
@@ -37,28 +49,34 @@ export function TreatmentStepCard({
     <div className="bg-white border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="font-bold text-primary w-6">{step.step}.</span>
-        <select
+        <Select
           value={step.tag}
-          onChange={(e) => onUpdate(index, "tag", e.target.value)}
-          className="flex-1 sm:flex-none sm:w-44 p-2 border border-border rounded-lg text-xs font-semibold outline-none"
+          onValueChange={(v) => onUpdate(index, "tag", v)}
         >
-          {TECHNIQUES.map((technique) => (
-            <option key={technique} value={technique}>
-              {technique}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="flex-1 sm:flex-none sm:w-44 p-2 border border-border rounded-lg text-xs font-semibold">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TECHNIQUES.map((technique) => (
+              <SelectItem key={technique} value={technique}>
+                {technique}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex-1" />
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={() => onRemove(index)}
-          className="text-text-light hover:text-danger"
+          className="h-auto w-auto p-0 text-text-light hover:text-danger hover:bg-transparent"
           aria-label={`Remove step ${step.step}`}
         >
           <X className="w-4 h-4" />
-        </button>
+        </Button>
         <span className="text-text-light cursor-grab">
           <GripVertical className="w-4 h-4" />
         </span>
@@ -67,29 +85,32 @@ export function TreatmentStepCard({
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {showSweepType && (
           <div>
-            <label className="text-xs font-semibold text-text-light mb-1 block">
+            <Label className="text-xs font-semibold text-text-light mb-1 block">
               Sweep Type
-            </label>
-            <select
+            </Label>
+            <Select
               value={step.sweepType || ""}
-              onChange={(e) => onUpdate(index, "sweepType", e.target.value)}
-              className="w-full p-2 border border-border rounded-lg text-xs outline-none"
+              onValueChange={(v) => onUpdate(index, "sweepType", v)}
             >
-              <option value="">Select...</option>
-              {SWEEP_TYPES.map((sweepType) => (
-                <option key={sweepType} value={sweepType}>
-                  {sweepType}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className={compactSelectCls}>
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                {SWEEP_TYPES.map((sweepType) => (
+                  <SelectItem key={sweepType} value={sweepType}>
+                    {sweepType}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
         {showTargets && (
           <div className="col-span-1 sm:col-span-2 md:col-span-2">
-            <label className="text-xs font-semibold text-text-light mb-1 block">
+            <Label className="text-xs font-semibold text-text-light mb-1 block">
               Target(s)
-            </label>
+            </Label>
             <TagInput
               value={step.targets || []}
               onChange={(targets) => onUpdate(index, "targets", targets)}
@@ -101,30 +122,33 @@ export function TreatmentStepCard({
 
         {showPranaColor && (
           <div>
-            <label className="text-xs font-semibold text-text-light mb-1 block">
+            <Label className="text-xs font-semibold text-text-light mb-1 block">
               Prana Color
-            </label>
-            <select
+            </Label>
+            <Select
               value={step.color || ""}
-              onChange={(e) => onUpdate(index, "color", e.target.value)}
-              className="w-full p-2 border border-border rounded-lg text-xs outline-none"
+              onValueChange={(v) => onUpdate(index, "color", v)}
             >
-              <option value="">Select...</option>
-              {PRANA_COLORS.map((color) => (
-                <option key={color} value={color}>
-                  {color}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className={compactSelectCls}>
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PRANA_COLORS.map((color) => (
+                  <SelectItem key={color} value={color}>
+                    {color}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
         {showCycles && (
           <div>
-            <label className="text-xs font-semibold text-text-light mb-1 block">
+            <Label className="text-xs font-semibold text-text-light mb-1 block">
               Cycles
-            </label>
-            <input
+            </Label>
+            <Input
               type="number"
               min={1}
               value={step.cycles || ""}
@@ -132,21 +156,21 @@ export function TreatmentStepCard({
                 onUpdate(index, "cycles", Number(e.target.value) || undefined)
               }
               placeholder="e.g., 30"
-              className="w-full p-2 border border-border rounded-lg text-xs outline-none"
+              className="p-2 border text-xs"
             />
           </div>
         )}
 
         <div className="col-span-1 sm:col-span-2 lg:col-span-2">
-          <label className="text-xs font-semibold text-text-light mb-1 block">
+          <Label className="text-xs font-semibold text-text-light mb-1 block">
             Notes / Override
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             value={step.notes || ""}
             onChange={(e) => onUpdate(index, "notes", e.target.value)}
             placeholder="Optional description..."
-            className="w-full p-2 border border-border rounded-lg text-xs outline-none"
+            className="p-2 border text-xs"
           />
         </div>
       </div>

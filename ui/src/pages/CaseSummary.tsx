@@ -1,9 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowLeft, BookText, User, Stethoscope, Pill, Activity, CheckCircle2, XCircle, Download } from "lucide-react";
 import api from "../lib/axios";
 import { useState } from "react";
 import { Skeleton } from "../components/ui/skeleton";
+import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 
 // ---- Types ----
 
@@ -176,32 +179,132 @@ function Badge({ label, variant = "default" }: { label: string; variant?: "defau
   );
 }
 
+const chakraScanColumns: ColumnDef<ChakraReading, unknown>[] = [
+  {
+    accessorKey: "chakraName",
+    header: "Chakra",
+    cell: (info) => (
+      <span className="font-medium text-text">{String(info.getValue())}</span>
+    ),
+  },
+  {
+    accessorKey: "energyLevel",
+    header: "Energy",
+    cell: (info) => (
+      <span className="text-text-light">{fmt(info.getValue() as string)}</span>
+    ),
+  },
+  {
+    accessorKey: "activationLevel",
+    header: "Activation",
+    cell: (info) => (
+      <span className="text-text-light">{fmt(info.getValue() as string)}</span>
+    ),
+  },
+];
+
+const symptomColumns: ColumnDef<CaseSymptom, unknown>[] = [
+  {
+    accessorKey: "symptomName",
+    header: "Symptom",
+    cell: (info) => (
+      <span className="font-medium text-text">{String(info.getValue())}</span>
+    ),
+  },
+  {
+    accessorKey: "description",
+    header: "Description",
+    cell: (info) => (
+      <span className="text-text-light">{fmt(info.getValue() as string)}</span>
+    ),
+  },
+  {
+    accessorKey: "severity",
+    header: "Severity",
+    cell: (info) => (
+      <span className="text-text-light">
+        {(info.getValue() as number | undefined) ?? "—"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "addedDate",
+    header: "Added",
+    cell: (info) => (
+      <span className="text-text-light">
+        {formatDate(info.getValue() as string | undefined)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "resolved",
+    header: "Status",
+    cell: (info) =>
+      info.getValue() ? (
+        <span className="flex items-center gap-1 text-success text-xs font-medium">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Resolved
+        </span>
+      ) : (
+        <span className="text-xs text-text-light">Active</span>
+      ),
+  },
+];
+
+const medicationColumns: ColumnDef<CaseMedication, unknown>[] = [
+  {
+    accessorKey: "medicationName",
+    header: "Medication",
+    cell: (info) => (
+      <span className="font-medium text-text">{String(info.getValue())}</span>
+    ),
+  },
+  {
+    accessorKey: "dosage",
+    header: "Dosage",
+    cell: (info) => (
+      <span className="text-text-light">{fmt(info.getValue() as string)}</span>
+    ),
+  },
+  {
+    id: "timing",
+    header: "When to Take",
+    cell: ({ row }) => {
+      const m = row.original;
+      const timing =
+        [
+          m.morningDose && "Morning",
+          m.afternoonDose && "Afternoon",
+          m.nightDose && "Night",
+        ]
+          .filter(Boolean)
+          .join(", ") || "—";
+      return <span className="text-text-light">{timing}</span>;
+    },
+  },
+  {
+    accessorKey: "notes",
+    header: "Notes",
+    cell: (info) => (
+      <span className="text-text-light">{fmt(info.getValue() as string)}</span>
+    ),
+  },
+];
+
 function ChakraScanTable({ scan }: { scan: ChakraScan }) {
   return (
     <div className="mb-3">
       <p className="text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
         {scan.scanType} Scan
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border border-border rounded-lg overflow-hidden">
-          <thead className="bg-primary/5">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-text-light">Chakra</th>
-              <th className="px-3 py-2 text-left font-medium text-text-light">Energy</th>
-              <th className="px-3 py-2 text-left font-medium text-text-light">Activation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {scan.readings.map((r) => (
-              <tr key={r.id} className="border-t border-border">
-                <td className="px-3 py-1.5 font-medium text-text">{r.chakraName}</td>
-                <td className="px-3 py-1.5 text-text-light">{fmt(r.energyLevel)}</td>
-                <td className="px-3 py-1.5 text-text-light">{fmt(r.activationLevel)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<ChakraReading>
+        columns={chakraScanColumns}
+        data={scan.readings}
+        enableSorting={false}
+        className="rounded-lg"
+        headerRowClassName="bg-primary/5 hover:bg-primary/5"
+        headCellClassName="px-3 py-2 font-medium normal-case tracking-normal"
+        cellClassName="px-3 py-1.5 text-xs"
+      />
     </div>
   );
 }
@@ -315,16 +418,17 @@ function LabFindingsList({ keys }: { keys: string[] }) {
     <ul className="space-y-1.5 mt-1">
       {keys.map((key) => (
         <li key={key}>
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={() => download(key)}
             disabled={loading === key}
-            className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+            className="h-auto p-0 gap-2 text-sm font-normal"
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate max-w-xs">{fileName(key)}</span>
             {loading === key && <span className="text-xs text-text-light">Opening...</span>}
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
@@ -361,12 +465,13 @@ export default function CaseSummary() {
       <div className="flex flex-col items-center justify-center py-16 text-text-light gap-3">
         <XCircle className="w-10 h-10 text-error" />
         <p className="text-sm">Failed to load case summary.</p>
-        <button
+        <Button
+          variant="link"
           onClick={() => navigate(-1)}
-          className="text-primary text-sm underline underline-offset-2"
+          className="h-auto p-0 text-sm font-normal underline underline-offset-2"
         >
           Go back
-        </button>
+        </Button>
       </div>
     );
   }
@@ -378,13 +483,14 @@ export default function CaseSummary() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-sm text-text-light hover:text-primary transition-colors mb-2"
+            className="h-auto p-0 gap-1.5 text-sm font-normal text-text-light hover:text-primary hover:bg-transparent mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Patients
-          </button>
+          </Button>
           <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
           <p className="text-sm text-text-light">
             {patientName} · Opened {formatDate(data.caseCreatedAt)}
@@ -394,13 +500,13 @@ export default function CaseSummary() {
 
         {/* TODO: wire up once pdfWorker supports DocumentType.SUMMARY_DOC */}
         <div className="relative group">
-          <button
+          <Button
             disabled
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-border text-text-light text-sm font-medium cursor-not-allowed"
+            className="gap-2 px-4 py-2 h-auto bg-border text-text-light hover:bg-border disabled:opacity-100 cursor-not-allowed"
           >
             <BookText className="w-4 h-4" />
             Generate PDF
-          </button>
+          </Button>
           <div className="absolute right-0 top-full mt-1 hidden group-hover:block bg-text-dark text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
             Coming soon
           </div>
@@ -479,38 +585,16 @@ export default function CaseSummary() {
       {data.symptoms.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <SectionHeading icon={<Activity className="w-4 h-4" />} label="Symptoms" />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-text-light font-medium border-b border-border">
-                  <th className="pb-2 text-left">Symptom</th>
-                  <th className="pb-2 text-left">Description</th>
-                  <th className="pb-2 text-left">Severity</th>
-                  <th className="pb-2 text-left">Added</th>
-                  <th className="pb-2 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.symptoms.map((s) => (
-                  <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="py-2 pr-4 font-medium text-text">{s.symptomName}</td>
-                    <td className="py-2 pr-4 text-text-light">{fmt(s.description)}</td>
-                    <td className="py-2 pr-4 text-text-light">{s.severity ?? "—"}</td>
-                    <td className="py-2 pr-4 text-text-light">{formatDate(s.addedDate)}</td>
-                    <td className="py-2">
-                      {s.resolved ? (
-                        <span className="flex items-center gap-1 text-success text-xs font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Resolved
-                        </span>
-                      ) : (
-                        <span className="text-xs text-text-light">Active</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable<CaseSymptom>
+            columns={symptomColumns}
+            data={data.symptoms}
+            enableSorting={false}
+            className="rounded-none border-0 bg-transparent"
+            headerRowClassName="bg-transparent hover:bg-transparent"
+            headCellClassName="px-0 pr-4 pt-0 pb-2 normal-case tracking-normal"
+            cellClassName="px-0 pr-4 py-2"
+            rowClassName="hover:bg-transparent"
+          />
         </div>
       )}
 
@@ -518,35 +602,16 @@ export default function CaseSummary() {
       {data.medications.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <SectionHeading icon={<Pill className="w-4 h-4" />} label="Medications" />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-text-light font-medium border-b border-border">
-                  <th className="pb-2 text-left">Medication</th>
-                  <th className="pb-2 text-left">Dosage</th>
-                  <th className="pb-2 text-left">When to Take</th>
-                  <th className="pb-2 text-left">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.medications.map((m) => {
-                  const timing = [
-                    m.morningDose && "Morning",
-                    m.afternoonDose && "Afternoon",
-                    m.nightDose && "Night",
-                  ].filter(Boolean).join(", ") || "—";
-                  return (
-                    <tr key={m.id} className="border-b border-border last:border-0">
-                      <td className="py-2 pr-4 font-medium text-text">{m.medicationName}</td>
-                      <td className="py-2 pr-4 text-text-light">{fmt(m.dosage)}</td>
-                      <td className="py-2 pr-4 text-text-light">{timing}</td>
-                      <td className="py-2 text-text-light">{fmt(m.notes)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable<CaseMedication>
+            columns={medicationColumns}
+            data={data.medications}
+            enableSorting={false}
+            className="rounded-none border-0 bg-transparent"
+            headerRowClassName="bg-transparent hover:bg-transparent"
+            headCellClassName="px-0 pr-4 pt-0 pb-2 normal-case tracking-normal"
+            cellClassName="px-0 pr-4 py-2"
+            rowClassName="hover:bg-transparent"
+          />
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { useAuth } from "../../context/AuthContext";
 import {
   useFallbackPolicy,
@@ -7,6 +8,16 @@ import {
   useAdminPaygToggle,
 } from "../../hooks/admin/useAdminClinicConfig";
 import { useClinicHealers, useToggleHealerActive } from "../../hooks/admin/useAdminHealers";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  CheckboxField,
+  SelectField,
+  TextField,
+} from "@/components/form/Field";
+import { cn } from "@/lib/utils";
 
 export default function ClinicConfigPage() {
   const { user } = useAuth();
@@ -17,48 +28,55 @@ export default function ClinicConfigPage() {
   const adjust = useAdminAdjust();
   const paygToggle = useAdminPaygToggle();
 
-  const [adjustOwnerId, setAdjustOwnerId] = useState("");
-  const [adjustOwnerType, setAdjustOwnerType] = useState("CLINIC");
-  const [adjustAmount, setAdjustAmount] = useState("");
-  const [adjustNotes, setAdjustNotes] = useState("");
   const [adjustMsg, setAdjustMsg] = useState("");
-
-  const [paygOwnerId, setPaygOwnerId] = useState("");
-  const [paygEnabled, setPaygEnabled] = useState(false);
-  const [paygBundle, setPaygBundle] = useState("");
   const [paygMsg, setPaygMsg] = useState("");
 
-  const handleAdjust = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdjustMsg("");
-    try {
-      const res = await adjust.mutateAsync({
-        ownerType: adjustOwnerType,
-        ownerId: adjustOwnerId,
-        amount: parseInt(adjustAmount, 10),
-        notes: adjustNotes || undefined,
-      });
-      setAdjustMsg(`Done. New balance: ${res.new_balance}`);
-    } catch {
-      setAdjustMsg("Failed to apply adjustment.");
-    }
-  };
+  const adjustForm = useForm({
+    defaultValues: {
+      ownerType: "CLINIC",
+      ownerId: "",
+      amount: "",
+      notes: "",
+    },
+    onSubmit: async ({ value }) => {
+      setAdjustMsg("");
+      try {
+        const res = await adjust.mutateAsync({
+          ownerType: value.ownerType,
+          ownerId: value.ownerId,
+          amount: parseInt(value.amount, 10),
+          notes: value.notes || undefined,
+        });
+        setAdjustMsg(`Done. New balance: ${res.new_balance}`);
+      } catch {
+        setAdjustMsg("Failed to apply adjustment.");
+      }
+    },
+  });
 
-  const handlePaygToggle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaygMsg("");
-    try {
-      await paygToggle.mutateAsync({
-        ownerType: "HEALER",
-        ownerId: paygOwnerId,
-        paygEnabled,
-        bundleCredits: paygBundle ? parseInt(paygBundle, 10) : undefined,
-      });
-      setPaygMsg("PAYG settings updated.");
-    } catch {
-      setPaygMsg("Failed to update PAYG settings.");
-    }
-  };
+  const paygForm = useForm({
+    defaultValues: {
+      ownerId: "",
+      enabled: false,
+      bundleCredits: "",
+    },
+    onSubmit: async ({ value }) => {
+      setPaygMsg("");
+      try {
+        await paygToggle.mutateAsync({
+          ownerType: "HEALER",
+          ownerId: value.ownerId,
+          paygEnabled: value.enabled,
+          bundleCredits: value.bundleCredits
+            ? parseInt(value.bundleCredits, 10)
+            : undefined,
+        });
+        setPaygMsg("PAYG settings updated.");
+      } catch {
+        setPaygMsg("Failed to update PAYG settings.");
+      }
+    },
+  });
 
   const { data: healers = [], isLoading: healersLoading } = useClinicHealers();
   const toggleHealer = useToggleHealerActive();
@@ -77,16 +95,14 @@ export default function ClinicConfigPage() {
           <p className="text-text-light text-sm">Loading…</p>
         ) : (
           <div className="flex items-center gap-3">
-            <div
-              onClick={() => !upsertFallback.isPending && upsertFallback.mutate(!fallback?.allow_individual_fallback)}
-              className={`w-12 h-6 rounded-full transition-colors cursor-pointer shrink-0 ${
-                fallback?.allow_individual_fallback ? "bg-primary" : "bg-gray-300"
-              }`}
-            >
-              <div className={`w-5 h-5 m-0.5 bg-white rounded-full shadow transition-transform ${
-                fallback?.allow_individual_fallback ? "translate-x-6" : "translate-x-0"
-              }`} />
-            </div>
+            <Switch
+              checked={Boolean(fallback?.allow_individual_fallback)}
+              disabled={upsertFallback.isPending}
+              onCheckedChange={() =>
+                upsertFallback.mutate(!fallback?.allow_individual_fallback)
+              }
+              className="h-6 w-12 data-unchecked:bg-gray-300 [&_[data-slot=switch-thumb]]:size-5"
+            />
             <span className="text-sm text-text font-medium">
               {fallback?.allow_individual_fallback ? "Enabled" : "Disabled"}
             </span>
@@ -101,42 +117,78 @@ export default function ClinicConfigPage() {
         <p className="text-sm text-text-light">
           Positive adds to paid balance; negative subtracts. Free balance is protected.
         </p>
-        <form onSubmit={handleAdjust} className="space-y-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            adjustForm.handleSubmit();
+          }}
+          className="space-y-3"
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-light mb-1">Owner Type</label>
-              <select value={adjustOwnerType} onChange={(e) => setAdjustOwnerType(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-surface">
-                <option value="CLINIC">Clinic</option>
-                <option value="HEALER">Healer</option>
-              </select>
+              <Label className="block text-xs text-text-light mb-1">Owner Type</Label>
+              <adjustForm.Field
+                name="ownerType"
+                children={(field) => (
+                  <SelectField
+                    field={field}
+                    options={[
+                      { label: "Clinic", value: "CLINIC" },
+                      { label: "Healer", value: "HEALER" },
+                    ]}
+                    className="border px-3 py-2.5 bg-muted/50"
+                  />
+                )}
+              />
             </div>
             <div>
-              <label className="block text-xs text-text-light mb-1">Owner ID (UUID)</label>
-              <input type="text" value={adjustOwnerId} onChange={(e) => setAdjustOwnerId(e.target.value)}
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm font-mono" required />
+              <Label className="block text-xs text-text-light mb-1">Owner ID (UUID)</Label>
+              <adjustForm.Field
+                name="ownerId"
+                children={(field) => (
+                  <TextField
+                    field={field}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className="border px-3 py-2.5 font-mono"
+                  />
+                )}
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-light mb-1">Amount (signed)</label>
-              <input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)}
-                placeholder="+50 or -10"
-                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm" required />
+              <Label className="block text-xs text-text-light mb-1">Amount (signed)</Label>
+              <adjustForm.Field
+                name="amount"
+                children={(field) => (
+                  <TextField
+                    field={field}
+                    type="number"
+                    placeholder="+50 or -10"
+                    className="border px-3 py-2.5"
+                  />
+                )}
+              />
             </div>
             <div>
-              <label className="block text-xs text-text-light mb-1">Notes (optional)</label>
-              <input type="text" value={adjustNotes} onChange={(e) => setAdjustNotes(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm" />
+              <Label className="block text-xs text-text-light mb-1">Notes (optional)</Label>
+              <adjustForm.Field
+                name="notes"
+                children={(field) => (
+                  <TextField field={field} className="border px-3 py-2.5" />
+                )}
+              />
             </div>
           </div>
-          <button type="submit" disabled={adjust.isPending}
-            className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60">
+          <Button
+            type="submit"
+            disabled={adjust.isPending}
+            className="w-full sm:w-auto px-4 py-2.5 h-auto"
+          >
             {adjust.isPending ? "Applying…" : "Apply Adjustment"}
-          </button>
+          </Button>
           {adjustMsg && (
-            <p className={`text-sm ${adjustMsg.startsWith("Failed") ? "text-red-500" : "text-green-600"}`}>
+            <p className={cn("text-sm", adjustMsg.startsWith("Failed") ? "text-red-500" : "text-green-600")}>
               {adjustMsg}
             </p>
           )}
@@ -160,20 +212,21 @@ export default function ClinicConfigPage() {
                   <p className="text-xs text-text-light">{h.email} · {h.role}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${h.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                    {h.active ? "Active" : "Inactive"}
-                  </span>
-                  <button
+                  <StatusBadge active={h.active} />
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => toggleHealer.mutate({ id: h.id, active: !h.active })}
                     disabled={toggleHealer.isPending}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                    className={cn(
+                      "px-3 text-xs h-auto py-1.5",
                       h.active
-                        ? "text-red-600 border border-red-200 hover:bg-red-50"
-                        : "text-green-600 border border-green-200 hover:bg-green-50"
-                    }`}
+                        ? "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-600"
+                        : "text-green-600 border-green-200 hover:bg-green-50 hover:text-green-600"
+                    )}
                   >
                     {h.active ? "Deactivate" : "Activate"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -185,32 +238,61 @@ export default function ClinicConfigPage() {
       <section className="border border-border rounded-xl p-4 md:p-6 space-y-3 md:space-y-4">
         <h2 className="text-base md:text-lg font-semibold text-text">PAYG Settings (Healer Account)</h2>
         <p className="text-sm text-text-light">Toggle Pay-As-You-Go auto top-up for a specific healer account.</p>
-        <form onSubmit={handlePaygToggle} className="space-y-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            paygForm.handleSubmit();
+          }}
+          className="space-y-3"
+        >
           <div>
-            <label className="block text-xs text-text-light mb-1">Healer ID (UUID)</label>
-            <input type="text" value={paygOwnerId} onChange={(e) => setPaygOwnerId(e.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              className="w-full border border-border rounded-lg px-3 py-2.5 text-sm font-mono" required />
+            <Label className="block text-xs text-text-light mb-1">Healer ID (UUID)</Label>
+            <paygForm.Field
+              name="ownerId"
+              children={(field) => (
+                <TextField
+                  field={field}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  className="border px-3 py-2.5 font-mono"
+                />
+              )}
+            />
           </div>
           <div className="flex flex-wrap items-end gap-4">
-            <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
-              <input type="checkbox" checked={paygEnabled} onChange={(e) => setPaygEnabled(e.target.checked)}
-                className="w-4 h-4 rounded" />
-              Enable PAYG
-            </label>
+            <paygForm.Field
+              name="enabled"
+              children={(field) => (
+                <CheckboxField
+                  field={field}
+                  label="Enable PAYG"
+                  wrapperClassName="text-sm text-text"
+                />
+              )}
+            />
             <div>
-              <label className="block text-xs text-text-light mb-1">Bundle Credits</label>
-              <input type="number" value={paygBundle} onChange={(e) => setPaygBundle(e.target.value)}
-                placeholder="default: 1" min="1"
-                className="border border-border rounded-lg px-3 py-2.5 text-sm w-32" />
+              <Label className="block text-xs text-text-light mb-1">Bundle Credits</Label>
+              <paygForm.Field
+                name="bundleCredits"
+                children={(field) => (
+                  <TextField
+                    field={field}
+                    type="number"
+                    placeholder="default: 1"
+                    className="border px-3 py-2.5 w-32"
+                  />
+                )}
+              />
             </div>
           </div>
-          <button type="submit" disabled={paygToggle.isPending}
-            className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark disabled:opacity-60">
+          <Button
+            type="submit"
+            disabled={paygToggle.isPending}
+            className="w-full sm:w-auto px-4 py-2.5 h-auto"
+          >
             {paygToggle.isPending ? "Saving…" : "Save PAYG Settings"}
-          </button>
+          </Button>
           {paygMsg && (
-            <p className={`text-sm ${paygMsg.startsWith("Failed") ? "text-red-500" : "text-green-600"}`}>
+            <p className={cn("text-sm", paygMsg.startsWith("Failed") ? "text-red-500" : "text-green-600")}>
               {paygMsg}
             </p>
           )}

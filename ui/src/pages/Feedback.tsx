@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import { Skeleton } from "../components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { Send, CheckCircle2 } from "lucide-react";
 
 const EMOJI_SCALE = [
@@ -236,8 +239,9 @@ export default function PatientFeedback() {
 
                   <div className="flex flex-wrap justify-between gap-2">
                     {EMOJI_SCALE.map((item) => (
-                      <button
+                      <Button
                         key={item.value}
+                        variant="ghost"
                         onClick={() =>
                           handleSymptomRatingChange(
                             symptom.caseSymptomId,
@@ -245,17 +249,18 @@ export default function PatientFeedback() {
                           )
                         }
                         title={item.label}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                        className={cn(
+                          "flex flex-col items-center gap-1 h-auto p-2 rounded-xl transition-all",
                           symptomRatings[symptom.caseSymptomId] === item.value
-                            ? "transform scale-110 bg-primary/10 ring-2 ring-primary"
+                            ? "transform scale-110 bg-primary/10 ring-2 ring-primary hover:bg-primary/10"
                             : "hover:bg-primary/5 opacity-60 hover:opacity-100"
-                        }`}
+                        )}
                       >
                         <span className="text-4xl">{item.emoji}</span>
                         <span className="text-xs text-text-light">
                           {item.label}
                         </span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -280,11 +285,11 @@ export default function PatientFeedback() {
             </p>
           </div>
 
-          <textarea
+          <Textarea
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
             placeholder="Type your feedback here..."
-            className="w-full min-h-[120px] p-3 border border-border rounded-lg text-sm text-text focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-y"
+            className="min-h-[120px] p-3 border text-text resize-y"
           />
         </section>
       </div>
@@ -294,14 +299,10 @@ export default function PatientFeedback() {
       )}
 
       <div className="flex justify-end">
-        <button
+        <Button
           onClick={handleSubmit}
           disabled={isSubmitting || isLoading}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-white transition-colors ${
-            isSubmitting || isLoading
-              ? "bg-primary/70 cursor-not-allowed"
-              : "bg-primary hover:bg-primary-dark cursor-pointer"
-          }`}
+          className="gap-2 px-6 py-2.5 h-auto"
         >
           {isSubmitting ? (
             "Submitting..."
@@ -311,7 +312,7 @@ export default function PatientFeedback() {
               <Send className="w-4 h-4" />
             </>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

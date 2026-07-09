@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 import { Skeleton } from "./ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { ChartPeriodPicker } from "./ChartPeriodPicker";
 import { useSessionTrends } from "../hooks/useSessionTrends";
 import type { ChartPeriod } from "../types/chart";
@@ -45,12 +46,9 @@ export function SessionTrendChart({ healerId, initialPeriod }: Props) {
             <p className="text-sm text-danger">
               Unable to load data — try refreshing.
             </p>
-            <button
-              className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary-dark transition-colors"
-              onClick={() => refetch()}
-            >
+            <Button className="font-semibold" onClick={() => refetch()}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
 

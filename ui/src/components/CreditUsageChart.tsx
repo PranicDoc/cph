@@ -14,6 +14,7 @@ import { useCreditUsage } from "../hooks/useCreditUsage";
 import { useDashboardSummary } from "../hooks/useDashboardSummary";
 import { ChartPeriodPicker } from "./ChartPeriodPicker";
 import { Skeleton } from "./ui/skeleton";
+import { Button } from "@/components/ui/button";
 import type { ChartPeriod } from "../types/chart";
 
 interface Props {
@@ -46,12 +47,9 @@ export function CreditUsageChart({ healerId, initialPeriod }: Props) {
           <p className="text-sm text-danger">
             Unable to load data — try refreshing.
           </p>
-          <button
-            onClick={() => refetch()}
-            className="bg-primary text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-primary-dark transition-colors"
-          >
+          <Button className="font-semibold" onClick={() => refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       );
     }

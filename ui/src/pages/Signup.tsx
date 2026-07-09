@@ -4,6 +4,7 @@ import { Activity } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { signupSchema } from "./schemas/AuthSchema";
+import { Button } from "@/components/ui/button";
 
 export default function Signup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,13 +75,13 @@ export default function Signup() {
               <signupForm.Subscribe
                 selector={(state) => [state.canSubmit, state.isSubmitting]}
                 children={([canSubmit, isFormSubmitting]) => (
-                  <button
+                  <Button
                     type="submit"
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                    className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-colors"
+                    className="w-full py-2.5 h-auto shadow-sm"
                   >
                     {isSubmitting ? "Sending..." : "Send verification link"}
-                  </button>
+                  </Button>
                 )}
               />
             </form>

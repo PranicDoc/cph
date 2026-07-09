@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
-import { Autocomplete } from "../../AutoComplete";
+import { Combobox } from "@/components/common/Combobox";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { getProtocolSearchLabel } from "../utils";
 import type {
   ProtocolCatalogEntry,
@@ -28,9 +30,9 @@ export function ProtocolPicker({
 }: ProtocolPickerProps) {
   return (
     <div>
-      <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+      <Label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
         Protocol
-      </label>
+      </Label>
 
       {value ? (
         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-violet-50 rounded-lg border border-violet-100">
@@ -40,22 +42,24 @@ export function ProtocolPicker({
           <span className="text-[9px] text-violet-400 uppercase">
             {value.level}
           </span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onChange(undefined)}
-            className="text-violet-300 hover:text-violet-500 transition-colors"
+            className="h-auto w-auto p-0 text-violet-300 hover:text-violet-500 hover:bg-transparent"
             aria-label="Clear protocol"
           >
             <X className="h-3 w-3" />
-          </button>
+          </Button>
         </div>
       ) : (
-        <Autocomplete
+        <Combobox
           options={protocols}
           getOptionLabel={getProtocolSearchLabel}
           onSelect={(protocol) => onChange(toProtocolSelection(protocol))}
           placeholder="Search protocols..."
-          className="[&_input]:text-xs [&_input]:rounded-lg [&_input]:border-gray-200 [&_input]:focus:ring-violet-200 [&_input]:focus:border-violet-300"
+          className="[&_input]:text-xs"
         />
       )}
     </div>

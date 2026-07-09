@@ -1,6 +1,16 @@
 // components/HealingSessionWizard/StepSymptomsFeedback.tsx
 import { DynamicFormEngine } from "../DynamicFormEngine";
 import { qualitativeFeedbackSchema } from "../../pages/schemas/HealingSessionSchemas";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface StepSymptomsFeedbackProps {
   form: any; // Use proper type from tanstack form
@@ -24,13 +34,15 @@ export function StepSymptomsFeedback({
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b pb-2">
           <h2 className="text-lg font-semibold">Symptom Feedback</h2>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             onClick={onAddSymptom}
-            className="text-xs text-primary font-medium px-3 py-1.5 hover:bg-primary/10 rounded-lg transition-colors"
+            className="h-auto px-3 py-1.5 text-xs text-primary font-medium hover:bg-primary/10 hover:text-primary"
           >
             + Add Feedback Row
-          </button>
+          </Button>
         </div>
         <div className="space-y-4">
           {symptomFeedbacks.length === 0 && (
@@ -44,30 +56,29 @@ export function StepSymptomsFeedback({
               className="bg-background p-4 rounded-lg border border-border space-y-3"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <select
-                  value={feedback.caseSymptomId}
-                  onChange={(e) =>
-                    onUpdateSymptom(idx, "caseSymptomId", e.target.value)
-                  }
-                  className="px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                <Select
+                  value={feedback.caseSymptomId || ""}
+                  onValueChange={(v) => onUpdateSymptom(idx, "caseSymptomId", v)}
                 >
-                  <option value="">Select symptom...</option>
-                  {symptoms.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.symptomName || s.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full border px-3 py-2 rounded-md">
+                    <SelectValue placeholder="Select symptom..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {symptoms.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.symptomName || s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-light w-12">Rating:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    value={feedback.rating}
-                    onChange={(e) =>
-                      onUpdateSymptom(idx, "rating", parseInt(e.target.value))
-                    }
+                  <Slider
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={[feedback.rating]}
+                    onValueChange={([v]) => onUpdateSymptom(idx, "rating", v)}
                     className="flex-1"
                   />
                   <span className="text-sm font-semibold w-8 text-center bg-muted py-1 rounded">
@@ -75,20 +86,21 @@ export function StepSymptomsFeedback({
                   </span>
                 </div>
               </div>
-              <input
+              <Input
                 type="text"
                 placeholder="Notes (optional)"
                 value={feedback.notes || ""}
                 onChange={(e) => onUpdateSymptom(idx, "notes", e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="border px-3 py-2 rounded-md"
               />
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => onRemoveSymptom(idx)}
-                className="text-xs text-red-600 font-medium hover:underline"
+                className="h-auto p-0 text-xs font-medium text-red-600 hover:text-red-600"
               >
                 Remove
-              </button>
+              </Button>
             </div>
           ))}
         </div>

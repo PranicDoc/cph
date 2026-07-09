@@ -7,6 +7,7 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { acceptInviteSchema } from "./schemas/AuthSchema";
 import { useAuth } from "../context/AuthContext";
 import ErrorState from "../components/ErrorState";
+import { Button } from "@/components/ui/button";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();
@@ -92,13 +93,13 @@ export default function AcceptInvite() {
             <acceptInviteForm.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isFormSubmitting]) => (
-                <button
+                <Button
                   type="submit"
                   disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                  className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-colors"
+                  className="w-full py-2.5 h-auto shadow-sm"
                 >
                   {isSubmitting ? "Activating..." : "Activate Account"}
-                </button>
+                </Button>
               )}
             />
           </form>

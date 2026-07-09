@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -24,7 +25,7 @@ export default function HealerSidebar({ isOpen, onClose }: HealerSidebarProps) {
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
               isActive
                 ? "bg-primary text-white"
-                : "text-text-light hover:bg-surface hover:text-text"
+                : "text-text-light hover:bg-muted/50 hover:text-text"
             )}
           >
             <Icon className="w-4 h-4 shrink-0" />
@@ -56,13 +57,15 @@ export default function HealerSidebar({ isOpen, onClose }: HealerSidebarProps) {
           <aside className="relative z-50 w-56 bg-card border-r border-border flex flex-col shadow-xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <span className="text-sm font-semibold text-text">Menu</span>
-              <button
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 onClick={onClose}
-                className="p-1 rounded-md text-text-light hover:text-text hover:bg-border transition-colors"
+                className="h-auto w-auto p-1 rounded-md text-text-light hover:text-text hover:bg-border"
                 aria-label="Close menu"
-              >
+                >
                 <X className="w-4 h-4" />
-              </button>
+                </Button>
             </div>
             {navContent}
           </aside>

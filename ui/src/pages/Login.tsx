@@ -8,6 +8,7 @@ import { loginSchema } from "./schemas/AuthSchema";
 import { useAuth } from "../context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { extractDetail } from "../lib/utils";
+import { Button } from "@/components/ui/button";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -107,13 +108,13 @@ export default function Login() {
             <loginForm.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isFormSubmitting]) => (
-                <button
+                <Button
                   type="submit"
                   disabled={!canSubmit || isSubmitting || isFormSubmitting}
-                  className="w-full flex justify-center py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-primary hover:bg-primary-dark disabled:opacity-50"
+                  className="w-full py-2.5 h-auto"
                 >
                   {isSubmitting ? "Signing in..." : "Sign in"}
-                </button>
+                </Button>
               )}
             />
 
@@ -131,10 +132,11 @@ export default function Login() {
             </div>
 
             {/* Google Login */}
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg border border-border bg-white hover:bg-gray-50 transition-colors"
+              className="w-full gap-3 py-2.5 h-auto bg-white hover:bg-gray-50"
             >
               <img
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -144,7 +146,7 @@ export default function Login() {
               <span className="font-medium text-gray-700">
                 Continue with Google
               </span>
-            </button>
+            </Button>
           </form>
         </div>
       </div>

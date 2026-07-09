@@ -1,7 +1,8 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
 import { CheckCircle } from "lucide-react";
-import { WorkQueueTable } from "./WorkQueueTable";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
 import { usePendingReports } from "../hooks/usePendingReports";
 import type { PendingReport } from "../types/workqueue";
 
@@ -29,18 +30,14 @@ export function PendingReportsTable({ healerId }: Props) {
     columnHelper.display({
       id: "reportStatus",
       header: "Report Status",
-      cell: () => (
-        <span className="bg-danger/10 text-danger rounded-full px-2 py-0.5 text-xs font-medium">
-          PDF Missing
-        </span>
-      ),
+      cell: () => <Badge variant="destructive">PDF Missing</Badge>,
     }),
   ];
 
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
       <p className="text-sm font-semibold text-text mb-4">Pending Reports</p>
-      <WorkQueueTable<PendingReport>
+      <DataTable<PendingReport>
         columns={columns}
         data={data ?? []}
         isLoading={isLoading}

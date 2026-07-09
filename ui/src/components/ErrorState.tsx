@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { extractDetail } from "../lib/utils";
+import { Button } from "@/components/ui/button";
 
 export type ErrorStateVariant = "forbidden" | "expired" | "notFound" | "generic" | "inviteExpired";
 
@@ -58,13 +59,14 @@ const VARIANTS: Record<ErrorStateVariant, VariantConfig> = {
 
 function BackButton() {
   return (
-    <button
+    <Button
+      variant="outline"
       onClick={() => window.history.back()}
-      className="inline-flex justify-center items-center px-4 py-2 border border-border shadow-sm text-sm font-medium rounded-lg text-text bg-card hover:bg-background focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+      className="px-4 py-2 h-auto shadow-sm text-text"
     >
       <ArrowLeft className="mr-2 h-4 w-4" />
       Go Back
-    </button>
+    </Button>
   );
 }
 

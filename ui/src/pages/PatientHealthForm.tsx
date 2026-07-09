@@ -6,6 +6,7 @@ import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientSessionSchema } from "./schemas/patientSessionSchema";
 import { TreatmentStep } from "../interfaces";
+import { Button } from "@/components/ui/button";
 
 type PatientFormValues = {
   medicalCondition: string;
@@ -143,13 +144,13 @@ export default function PatientHealthForm() {
       <h2 className="text-xl font-semibold">Your Health Details</h2>
       <DynamicFormEngine form={form} schema={patientSessionSchema} />
       <div className="flex justify-end pt-4 border-t border-border">
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 h-auto gap-2"
         >
           {isSubmitting ? "Submitting..." : "Submit My Details"}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { VoiceRecorder } from "./VoiceRecorder";
 import { ScanPreviewDialog } from "./ScanPreviewDialog";
@@ -45,14 +46,15 @@ export function ScanStep({
                 preview the extracted information before proceeding.
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setPreviewOpen(true)}
-              className=" inline-flex items-center justify-center gap-2 rounded-md border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100 w-full sm:w-auto"
+              className="rounded-md border-sky-300 bg-white px-4 py-2 h-auto gap-2 text-sky-700 hover:bg-sky-100 hover:text-sky-700 w-full sm:w-auto"
             >
               <Eye className="h-4 w-4" />
               Preview
-            </button>
+            </Button>
           </div>
         </div>
 

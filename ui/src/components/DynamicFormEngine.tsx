@@ -3,6 +3,16 @@ import { CustomDOBPicker } from "./CustomDOBPicker";
 import { TagInput } from "./TagInput";
 import { FileUpload } from "./FileUPload";
 import { TableInput } from "./TableInput";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  CheckboxField,
+  FieldError,
+  SelectField,
+  TextField,
+  TextareaField,
+} from "@/components/form/Field";
+import { cn } from "@/lib/utils";
 
 export type FieldType =
   | "text"
@@ -135,31 +145,22 @@ export function DynamicField({
       children={(field: any) => {
         if (type === "checkbox") {
           return (
-            <label
-              className={`flex items-center gap-2 cursor-pointer ${
-                wrapperClassName || ""
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.checked)}
-                className={`w-4 h-4 text-primary rounded border-border focus:ring-primary ${
-                  className || ""
-                }`}
-              />
-              <span className={labelClassName || "text-sm"}>{label}</span>
-            </label>
+            <CheckboxField
+              field={field}
+              label={label}
+              className={className}
+              wrapperClassName={wrapperClassName}
+              labelClassName={labelClassName}
+            />
           );
         }
 
         if (type === "tag") {
           return (
             <div className={wrapperClassName}>
-              <label className="block text-sm font-semibold mb-2">
+              <Label className="block text-sm font-semibold mb-2">
                 {label}
-              </label>
+              </Label>
               <TagInput
                 value={field.state.value}
                 onChange={field.handleChange}
@@ -178,7 +179,7 @@ export function DynamicField({
         if (type === "file") {
           return (
             <div className={wrapperClassName}>
-              <label className="block text-sm font-semibold mb-2">{label}</label>
+              <Label className="block text-sm font-semibold mb-2">{label}</Label>
               <FileUpload
                 value={field.state.value ?? []}
                 onChange={field.handleChange}
@@ -196,7 +197,7 @@ export function DynamicField({
           }
           return (
             <div className={wrapperClassName}>
-              <label className="block text-sm font-semibold mb-2">{label}</label>
+              <Label className="block text-sm font-semibold mb-2">{label}</Label>
               <TableInput
                 value={field.state.value ?? []}
                 onChange={field.handleChange}
@@ -212,19 +213,7 @@ export function DynamicField({
 
         // Toggle switch UI
         const toggleSwitch = enableToggle && (
-          <button
-            type="button"
-            onClick={handleToggle}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-              enabled ? "bg-primary" : "bg-border"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                enabled ? "translate-x-4" : "translate-x-0.5"
-              }`}
-            />
-          </button>
+          <Switch checked={enabled} onCheckedChange={handleToggle} />
         );
 
         const isDisabled = enableToggle && !enabled;
@@ -232,43 +221,30 @@ export function DynamicField({
         return (
           <div className={wrapperClassName}>
             <div className="flex items-center justify-between mb-2">
-              <label
-                className={`block text-sm font-semibold text-text-light ${
-                  labelClassName || ""
-                }`}
+              <Label
+                className={cn(
+                  "block text-sm font-semibold text-text-light",
+                  labelClassName
+                )}
               >
                 {label} {required && "*"}
-              </label>
+              </Label>
               {toggleSwitch}
             </div>
 
             {type === "select" ? (
-              <select
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+              <SelectField
+                field={field}
+                options={options ?? []}
+                placeholder={placeholder}
                 disabled={isDisabled}
-                className={`w-full p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none bg-white ${
-                  isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : ""
-                } ${className || ""}`}
-              >
-                <option value="">{placeholder || "Select..."}</option>
-                {options?.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                className={className}
+              />
             ) : type === "textarea" ? (
-              <textarea
-                rows={4}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+              <TextareaField
+                field={field}
                 disabled={isDisabled}
-                className={`w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary outline-none ${
-                  isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : ""
-                } ${className || ""}`}
+                className={className}
                 placeholder={isDisabled ? "Enable toggle to fill" : placeholder}
               />
             ) : type === "date" ? (
@@ -280,28 +256,17 @@ export function DynamicField({
                 className={className}
               />
             ) : (
-              <input
+              <TextField
+                field={field}
                 type={type}
-                value={
-                  trimSpaces && typeof field.state.value === "string"
-                    ? field.state.value.replace(/\s+/g, "")
-                    : (field.state.value ?? "")
-                }
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
+                trimSpaces={trimSpaces}
                 disabled={isDisabled}
-                className={`w-full p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none ${
-                  isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : ""
-                } ${className || ""}`}
+                className={className}
                 placeholder={isDisabled ? "Enable toggle to fill" : placeholder}
               />
             )}
 
-            {field.state.meta.errors && field.state.meta.errors.length > 0 ? (
-              <p className="text-danger text-xs mt-1">
-                {field.state.meta.errors.join(", ")}
-              </p>
-            ) : null}
+            <FieldError errors={field.state.meta.errors} />
           </div>
         );
       }}

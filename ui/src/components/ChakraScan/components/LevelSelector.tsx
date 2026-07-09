@@ -2,6 +2,9 @@ import type {
   ActivationLevel,
   EnergyLevel,
 } from "../types/spatial-chakra";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type ChakraLevel = EnergyLevel | ActivationLevel;
 
@@ -34,26 +37,28 @@ export function LevelSelector<T extends ChakraLevel>({
 
   return (
     <div>
-      <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+      <Label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
         {label}
-      </label>
+      </Label>
 
       <div className={fill ? "flex gap-1" : "flex flex-wrap gap-1"}>
         {options.map((option) => {
           const isSelected = value === option.value;
 
           return (
-            <button
+            <Button
               key={option.value}
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => onChange(option.value)}
-              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                fill ? "flex-1 text-center py-1.5 text-xs" : ""
-              } ${
+              className={cn(
+                "h-auto px-2 py-1 rounded-md text-[11px] font-medium",
+                fill && "flex-1 text-center py-1.5 text-xs",
                 isSelected
-                  ? "ring-1 shadow-sm"
-                  : "bg-gray-50 hover:bg-gray-100 text-gray-500"
-              }`}
+                  ? "ring-1 shadow-sm hover:bg-transparent"
+                  : "bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-500"
+              )}
               style={
                 isSelected
                   ? {
@@ -65,7 +70,7 @@ export function LevelSelector<T extends ChakraLevel>({
               }
             >
               {fill ? option.label : option.shortLabel}
-            </button>
+            </Button>
           );
         })}
       </div>

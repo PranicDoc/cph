@@ -1,5 +1,14 @@
 import { X } from "lucide-react";
 import type { ColorOption, ProtocolColorRequest } from "../../interfaces";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProtocolColorRowsProps {
   entryIndex: number;
@@ -29,13 +38,14 @@ export function ProtocolColorRows({
         <span className="text-xs font-semibold text-text-light uppercase">
           Colors
         </span>
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={() => onAddColor(entryIndex)}
-          className="text-xs text-primary font-medium hover:underline"
+          className="h-auto p-0 text-xs font-medium"
         >
           + Add Color
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -52,52 +62,54 @@ export function ProtocolColorRows({
                   backgroundColor: selectedColor?.colorHex ?? "#FFFFFF",
                 }}
               />
-              <select
-                value={color.colorId}
-                onChange={(e) =>
-                  onUpdateColor(
-                    entryIndex,
-                    colorIndex,
-                    "colorId",
-                    e.target.value
-                  )
+              <Select
+                value={color.colorId || ""}
+                onValueChange={(v) =>
+                  onUpdateColor(entryIndex, colorIndex, "colorId", v)
                 }
-                className={`flex-1 px-2 py-1.5 bg-white border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary ${
-                  color.colorId ? "border-border" : "border-danger"
-                }`}
               >
-                <option value="">Select color...</option>
-                {colors.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name} {option.code ? `(${option.code})` : ""}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  className={cn(
+                    "flex-1 border px-2 py-1.5 rounded-md text-xs",
+                    !color.colorId && "border-danger"
+                  )}
+                >
+                  <SelectValue placeholder="Select color..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {colors.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name} {option.code ? `(${option.code})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <select
+              <Select
                 value={color.usageType}
-                onChange={(e) =>
-                  onUpdateColor(
-                    entryIndex,
-                    colorIndex,
-                    "usageType",
-                    e.target.value
-                  )
+                onValueChange={(v) =>
+                  onUpdateColor(entryIndex, colorIndex, "usageType", v)
                 }
-                className="px-2 py-1.5 bg-white border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="CLEANSING">Cleansing</option>
-                <option value="ENERGISING">Energising</option>
-              </select>
+                <SelectTrigger className="w-fit border px-2 py-1.5 rounded-md text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CLEANSING">Cleansing</SelectItem>
+                  <SelectItem value="ENERGISING">Energising</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => onRemoveColor(entryIndex, colorIndex)}
-                className="text-red-600 hover:text-red-700"
+                className="h-auto w-auto p-0 text-red-600 hover:text-red-700 hover:bg-transparent"
                 aria-label={`Remove color ${colorIndex + 1}`}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           );
         })}
