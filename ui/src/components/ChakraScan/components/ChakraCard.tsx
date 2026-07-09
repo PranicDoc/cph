@@ -18,6 +18,14 @@ import type {
   PranaColorEntry,
   ProtocolCatalogEntry,
 } from "../types/spatial-chakra";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ChakraCardProps {
   chakra: ChakraCatalogEntry;
@@ -68,21 +76,24 @@ function CollapsedChakraCard({
         )}
       </div>
 
-      <select
-        className="w-full text-xs p-1.5 border border-gray-200 rounded-md bg-transparent outline-none focus:ring-1 focus:ring-violet-300 text-gray-600"
+      <Select
         value={entry.energyLevel}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          e.stopPropagation();
-          onUpdateEnergy(e.target.value as EnergyLevel);
-        }}
+        onValueChange={(v) => onUpdateEnergy(v as EnergyLevel)}
       >
-        {ENERGY_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          className="w-full text-xs p-1.5 border border-gray-200 rounded-md bg-transparent text-gray-600"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ENERGY_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {documented && (
         <div className="flex items-center gap-1 flex-wrap">
@@ -203,14 +214,16 @@ export const ChakraCard = memo(function ChakraCard({
             {chakra.location}
           </span>
         )}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={onToggle}
-          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200/60 text-gray-400 transition-colors"
+          className="w-6 h-6 rounded-md hover:bg-gray-200/60 text-gray-400 hover:text-gray-400"
           aria-label="Collapse chakra details"
         >
           <X className="h-3 w-3" />
-        </button>
+        </Button>
       </div>
 
       <div className="px-4 py-3 space-y-4">

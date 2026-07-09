@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface VoiceRecorderProps {
   onTranscript: (transcript: string) => void;
@@ -156,55 +163,58 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
   return (
     <>
       <div className="relative inline-flex flex-col items-center">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={toggle}
-          className={[
-            "flex items-center justify-center w-24 h-24 rounded-full transition-all duration-300 ease-in-out shadow-md relative z-10",
+          className={cn(
+            "flex items-center justify-center w-24 h-24 rounded-full transition-all duration-300 ease-in-out shadow-md relative z-10 [&_svg:not([class*='size-'])]:size-9",
             isRecording
-              ? "bg-orange-500 text-white shadow-orange-500/50 animate-[pulse_1.5s_ease-in-out_infinite]"
-              : "bg-purple-100 text-purple-600 hover:bg-purple-200",
-          ].join(" ")}
+              ? "bg-orange-500 text-white shadow-orange-500/50 animate-[pulse_1.5s_ease-in-out_infinite] hover:bg-orange-500 hover:text-white"
+              : "bg-purple-100 text-purple-600 hover:bg-purple-200 hover:text-purple-600"
+          )}
           aria-label={isRecording ? "Stop recording" : "Start voice recording"}
         >
           {isRecording ? <MicOff size={36} /> : <Mic size={36} />}
-        </button>
+        </Button>
       </div>
 
-      {/* FIXED Overlay Modal - Cannot be clipped by parent CSS */}
-      {showPrompt && !isRecording && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm px-4">
-          <div className="bg-white p-5 rounded-xl shadow-2xl max-w-sm w-full flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-base font-semibold text-gray-900 text-center">
-              Existing Recording Found
-            </h3>
-            <p className="text-sm text-gray-600 text-center">
-              You already have words recorded. Do you want to continue adding to
-              them, or start over?
-            </p>
-            <div className="flex gap-3 w-full mt-2">
-              <button
-                onClick={() => startRecording(true)}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-              >
-                Start Over
-              </button>
-              <button
-                onClick={() => startRecording(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
-              >
-                Continue
-              </button>
-            </div>
-            <button
-              onClick={() => setShowPrompt(false)}
-              className="text-xs text-gray-400 hover:text-gray-600 underline text-center mt-1"
+      <Dialog
+        open={showPrompt && !isRecording}
+        onOpenChange={(o) => !o && setShowPrompt(false)}
+      >
+        <DialogContent className="max-w-sm p-5 gap-4 rounded-xl" showCloseButton={false}>
+          <DialogTitle className="text-base font-semibold text-gray-900 text-center">
+            Existing Recording Found
+          </DialogTitle>
+          <p className="text-sm text-gray-600 text-center">
+            You already have words recorded. Do you want to continue adding to
+            them, or start over?
+          </p>
+          <div className="flex gap-3 w-full mt-2">
+            <Button
+              variant="destructive-soft"
+              onClick={() => startRecording(true)}
+              className="flex-1 bg-red-50 text-red-600 hover:bg-red-100"
             >
-              Cancel
-            </button>
+              Start Over
+            </Button>
+            <Button
+              onClick={() => startRecording(false)}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 shadow-sm"
+            >
+              Continue
+            </Button>
           </div>
-        </div>
-      )}
+          <Button
+            variant="link"
+            onClick={() => setShowPrompt(false)}
+            className="h-auto p-0 text-xs font-normal text-gray-400 hover:text-gray-600 underline mx-auto mt-1"
+          >
+            Cancel
+          </Button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

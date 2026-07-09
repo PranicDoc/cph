@@ -9,6 +9,8 @@ import type {
   ProtocolCatalogEntry,
   PranaColorEntry,
 } from "./types/spatial-chakra";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ChakraQuickPanelProps {
   value: ChakraDocEntry[];
@@ -92,20 +94,22 @@ export function ChakraQuickPanel({
               const isActive = activeChakraId === chakra.id;
 
               return (
-                <button
+                <Button
                   key={chakra.id}
+                  variant="ghost"
                   onClick={() => setActiveChakraId(chakra.id)}
-                  className={`flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-colors text-left ${
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2.5 h-auto text-sm rounded-lg text-left font-normal w-full",
                     isActive
-                      ? "bg-violet-100 text-violet-800 font-medium shadow-sm"
-                      : "hover:bg-gray-200 text-gray-600"
-                  }`}
+                      ? "bg-violet-100 text-violet-800 font-medium shadow-sm hover:bg-violet-100 hover:text-violet-800"
+                      : "hover:bg-gray-200 text-gray-600 hover:text-gray-600"
+                  )}
                 >
                   <span>{chakra.name}</span>
                   {isDocumented && (
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                   )}
-                </button>
+                </Button>
               );
             })}
           </div>

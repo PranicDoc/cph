@@ -16,6 +16,16 @@ import type {
   ProtocolCatalogEntry,
   PranaColorEntry,
 } from "./types/spatial-chakra";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface ChakraAccordionPanelProps {
   value: ChakraDocEntry[];
@@ -87,39 +97,41 @@ function ChakraAccordionPanel({
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+      <Label className="block text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
         Chakra Energy Levels
-      </label>
+      </Label>
 
       <div className="flex items-center gap-3 mb-3">
-        <select
-          value={selectedRegionId}
-          onChange={(e) => handleRegionChange(e.target.value)}
-          className="flex-1 text-sm p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-violet-300 text-gray-700"
-        >
-          {regions.map((region) => {
-            const stats = getRegionStats(region.id, regions, entries);
+        <Select value={selectedRegionId} onValueChange={handleRegionChange}>
+          <SelectTrigger className="flex-1 p-2 border border-gray-200 text-gray-700">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {regions.map((region) => {
+              const stats = getRegionStats(region.id, regions, entries);
 
-            return (
-              <option key={region.id} value={region.id}>
-                {region.icon} {region.name} ({stats.documented}/{stats.total})
-              </option>
-            );
-          })}
-        </select>
+              return (
+                <SelectItem key={region.id} value={region.id}>
+                  {region.icon} {region.name} ({stats.documented}/{stats.total})
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
 
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+        <Badge
+          className={cn(
+            "px-2.5 py-1 h-auto font-medium",
             currentStats.documented === currentStats.total &&
-            currentStats.total > 0
+              currentStats.total > 0
               ? "bg-emerald-50 text-emerald-600"
               : currentStats.documented > 0
               ? "bg-amber-50 text-amber-600"
               : "bg-gray-100 text-gray-400"
-          }`}
+          )}
         >
           {overallStats.documented}/{overallStats.total}
-        </span>
+        </Badge>
       </div>
 
       <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

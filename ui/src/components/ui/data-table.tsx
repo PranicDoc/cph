@@ -7,6 +7,13 @@ import {
   flexRender,
 } from "@tanstack/react-table"
 import type { ColumnDef, SortingState, TableMeta, Row } from "@tanstack/react-table"
+
+// Per-column class overrides, read from columnDef.meta:
+//   { meta: { headClassName: "...", cellClassName: "..." } }
+type ColumnClassMeta = {
+  headClassName?: string
+  cellClassName?: string
+}
 import { ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -125,7 +132,9 @@ export function DataTable<T>(props: DataTableProps<T>) {
                       "h-auto text-xs font-medium text-text-light uppercase tracking-wide",
                       cellPadding,
                       canSort && "cursor-pointer select-none hover:bg-muted",
-                      headCellClassName
+                      headCellClassName,
+                      (header.column.columnDef.meta as ColumnClassMeta | undefined)
+                        ?.headClassName
                     )}
                     onClick={
                       canSort ? () => header.column.toggleSorting() : undefined
@@ -183,7 +192,9 @@ export function DataTable<T>(props: DataTableProps<T>) {
                       className={cn(
                         "text-text whitespace-normal",
                         cellPadding,
-                        cellClassName
+                        cellClassName,
+                        (cell.column.columnDef.meta as ColumnClassMeta | undefined)
+                          ?.cellClassName
                       )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

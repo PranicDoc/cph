@@ -1,4 +1,6 @@
 // components/HealingSessionWizard/WizardNavigation.tsx
+import { Button } from "@/components/ui/button";
+
 interface WizardNavigationProps {
   step: number;
   isSubmitting: boolean;
@@ -16,21 +18,22 @@ export function WizardNavigation({
 }: WizardNavigationProps) {
   return (
     <div className="flex justify-between pt-6 border-t border-border mt-8">
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={onBack}
-        className="px-6 py-2.5 border-2 border-border text-text font-medium rounded-lg hover:bg-background transition-colors"
+        className="px-6 py-2.5 h-auto border-2 text-text"
       >
         Previous
-      </button>
-      <button
+      </Button>
+      <Button
         type="submit"
         disabled={!canSubmit || isSubmitting}
         onClick={onSubmit}
-        className="px-6 py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+        className="px-6 py-2.5 h-auto"
       >
         {isSubmitting ? "Saving..." : step === 2 ? "Submit" : "Next"}
-      </button>
+      </Button>
     </div>
   );
 }

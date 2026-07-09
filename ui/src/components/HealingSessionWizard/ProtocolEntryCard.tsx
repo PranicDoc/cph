@@ -4,6 +4,16 @@ import type {
   ProtocolEntryRequest,
 } from "../../interfaces";
 import { ProtocolColorRows } from "./ProtocolColorRows";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProtocolEntryCardProps {
   entry: ProtocolEntryRequest;
@@ -36,44 +46,47 @@ export function ProtocolEntryCard({
   return (
     <div className="bg-background p-4 rounded-lg border border-border space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <select
+        <Select
           value={entry.chakraId || ""}
-          onChange={(e) => onUpdate(index, "chakraId", e.target.value)}
-          className="px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          onValueChange={(v) => onUpdate(index, "chakraId", v)}
         >
-          <option value="">Select chakra (optional)</option>
-          {chakras.map((chakra) => (
-            <option key={chakra.id} value={chakra.id}>
-              {chakra.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full border px-3 py-2 rounded-md">
+            <SelectValue placeholder="Select chakra (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            {chakras.map((chakra) => (
+              <SelectItem key={chakra.id} value={chakra.id}>
+                {chakra.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <input
+        <Input
           type="text"
           placeholder="Target Area *"
           required
           value={entry.targetArea}
           onChange={(e) => onUpdate(index, "targetArea", e.target.value)}
-          className="px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="border px-3 py-2 rounded-md"
         />
       </div>
 
-      <input
+      <Input
         type="text"
         placeholder="Technique *"
         required
         value={entry.technique}
         onChange={(e) => onUpdate(index, "technique", e.target.value)}
-        className="w-full px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className="border px-3 py-2 rounded-md"
       />
 
-      <textarea
+      <Textarea
         placeholder="Notes (optional)"
         rows={2}
         value={entry.notes || ""}
         onChange={(e) => onUpdate(index, "notes", e.target.value)}
-        className="w-full px-3 py-2 bg-white border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className="border px-3 py-2 rounded-md min-h-0"
       />
 
       <ProtocolColorRows
@@ -85,13 +98,14 @@ export function ProtocolEntryCard({
         onRemoveColor={onRemoveColor}
       />
 
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={() => onRemove(index)}
-        className="text-xs text-red-600 font-medium hover:underline"
+        className="h-auto p-0 text-xs font-medium text-red-600 hover:text-red-600"
       >
         Remove Entry
-      </button>
+      </Button>
     </div>
   );
 }
