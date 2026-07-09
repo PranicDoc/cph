@@ -1,5 +1,10 @@
 import { X, Search } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface TagInputProps {
   value: any[];
@@ -203,9 +208,9 @@ export function TagInput({
   return (
     <div className="relative" ref={containerRef}>
       {label && (
-        <label className="block text-sm font-semibold text-text-light mb-2">
+        <Label className="block text-sm font-semibold text-text-light mb-2">
           {label}
-        </label>
+        </Label>
       )}
       <div
         className="border-2 border-border rounded-lg p-2 flex flex-wrap gap-2 min-h-[48px] items-center focus-within:border-primary transition-all duration-200 bg-white cursor-text"
@@ -214,27 +219,32 @@ export function TagInput({
         {value.map((item, idx) => {
           const display = getDisplayText(item);
           return (
-            <span
+            <Badge
               key={getLogicText(item) + idx}
-              className={`inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium border border-primary/20 hover:bg-primary/20 transition-colors ${editableFields ? "cursor-pointer" : ""}`}
+              className={cn(
+                "gap-1.5 px-3 py-1 h-auto border-primary/20 hover:bg-primary/20 transition-colors",
+                editableFields && "cursor-pointer"
+              )}
               onClick={(e) => {
                 e.stopPropagation();
                 openPopover(idx, item);
               }}
             >
               {display}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(item);
                 }}
-                className="text-primary/60 hover:text-danger transition-colors p-0.5 rounded-full"
+                className="h-auto w-auto p-0.5 text-primary/60 hover:text-danger hover:bg-transparent"
                 aria-label={`Remove ${display}`}
               >
                 <X className="w-3 h-3" />
-              </button>
-            </span>
+              </Button>
+            </Badge>
           );
         })}
         <input
@@ -254,11 +264,11 @@ export function TagInput({
         <div className="absolute z-30 w-full mt-1 border border-border bg-white rounded-lg shadow-lg p-4 space-y-3">
           {Object.entries(editableFields).map(([key, config]) => (
             <div key={key}>
-              <label className="block text-xs font-semibold text-text-light mb-1">
+              <Label className="block text-xs font-semibold text-text-light mb-1">
                 {config.label}{" "}
                 <span className="font-normal text-text-light/60">(optional)</span>
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={editingValues[key] ?? ""}
                 onChange={(e) =>
@@ -270,25 +280,28 @@ export function TagInput({
                 }}
                 placeholder={config.placeholder}
                 autoFocus
-                className="w-full p-2 border border-border rounded-lg text-sm outline-none focus:border-primary transition-colors"
+                className="border p-2"
               />
             </div>
           ))}
           <div className="flex justify-end gap-2 pt-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={() => setEditingTagIdx(null)}
-              className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-background transition-colors"
+              className="px-3"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              size="xs"
               onClick={savePopover}
-              className="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              className="px-3"
             >
               Save
-            </button>
+            </Button>
           </div>
         </div>
       )}

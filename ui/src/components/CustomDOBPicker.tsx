@@ -1,4 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CustomDOBPickerProps {
   value: string;
@@ -36,20 +44,17 @@ export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }
     }
   };
 
-  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const y = e.target.value;
+  const handleYearChange = (y: string) => {
     setYear(y);
     updateParent(y, month, day);
   };
 
-  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const m = e.target.value;
+  const handleMonthChange = (m: string) => {
     setMonth(m);
     updateParent(year, m, day);
   };
 
-  const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const d = e.target.value;
+  const handleDayChange = (d: string) => {
     setDay(d);
     updateParent(year, month, d);
   };
@@ -63,40 +68,48 @@ export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }
     { v: '07', l: 'Jul' }, { v: '08', l: 'Aug' }, { v: '09', l: 'Sep' },
     { v: '10', l: 'Oct' }, { v: '11', l: 'Nov' }, { v: '12', l: 'Dec' }
   ];
-  
+
   const maxDaysInMonth = month && year ? new Date(parseInt(year), parseInt(month), 0).getDate() : 31;
   const days = Array.from({ length: maxDaysInMonth }, (_, i) => (i + 1).toString().padStart(2, '0'));
 
   return (
-    <div className={`flex gap-2 ${className || ''}`}>
-      <select 
-        value={month} 
-        onChange={handleMonthChange} 
-        disabled={disabled}
-        onBlur={onBlur} 
-        className="flex-1 p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
-      >
-        <option value="" disabled>Month</option>
-        {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-      </select>
-      <select 
-        value={day} 
-        onChange={handleDayChange} 
-        onBlur={onBlur} 
-        className="flex-1 p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
-      >
-        <option value="" disabled>Day</option>
-        {days.map(d => <option key={d} value={d}>{d}</option>)}
-      </select>
-      <select 
-        value={year} 
-        onChange={handleYearChange} 
-        onBlur={onBlur} 
-        className="flex-1 p-2.5 border-2 border-border rounded-lg text-sm focus:border-primary outline-none bg-white"
-      >
-        <option value="" disabled>Year</option>
-        {years.map(y => <option key={y} value={y}>{y}</option>)}
-      </select>
+    <div className={cn('flex gap-2', className)}>
+      <Select value={month} onValueChange={handleMonthChange} disabled={disabled}>
+        <SelectTrigger className="flex-1" onBlur={onBlur}>
+          <SelectValue placeholder="Month" />
+        </SelectTrigger>
+        <SelectContent>
+          {months.map((m) => (
+            <SelectItem key={m.v} value={m.v}>
+              {m.l}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={day} onValueChange={handleDayChange} disabled={disabled}>
+        <SelectTrigger className="flex-1" onBlur={onBlur}>
+          <SelectValue placeholder="Day" />
+        </SelectTrigger>
+        <SelectContent>
+          {days.map((d) => (
+            <SelectItem key={d} value={d}>
+              {d}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={year} onValueChange={handleYearChange} disabled={disabled}>
+        <SelectTrigger className="flex-1" onBlur={onBlur}>
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>
+              {y}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

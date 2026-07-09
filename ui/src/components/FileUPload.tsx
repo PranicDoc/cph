@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Upload, File as FileIcon, X, Download } from "lucide-react";
 import api from "../lib/axios";
+import { Button } from "@/components/ui/button";
 
 interface FileUploadProps {
   value?: (File | string)[];
@@ -59,14 +60,15 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
             return (
               <li key={idx} className="flex items-center gap-1.5">
                 <Download className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   onClick={() => downloadKey(item)}
                   disabled={downloading === item}
-                  className="text-sm text-primary underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs text-left disabled:opacity-50 transition-colors"
+                  className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs justify-start"
                 >
                   {keyToFilename(item)}
-                </button>
+                </Button>
                 {downloading === item && (
                   <span className="text-xs text-text-light flex-shrink-0">Opening...</span>
                 )}
@@ -132,14 +134,16 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
                     <span className="text-text-light/60 flex-shrink-0 text-xs">{formatSize(file.size)}</span>
                   )}
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => removeFile(idx)}
-                  className="text-text-light/50 hover:text-danger transition-colors p-0.5 rounded flex-shrink-0 ml-2"
+                  className="h-auto w-auto p-0.5 text-text-light/50 hover:text-danger hover:bg-transparent flex-shrink-0 ml-2"
                   aria-label={`Remove ${file ? file.name : item}`}
                 >
                   <X className="w-3.5 h-3.5" />
-                </button>
+                </Button>
               </li>
             );
           })}
