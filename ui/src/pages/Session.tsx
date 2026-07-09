@@ -20,6 +20,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "../components/ui/accordion";
+import { DataTable } from "@/components/ui/data-table";
+import type { ColumnDef } from "@tanstack/react-table";
+
+const scanReadingColumns: ColumnDef<
+  { id?: string; chakraName: string; energyLevel?: string; activationLevel?: string },
+  unknown
+>[] = [
+  { accessorKey: "chakraName", header: "Chakra" },
+  { accessorKey: "energyLevel", header: "Energy" },
+  { accessorKey: "activationLevel", header: "Activation" },
+];
 
 type SessionFormValues = {
   medicalCondition: string;
@@ -348,37 +359,15 @@ export default function Session() {
                               {scan.scanType} Scan
                             </h4>
 
-                            <table className="w-full border rounded-lg overflow-hidden">
-                              <thead className="bg-muted">
-                                <tr>
-                                  <th className="text-left px-3 py-2">
-                                    Chakra
-                                  </th>
-                                  <th className="text-left px-3 py-2">
-                                    Energy
-                                  </th>
-                                  <th className="text-left px-3 py-2">
-                                    Activation
-                                  </th>
-                                </tr>
-                              </thead>
-
-                              <tbody>
-                                {scan.readings.map((reading) => (
-                                  <tr key={reading.id} className="border-t">
-                                    <td className="px-3 py-2">
-                                      {reading.chakraName}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      {reading.energyLevel}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      {reading.activationLevel}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            <DataTable
+                              columns={scanReadingColumns}
+                              data={scan.readings}
+                              enableSorting={false}
+                              className="rounded-lg"
+                              headerRowClassName="bg-muted hover:bg-muted"
+                              headCellClassName="px-3 py-2 text-sm font-semibold text-text normal-case tracking-normal"
+                              cellClassName="px-3 py-2"
+                            />
                           </div>
                         ))}
                       </AccordionContent>

@@ -1,11 +1,6 @@
 import { useState } from "react";
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import { Skeleton } from "../components/ui/skeleton";
+import { createColumnHelper } from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
 import {
   Search,
   Plus,
@@ -177,12 +172,6 @@ export default function Patients() {
     selectPatient(patient.id);
   };
 
-  const table = useReactTable({
-    data: patients,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   const handleGenerateLink = async () => {
     setOpenPopup(true);
     try {
@@ -288,64 +277,19 @@ export default function Patients() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-primary text-white">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-6 py-4 font-semibold">
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx} className="border-b border-border">
-                    {columns.map((_, colIdx) => (
-                      <td key={colIdx} className="px-6 py-4">
-                        <Skeleton className="h-5 w-full max-w-[120px]" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-border hover:bg-primary/5 transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 text-text">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-6 py-8 text-center text-text-light"
-                  >
-                    No patients found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<ComputedPatient>
+          columns={columns}
+          data={patients}
+          isLoading={isLoading}
+          loadingRowCount={5}
+          enableSorting={false}
+          emptyMessage="No patients found."
+          className="rounded-none border-0"
+          headerRowClassName="bg-primary hover:bg-primary"
+          headCellClassName="px-6 py-4 font-semibold text-white text-sm normal-case tracking-normal"
+          cellClassName="px-6 py-4"
+          rowClassName="hover:bg-primary/5"
+        />
       </div>
 
       {showUpgradeModal && pendingHealingCaseId && (

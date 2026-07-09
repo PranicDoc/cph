@@ -1,14 +1,10 @@
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { createColumnHelper } from "@tanstack/react-table";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ComputedPatient, usePatient } from "../context/PatientContext";
-import { Skeleton } from "../components/ui/skeleton";
-import { Search, Download, Loader2 } from "lucide-react";
+import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Search, Download } from "lucide-react";
 import api from "../lib/axios";
 
 type PDFJob = ComputedPatient & {
@@ -100,8 +96,8 @@ export function PdfList() {
   };
 
   const observer = useRef<IntersectionObserver | null>(null);
-  const lastRowRef = useCallback(
-    (node: HTMLTableRowElement | null) => {
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
       if (isLoading || isFetchingMore) return;
       if (observer.current) observer.current.disconnect();
 
@@ -185,29 +181,25 @@ export function PdfList() {
         const record = info.row.original;
         return (
           <div className="flex justify-end">
-            <button
-              onClick={() => handleDownloadPdf(record)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-            >
+            <Button onClick={() => handleDownloadPdf(record)}>
               <Download className="w-4 h-4" />
               Download
-            </button>
+            </Button>
           </div>
         );
       },
     }),
   ];
 
-  const table = useReactTable({
-    data,
-    columns,
-    state: {
-      globalFilter: localFilter,
-    },
-    onGlobalFilterChange: setLocalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-  });
+  const filteredData = useMemo(
+    () =>
+      localFilter
+        ? data.filter((d) =>
+            d.fullName.toLowerCase().includes(localFilter.toLowerCase())
+          )
+        : data,
+    [data, localFilter]
+  );
 
   return (
     <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
@@ -227,74 +219,31 @@ export function PdfList() {
 
       {/* Table Content */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-primary text-white">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-6 py-4 font-semibold">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, idx) => (
-                <tr key={idx} className="border-b border-border">
-                  <td className="px-6 py-4">
-                    <Skeleton className="h-6 w-48" />
-                  </td>
-                  <td className="px-6 py-4 flex justify-end">
-                    <Skeleton className="h-8 w-28" />
-                  </td>
-                </tr>
-              ))
-            ) : table.getRowModel().rows.length > 0 ? (
-              table.getRowModel().rows.map((row, index) => {
-                const isLastRow = index === table.getRowModel().rows.length - 1;
-                return (
-                  <tr
-                    key={row.id}
-                    ref={isLastRow ? lastRowRef : null} // Attach observer to the last row
-                    className="border-b border-border hover:bg-primary/5 transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 text-text">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-6 py-8 text-center text-text-light"
-                >
-                  {searchTerm
-                    ? "No matching patients found."
-                    : "No PDFs generated yet."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <DataTable<PDFJob>
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+          loadingRowCount={5}
+          enableSorting={false}
+          emptyMessage={
+            searchTerm
+              ? "No matching patients found."
+              : "No PDFs generated yet."
+          }
+          className="rounded-none border-0"
+          headerRowClassName="bg-primary hover:bg-primary"
+          headCellClassName="px-6 py-4 font-semibold text-white text-sm normal-case tracking-normal"
+          cellClassName="px-6 py-4"
+          rowClassName="hover:bg-primary/5"
+        />
+
+        {/* Infinite-scroll sentinel: observed instead of the last table row */}
+        {!isLoading && filteredData.length > 0 && <div ref={sentinelRef} />}
 
         {/* Infinite Scroll Loading Indicator */}
         {isFetchingMore && (
           <div className="flex justify-center items-center p-4 text-primary">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            <Spinner className="mr-2" />
             <span className="text-sm font-medium">Loading more...</span>
           </div>
         )}

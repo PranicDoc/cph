@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { extractDetail } from "../lib/utils";
 import { format, parseISO } from "date-fns";
 import { UserCheck } from "lucide-react";
-import { WorkQueueTable } from "./WorkQueueTable";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useFollowups } from "../hooks/useFollowups";
 import api from "../lib/axios";
 import type { FollowupPatient } from "../types/workqueue";
@@ -38,13 +40,9 @@ export function FollowupTable({ healerId }: Props) {
       header: "Type",
       cell: (info) =>
         info.getValue() ? (
-          <span className="bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 text-xs font-medium">
-            Final
-          </span>
+          <Badge className="bg-purple-100 text-purple-700">Final</Badge>
         ) : (
-          <span className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-medium">
-            Interim
-          </span>
+          <Badge className="bg-blue-100 text-blue-700">Interim</Badge>
         ),
     }),
     columnHelper.display({
@@ -53,13 +51,14 @@ export function FollowupTable({ healerId }: Props) {
       cell: ({ row }) => {
         const isSending = resendMutation.isPending && resendMutation.variables?.caseId === row.original.caseId;
         return (
-          <button
+          <Button
+            variant="link"
             onClick={() => resendMutation.mutate({ caseId: row.original.caseId, isFinal: row.original.isFinal })}
             disabled={resendMutation.isPending}
-            className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+            className="h-auto p-0 text-xs font-medium"
           >
             {isSending ? "Sending…" : "Resend"}
-          </button>
+          </Button>
         );
       },
     }),
@@ -68,7 +67,7 @@ export function FollowupTable({ healerId }: Props) {
   return (
     <div className="rounded-2xl shadow-lg shadow-primary/20 bg-card p-6">
       <p className="text-sm font-semibold text-text mb-4">Follow-Up Required</p>
-      <WorkQueueTable<FollowupPatient>
+      <DataTable<FollowupPatient>
         columns={columns}
         data={data ?? []}
         isLoading={isLoading}
