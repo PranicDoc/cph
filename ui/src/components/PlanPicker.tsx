@@ -1,10 +1,13 @@
 import { useRef, useState } from "react";
-import { Loader2, CreditCard } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import {
   useCreditPackages,
   type PackageResponse,
 } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 interface PlanPickerProps {
   ownerId: string;
@@ -57,7 +60,7 @@ export function PlanPicker({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -67,9 +70,13 @@ export function PlanPicker({
       <div className="text-center py-12 text-text-light">
         <p>Failed to load plans. Please try again.</p>
         {onSkip && (
-          <button onClick={onSkip} className="mt-4 text-sm underline">
+          <Button
+            variant="link"
+            onClick={onSkip}
+            className="mt-4 h-auto p-0 text-sm font-normal text-current underline"
+          >
             Skip for now
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -109,18 +116,17 @@ export function PlanPicker({
                 {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
               </p>
               <div className="flex-1" />
-              <button
+              <Button
                 onClick={() => handleSelectPlan(pkg)}
                 disabled={isPending}
-                className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                  isFree
-                    ? "bg-border text-text hover:bg-border/80"
-                    : "bg-primary text-white hover:bg-primary-dark"
-                }`}
+                className={cn(
+                  "w-full",
+                  isFree && "bg-border text-text hover:bg-border/80"
+                )}
               >
                 {isThisSelected ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Spinner size="sm" className="text-current" />
                     Processing…
                   </span>
                 ) : isFree ? (
@@ -128,7 +134,7 @@ export function PlanPicker({
                 ) : (
                   "Select Plan"
                 )}
-              </button>
+              </Button>
             </div>
           );
         })}

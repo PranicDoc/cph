@@ -247,7 +247,7 @@ export function TagInput({
             </Badge>
           );
         })}
-        <input
+        <Input
           ref={inputRef}
           type="text"
           value={input}
@@ -255,7 +255,7 @@ export function TagInput({
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           placeholder={value.length === 0 ? placeholder : "Add more..."}
-          className="flex-1 min-w-[120px] outline-none text-sm bg-transparent placeholder:text-text-light/50"
+          className="flex-1 w-auto min-w-[120px] border-0 p-0 rounded-none bg-transparent placeholder:text-text-light/50 focus-visible:border-0"
         />
       </div>
 

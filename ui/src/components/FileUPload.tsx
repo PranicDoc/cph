@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Upload, File as FileIcon, X, Download } from "lucide-react";
 import api from "../lib/axios";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface FileUploadProps {
   value?: (File | string)[];
@@ -109,7 +110,7 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
           Drag & drop files here, or{" "}
           <span className="text-primary font-medium">click to browse</span>
         </p>
-        <input
+        <Input
           ref={inputRef}
           type="file"
           multiple
