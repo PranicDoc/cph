@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,9 @@ public class PatientService {
     private final SecurityContextUtil securityContextUtil;
     @Value("${app.base.url:http://localhost:3000}")
     private String baseUrl;
+
+    // Upper bound for the open-ended case-date filter; must stay within the DB timestamp range.
+    private static final Instant MAX_CASE_DATE = Instant.parse("9999-12-31T00:00:00Z");
 
     @Auditable(action = "CREATE_PATIENT")
     public PatientResponse create(PatientCreateRequest request) {
@@ -202,9 +206,22 @@ public class PatientService {
 
     @Auditable(action = "FETCH_PATIENTS")
     @Transactional(readOnly = true)
-    public List<PatientCaseResponse> getAllPatients() {
+    public List<PatientCaseResponse> getAllPatients(CaseStatus status, LocalDate startDate, LocalDate endDate,
+                                                    PatientSort sort) {
+        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("endDate must not be before startDate");
+        }
         UUID clinicId = securityContextUtil.getCurrentClinicId();
-        return patientRepository.fetchPatientsWithLatestCaseStatus(clinicId);
+        List<CaseStatus> statuses = status != null ? List.of(status) : List.of(CaseStatus.values());
+        Instant caseFrom = startDate != null
+                ? startDate.atStartOfDay(ZoneOffset.UTC).toInstant()
+                : Instant.EPOCH;
+        Instant caseTo = endDate != null
+                ? endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+                : MAX_CASE_DATE;
+        PatientSort effectiveSort = sort != null ? sort : PatientSort.DEFAULT;
+        return patientRepository.fetchPatientsWithLatestCaseStatus(
+                clinicId, statuses, caseFrom, caseTo, effectiveSort.toSort());
     }
 
     @Auditable(action = "FETCH_ACTIVE_PATIENTS")

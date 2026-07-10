@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
-import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Search,
   Plus,
@@ -18,14 +14,31 @@ import {
   BookText,
   ClipboardList,
   Pen,
+  Filter,
+  Check,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import {
   ComputedPatient,
   Patient,
+  PatientListFilters,
+  PatientSortOption,
   usePatient,
+  usePatientList,
 } from "../context/PatientContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ClosurePopup } from "./Closure";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UpgradeModal } from "../components/UpgradeModal";
@@ -34,13 +47,70 @@ import { toast } from "sonner";
 import { extractDetail } from "../lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const columnHelper = createColumnHelper<ComputedPatient>();
+// What the backend falls back to when no sort param is sent.
+const BACKEND_DEFAULT_SORT: PatientSortOption = "CASE_DATE_DESC";
+const SORT_STORAGE_KEY = "patients.defaultSort";
+
+const SORT_OPTIONS: { value: PatientSortOption; label: string }[] = [
+  { value: "CASE_DATE_DESC", label: "Latest case first" },
+  { value: "CASE_DATE_ASC", label: "Oldest case first" },
+  { value: "NAME_ASC", label: "Name A–Z" },
+  { value: "NAME_DESC", label: "Name Z–A" },
+];
+
+const isSortOption = (v: string | null): v is PatientSortOption =>
+  SORT_OPTIONS.some((o) => o.value === v);
+
+const getStoredDefaultSort = (): PatientSortOption => {
+  const stored = localStorage.getItem(SORT_STORAGE_KEY);
+  return isSortOption(stored) ? stored : BACKEND_DEFAULT_SORT;
+};
 
 export default function Patients() {
   const [openPopup, setOpenPopup] = useState<boolean>(false);
   const [generatedLink, setGeneratedLink] = useState<string>("");
   const [search, setSearch] = useState<string>("");
-  const { patients, isLoading, selectPatient } = usePatient();
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [userDefaultSort, setUserDefaultSort] = useState<PatientSortOption>(
+    getStoredDefaultSort
+  );
+  const [sort, setSort] = useState<PatientSortOption>(userDefaultSort);
+  const { selectPatient } = usePatient();
+
+  const listFilters = useMemo<PatientListFilters>(
+    () => ({
+      ...(statusFilter !== "ALL" && {
+        status: statusFilter as PatientListFilters["status"],
+      }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+      ...(sort !== BACKEND_DEFAULT_SORT && { sort }),
+    }),
+    [statusFilter, startDate, endDate, sort]
+  );
+
+  const activeFilterCount =
+    (statusFilter !== "ALL" ? 1 : 0) +
+    (startDate ? 1 : 0) +
+    (endDate ? 1 : 0) +
+    (sort !== userDefaultSort ? 1 : 0);
+
+  const resetFilters = () => {
+    setStatusFilter("ALL");
+    setStartDate("");
+    setEndDate("");
+    setSort(userDefaultSort);
+  };
+
+  const makeSortDefault = () => {
+    localStorage.setItem(SORT_STORAGE_KEY, sort);
+    setUserDefaultSort(sort);
+  };
+
+  // Filtering (status, case-date) and ordering (latest case first) happen on the backend.
+  const { patients, isLoading } = usePatientList(listFilters);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -68,31 +138,38 @@ export default function Patients() {
     },
   });
 
-  const columns = [
-    columnHelper.accessor("firstName", {
+  const columns: ColumnDef<ComputedPatient>[] = [
+    {
+      accessorKey: "firstName",
       header: "First Name",
-      cell: (info) => <span className="font-medium">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor("lastName", {
-      header: "Last Name",
-    }),
-    columnHelper.accessor("dob", {
-      header: "Date of Birth",
-    }),
-    columnHelper.accessor("gender", {
-      header: "Gender",
-    }),
-    columnHelper.accessor("contact", {
-      header: "Phone",
-    }),
-    columnHelper.accessor("status", {
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.firstName}</span>
+      ),
+    },
+    { accessorKey: "lastName", header: "Last Name" },
+    { accessorKey: "dob", header: "Date of Birth" },
+    { accessorKey: "gender", header: "Gender" },
+    { accessorKey: "contact", header: "Phone" },
+    {
+      accessorKey: "caseDate",
+      header: "Latest Case",
+      cell: ({ row }) =>
+        row.original.caseDate ? (
+          new Date(row.original.caseDate).toLocaleDateString()
+        ) : (
+          <span className="text-text-light">—</span>
+        ),
+    },
+    {
+      accessorKey: "status",
       header: "Status",
-      cell: (info) => renderStatusPill(info.getValue()),
-    }),
-    columnHelper.accessor("id", {
+      cell: ({ row }) => renderStatusPill(row.original.status),
+    },
+    {
+      id: "actions",
       header: "Actions",
-      cell: (info) => renderActions(info.row.original, "table"),
-    }),
+      cell: ({ row }) => renderActions(row.original, "table"),
+    },
   ];
 
   const handleSelectPatient = (patient: Patient) => {
@@ -133,9 +210,7 @@ export default function Patients() {
 
     return (
       <div
-        className={
-          isCard ? "flex flex-wrap gap-2" : "flex items-center gap-2"
-        }
+        className={isCard ? "flex flex-wrap gap-2" : "flex items-center gap-2"}
       >
         <Link
           to={`/session/${patient.healingCaseId}`}
@@ -156,7 +231,9 @@ export default function Patients() {
           )}
         </Link>
         <div
-          onClick={() => !generatePdfMutation.isPending && handleClosureButtonClick(patient)}
+          onClick={() =>
+            !generatePdfMutation.isPending && handleClosureButtonClick(patient)
+          }
           className={`inline-flex items-center gap-1.5 rounded-lg
             ${
               isActive || isCompleted
@@ -202,12 +279,6 @@ export default function Patients() {
     );
   }, [patients, search]);
 
-  const table = useReactTable({
-    data: filteredPatients,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   const handleGenerateLink = async () => {
     setOpenPopup(true);
     try {
@@ -215,7 +286,10 @@ export default function Patients() {
       setGeneratedLink(res.data.link);
     } catch (err) {
       setOpenPopup(false);
-      toast.error(extractDetail(err) || "Failed to generate registration link", { duration: 5000 });
+      toast.error(
+        extractDetail(err) || "Failed to generate registration link",
+        { duration: 5000 }
+      );
     }
   };
 
@@ -242,7 +316,9 @@ export default function Patients() {
                   await navigator.clipboard.writeText(generatedLink);
                   toast.success("Link copied to clipboard");
                 } catch {
-                  toast.error("Copy failed — please copy the link manually", { duration: 5000 });
+                  toast.error("Copy failed — please copy the link manually", {
+                    duration: 5000,
+                  });
                 }
               }}
               className="px-3 font-normal"
@@ -316,65 +392,117 @@ export default function Patients() {
               className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <div className="ml-auto flex items-center gap-2 font-normal shrink-0 hover:cursor-pointer">
+                <Filter className="w-4 h-4" />
+                {activeFilterCount > 0 && (
+                  <span className="bg-primary text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </div>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-text-light">
+                  Status
+                </label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Statuses</SelectItem>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="CLOSED">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-text-light">
+                  Case date
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    aria-label="Case date from"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="flex-1 min-w-0"
+                  />
+                  <span className="text-sm text-text-light">to</span>
+                  <Input
+                    type="date"
+                    aria-label="Case date to"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="flex-1 min-w-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-text-light">
+                    Sort by
+                  </label>
+                  {sort === userDefaultSort ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success">
+                      <Check className="w-3 h-3" />
+                      Default
+                    </span>
+                  ) : (
+                    <button
+                      onClick={makeSortDefault}
+                      className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                    >
+                      Make default
+                    </button>
+                  )}
+                </div>
+                <Select
+                  value={sort}
+                  onValueChange={(v) => setSort(v as PatientSortOption)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                        {option.value === userDefaultSort ? " (default)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={resetFilters}
+                  className="w-full font-normal"
+                >
+                  Reset to defaults
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-primary text-white">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-6 py-4 font-semibold">
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx} className="border-b border-border">
-                    {columns.map((_, colIdx) => (
-                      <td key={colIdx} className="px-6 py-4">
-                        <Skeleton className="h-5 w-full max-w-[120px]" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-border hover:bg-primary/5 transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 text-text">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-6 py-8 text-center text-text-light"
-                  >
-                    No patients found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <DataTable<ComputedPatient>
+            columns={columns}
+            data={filteredPatients}
+            isLoading={isLoading}
+            loadingRowCount={5}
+            enableSorting={false}
+            emptyMessage="No patients found."
+            className="rounded-none border-0"
+          />
         </div>
 
         <div className="md:hidden p-4 space-y-3">
@@ -406,6 +534,8 @@ export default function Patients() {
                     patient.dob && `DOB ${patient.dob}`,
                     patient.gender,
                     patient.contact,
+                    patient.caseDate &&
+                      `Case ${new Date(patient.caseDate).toLocaleDateString()}`,
                   ]
                     .filter(Boolean)
                     .join(" · ")}

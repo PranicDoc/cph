@@ -26,5 +26,6 @@ public record PatientCaseResponse (
        Instant createdAt,
        Instant updatedAt,
        CaseStatus status,
-       UUID healingCaseId
+       UUID healingCaseId,
+       Instant caseDate
 ) {}

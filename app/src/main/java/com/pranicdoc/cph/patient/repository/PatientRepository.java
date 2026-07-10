@@ -1,16 +1,20 @@
 package com.pranicdoc.cph.patient.repository;
 
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.patient.dto.PatientCaseResponse;
 import com.pranicdoc.cph.patient.dto.PatientResponse;
 import com.pranicdoc.cph.patient.model.Patient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,7 +49,8 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
             p.createdAt,
             p.updatedAt,
             hc.status,
-            hc.id
+            hc.id,
+            hc.createdAt
         )
         FROM Patient p
         LEFT JOIN HealingCase hc
@@ -59,8 +64,16 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
         WHERE p.clinicId = :clinicId
         AND p.isDeleted = false
         AND hc.id IS NOT NULL
+        AND hc.status IN :statuses
+        AND hc.createdAt >= :caseFrom
+        AND hc.createdAt < :caseTo
     """)
-    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(@Param("clinicId") UUID clinicId);
+    List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(
+            @Param("clinicId") UUID clinicId,
+            @Param("statuses") Collection<CaseStatus> statuses,
+            @Param("caseFrom") Instant caseFrom,
+            @Param("caseTo") Instant caseTo,
+            Sort sort);
 
     @Query(""" 
         SELECT COUNT(p) FROM Patient p WHERE p.healerId = :healerId

@@ -1,16 +1,19 @@
 package com.pranicdoc.cph.patient.controller;
 
 import com.pranicdoc.cph.common.dto.PageResponse;
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.patient.dto.*;
 import com.pranicdoc.cph.patient.service.PatientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,8 +36,12 @@ public class PatientController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PatientCaseResponse>> getAllPatients() {
-        return ResponseEntity.ok(patientService.getAllPatients());
+    public ResponseEntity<List<PatientCaseResponse>> getAllPatients(
+            @RequestParam(required = false) CaseStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) PatientSort sort) {
+        return ResponseEntity.ok(patientService.getAllPatients(status, startDate, endDate, sort));
     }
 
     @GetMapping("/{id}")

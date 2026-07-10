@@ -23,6 +23,20 @@ export type Patient = {
   gender: string;
   contact: string;
   status: "DRAFT" | "ACTIVE" | "CLOSED"; // Fixed to match Patients.tsx
+  caseDate?: string | null; // createdAt of the latest healing case
+};
+
+export type PatientSortOption =
+  | "CASE_DATE_DESC" // default: latest case first
+  | "CASE_DATE_ASC"
+  | "NAME_ASC"
+  | "NAME_DESC";
+
+export type PatientListFilters = {
+  status?: "DRAFT" | "ACTIVE" | "CLOSED";
+  startDate?: string; // yyyy-MM-dd
+  endDate?: string; // yyyy-MM-dd
+  sort?: PatientSortOption;
 };
 
 export interface HealingCase {
@@ -90,10 +104,29 @@ const calculateGender = (gender: string) => {
 
 // ---- API FETCHERS ----
 
-const fetchPatients = async (): Promise<Patient[]> => {
-  const res = await api.get("/api/v1/patients");
+const fetchPatients = async (
+  filters: PatientListFilters = {}
+): Promise<Patient[]> => {
+  const params: Record<string, string> = {};
+  if (filters.status) params.status = filters.status;
+  if (filters.startDate) params.startDate = filters.startDate;
+  if (filters.endDate) params.endDate = filters.endDate;
+  if (filters.sort) params.sort = filters.sort;
+  const res = await api.get("/api/v1/patients", { params });
   return res.data;
 };
+
+const toComputedPatient = (
+  p: Patient,
+  sessions: HealingCase[] = []
+): ComputedPatient => ({
+  ...p,
+  fullName: `${p.firstName} ${p.lastName}`,
+  age: calculateAge(p.dob),
+  gender: calculateGender(p.gender),
+  visitCount: sessions.length,
+  lastVisit: sessions[0]?.createdAt || null,
+});
 
 const fetchHealingCases = async (): Promise<HealingCase[]> => {
   //   const res = await api.get("/api/v1/cases");
@@ -125,7 +158,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
     error: patientsError,
   } = useQuery({
     queryKey: ["patients"],
-    queryFn: fetchPatients,
+    queryFn: () => fetchPatients(),
     enabled: isAuthenticated,
   });
 
@@ -149,14 +182,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
-      return {
-        ...p,
-        fullName: `${p.firstName} ${p.lastName}`,
-        age: calculateAge(p.dob),
-        gender: calculateGender(p.gender),
-        visitCount: patientSessions.length,
-        lastVisit: patientSessions[0]?.createdAt || null,
-      };
+      return toComputedPatient(p, patientSessions);
     });
   }, [rawPatients, rawCases]);
 
@@ -194,7 +220,7 @@ export const PatientProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// ---- HOOK ----
+// ---- HOOKS ----
 
 export const usePatient = () => {
   const context = useContext(PatientContext);
@@ -202,4 +228,33 @@ export const usePatient = () => {
     throw new Error("usePatient must be used within PatientProvider");
   }
   return context;
+};
+
+/**
+ * Backend-filtered patient list. Filtering (status, case-date range) and
+ * ordering (latest case first) are done by the API — the UI only displays
+ * what comes back.
+ */
+export const usePatientList = (filters: PatientListFilters = {}) => {
+  const { isAuthenticated } = useAuth();
+
+  const {
+    data: rawPatients = [],
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: ["patients", filters],
+    queryFn: () => fetchPatients(filters),
+    enabled: isAuthenticated,
+  });
+
+  const patients = useMemo<ComputedPatient[]>(
+    () =>
+      Array.isArray(rawPatients)
+        ? rawPatients.map((p) => toComputedPatient(p))
+        : [],
+    [rawPatients]
+  );
+
+  return { patients, isLoading: isPending, error };
 };
