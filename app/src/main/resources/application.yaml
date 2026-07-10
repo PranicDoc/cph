@@ -26,6 +26,17 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+    properties:
+      hibernate:
+        # D-19: exposes SessionFactory.getStatistics().getPrepareStatementCount()
+        # so SqlCountAssertionTest can assert a bounded SQL statement count per
+        # request (permanent regression guard against N+1 reintroduction).
+        generate_statistics: true
+        # D-25: default global fix for N+1 across per-entity lazy collection
+        # loads — Hibernate batches up to 50 uninitialized collections of the
+        # same role into a single "WHERE id IN (...)" query instead of firing
+        # one query per parent entity/collection.
+        default_batch_fetch_size: 50
 
   flyway:
     enabled: true

@@ -4,6 +4,22 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+  flyway:
+    # Pre-existing, unrelated-to-this-phase defect (documented in STATE.md as
+    # "CreditGateIntegrationTest Flyway/H2 issue"): the production migration
+    # chain uses Postgres-only DDL — TIMESTAMPTZ (H2's PostgreSQL compat mode
+    # only recognizes the spelled-out "TIMESTAMP WITH TIME ZONE") and partial
+    # indexes ("CREATE INDEX ... WHERE ...", unsupported by H2 2.2.224 in any
+    # mode) — neither of which H2 can parse. This has blocked EVERY
+    # @SpringBootTest that boots Flyway in this codebase, not just this
+    # plan's new test (confirmed: CreditGateIntegrationTest, an existing
+    # unmodified test, fails identically). Rewriting 20+ migration files for
+    # H2 compatibility is out of scope for this plan. Disabling Flyway for
+    # the test profile finally activates the `ddl-auto: create-drop` setting
+    # below (Hibernate generates the schema straight from JPA annotations,
+    # sidestepping the raw-SQL incompatibilities entirely) — this was already
+    # configured but dead code as long as Flyway ran first and failed.
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -17,10 +33,59 @@ spring:
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  # spring-boot-starter-mail only auto-configures a JavaMailSender bean when
+  # spring.mail.host is set; InviteService requires JavaMailSender
+  # unconditionally, so every @SpringBootTest needs SOME host value even
+  # though no test in this suite actually sends mail (pre-existing gap, same
+  # class of issue as the app.jwt.secret / credit-service.base-url notes
+  # below).
+  mail:
+    host: localhost
+    port: 1025
+  # GoogleTokenVerifier @Value-injects the OAuth client-id with no default —
+  # same eager-field-injection class of gap as app.jwt.secret below; no test
+  # exercises Google login, dummy values only.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            scope: [openid, email, profile]
+
+app:
+  # Test-only fixed values for @Value(no-default) properties that are only
+  # ever given real values in application-prod.yml (via env vars) — every
+  # @SpringBootTest needs SOME value here regardless of whether the feature
+  # is exercised, since these are plain field injections resolved eagerly at
+  # bean-creation time, not lazy/conditional lookups. Pre-existing gap,
+  # unrelated to this phase (see application-test.yaml credit-service note
+  # below for the same class of issue).
+  jwt:
+    secret: fk6JC1uv+OE7IbpytRxWetyFg2WO38y2gM5uOeKsXuvfn6aMeKBlP7Dh0tJL2D0cYtUzIPAak6jtin2i/c+RMQ==
+  feedback:
+    url: http://localhost:5173/feedback
+  invite:
+    url: http://localhost:5173/accept-invite
 
 creditservice:
   api-key: test-api-key
   # base-url is NOT set here — WireMock injects it via @ConfigureWireMock(property = "creditservice.base-url")
+
+# credit-service (hyphenated) is a SEPARATE property namespace from
+# creditservice above — CreditProxyConfig's @Value("${credit-service.base-url}")
+# / @Value("${credit-service.api-key}") fields are resolved eagerly during
+# @Configuration bean creation regardless of whether anything downstream
+# consumes the RestClient bean, so every @SpringBootTest needs a value here
+# even when the credit-service HTTP path itself is mocked out (pre-existing
+# gap — CreditGateIntegrationTest's WireMock override only sets the
+# no-hyphen "creditservice.base-url" key, which does not satisfy this
+# placeholder either). Harmless dummy value: nothing in the test suite
+# actually dispatches a request through this RestClient bean.
+credit-service:
+  base-url: http://localhost:19999
+  api-key: test-api-key
 
 storage:
   provider: R2
