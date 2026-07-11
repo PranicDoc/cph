@@ -33,15 +33,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -111,6 +114,14 @@ class SqlCountAssertionTest {
     // session count increases.
     private static final long GENERATE_PDF_SINGLE_SESSION_BOUND = 30L;
 
+    // Task 2 / D-25: proves the N+1 fix — observed 36 (vs. 19 for the
+    // single-session case above), NOT the ~114 a linear per-session N+1
+    // would produce, even though this fixture has 6x the sessions and 2
+    // TreatmentSteps. Before the fix (EAGER targets, no batch-fetch,
+    // per-session HPU lookup, full lazy graph traversal) this scaled
+    // linearly with session count and blew well past this bound.
+    private static final long GENERATE_PDF_MULTI_SESSION_BOUND = 40L;
+
     @Test
     void dashboardSummary_boundedQueryCount() throws Exception {
         UUID healerId = UUID.randomUUID();
@@ -153,6 +164,59 @@ class SqlCountAssertionTest {
         assertThat(queryCount)
                 .as("POST /api/v1/cases/generate-pdf must issue a bounded SQL statement count")
                 .isLessThanOrEqualTo(GENERATE_PDF_SINGLE_SESSION_BOUND);
+    }
+
+    @Test
+    void generatePdf_multiSession_boundedQueryCount_provesNoNPlus1() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        UUID clinicId = UUID.randomUUID();
+        doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
+
+        // 6 sessions (each with a scan/symptomFeedback/qualitativeFeedback) +
+        // a HealingDetails with 2 TreatmentSteps — if the N+1 fix regresses,
+        // this fixture's query count grows proportionally with session
+        // count and blows past GENERATE_PDF_MULTI_SESSION_BOUND.
+        HealingCase healingCase = createCaseWithSessions(healerId, clinicId, 6, true);
+
+        Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        stats.clear();
+
+        mockMvc.perform(post("/api/v1/cases/generate-pdf")
+                        .param("healingCaseId", healingCase.getId().toString())
+                        .cookie(accessTokenCookie(healerId, clinicId)))
+                .andExpect(status().isAccepted());
+
+        long queryCount = stats.getPrepareStatementCount();
+        System.out.println("[SqlCountAssertionTest] generate-pdf (6 sessions + treatmentSteps) prepared statements = " + queryCount);
+        assertThat(queryCount)
+                .as("POST /api/v1/cases/generate-pdf must stay bounded as session count grows (no N+1)")
+                .isLessThanOrEqualTo(GENERATE_PDF_MULTI_SESSION_BOUND);
+    }
+
+    @Test
+    void generatePdf_creditGate_runsOutsideActiveTransaction() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        UUID clinicId = UUID.randomUUID();
+
+        // D-18 (T-23-04-CG): record whether a DB transaction is active at the
+        // exact moment checkAndDeduct is invoked. Must be false — proves the
+        // credit-gate HTTP call no longer holds a Hikari connection.
+        AtomicBoolean txActiveDuringDeduct = new AtomicBoolean(true);
+        doAnswer(invocation -> {
+            txActiveDuringDeduct.set(TransactionSynchronizationManager.isActualTransactionActive());
+            return null;
+        }).when(creditGateService).checkAndDeduct(any(), any(), any());
+
+        HealingCase healingCase = createCaseWithSessions(healerId, clinicId, 1, false);
+
+        mockMvc.perform(post("/api/v1/cases/generate-pdf")
+                        .param("healingCaseId", healingCase.getId().toString())
+                        .cookie(accessTokenCookie(healerId, clinicId)))
+                .andExpect(status().isAccepted());
+
+        assertThat(txActiveDuringDeduct.get())
+                .as("creditGateService.checkAndDeduct must run with NO active DB transaction (D-18)")
+                .isFalse();
     }
 
     // ── Fixtures ─────────────────────────────────────────────────────────────

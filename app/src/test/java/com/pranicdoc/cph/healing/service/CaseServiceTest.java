@@ -58,6 +58,13 @@ class CaseServiceTest {
     @Mock private NotificationService notificationService;
     @Spy  private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     @Mock private CreditGateService creditGateService;
+    // D-18: CaseService self-injects its own Spring proxy via ObjectProvider
+    // (see CaseService's `self` field javadoc) so postMessageToGeneratePdf's
+    // delegated calls cross the @Transactional AOP proxy instead of silently
+    // skipping transactionality via self-invocation. In this plain-Mockito
+    // unit test there is no real proxy, so self.getObject() is stubbed to
+    // return the same @InjectMocks instance (see initSelfProxy() below).
+    @Mock private org.springframework.beans.factory.ObjectProvider<CaseService> self;
 
     @InjectMocks
     private CaseService caseService;
@@ -65,6 +72,11 @@ class CaseServiceTest {
     @BeforeEach
     void initTransactionSync() {
         TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @BeforeEach
+    void initSelfProxy() {
+        lenient().when(self.getObject()).thenReturn(caseService);
     }
 
     @AfterEach
@@ -123,7 +135,8 @@ class CaseServiceTest {
 
         // Wire mocks
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
-        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId))
                 .thenReturn(Optional.empty());
@@ -168,7 +181,8 @@ class CaseServiceTest {
         Patient patient = org.mockito.Mockito.mock(Patient.class);
 
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
-        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
         when(securityContextUtil.getCurrentClinicCode()).thenReturn("CLINIC01");
@@ -193,7 +207,7 @@ class CaseServiceTest {
                 .build();
 
         doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
-        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(caseRepository.existsById(caseId)).thenReturn(true);
 
         assertThrows(InsufficientCreditsException.class,
                 () -> caseService.postMessageToGeneratePdf(caseId));
