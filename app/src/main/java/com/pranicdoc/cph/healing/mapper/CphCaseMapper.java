@@ -68,17 +68,19 @@ public abstract class CphCaseMapper {
 
     @Named("toSortedSessions")
     public List<SessionSnapshot> toSortedSessions(List<HealingSession> sessions) {
-        if (sessions == null) return Collections.emptyList();
+        if (sessions == null || sessions.isEmpty()) return Collections.emptyList();
+        // D-25/INFRA-01: hpuRepository.findByHealingCaseId(...) is keyed by
+        // healingCaseId, not sessionId — every session in this list resolves
+        // to the SAME row. Hoisted out of the per-session map() below: this
+        // was a confirmed N+1 (one identical query per session) on the
+        // PDF-generation snapshot load path.
+        HealerProtocolUnderstandingSnapshot hpu = hpuRepository
+                .findByHealingCaseId(sessions.get(0).getHealingCase().getId())
+                .map(this::toHpuSnapshot)
+                .orElse(null);
         return sessions.stream()
                 .sorted(Comparator.comparingInt(HealingSession::getSessionNumber))
-                .map(s -> {
-                    SessionSnapshot base = toSessionSnapshot(s);
-                    HealerProtocolUnderstandingSnapshot hpu = hpuRepository
-                            .findByHealingCaseId(s.getHealingCase().getId())
-                            .map(this::toHpuSnapshot)
-                            .orElse(null);
-                    return base.withHealerProtocolUnderstanding(hpu);
-                })
+                .map(s -> toSessionSnapshot(s).withHealerProtocolUnderstanding(hpu))
                 .toList();
     }
 

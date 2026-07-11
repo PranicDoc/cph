@@ -7,6 +7,7 @@ import com.pranicdoc.cph.healing.dto.SymptomFeedbackDTO;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -24,6 +26,22 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
     Page<HealingCase> findByHealerId(UUID healerId, Pageable pageable);
 
     boolean existsByPatientIdAndClinicIdAndStatus(UUID uuid, UUID currentClinicId, CaseStatus caseStatus);
+
+    /**
+     * D-18/D-25/INFRA-01: bounded load for the PDF-generation snapshot path
+     * (CaseService.buildAndEnqueuePdfJob). JOIN-FETCHes {@code sessions} in
+     * the same query (a single List/bag association is safe to fetch-join;
+     * HealingCase has other List collections too — symptoms, medications —
+     * so joining more than one of them here would trip Hibernate's
+     * MultipleBagFetchException). The remaining N+1 surface (each session's
+     * scans/symptomFeedbacks/qualitativeFeedbacks, and TreatmentStep.targets)
+     * is bounded instead via hibernate.default_batch_fetch_size (see
+     * application.yaml) — Hibernate batches same-role lazy collection loads
+     * across all already-loaded sessions/steps into one "WHERE id IN (...)"
+     * query instead of one query per parent.
+     */
+    @EntityGraph(attributePaths = "sessions")
+    Optional<HealingCase> findWithSessionsById(UUID id);
 
     @Query("""
         SELECT hc.id

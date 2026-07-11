@@ -43,8 +43,10 @@ import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.storage.service.StorageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -79,6 +81,13 @@ public class CaseService {
     private final CookieUtil cookieUtil;
     private final ApplicationEventPublisher eventPublisher;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    // D-18: self-injection via ObjectProvider so postMessageToGeneratePdf can
+    // invoke validateCaseExists/buildAndEnqueuePdfJob THROUGH the Spring
+    // proxy — a plain `this.foo()` call would not cross the @Transactional
+    // AOP proxy (self-invocation), silently running without a transaction.
+    // ObjectProvider defers bean lookup past construction, avoiding a
+    // circular-dependency error from injecting CaseService into itself.
+    private final ObjectProvider<CaseService> self;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -459,12 +468,52 @@ public class CaseService {
         );
     }
 
+    /**
+     * D-18 (T-23-04-CG): the credit-gate HTTP call (checkAndDeduct) must run
+     * with NO active DB transaction — a slow/hung creditService must not pin
+     * a Hikari connection. Propagation.NOT_SUPPORTED overrides the class-level
+     * @Transactional so this entry method itself opens no transaction; the
+     * existence check and the DB work below each run in their OWN short
+     * transaction, invoked through the self-proxy (see `self` field javadoc).
+     * Ordering (validate → deduct → DB work), the unconditional deduct, the
+     * existing-job branch, and the afterCommit publish are all unchanged.
+     */
     @Auditable(action = "SEND_MESSAGE")
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
-        HealingCase healingCase = findOrThrow(healingCaseId);
+        self.getObject().validateCaseExists(healingCaseId);
+
         creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
                 securityContextUtil.getCurrentClinicId(), healingCaseId);
+
+        return self.getObject().buildAndEnqueuePdfJob(healingCaseId);
+    }
+
+    /**
+     * D-18 step 1: brief existence check in its own read-only transaction —
+     * opens and closes a Hikari connection before the credit-gate HTTP call
+     * below, preserving the pre-refactor "case not found" -> throw-before-
+     * deduct behavior.
+     */
+    @Transactional(readOnly = true)
+    public void validateCaseExists(UUID healingCaseId) {
+        if (!caseRepository.existsById(healingCaseId)) {
+            throw new ResourceNotFoundException("HealingCase", healingCaseId);
+        }
+    }
+
+    /**
+     * D-18 step 2 / D-25 /INFRA-01: snapshot build + existing-job branch +
+     * save + afterCommit publish, all inside one transaction — runs AFTER the
+     * credit-gate HTTP call returns, so no connection is held during that
+     * round-trip. Uses the bounded @EntityGraph load (findWithSessionsById)
+     * instead of the plain findOrThrow + full lazy traversal that caused the
+     * PDF-path N+1.
+     */
+    @Transactional
+    public JobAckResponse buildAndEnqueuePdfJob(UUID healingCaseId) {
+        HealingCase healingCase = caseRepository.findWithSessionsById(healingCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", healingCaseId));
         Patient patientEntity = patientRepository.findById(healingCase.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("No Patient found"));
 

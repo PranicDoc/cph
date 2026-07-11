@@ -39,7 +39,12 @@ public class TreatmentStep extends BaseEntity {
     @Column(name = "step", nullable = false)
     private int step;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    // D-25/INFRA-01: was FetchType.EAGER — fired one extra SELECT per
+    // TreatmentStep loaded (N+1 on the PDF-generation snapshot path).
+    // hibernate.default_batch_fetch_size (application.yaml) batches this
+    // LAZY collection's load across all TreatmentSteps in the persistence
+    // context into one "WHERE id IN (...)" query.
+    @ElementCollection(fetch = FetchType.LAZY)
     private List<String> targets;
 
     @Column(name = "color")

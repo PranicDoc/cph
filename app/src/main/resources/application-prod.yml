@@ -5,7 +5,14 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
+      # D-18: was 5 — exhausted at 10 concurrent users (Gatling
+      # AdminScenarioSimulation baseline 2026-07-07: 11/16 pass, 5 KO all
+      # "found 502" — pool exhaustion). Raised to 15; stay well under
+      # Aiven's plan-tier max_connections ceiling (shared across every cph
+      # instance + pdfWorker + creditService connecting to the same
+      # Aiven-managed Postgres) — re-check the ceiling before raising
+      # further or before adding more concurrently-deployed instances.
+      maximum-pool-size: 15
       minimum-idle: 1
       connection-timeout: 30000
       idle-timeout: 30000
