@@ -15,7 +15,12 @@ import java.util.UUID;
 /**
  * HandlerInterceptor that enables the Hibernate @Filter("tenantFilter")
  * on every authenticated request. This ensures all JPA queries are
- * automatically scoped to the current tenant (clinic).
+ * automatically scoped to the current tenant (healer).
+ *
+ * NOTE (26-03): PATIENT_CASE/SELF_REG sessions have no real healerId yet
+ * (D-26-04, resolved in 26-11) — those requests fall into the catch below
+ * and run with the filter skipped, a known deliberate transient state
+ * covered by JwtClaimShapeTest's @Disabled patient-token test.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,13 +36,13 @@ public class TenantInterceptor implements HandlerInterceptor {
             @NonNull Object handler) {
 
         try {
-            UUID clinicId = securityContextUtil.getCurrentClinicId();
-            if (clinicId == null) {
-                throw new IllegalStateException("Missing clinicId");
+            UUID healerId = securityContextUtil.getCurrentHealerId();
+            if (healerId == null) {
+                throw new IllegalStateException("Missing healerId");
             }
-            TenantContext.set(clinicId);
+            TenantContext.set(healerId);
             Session session = entityManager.unwrap(Session.class);
-            session.enableFilter("tenantFilter").setParameter("clinicId", clinicId);
+            session.enableFilter("tenantFilter").setParameter("healerId", healerId);
         } catch (IllegalStateException ignored) {
             // No auth context (public endpoints) — skip filter
         }

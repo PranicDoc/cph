@@ -6,8 +6,8 @@ public class TenantContext {
 
     private static final ThreadLocal<UUID> CURRENT = new ThreadLocal<>();
 
-    public static void set(UUID clinicId) {
-        CURRENT.set(clinicId);
+    public static void set(UUID healerId) {
+        CURRENT.set(healerId);
     }
 
     public static UUID get() {
