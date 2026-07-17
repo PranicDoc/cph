@@ -47,3 +47,25 @@ ALTER TABLE protocol_color_mapping
     ADD CONSTRAINT uq_pcm_protocol_color_usage_healer UNIQUE (protocol_name, color_id, usage_type, healer_id);
 
 ALTER TABLE protocol_color_mapping_aud ADD COLUMN IF NOT EXISTS healer_id UUID;
+
+-- -----------------------------------------------------------------------------
+-- Backfill: patient_medical_history.healer_id <- patient.healer_id (single-hop
+-- join via patient_id; patient.healer_id was already backfilled by V3).
+-- Idempotency-guarded so this UPDATE is safely re-runnable.
+-- -----------------------------------------------------------------------------
+
+-- Join hop: patient_medical_history.patient_id -> patient.id
+UPDATE patient_medical_history pmh
+    SET healer_id = p.healer_id
+    FROM patient p
+    WHERE pmh.patient_id = p.id
+      AND pmh.healer_id IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- protocol_color_mapping receives NO backfill. It follows the nullable
+-- system-vs-custom catalog pattern (NULL healer_id = system row) exactly as
+-- chakra_catalog/prana_color_catalog did in 25-02's recorded "catalog = none"
+-- decision — the column exists here for _aud/UNIQUE parity and future custom
+-- rows, not for a data migration. healer_id remains NULL on this table after
+-- this migration — expected.
+-- -----------------------------------------------------------------------------
