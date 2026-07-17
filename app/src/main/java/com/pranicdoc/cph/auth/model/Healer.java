@@ -2,14 +2,17 @@ package com.pranicdoc.cph.auth.model;
 
 import com.pranicdoc.cph.common.enums.HealingLevel;
 import com.pranicdoc.cph.common.enums.Role;
-import com.pranicdoc.cph.common.model.TenantEntity;
+import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.envers.Audited;
 
+import java.util.UUID;
+
 /**
- * Healer entity — a practitioner belonging to a clinic.
- * Tenant-scoped (clinicId from TenantEntity).
+ * Healer entity — a practitioner. Post-26-03, Healer is the tenant ROOT
+ * (not tenant-scoped) — it no longer extends TenantEntity/carries a
+ * healer_id column of its own.
  */
 @Entity
 @Table(name = "healer")
@@ -19,7 +22,14 @@ import org.hibernate.envers.Audited;
 @AllArgsConstructor
 @Builder
 @Audited
-public class Healer extends TenantEntity {
+public class Healer extends BaseEntity {
+
+    // BRIDGE (removed in 26-09/26-12): keeps healer.getClinicId()/setClinicId()
+    // alive for auth + credit-boundary callers until they migrate and the
+    // healer.clinic_id column is dropped. Plain column, NOT tenant/filtered.
+    @Deprecated
+    @Column(name = "clinic_id")
+    private UUID clinicId;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;

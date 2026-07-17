@@ -79,8 +79,7 @@ public class Patient extends TenantEntity {
     @Column(name = "zip", length = 10)
     private String zip;
 
-    @Column(name = "healer_id", columnDefinition = "uuid")
-    private UUID healerId;
+    // healerId is inherited from TenantEntity (post-26-03: maps the same healer_id column)
 
     // 1:1 bidirectional with PatientMedicalHistory (living master, updated anytime)
     @OneToOne(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

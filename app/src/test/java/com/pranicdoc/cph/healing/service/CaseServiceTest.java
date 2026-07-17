@@ -123,13 +123,15 @@ class CaseServiceTest {
 
         HealingCase healingCase = HealingCase.builder()
                 .patientId(patientId)
-                .healerId(UUID.randomUUID())
                 .status(CaseStatus.CLOSED)
                 .sessions(new ArrayList<>(List.of(session)))
                 .closure(closure)
                 .symptoms(new ArrayList<>())
                 .medications(new ArrayList<>())
                 .build();
+        // healerId is inherited from TenantEntity (post-26-03) — plain @Builder does not
+        // include superclass fields, so set it via the inherited setter after build().
+        healingCase.setHealerId(UUID.randomUUID());
 
         Patient patient = org.mockito.Mockito.mock(Patient.class);
 
@@ -172,12 +174,13 @@ class CaseServiceTest {
         UUID patientId = UUID.randomUUID();
         HealingCase healingCase = HealingCase.builder()
                 .patientId(patientId)
-                .healerId(UUID.randomUUID())
                 .status(CaseStatus.DRAFT)
                 .sessions(new ArrayList<>())
                 .symptoms(new ArrayList<>())
                 .medications(new ArrayList<>())
                 .build();
+        // healerId is inherited from TenantEntity (post-26-03) — set via inherited setter.
+        healingCase.setHealerId(UUID.randomUUID());
         Patient patient = org.mockito.Mockito.mock(Patient.class);
 
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
@@ -199,12 +202,13 @@ class CaseServiceTest {
         UUID patientId = UUID.randomUUID();
         HealingCase healingCase = HealingCase.builder()
                 .patientId(patientId)
-                .healerId(UUID.randomUUID())
                 .status(CaseStatus.DRAFT)
                 .sessions(new ArrayList<>())
                 .symptoms(new ArrayList<>())
                 .medications(new ArrayList<>())
                 .build();
+        // healerId is inherited from TenantEntity (post-26-03) — set via inherited setter.
+        healingCase.setHealerId(UUID.randomUUID());
 
         doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);

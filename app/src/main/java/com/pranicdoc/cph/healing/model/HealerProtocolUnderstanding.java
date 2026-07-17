@@ -21,8 +21,7 @@ public class HealerProtocolUnderstanding extends TenantEntity {
     @Column(name = "healing_case_id", nullable = false, unique = true)
     private UUID healingCaseId;
 
-    @Column(name = "healer_id", nullable = false)
-    private UUID healerId;
+    // healerId is inherited from TenantEntity (post-26-03: maps the same healer_id column)
 
     @Column(name = "completion_date")
     private LocalDate completionDate;

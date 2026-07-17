@@ -29,8 +29,7 @@ public class HealingCase extends TenantEntity {
     @Column(name = "patient_id", nullable = false)
     private UUID patientId;
 
-    @Column(name = "healer_id", nullable = false)
-    private UUID healerId;
+    // healerId is inherited from TenantEntity (post-26-03: maps the same healer_id column)
 
     @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "medical_condition", columnDefinition = "TEXT")

@@ -9,7 +9,9 @@ import java.util.List;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface HealingCaseMapper {
 
-    @Mapping(target = "healerId", ignore = true)
+    // healerId is inherited from TenantEntity (post-26-03); Lombok's plain @Builder does not
+    // expose superclass properties, so MapStruct no longer sees "healerId" as a target property
+    // to (un)map here — removing the now-invalid @Mapping(target = "healerId", ignore = true).
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "medicalSnapshot", ignore = true)
     @Mapping(target = "symptoms", ignore = true)
