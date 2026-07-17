@@ -234,14 +234,23 @@ class SqlCountAssertionTest {
      * which require TenantContext to be populated by a live HTTP request) and
      * flushed + detached so the MockMvc-driven request below triggers fresh
      * lazy loads instead of reusing this method's persistence context.
+     *
+     * 26-03: the Hibernate {@code tenantFilter} now scopes by {@code healer_id}
+     * (populated from the request's authenticated {@code healerId}, see
+     * {@code accessTokenCookie} below) rather than {@code clinic_id} — every
+     * seeded row's tenant column must therefore be set to {@code healerId},
+     * not {@code clinicId} (which remains a distinct value, only used for the
+     * still-unchanged JWT clinicId/clinicCode claim), or the filter will scope
+     * these rows out and the MockMvc requests below will 404/fail.
      */
     private HealingCase createCaseWithSessions(UUID healerId, UUID clinicId, int sessionCount,
                                                 boolean withTreatmentSteps) {
         // Patient has no public constructor/builder — only the static create()
-        // factory, which reads the clinicId from TenantContext (normally
-        // populated by TenantInterceptor per-request). Set it manually for
-        // this out-of-request fixture setup.
-        TenantContext.set(clinicId);
+        // factory, which reads the tenant value from TenantContext (normally
+        // populated by TenantInterceptor per-request) as a bootstrap value,
+        // then Patient.create() itself overwrites it with the healerId arg
+        // below — so the bootstrap value here is inconsequential.
+        TenantContext.set(healerId);
         Patient patient;
         try {
             patient = Patient.create(new PatientCreateRequest(
@@ -254,10 +263,12 @@ class SqlCountAssertionTest {
 
         HealingCase healingCase = HealingCase.builder()
                 .patientId(patient.getId())
-                .healerId(healerId)
                 .status(CaseStatus.ACTIVE)
                 .build();
-        healingCase.setClinicId(clinicId);
+        // healerId is inherited from TenantEntity (post-26-03) — plain @Builder
+        // does not expose superclass properties, so set it via the inherited
+        // setter after build(), scoped to the tenant filter's healerId.
+        healingCase.setHealerId(healerId);
 
         for (int i = 1; i <= sessionCount; i++) {
             HealingSession session = HealingSession.builder()
@@ -267,11 +278,11 @@ class SqlCountAssertionTest {
                     .endTime(LocalTime.of(9, 30))
                     .status(SessionStatus.COMPLETED)
                     .build();
-            session.setClinicId(clinicId);
+            session.setHealerId(healerId);
             session.setHealingCase(healingCase);
 
             ChakraScan scan = ChakraScan.builder().scanType(ScanType.PRE).build();
-            scan.setClinicId(clinicId);
+            scan.setHealerId(healerId);
             scan.setHealingSession(session);
             session.getScans().add(scan);
 
@@ -279,7 +290,7 @@ class SqlCountAssertionTest {
                     .caseSymptomId(UUID.randomUUID())
                     .rating(5)
                     .build();
-            feedback.setClinicId(clinicId);
+            feedback.setHealerId(healerId);
             feedback.setHealingSession(session);
             session.getSymptomFeedbacks().add(feedback);
 
@@ -287,7 +298,7 @@ class SqlCountAssertionTest {
                     .feedbackType(FeedbackType.INTERIM)
                     .feedbackText("Doing well")
                     .build();
-            qualitative.setClinicId(clinicId);
+            qualitative.setHealerId(healerId);
             qualitative.setHealingSession(session);
             session.getQualitativeFeedbacks().add(qualitative);
 

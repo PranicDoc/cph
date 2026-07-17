@@ -61,7 +61,7 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
                 WHERE hc2.patientId = p.id
                 AND hc2.isDeleted = false
             )
-        WHERE p.clinicId = :clinicId
+        WHERE p.healerId = :healerId
         AND p.isDeleted = false
         AND hc.id IS NOT NULL
         AND hc.status IN :statuses
@@ -69,7 +69,7 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
         AND hc.createdAt < :caseTo
     """)
     List<PatientCaseResponse> fetchPatientsWithLatestCaseStatus(
-            @Param("clinicId") UUID clinicId,
+            @Param("healerId") UUID healerId,
             @Param("statuses") Collection<CaseStatus> statuses,
             @Param("caseFrom") Instant caseFrom,
             @Param("caseTo") Instant caseTo,

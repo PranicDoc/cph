@@ -120,6 +120,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	maxHeapSize = "512m"
+	maxParallelForks = 1
 }
 
 configurations.all {

@@ -40,50 +40,50 @@ class PatientServiceTest {
 
     private static final Instant MAX_CASE_DATE = Instant.parse("9999-12-31T00:00:00Z");
 
-    private UUID clinicId;
+    private UUID healerId;
 
     @BeforeEach
     void setUp() {
-        clinicId = UUID.randomUUID();
+        healerId = UUID.randomUUID();
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void getAllPatients_noFilters_queriesAllStatusesOpenDateRangeAndDefaultSort() {
-        when(securityContextUtil.getCurrentClinicId()).thenReturn(clinicId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         List<PatientCaseResponse> expected = List.of(mock(PatientCaseResponse.class));
         when(patientRepository.fetchPatientsWithLatestCaseStatus(
-                eq(clinicId), any(Collection.class), any(Instant.class), any(Instant.class), any(Sort.class)))
+                eq(healerId), any(Collection.class), any(Instant.class), any(Instant.class), any(Sort.class)))
                 .thenReturn(expected);
 
         List<PatientCaseResponse> result = patientService.getAllPatients(null, null, null, null);
 
         assertEquals(expected, result);
         verify(patientRepository).fetchPatientsWithLatestCaseStatus(
-                clinicId, List.of(CaseStatus.values()), Instant.EPOCH, MAX_CASE_DATE,
+                healerId, List.of(CaseStatus.values()), Instant.EPOCH, MAX_CASE_DATE,
                 PatientSort.CASE_DATE_DESC.toSort());
     }
 
     @Test
     void getAllPatients_statusFilter_passesSingleStatus() {
-        when(securityContextUtil.getCurrentClinicId()).thenReturn(clinicId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
 
         patientService.getAllPatients(CaseStatus.ACTIVE, null, null, null);
 
         verify(patientRepository).fetchPatientsWithLatestCaseStatus(
-                clinicId, List.of(CaseStatus.ACTIVE), Instant.EPOCH, MAX_CASE_DATE,
+                healerId, List.of(CaseStatus.ACTIVE), Instant.EPOCH, MAX_CASE_DATE,
                 PatientSort.CASE_DATE_DESC.toSort());
     }
 
     @Test
     void getAllPatients_dateRange_convertsToUtcBoundsWithExclusiveEnd() {
-        when(securityContextUtil.getCurrentClinicId()).thenReturn(clinicId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
 
         patientService.getAllPatients(
                 null, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 5), null);
 
         verify(patientRepository).fetchPatientsWithLatestCaseStatus(
-                clinicId,
+                healerId,
                 List.of(CaseStatus.values()),
                 Instant.parse("2026-07-01T00:00:00Z"),
                 Instant.parse("2026-07-06T00:00:00Z"),
@@ -92,12 +92,12 @@ class PatientServiceTest {
 
     @Test
     void getAllPatients_explicitSort_passesMappedSort() {
-        when(securityContextUtil.getCurrentClinicId()).thenReturn(clinicId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
 
         patientService.getAllPatients(null, null, null, PatientSort.NAME_ASC);
 
         verify(patientRepository).fetchPatientsWithLatestCaseStatus(
-                clinicId, List.of(CaseStatus.values()), Instant.EPOCH, MAX_CASE_DATE,
+                healerId, List.of(CaseStatus.values()), Instant.EPOCH, MAX_CASE_DATE,
                 PatientSort.NAME_ASC.toSort());
     }
 

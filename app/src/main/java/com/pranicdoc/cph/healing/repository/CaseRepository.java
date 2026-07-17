@@ -25,7 +25,7 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
 
     Page<HealingCase> findByHealerId(UUID healerId, Pageable pageable);
 
-    boolean existsByPatientIdAndClinicIdAndStatus(UUID uuid, UUID currentClinicId, CaseStatus caseStatus);
+    boolean existsByPatientIdAndHealerIdAndStatus(UUID uuid, UUID currentHealerId, CaseStatus caseStatus);
 
     /**
      * D-18/D-25/INFRA-01: bounded load for the PDF-generation snapshot path

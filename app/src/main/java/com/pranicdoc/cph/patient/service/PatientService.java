@@ -211,7 +211,7 @@ public class PatientService {
         if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("endDate must not be before startDate");
         }
-        UUID clinicId = securityContextUtil.getCurrentClinicId();
+        UUID healerId = securityContextUtil.getCurrentHealerId();
         List<CaseStatus> statuses = status != null ? List.of(status) : List.of(CaseStatus.values());
         Instant caseFrom = startDate != null
                 ? startDate.atStartOfDay(ZoneOffset.UTC).toInstant()
@@ -221,7 +221,7 @@ public class PatientService {
                 : MAX_CASE_DATE;
         PatientSort effectiveSort = sort != null ? sort : PatientSort.DEFAULT;
         return patientRepository.fetchPatientsWithLatestCaseStatus(
-                clinicId, statuses, caseFrom, caseTo, effectiveSort.toSort());
+                healerId, statuses, caseFrom, caseTo, effectiveSort.toSort());
     }
 
     @Auditable(action = "FETCH_ACTIVE_PATIENTS")

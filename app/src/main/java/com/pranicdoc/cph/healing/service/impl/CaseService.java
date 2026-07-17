@@ -97,9 +97,9 @@ public class CaseService {
     public CaseResponse create(CaseCreateRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         Patient patient = patientRepository.findById(request.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", request.patientId()));
-        boolean exists = caseRepository.existsByPatientIdAndClinicIdAndStatus(
+        boolean exists = caseRepository.existsByPatientIdAndHealerIdAndStatus(
                 request.patientId(),
-                securityContextUtil.getCurrentClinicId(),
+                securityContextUtil.getCurrentHealerId(),
                 CaseStatus.DRAFT
         );
         if (exists) {
