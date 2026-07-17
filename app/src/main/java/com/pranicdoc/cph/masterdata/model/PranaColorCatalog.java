@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.envers.Audited;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -30,8 +32,9 @@ public class PranaColorCatalog extends BaseEntity {
     @Column(name = "color_hex", length = 7)
     private String colorHex; // e.g. "#FFFFFF"
 
-    @Column(name = "properties", columnDefinition = "TEXT")
-    private String properties; // Description of color healing properties
+    @ElementCollection(fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<String> properties = new ArrayList<>(); // Individual healing properties of this color
 
     @Column(name = "clinic_id", columnDefinition = "uuid")
     private UUID clinicId; // NULL = system-level, non-null = clinic-custom

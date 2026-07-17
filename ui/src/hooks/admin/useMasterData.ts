@@ -10,7 +10,7 @@ export interface PranaColor {
   code: string;
   name: string;
   colorHex: string;
-  properties?: string;
+  properties?: string[];
   clinicId?: string | null;
 }
 
@@ -35,7 +35,7 @@ export interface PranaColorPayload {
   name: string;
   code: string;
   colorHex: string;
-  properties?: string;
+  properties?: string[];
   clinicId?: string | null;
 }
 

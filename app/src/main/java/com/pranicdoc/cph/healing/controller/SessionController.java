@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.controller;
 
+import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
@@ -7,9 +8,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -37,5 +40,10 @@ public class SessionController {
     @PatchMapping("/{id}/complete")
     public ResponseEntity<SessionResponse> complete(@PathVariable UUID id) {
         return ResponseEntity.ok(sessionService.complete(id));
+    }
+
+    @GetMapping("/{id}/chakras")
+    public ResponseEntity<ApiResponse<Set<String>>> getAllScannedChakras(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.of(sessionService.getAllScannedChakra(id)));
     }
 }

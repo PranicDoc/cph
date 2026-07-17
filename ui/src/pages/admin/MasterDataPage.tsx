@@ -180,7 +180,7 @@ function ColorModal({
       name: initial?.name ?? "",
       code: initial?.code ?? "",
       colorHex: initial?.colorHex ?? "#ffffff",
-      properties: initial?.properties ?? "",
+      properties: initial?.properties?.join("\n") ?? "",
     },
     onSubmit: async ({ value }) => {
       setError("");
@@ -188,7 +188,10 @@ function ColorModal({
         name: value.name,
         code: value.code.toUpperCase(),
         colorHex: value.colorHex,
-        properties: value.properties,
+        properties: value.properties
+          .split("\n")
+          .map((p) => p.trim())
+          .filter(Boolean),
         clinicId: initial ? initial.clinicId : null,
       };
       try {
@@ -252,7 +255,7 @@ function ColorModal({
               <TextareaField
                 field={field}
                 className={cn(fieldCls, "p-2.5")}
-                placeholder="Describe the healing properties of this color…"
+                placeholder="One property per line, e.g.&#10;Strengthening&#10;Warming&#10;Energizing"
               />
             )}
           />
@@ -300,7 +303,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       accessorKey: "properties",
       header: "Properties",
       cell: (info) => {
-        const props = info.getValue() as string | undefined;
+        const props = (info.getValue() as string[] | undefined)?.join(", ");
         return (
           <span className="text-text-light max-w-xs truncate block">
             {props ? props.slice(0, 60) + (props.length > 60 ? "…" : "") : "—"}
@@ -376,8 +379,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                     <Lock className="w-4 h-4 text-text-light/40 mt-1" />
                   )}
                 </div>
-                {item.properties && (
-                  <p className="text-xs text-text-light mt-1 line-clamp-2">{item.properties}</p>
+                {item.properties && item.properties.length > 0 && (
+                  <p className="text-xs text-text-light mt-1 line-clamp-2">
+                    {item.properties.join(", ")}
+                  </p>
                 )}
               </div>
             ))}

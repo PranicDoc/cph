@@ -104,6 +104,8 @@ export function buildPranaColorCatalog(colors: ColorOption[]): PranaColorEntry[]
   return colors.map((color) => {
     const colorHex = color.colorHex || NEUTRAL_COLOR;
 
+    const propertiesText = color.properties?.join(", ") ?? "";
+
     return {
       id: color.id,
       code: color.code,
@@ -111,8 +113,8 @@ export function buildPranaColorCatalog(colors: ColorOption[]): PranaColorEntry[]
       colorHex,
       gradientFrom: colorHex,
       gradientTo: colorHex,
-      primaryUses: color.properties ?? color.name,
-      properties: color.properties ?? "",
+      primaryUses: propertiesText || color.name,
+      properties: propertiesText,
     };
   });
 }

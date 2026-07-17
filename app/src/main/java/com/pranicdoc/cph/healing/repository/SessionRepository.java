@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -60,4 +61,13 @@ public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
         ORDER BY hs.sessionDate DESC NULLS LAST
     """)
     List<DashboardUpcomingSession> getDraftSessions(@Param("healerId") UUID healerId);
+
+    @Query("""
+        SELECT DISTINCT cr.chakraName
+        FROM HealingSession hs
+        JOIN hs.scans cs
+        JOIN cs.readings cr
+        WHERE hs.healingCase.id = :caseId
+    """)
+    Set<String> findAllScannedChakras(@Param("caseId") UUID caseId);
 }

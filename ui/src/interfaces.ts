@@ -142,7 +142,7 @@ export interface ColorOption {
   code: string;
   name: string;
   colorHex?: string;
-  properties?: string;
+  properties?: string[];
   clinicId?: string | null;
 }
 
@@ -235,3 +235,14 @@ export const regionChakras: Record<BodyRegion, string[]> = {
     "Right Sole Chakra",
   ],
 };
+
+interface Colors {
+  color: string;
+  properties: string[]
+}
+
+export interface HPUTable {
+  chakra: string;
+  energisingColors: Colors[];
+  activationColors: Colors[];
+}

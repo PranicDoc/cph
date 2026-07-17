@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * Seeds system-level master data (chakras + prana colors) on startup.
  * Only runs if the catalogs are empty (idempotent).
@@ -78,17 +80,17 @@ public class MasterDataSeeder implements CommandLineRunner {
 
         log.info("Seeding prana color catalog...");
 
-        seedColor("WHITE", "White Prana", "#FFFFFF", "General cleansing and energizing");
-        seedColor("RED", "Red Prana", "#FF0000", "Strengthening, warming, energizing");
-        seedColor("ORANGE", "Orange Prana", "#FFA500", "Expelling, eliminating, decongesting");
-        seedColor("YELLOW", "Yellow Prana", "#FFFF00", "Cohesion, cementing, assimilating");
-        seedColor("GREEN", "Green Prana", "#00FF00", "Decongesting, cleansing, disinfecting");
-        seedColor("BLUE", "Blue Prana", "#0000FF", "Inhibiting, cooling, disinfecting");
-        seedColor("VIOLET", "Violet Prana", "#EE82EE", "All-purpose, regenerating");
-        seedColor("ELECTRIC_VIOLET", "Electric Violet", "#7F00FF", "Powerful regeneration, spirituality");
-        seedColor("GOLD", "Golden Prana", "#FFD700", "Higher-level healing, flushing");
+        seedColor("WHITE", "White Prana", "#FFFFFF", "General cleansing", "energizing");
+        seedColor("RED", "Red Prana", "#FF0000", "Strengthening", "warming", "energizing");
+        seedColor("ORANGE", "Orange Prana", "#FFA500", "Expelling", "eliminating", "decongesting");
+        seedColor("YELLOW", "Yellow Prana", "#FFFF00", "Cohesion", "cementing", "assimilating");
+        seedColor("GREEN", "Green Prana", "#00FF00", "Decongesting", "cleansing", "disinfecting");
+        seedColor("BLUE", "Blue Prana", "#0000FF", "Inhibiting", "cooling", "disinfecting");
+        seedColor("VIOLET", "Violet Prana", "#EE82EE", "All-purpose", "regenerating");
+        seedColor("ELECTRIC_VIOLET", "Electric Violet", "#7F00FF", "Powerful regeneration", "spirituality");
+        seedColor("GOLD", "Golden Prana", "#FFD700", "Higher-level healing", "flushing");
         seedColor("LIGHT_WHITISH_GREEN", "Light Whitish Green", "#E0FFE0", "Mild cleansing");
-        seedColor("LIGHT_WHITISH_BLUE", "Light Whitish Blue", "#E0E0FF", "Mild inhibiting, soothing");
+        seedColor("LIGHT_WHITISH_BLUE", "Light Whitish Blue", "#E0E0FF", "Mild inhibiting", "soothing");
         seedColor("LIGHT_WHITISH_VIOLET", "Light Whitish Violet", "#F0E0FF", "Mild regeneration");
 
         log.info("Seeded {} prana colors", colorRepo.count());
@@ -105,12 +107,12 @@ public class MasterDataSeeder implements CommandLineRunner {
         chakraRepo.save(chakra);
     }
 
-    private void seedColor(String code, String name, String hex, String properties) {
+    private void seedColor(String code, String name, String hex, String... properties) {
         PranaColorCatalog color = PranaColorCatalog.builder()
                 .code(code)
                 .name(name)
                 .colorHex(hex)
-                .properties(properties)
+                .properties(List.of(properties))
                 .clinicId(null) // System-level
                 .build();
         colorRepo.save(color);

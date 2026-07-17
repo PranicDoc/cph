@@ -126,7 +126,7 @@ public class HealerProtocolUnderstandingService {
                                         .map(c -> new ColorUsedSnapshot(
                                                 c.getCode(),
                                                 c.getName(),
-                                                c.getProperties()))
+                                                String.join(", ", c.getProperties())))
                                         .orElse(null),
                                 Collectors.filtering(
                                         Objects::nonNull,

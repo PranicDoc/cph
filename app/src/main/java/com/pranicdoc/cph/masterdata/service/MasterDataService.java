@@ -103,7 +103,7 @@ public class MasterDataService {
         color.setName(req.name());
         color.setCode(req.code().toUpperCase());
         color.setColorHex(req.colorHex());
-        color.setProperties(req.properties());
+        color.setProperties(req.properties() != null ? req.properties() : List.of());
         color.setClinicId(req.clinicId());
         return colorRepo.save(color);
     }
@@ -115,7 +115,7 @@ public class MasterDataService {
             throw new AccessDeniedException("System colors can only be edited by SUPADM");
         color.setName(req.name());
         color.setColorHex(req.colorHex());
-        color.setProperties(req.properties());
+        color.setProperties(req.properties() != null ? req.properties() : List.of());
         return colorRepo.save(color);
     }
 

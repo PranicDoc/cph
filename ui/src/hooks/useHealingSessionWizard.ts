@@ -63,11 +63,26 @@ export function useHealingSessionWizard({
     try {
       const values = form.state.values;
 
-      const hasProtocol = values.protocolName || values.referenceBook || values.detailedProtocol;
+      const hasProtocol =
+        values.protocolName || values.referenceBook || values.detailedProtocol;
       const protocolEntries = hasProtocol
-        ? [{ protocolName: values.protocolName, referenceBook: values.referenceBook, detailedProtocol: values.detailedProtocol, colors: [] }]
+        ? [
+            {
+              protocolName: values.protocolName,
+              referenceBook: values.referenceBook,
+              detailedProtocol: values.detailedProtocol,
+              colors: [],
+            },
+          ]
         : [];
-
+      const hasPreScanData = preScanChakraData?.length > 0;
+      const hasPostScanData = postScanChakraData?.length > 0;
+      if (!hasPostScanData && !hasPreScanData) {
+        toast.error(
+          "Chakra Scan Data is required, please perform scanning again"
+        );
+        return;
+      }
       const payload = constructHealingSessionPayload({
         caseId,
         sessionDate: values.sessionDate,
@@ -86,7 +101,10 @@ export function useHealingSessionWizard({
       toast.success("Session saved");
       setStep(COMPLETED_STEP);
     } catch (error) {
-      toast.error(extractDetail(error) || "Failed to save session — please try again", { duration: 5000 });
+      toast.error(
+        extractDetail(error) || "Failed to save session — please try again",
+        { duration: 5000 }
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -85,12 +86,18 @@ public class SessionService {
     }
 
     private void validatePrePostAndProtocolExists(HealingSession session) {
-        boolean hasPreScan = session.getScans().stream()
-                .anyMatch(s -> s.getScanType() == ScanType.PRE);
-        boolean hasPostScan = session.getScans().stream()
-                .anyMatch(s -> s.getScanType() == ScanType.POST);
-        if (!hasPreScan) throw new SessionIncompleteException("Pre-scan is required");
-        if (!hasPostScan) throw new SessionIncompleteException("Post-scan is required");
+        boolean isPreScanEmpty = session.getScans().stream()
+                .filter(s -> s.getScanType() == ScanType.PRE)
+                .findFirst()
+                .map(scan -> scan.getReadings().isEmpty())
+                .orElse(false);
+        boolean isPostScanEmpty = session.getScans().stream()
+                .filter(s -> s.getScanType() == ScanType.POST)
+                .findFirst()
+                .map(scan -> scan.getReadings().isEmpty())
+                .orElse(false);
+        if (isPreScanEmpty) throw new SessionIncompleteException("Pre-scan is required");
+        if (isPostScanEmpty) throw new SessionIncompleteException("Post-scan is required");
     }
 
     private void validateMasterDataReferences(CreateSessionRequest request) {
@@ -185,5 +192,11 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<DashboardUpcomingSession> getDraftSessions(UUID healerId) {
         return sessionRepository.getDraftSessions(healerId);
+    }
+
+    @Auditable(action = "GET_ALL_SCANNED_CHAKRA")
+    @Transactional(readOnly = true)
+    public Set<String> getAllScannedChakra(UUID caseId) {
+        return sessionRepository.findAllScannedChakras(caseId);
     }
 }

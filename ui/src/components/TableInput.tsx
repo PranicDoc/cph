@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -94,20 +94,18 @@ export function TableInput({
   createNewTag,
   readOnly = false,
 }: TableInputProps) {
-  const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
 
   const addRow = () => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    const newRow = createNewTag ? createNewTag(trimmed) : { [displayKey]: trimmed };
+    const newRow = createNewTag ? createNewTag("") : { [displayKey]: "" };
     onChange([...value, newRow]);
-    setInput("");
-    inputRef.current?.focus();
   };
 
-  const updateCell = (rowIdx: number, key: string, cellValue: string | boolean) => {
+  const updateCell = (
+    rowIdx: number,
+    key: string,
+    cellValue: string | boolean
+  ) => {
     const updated = [...value];
     updated[rowIdx] = { ...updated[rowIdx], [key]: cellValue };
     onChange(updated);
@@ -283,22 +281,17 @@ export function TableInput({
     },
   ];
 
-  // TODO change this input to button and keep this input in the name field
   return (
     <div className="space-y-3">
-      <Input
-        ref={inputRef}
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            addRow();
-          }
-        }}
-        placeholder={placeholder ?? "Type to add..."}
-      />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={addRow}
+        className="flex items-center gap-2"
+      >
+        <Plus className="w-4 h-4" />
+        {placeholder ?? "Add Row"}
+      </Button>
 
       {value.length > 0 && (
         <DataTable
