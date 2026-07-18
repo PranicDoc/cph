@@ -3,6 +3,8 @@ package com.pranicdoc.cph.healing.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -65,6 +67,9 @@ class CaseServiceTest {
     // unit test there is no real proxy, so self.getObject() is stubbed to
     // return the same @InjectMocks instance (see initSelfProxy() below).
     @Mock private org.springframework.beans.factory.ObjectProvider<CaseService> self;
+    // 26-07 Task 2: CaseService.postMessageToGeneratePdf now looks up the case's owning
+    // healer to source the credit-boundary clinic-shaped ownerId from the healer bridge.
+    @Mock private HealerRepository healerRepository;
 
     @InjectMocks
     private CaseService caseService;
@@ -131,18 +136,28 @@ class CaseServiceTest {
                 .build();
         // healerId is inherited from TenantEntity (post-26-03) — plain @Builder does not
         // include superclass fields, so set it via the inherited setter after build().
-        healingCase.setHealerId(UUID.randomUUID());
+        UUID healerId = UUID.randomUUID();
+        healingCase.setHealerId(healerId);
 
         Patient patient = org.mockito.Mockito.mock(Patient.class);
+
+        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
+        // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
+        UUID clinicShapedOwnerId = UUID.randomUUID();
+        Healer healer = Healer.builder().clinicId(clinicShapedOwnerId).build();
 
         // Wire mocks
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
         when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId))
                 .thenReturn(Optional.empty());
-        when(securityContextUtil.getCurrentClinicCode()).thenReturn("CLINIC01");
+        // 26-07 D-26-03: jobId prefix is now healer-derived, not clinic-code-derived
+        // (getCurrentClinicCode() stub removed — no longer invoked by this path).
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
 
         ArgumentCaptor<PdfJobEntity> captor = ArgumentCaptor.forClass(PdfJobEntity.class);
         when(pdfJobRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
@@ -180,15 +195,24 @@ class CaseServiceTest {
                 .medications(new ArrayList<>())
                 .build();
         // healerId is inherited from TenantEntity (post-26-03) — set via inherited setter.
-        healingCase.setHealerId(UUID.randomUUID());
+        UUID healerId = UUID.randomUUID();
+        healingCase.setHealerId(healerId);
         Patient patient = org.mockito.Mockito.mock(Patient.class);
+
+        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
+        // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
+        Healer healer = Healer.builder().clinicId(UUID.randomUUID()).build();
 
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
         when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
-        when(securityContextUtil.getCurrentClinicCode()).thenReturn("CLINIC01");
+        // 26-07 D-26-03: jobId prefix is now healer-derived, not clinic-code-derived
+        // (getCurrentClinicCode() stub removed — no longer invoked by this path).
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
         when(pdfJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         caseService.postMessageToGeneratePdf(caseId);
@@ -208,10 +232,18 @@ class CaseServiceTest {
                 .medications(new ArrayList<>())
                 .build();
         // healerId is inherited from TenantEntity (post-26-03) — set via inherited setter.
-        healingCase.setHealerId(UUID.randomUUID());
+        UUID healerId = UUID.randomUUID();
+        healingCase.setHealerId(healerId);
+
+        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
+        // to source the credit-boundary clinic-shaped ownerId from the healer bridge,
+        // BEFORE the (mocked) credit-gate call that throws in this test.
+        Healer healer = Healer.builder().clinicId(UUID.randomUUID()).build();
 
         doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
 
         assertThrows(InsufficientCreditsException.class,
                 () -> caseService.postMessageToGeneratePdf(caseId));

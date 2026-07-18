@@ -1,7 +1,10 @@
 package com.pranicdoc.cph.analytics;
 
+import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.FeedbackType;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.security.JwtService;
@@ -83,6 +86,12 @@ class SqlCountAssertionTest {
 
     @Autowired
     private PatientRepository patientRepository;
+
+    // 26-07 Task 2: CaseService.postMessageToGeneratePdf now looks up the case's
+    // owning healer to source the credit-boundary clinic-shaped ownerId from the
+    // healer bridge — the fixture below must persist a real Healer row.
+    @Autowired
+    private HealerRepository healerRepository;
 
     @MockBean
     private CreditService creditService;
@@ -245,6 +254,19 @@ class SqlCountAssertionTest {
      */
     private HealingCase createCaseWithSessions(UUID healerId, UUID clinicId, int sessionCount,
                                                 boolean withTreatmentSteps) {
+        // 26-07 Task 2: postMessageToGeneratePdf now looks up this healerId via
+        // HealerRepository to source the credit-boundary clinic-shaped ownerId
+        // from the healer bridge — a real Healer row must exist or the request
+        // 404s before reaching the PDF-generation logic under test.
+        Healer healer = Healer.builder()
+                .fullName("Test Healer")
+                .email("healer-" + healerId + "@test.local")
+                .role(Role.HEALER)
+                .clinicId(clinicId)
+                .build();
+        healer.setId(healerId);
+        healerRepository.save(healer);
+
         // Patient has no public constructor/builder — only the static create()
         // factory, which reads the tenant value from TenantContext (normally
         // populated by TenantInterceptor per-request) as a bootstrap value,

@@ -8,6 +8,8 @@ import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
+import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
@@ -81,6 +83,11 @@ public class CaseService {
     private final CookieUtil cookieUtil;
     private final ApplicationEventPublisher eventPublisher;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    // 26-07 Task 2: NOT previously injected. Needed to source the credit-boundary
+    // clinic-shaped ownerId from the owning healer's bridge clinic reference
+    // (Healer.clinicId, 26-03 bridge field) instead of the JWT clinicId claim
+    // (removed by 26-09). @RequiredArgsConstructor extends automatically.
+    private final HealerRepository healerRepository;
     // D-18: self-injection via ObjectProvider so postMessageToGeneratePdf can
     // invoke validateCaseExists/buildAndEnqueuePdfJob THROUGH the Spring
     // proxy — a plain `this.foo()` call would not cross the @Transactional
@@ -486,8 +493,19 @@ public class CaseService {
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         self.getObject().validateCaseExists(healingCaseId);
 
+        UUID caseHealerId = caseRepository.findById(healingCaseId)
+                .map(HealingCase::getHealerId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", healingCaseId));
+        // CROSS-SERVICE BOUNDARY (Phase 27): creditService still keys on a clinic-shaped
+        // ownerId; sourced from healer.clinicId bridge until Phase 27 migrates accounts to
+        // OwnerType.HEALER. Do NOT remove. Preserves the real clinic-shaped ownerId without
+        // reading the JWT clinicId claim (removed by 26-09).
+        UUID clinicShapedOwnerId = healerRepository.findById(caseHealerId)
+                .map(Healer::getClinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Healer", caseHealerId));
+
         creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
-                securityContextUtil.getCurrentClinicId(), healingCaseId);
+                clinicShapedOwnerId, healingCaseId);
 
         return self.getObject().buildAndEnqueuePdfJob(healingCaseId);
     }

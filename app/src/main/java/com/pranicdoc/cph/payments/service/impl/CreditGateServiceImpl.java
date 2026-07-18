@@ -23,6 +23,11 @@ public class CreditGateServiceImpl implements CreditGateService {
     @Override
     @CircuitBreaker(name = "creditService", fallbackMethod = "checkAndDeductFallback")
     public void checkAndDeduct(UUID healerId, UUID clinicId, UUID healingCaseId) {
+        // CROSS-SERVICE BOUNDARY (Phase 27): clinicId here is the caller-sourced clinic-shaped
+        // ownerId (26-07: sourced from healer.clinicId bridge, not the JWT clinicId claim).
+        // Shape/idempotency key preserved unchanged so creditService's contract is untouched.
+        // TODO(Phase 27): idempotencyKey + DeductRequest.clinicId retire when creditService
+        // moves to OwnerType.HEALER.
         String idempotencyKey = clinicId + "-" + healingCaseId;
         DeductResponse response = creditServiceClient.deduct(healerId, clinicId, idempotencyKey);
         if ("INSUFFICIENT".equals(response.result())) {
