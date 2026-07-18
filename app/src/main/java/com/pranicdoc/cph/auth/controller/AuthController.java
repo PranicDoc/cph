@@ -144,7 +144,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<?>> initSession(@RequestBody InitSessionRequest request,
                                          HttpServletResponse response) {
         return ResponseEntity.ok(
-                authService.initSessionForSelfReg(request.uuid(), request.clinicId(), response));
+                authService.initSessionForSelfReg(request.uuid(), request.healerId(), response));
     }
 
     @PostMapping("/init-feedback-session")

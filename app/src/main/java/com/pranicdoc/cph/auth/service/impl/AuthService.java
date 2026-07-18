@@ -82,7 +82,7 @@ public class AuthService {
     }
 
     @Auditable(action = "SELF_REG_SESSION")
-    public ApiResponse<String> initSessionForSelfReg(String uuid, String clinicId, HttpServletResponse response) {
+    public ApiResponse<String> initSessionForSelfReg(String uuid, String healerId, HttpServletResponse response) {
         if (uuid == null || uuid.isBlank()) {
             throw new IllegalArgumentException("Invalid UUID");
         }
@@ -94,7 +94,7 @@ public class AuthService {
                     .orElseThrow(() -> new TokenExpiredException("Invalid or expired link"));
         }
         // Embed reg UUID in token so CaseService can identify and consume the link on case creation
-        String selfRegToken = jwtService.generateSelfRegToken(clinicId, uuid);
+        String selfRegToken = jwtService.generateSelfRegToken(healerId, uuid);
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
         return ApiResponse.of(PATIENT);
     }

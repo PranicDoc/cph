@@ -20,7 +20,13 @@ import java.util.UUID;
  *   role      = healer role (HEALER, SENIOR_HEALER, ADMIN, etc.)
  *   type      = "ACCESS" or "REFRESH"
  *
- * (SELF_REG/PATIENT_CASE token shapes are unchanged here — 26-11's D-26-04 scope.)
+ * Token claims (SELF_REG/PATIENT_CASE, post-26-11 D-26-04):
+ *   SELF_REG:     sub = the real owning healerId (UUID) — no clinicId claim.
+ *   PATIENT_CASE: sub = patientId; claim("healerId") = the case's real owning
+ *                 healer (UUID) — no clinicId claim.
+ * Both token types now carry a genuine owning-healer identity instead of a
+ * random subject / clinicId proxy, so the Hibernate @Filter (healer_id) scopes
+ * patient sessions correctly — no per-role filter exemption needed.
  */
 @Service
 public class JwtService {
@@ -47,20 +53,21 @@ public class JwtService {
 
     /**
      * Generate a self registration token (feedback session — no registration UUID).
+     * The subject is the real owning healer's id (D-26-04) — not a random UUID.
      */
-    public String generateSelfRegToken(String uuid) {
-        return buildToken(null, UUID.fromString(uuid), null, "PATIENT", "SELF_REG", accessTokenExpirationMs);
+    public String generateSelfRegToken(String healerId) {
+        return buildToken(null, UUID.fromString(healerId), null, "PATIENT", "SELF_REG", accessTokenExpirationMs);
     }
 
     /**
      * Generate a self registration token with the registration link UUID embedded.
      * Used during patient self-registration so the backend can look up and consume the link.
+     * The subject is the real owning healer's id (D-26-04) — not a random UUID.
      */
-    public String generateSelfRegToken(String clinicId, String regUuid) {
+    public String generateSelfRegToken(String healerId, String regUuid) {
         Date now = new Date();
         return Jwts.builder()
-                .subject(UUID.randomUUID().toString())
-                .claim("clinicId", clinicId)
+                .subject(healerId)
                 .claim("type", "SELF_REG")
                 .claim("role", "PATIENT")
                 .claim("reg_uuid", regUuid)
@@ -74,13 +81,14 @@ public class JwtService {
      * Generate a case-scoped token issued after case creation.
      * Replaces the broad SELF_REG token — bound to a single patientId + caseId.
      * Uses refresh-token expiry (7 days) so it survives browser close.
+     * Carries the case's real owning healerId claim (D-26-04) — not clinicId.
      */
-    public String generatePatientCaseToken(UUID patientId, UUID caseId, UUID clinicId) {
+    public String generatePatientCaseToken(UUID patientId, UUID caseId, UUID healerId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(patientId.toString())
                 .claim("caseId", caseId.toString())
-                .claim("clinicId", clinicId.toString())
+                .claim("healerId", healerId.toString())
                 .claim("type", "PATIENT_CASE")
                 .claim("role", "PATIENT")
                 .issuedAt(now)
@@ -159,15 +167,15 @@ public class JwtService {
 
     // ---- internal ----
 
-    private String buildToken(UUID healerId, UUID clinicId, String clinicCode,
+    private String buildToken(UUID healerId, UUID selfRegHealerId, String clinicCode,
                                String role, String type, long expirationMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         if("SELF_REG".equals(type)) {
+            // D-26-04: subject is the real owning healerId — no clinicId claim.
             return Jwts.builder()
-                    .subject(UUID.randomUUID().toString())
-                    .claim("clinicId", clinicId.toString())
+                    .subject(selfRegHealerId.toString())
                     .claim("type", type)
                     .claim("role", role)
                     .issuedAt(now)
