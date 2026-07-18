@@ -28,8 +28,8 @@ public class MasterDataController {
 
     @GetMapping("/chakras")
     public ResponseEntity<ApiResponse<List<ChakraCatalog>>> getChakras(
-            @RequestParam(required = false) UUID clinicId) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllChakras(clinicId)));
+            @RequestParam(required = false) UUID healerId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllChakras(healerId)));
     }
 
     @GetMapping("/chakras/{id}")
@@ -66,8 +66,8 @@ public class MasterDataController {
 
     @GetMapping("/colors")
     public ResponseEntity<ApiResponse<List<PranaColorCatalog>>> getColors(
-            @RequestParam(required = false) UUID clinicId) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllColors(clinicId)));
+            @RequestParam(required = false) UUID healerId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllColors(healerId)));
     }
 
     @GetMapping("/colors/{id}")
@@ -105,8 +105,8 @@ public class MasterDataController {
     @GetMapping("/protocol-mappings")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
     public ResponseEntity<ApiResponse<List<ProtocolColorMapping>>> getMappings(
-            @RequestParam(required = false) UUID clinicId) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllMappings(clinicId)));
+            @RequestParam(required = false) UUID healerId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllMappings(healerId)));
     }
 
     @PostMapping("/protocol-mappings")

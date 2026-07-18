@@ -10,5 +10,5 @@ public record PranaColorRequest(
         @NotBlank String code,
         @NotBlank String colorHex,
         List<String> properties,
-        UUID clinicId
+        UUID healerId
 ) {}

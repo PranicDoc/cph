@@ -9,5 +9,5 @@ public record ChakraRequest(
         @NotBlank String code,
         String category,
         String location,
-        UUID clinicId
+        UUID healerId
 ) {}

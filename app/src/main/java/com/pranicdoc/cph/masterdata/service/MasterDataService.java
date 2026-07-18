@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.masterdata.service;
 
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
@@ -25,13 +26,14 @@ public class MasterDataService {
     private final ChakraCatalogRepository chakraRepo;
     private final PranaColorCatalogRepository colorRepo;
     private final ProtocolColorMappingRepository mappingRepo;
+    private final SecurityContextUtil securityContextUtil;
 
     // ── Chakras ──────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<ChakraCatalog> getAllChakras(UUID clinicId) {
-        if (clinicId == null) return chakraRepo.findByClinicIdIsNull();
-        return chakraRepo.findByClinicIdIsNullOrClinicId(clinicId);
+    public List<ChakraCatalog> getAllChakras(UUID healerId) {
+        if (healerId == null) return chakraRepo.findByHealerIdIsNull();
+        return chakraRepo.findByHealerIdIsNullOrHealerId(healerId);
     }
 
     @Transactional(readOnly = true)
@@ -53,14 +55,14 @@ public class MasterDataService {
         chakra.setCode(req.code().toUpperCase());
         chakra.setCategory(req.category());
         chakra.setLocation(req.location());
-        chakra.setClinicId(req.clinicId());
+        chakra.setHealerId(securityContextUtil.getCurrentHealerId());
         return chakraRepo.save(chakra);
     }
 
     @Transactional
     public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
-        if (chakra.getClinicId() == null && !isSuperAdmin)
+        if (chakra.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System chakras can only be edited by SUPADM");
         chakra.setName(req.name());
         chakra.setCategory(req.category());
@@ -71,7 +73,7 @@ public class MasterDataService {
     @Transactional
     public void deleteChakra(UUID id, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
-        if (chakra.getClinicId() == null && !isSuperAdmin)
+        if (chakra.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System chakras can only be deleted by SUPADM");
         chakra.softDelete();
         chakraRepo.save(chakra);
@@ -80,9 +82,9 @@ public class MasterDataService {
     // ── Prana Colors ─────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<PranaColorCatalog> getAllColors(UUID clinicId) {
-        if (clinicId == null) return colorRepo.findByClinicIdIsNull();
-        return colorRepo.findByClinicIdIsNullOrClinicId(clinicId);
+    public List<PranaColorCatalog> getAllColors(UUID healerId) {
+        if (healerId == null) return colorRepo.findByHealerIdIsNull();
+        return colorRepo.findByHealerIdIsNullOrHealerId(healerId);
     }
 
     @Transactional(readOnly = true)
@@ -104,14 +106,14 @@ public class MasterDataService {
         color.setCode(req.code().toUpperCase());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
-        color.setClinicId(req.clinicId());
+        color.setHealerId(securityContextUtil.getCurrentHealerId());
         return colorRepo.save(color);
     }
 
     @Transactional
     public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
-        if (color.getClinicId() == null && !isSuperAdmin)
+        if (color.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System colors can only be edited by SUPADM");
         color.setName(req.name());
         color.setColorHex(req.colorHex());
@@ -122,7 +124,7 @@ public class MasterDataService {
     @Transactional
     public void deleteColor(UUID id, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
-        if (color.getClinicId() == null && !isSuperAdmin)
+        if (color.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System colors can only be deleted by SUPADM");
         color.softDelete();
         colorRepo.save(color);
@@ -131,19 +133,20 @@ public class MasterDataService {
     // ── Protocol Color Mappings ───────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<ProtocolColorMapping> getAllMappings(UUID clinicId) {
-        if (clinicId == null) return mappingRepo.findByClinicIdIsNull();
-        return mappingRepo.findByClinicIdIsNullOrClinicId(clinicId);
+    public List<ProtocolColorMapping> getAllMappings(UUID healerId) {
+        if (healerId == null) return mappingRepo.findByHealerIdIsNull();
+        return mappingRepo.findByHealerIdIsNullOrHealerId(healerId);
     }
 
     @Transactional
     public List<ProtocolColorMapping> createMappings(ProtocolColorMappingRequest req) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
         List<ProtocolColorMapping> entities = req.colorIds().stream().map(colorId -> {
             ProtocolColorMapping m = new ProtocolColorMapping();
             m.setProtocolName(req.protocolName());
             m.setColorId(colorId);
             m.setUsageType(req.usageType());
-            m.setClinicId(req.clinicId());
+            m.setHealerId(healerId);
             m.setChakraName(req.chakraName());
             return m;
         }).toList();
@@ -154,7 +157,7 @@ public class MasterDataService {
     public void deleteMapping(UUID id, boolean isSuperAdmin) {
         ProtocolColorMapping mapping = mappingRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ProtocolColorMapping", id));
-        if (mapping.getClinicId() == null && !isSuperAdmin)
+        if (mapping.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System mappings can only be deleted by SUPADM");
         mapping.softDelete();
         mappingRepo.save(mapping);

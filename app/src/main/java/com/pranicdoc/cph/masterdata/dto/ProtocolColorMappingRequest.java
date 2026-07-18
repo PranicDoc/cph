@@ -12,6 +12,6 @@ public record ProtocolColorMappingRequest(
         @NotBlank String protocolName,
         @NotEmpty List<@NotNull UUID> colorIds,
         @NotNull ColorUsageType usageType,
-        UUID clinicId,
+        UUID healerId,
         @NotBlank String chakraName
 ) {}
