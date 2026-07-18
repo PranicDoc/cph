@@ -10,11 +10,11 @@ import java.util.UUID;
 @Repository
 public interface ProtocolColorMappingRepository extends JpaRepository<ProtocolColorMapping, UUID> {
 
-    List<ProtocolColorMapping> findByProtocolNameAndClinicId(String protocolName, UUID clinicId);
+    List<ProtocolColorMapping> findByProtocolNameAndHealerId(String protocolName, UUID healerId);
 
-    List<ProtocolColorMapping> findByProtocolNameAndClinicIdIsNull(String protocolName);
+    List<ProtocolColorMapping> findByProtocolNameAndHealerIdIsNull(String protocolName);
 
-    List<ProtocolColorMapping> findByClinicIdIsNull();
+    List<ProtocolColorMapping> findByHealerIdIsNull();
 
-    List<ProtocolColorMapping> findByClinicIdIsNullOrClinicId(UUID clinicId);
+    List<ProtocolColorMapping> findByHealerIdIsNullOrHealerId(UUID healerId);
 }

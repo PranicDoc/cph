@@ -8,8 +8,8 @@ import org.hibernate.envers.Audited;
 import java.util.UUID;
 
 /**
- * ChakraCatalog — master list of chakras (14 major + 11 minor + clinic-custom).
- * clinic_id NULL = system-level; non-null = clinic-custom entry.
+ * ChakraCatalog — master list of chakras (14 major + 11 minor + healer-custom).
+ * healer_id NULL = system-level; non-null = healer-custom entry.
  */
 @Entity
 @Table(name = "chakra_catalog")
@@ -33,6 +33,6 @@ public class ChakraCatalog extends BaseEntity {
     @Column(name = "location")
     private String location; // Body location description
 
-    @Column(name = "clinic_id", columnDefinition = "uuid")
-    private UUID clinicId; // NULL = system-level, non-null = clinic-custom
+    @Column(name = "healer_id", columnDefinition = "uuid")
+    private UUID healerId; // NULL = system-level, non-null = healer-custom
 }

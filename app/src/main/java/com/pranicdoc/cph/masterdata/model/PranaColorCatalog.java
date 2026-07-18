@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * PranaColorCatalog — master list of prana colors used in healing protocols.
- * clinic_id NULL = system-level; non-null = clinic-custom entry.
+ * healer_id NULL = system-level; non-null = healer-custom entry.
  */
 @Entity
 @Table(name = "prana_color_catalog")
@@ -36,6 +36,6 @@ public class PranaColorCatalog extends BaseEntity {
     @Builder.Default
     private List<String> properties = new ArrayList<>(); // Individual healing properties of this color
 
-    @Column(name = "clinic_id", columnDefinition = "uuid")
-    private UUID clinicId; // NULL = system-level, non-null = clinic-custom
+    @Column(name = "healer_id", columnDefinition = "uuid")
+    private UUID healerId; // NULL = system-level, non-null = healer-custom
 }

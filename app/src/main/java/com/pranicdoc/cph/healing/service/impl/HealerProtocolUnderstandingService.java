@@ -58,7 +58,7 @@ public class HealerProtocolUnderstandingService {
 
 
         List<ProtocolColorMapping> mappings = protocolName != null
-                ? resolveColorMappings(protocolName, healingCase.getClinicId())
+                ? resolveColorMappings(protocolName, healingCase.getHealerId())
                 : Collections.emptyList();
 
         if (mappings.isEmpty()) {
@@ -105,11 +105,11 @@ public class HealerProtocolUnderstandingService {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private List<ProtocolColorMapping> resolveColorMappings(String protocolName, UUID clinicId) {
-        List<ProtocolColorMapping> clinic = protocolColorMappingRepository
-                .findByProtocolNameAndClinicId(protocolName, clinicId);
-        if (!clinic.isEmpty()) return clinic;
-        return protocolColorMappingRepository.findByProtocolNameAndClinicIdIsNull(protocolName);
+    private List<ProtocolColorMapping> resolveColorMappings(String protocolName, UUID healerId) {
+        List<ProtocolColorMapping> healerCustom = protocolColorMappingRepository
+                .findByProtocolNameAndHealerId(protocolName, healerId);
+        if (!healerCustom.isEmpty()) return healerCustom;
+        return protocolColorMappingRepository.findByProtocolNameAndHealerIdIsNull(protocolName);
     }
 
     private Map<String, List<ColorUsedSnapshot>> buildColorsFromMappings(

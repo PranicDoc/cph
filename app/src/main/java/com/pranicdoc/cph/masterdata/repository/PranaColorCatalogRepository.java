@@ -13,12 +13,12 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     Optional<PranaColorCatalog> findByCode(String code);
 
-    /** System colors (clinicId is null) */
-    List<PranaColorCatalog> findByClinicIdIsNull();
+    /** System colors (healerId is null) */
+    List<PranaColorCatalog> findByHealerIdIsNull();
 
-    /** Clinic-custom colors */
-    List<PranaColorCatalog> findByClinicId(UUID clinicId);
+    /** Healer-custom colors */
+    List<PranaColorCatalog> findByHealerId(UUID healerId);
 
-    /** All accessible: system + current clinic */
-    List<PranaColorCatalog> findByClinicIdIsNullOrClinicId(UUID clinicId);
+    /** All accessible: system + current healer */
+    List<PranaColorCatalog> findByHealerIdIsNullOrHealerId(UUID healerId);
 }

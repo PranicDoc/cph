@@ -102,7 +102,7 @@ public class MasterDataSeeder implements CommandLineRunner {
                 .name(name)
                 .category(category)
                 .location(location)
-                .clinicId(null) // System-level
+                .healerId(null) // System-level
                 .build();
         chakraRepo.save(chakra);
     }
@@ -113,7 +113,7 @@ public class MasterDataSeeder implements CommandLineRunner {
                 .name(name)
                 .colorHex(hex)
                 .properties(List.of(properties))
-                .clinicId(null) // System-level
+                .healerId(null) // System-level
                 .build();
         colorRepo.save(color);
     }

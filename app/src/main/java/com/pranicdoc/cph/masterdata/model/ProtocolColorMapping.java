@@ -11,7 +11,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "protocol_color_mapping",
         uniqueConstraints = @UniqueConstraint(
-                columnNames = {"protocol_name", "color_id", "usage_type", "clinic_id"}))
+                columnNames = {"protocol_name", "color_id", "usage_type", "healer_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,9 +30,9 @@ public class ProtocolColorMapping extends BaseEntity {
     @Column(name = "usage_type", nullable = false, length = 20)
     private ColorUsageType usageType;
 
-    /** NULL = system-wide; non-null = clinic-specific override */
-    @Column(name = "clinic_id")
-    private UUID clinicId;
+    /** NULL = system-wide; non-null = healer-specific override */
+    @Column(name = "healer_id")
+    private UUID healerId;
 
     @Column(name = "chakra_name")
     private String chakraName;

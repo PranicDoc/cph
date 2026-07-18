@@ -13,12 +13,12 @@ public interface ChakraCatalogRepository extends JpaRepository<ChakraCatalog, UU
 
     Optional<ChakraCatalog> findByCode(String code);
 
-    /** System chakras (clinicId is null) */
-    List<ChakraCatalog> findByClinicIdIsNull();
+    /** System chakras (healerId is null) */
+    List<ChakraCatalog> findByHealerIdIsNull();
 
-    /** Clinic-custom chakras */
-    List<ChakraCatalog> findByClinicId(UUID clinicId);
+    /** Healer-custom chakras */
+    List<ChakraCatalog> findByHealerId(UUID healerId);
 
-    /** All accessible: system + current clinic */
-    List<ChakraCatalog> findByClinicIdIsNullOrClinicId(UUID clinicId);
+    /** All accessible: system + current healer */
+    List<ChakraCatalog> findByHealerIdIsNullOrHealerId(UUID healerId);
 }
