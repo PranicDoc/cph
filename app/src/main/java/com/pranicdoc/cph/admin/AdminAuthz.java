@@ -1,6 +1,5 @@
 package com.pranicdoc.cph.admin;
 
-import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,57 +11,42 @@ import java.util.UUID;
 /**
  * ABAC (Attribute-Based Access Control) helper for admin endpoints.
  *
- * SUPADM: cross-clinic, no scoping applied.
- * ADMIN:  clinic-scoped — can only read/write data belonging to their own clinicId.
+ * Solo-healer world (D-26-02): the only remaining privilege tier is SUPADM
+ * (cross-healer, unscoped) vs. an ordinary healer (own healerId only). There
+ * is no clinic-scoped ADMIN tier anymore — the per-clinic ABAC this class used
+ * to implement was retired as part of the clinic-removal cutover.
  *
- * Call assertClinicAccess() on every admin endpoint that operates on a specific clinicId
- * or ownerId. SUPADM bypasses silently; ADMIN throws 403 if the clinicId doesn't match.
+ * SUPADM bypasses silently; an ordinary healer is only permitted to act on
+ * their own healerId and throws 403 otherwise.
  */
 @Component
 @RequiredArgsConstructor
 public class AdminAuthz {
 
     private final SecurityContextUtil securityContextUtil;
-    private final HealerRepository healerRepository;
 
     /**
-     * Returns the effective clinicId filter for list endpoints:
-     *   SUPADM → null (no filter, see all clinics)
-     *   ADMIN  → their own clinicId
+     * Returns the effective healerId filter for list endpoints:
+     *   SUPADM  → null (no filter, see all healers)
+     *   healer  → their own healerId
      */
-    public UUID effectiveClinicFilter() {
+    public UUID healerScopeFilter() {
         String role = securityContextUtil.getCurrentRole();
         if ("SUPADM".equals(role)) return null;
-        return securityContextUtil.getCurrentClinicId();
+        return securityContextUtil.getCurrentHealerId();
     }
 
     /**
-     * Asserts the calling user has access to the given clinicId.
-     * SUPADM always passes. ADMIN passes only when clinicId matches their own.
-     * Throws 403 otherwise.
-     */
-    public void assertClinicAccess(UUID clinicId) {
-        String role = securityContextUtil.getCurrentRole();
-        if ("SUPADM".equals(role)) return;
-        UUID myClinicId = securityContextUtil.getCurrentClinicId();
-        if (!myClinicId.equals(clinicId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Access denied: clinic " + clinicId + " is not your clinic");
-        }
-    }
-
-    /**
-     * Asserts the calling ADMIN has access to the given healerId by verifying the healer
-     * belongs to their clinic. SUPADM always passes.
-     * Throws 403 if the healer does not belong to the admin's clinic.
+     * Asserts the calling user has access to the given healerId.
+     * SUPADM always passes. An ordinary healer passes only when healerId
+     * matches their own. Throws 403 otherwise.
      */
     public void assertHealerAccess(UUID healerId) {
         String role = securityContextUtil.getCurrentRole();
         if ("SUPADM".equals(role)) return;
-        UUID myClinicId = securityContextUtil.getCurrentClinicId();
-        if (!healerRepository.existsByIdAndClinicId(healerId, myClinicId)) {
+        if (!healerId.equals(securityContextUtil.getCurrentHealerId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Access denied: healer " + healerId + " is not in your clinic");
+                    "Access denied: healer " + healerId + " is not you");
         }
     }
 }
