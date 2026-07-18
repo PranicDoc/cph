@@ -42,7 +42,6 @@ public class AuditAspect {
 
             try {
                 auditLog.setHealerId(securityContextUtil.getCurrentHealerId());
-                auditLog.setClinicId(securityContextUtil.getCurrentClinicId());
             } catch (IllegalStateException ignored) {}
 
             // entityId: first UUID arg, then return value getId() fallback
