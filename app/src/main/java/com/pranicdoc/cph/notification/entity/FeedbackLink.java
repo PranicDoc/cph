@@ -24,8 +24,8 @@ public class FeedbackLink {
     @Column(name = "case_id", nullable = false, updatable = false)
     private UUID caseId;
 
-    @Column(name = "clinic_id", nullable = false, updatable = false)
-    private UUID clinicId;
+    @Column(name = "healer_id", nullable = false, updatable = false)
+    private UUID healerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

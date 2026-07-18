@@ -77,7 +77,7 @@ public class AuthService {
         FeedbackLink link = feedbackLinkRepository
                 .findByTokenAndStatusAndExpiresAtAfter(token, LinkStatus.ACTIVE, Instant.now())
                 .orElseThrow(() -> new TokenExpiredException("Feedback link is expired or already used"));
-        String selfRegToken = jwtService.generateSelfRegToken(link.getClinicId().toString());
+        String selfRegToken = jwtService.generateSelfRegToken(link.getHealerId().toString());
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
     }
 
