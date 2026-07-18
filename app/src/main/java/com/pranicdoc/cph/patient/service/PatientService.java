@@ -192,7 +192,11 @@ public class PatientService {
 
     @Auditable(action = "GENERATE_LINK")
     public Map<String, String> generateLink() {
-        String clinicId = TenantContext.get().toString();
+        // Value is already the healerId post-26-03 (TenantContext now holds healerId, not
+        // clinicId) — this rename just makes the URL segment name honest. The consuming
+        // frontend route param is renamed in 26-10; the SELF_REG token identity itself is
+        // hardened in 26-11.
+        String healerId = TenantContext.get().toString();
         String randomUuid = UUID.randomUUID().toString();
         RegistrationLink link = new RegistrationLink();
         link.setUuid(randomUuid);
@@ -200,7 +204,7 @@ public class PatientService {
         link.setExpiresAt(Instant.now().plusSeconds(172800)); // 48 hours
         registrationLinkRepository.save(link);
         return Map.of(
-                "link", baseUrl + "/self-register/" + clinicId + "/" + randomUuid
+                "link", baseUrl + "/self-register/" + healerId + "/" + randomUuid
         );
     }
 
