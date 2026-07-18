@@ -8,8 +8,6 @@ import com.pranicdoc.cph.auth.model.HealerInviteLink;
 import com.pranicdoc.cph.auth.repository.HealerInviteLinkRepository;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
-import com.pranicdoc.cph.clinic.model.Clinic;
-import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
@@ -29,7 +27,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -60,9 +57,6 @@ class InviteServiceTest {
     private HealerRepository healerRepository;
 
     @Mock
-    private ClinicRepository clinicRepository;
-
-    @Mock
     private JavaMailSender mailSender;
 
     @Mock
@@ -82,12 +76,11 @@ class InviteServiceTest {
 
     private InviteService inviteService;
 
-    private final UUID clinicId = UUID.randomUUID();
     private final UUID invitedByHealerId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        inviteService = new InviteService(inviteRepository, healerRepository, clinicRepository,
+        inviteService = new InviteService(inviteRepository, healerRepository,
                 mailSender, passwordEncoder, jwtService, cookieUtil, creditService);
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
         ReflectionTestUtils.setField(inviteService, "inviteExpiryHours", 72);
@@ -99,13 +92,13 @@ class InviteServiceTest {
     void createInvite_noExistingPending_savesNewRowAndSendsEmail() {
         String email = "newhealer@example.com";
         when(healerRepository.existsByEmail(email)).thenReturn(false);
-        when(inviteRepository.findByEmailAndClinicIdAndStatus(email, clinicId, HealerInviteLink.Status.PENDING))
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
                 .thenReturn(Optional.empty());
 
         ArgumentCaptor<HealerInviteLink> captor = ArgumentCaptor.forClass(HealerInviteLink.class);
         when(inviteRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, clinicId, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
 
         HealerInviteLink saved = captor.getValue();
         assertEquals(email, saved.getEmail());
@@ -126,18 +119,17 @@ class InviteServiceTest {
                 .token(oldToken)
                 .email(email)
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(10, ChronoUnit.HOURS))
                 .build();
 
         when(healerRepository.existsByEmail(email)).thenReturn(false);
-        when(inviteRepository.findByEmailAndClinicIdAndStatus(email, clinicId, HealerInviteLink.Status.PENDING))
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
                 .thenReturn(Optional.of(existing));
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, clinicId, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
 
         // Only ONE save call — the existing row is mutated and re-saved, no second row inserted.
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
@@ -152,23 +144,7 @@ class InviteServiceTest {
         when(healerRepository.existsByEmail(email)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class,
-                () -> inviteService.createInvite(email, Role.HEALER, clinicId, invitedByHealerId));
-
-        verify(inviteRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
-    }
-
-    @Test
-    void createInvite_healerExistsInDifferentClinic_throwsIAE_noSaveNoMail() {
-        // Regression test for Phase 22 code review Critical finding: the dedup check
-        // must be global, not scoped to the invite's clinic — AuthService.login() looks
-        // healers up by email alone, so the same email active in two clinics breaks login.
-        String email = "cross-clinic@example.com";
-        UUID otherClinicId = UUID.randomUUID();
-        when(healerRepository.existsByEmail(email)).thenReturn(true);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> inviteService.createInvite(email, Role.HEALER, otherClinicId, invitedByHealerId));
+                () -> inviteService.createInvite(email, Role.HEALER, invitedByHealerId));
 
         verify(inviteRepository, never()).save(any());
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
@@ -178,12 +154,12 @@ class InviteServiceTest {
     void createInvite_mailSendThrows_inviteStillPersists() {
         String email = "mailfail@example.com";
         when(healerRepository.existsByEmail(email)).thenReturn(false);
-        when(inviteRepository.findByEmailAndClinicIdAndStatus(email, clinicId, HealerInviteLink.Status.PENDING))
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
                 .thenReturn(Optional.empty());
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, clinicId, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
 
         assertEquals(email, response.email());
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
@@ -239,7 +215,6 @@ class InviteServiceTest {
         assertTrue(response.success());
         HealerInviteLink saved = captor.getValue();
         assertEquals(HealerInviteLink.Source.SELF_SIGNUP, saved.getSource());
-        assertNull(saved.getClinicId());
         assertNull(saved.getInvitedByHealerId());
         assertEquals(Role.HEALER, saved.getRole());
         assertEquals(HealerInviteLink.Status.PENDING, saved.getStatus());
@@ -281,7 +256,7 @@ class InviteServiceTest {
     // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
 
     @Test
-    void acceptInvite_selfSignupSource_createsSoloClinicAndHealerRole() {
+    void acceptInvite_selfSignupSource_noClinicCreated_healerRoleForced() {
         String token = "self-signup-accept-token";
         UUID inviteId = UUID.randomUUID();
         HealerInviteLink invite = HealerInviteLink.builder()
@@ -293,23 +268,14 @@ class InviteServiceTest {
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
                 .build();
-        UUID savedClinicId = UUID.randomUUID();
         UUID savedHealerId = UUID.randomUUID();
 
         when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
                 eq(token), eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.of(invite));
         when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
-        when(clinicRepository.existsByCode(any())).thenReturn(false);
         when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
         when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
-
-        ArgumentCaptor<Clinic> clinicCaptor = ArgumentCaptor.forClass(Clinic.class);
-        when(clinicRepository.save(clinicCaptor.capture())).thenAnswer(inv -> {
-            Clinic c = inv.getArgument(0);
-            c.setId(savedClinicId);
-            return c;
-        });
 
         ArgumentCaptor<Healer> healerCaptor = ArgumentCaptor.forClass(Healer.class);
         when(healerRepository.save(healerCaptor.capture())).thenAnswer(inv -> {
@@ -321,16 +287,12 @@ class InviteServiceTest {
         AcceptInviteRequest request = new AcceptInviteRequest("Solo Healer", "password1", "555-1234");
         HealerResponse response = inviteService.acceptInvite(token, request, httpServletResponse);
 
-        Clinic savedClinic = clinicCaptor.getValue();
-        assertTrue(savedClinic.getCode().startsWith("SOLO-"));
-        assertEquals("Solo Healer's Practice", savedClinic.getName());
-
         Healer savedHealer = healerCaptor.getValue();
         assertEquals(Role.HEALER, savedHealer.getRole());
-        assertEquals(savedClinicId, savedHealer.getClinicId());
+        assertNull(savedHealer.getClinicId());
 
         assertEquals(savedHealerId, response.id());
-        verify(creditService).createAccount(OwnerType.CLINIC, savedClinicId);
+        verify(creditService, never()).createAccount(eq(OwnerType.CLINIC), any());
         verify(creditService).createAccount(OwnerType.HEALER, savedHealerId);
     }
 
@@ -345,7 +307,6 @@ class InviteServiceTest {
                 .token(oldToken)
                 .email("resend@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
@@ -354,7 +315,7 @@ class InviteServiceTest {
         when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.resend(inviteId, null);
+        InviteResponse response = inviteService.resend(inviteId);
 
         assertNotEquals(oldToken, invite.getToken());
         assertEquals("PENDING", response.status());
@@ -369,7 +330,6 @@ class InviteServiceTest {
                 .token("t")
                 .email("e@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.ACCEPTED)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
@@ -377,7 +337,7 @@ class InviteServiceTest {
 
         when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
 
-        assertThrows(IllegalArgumentException.class, () -> inviteService.resend(inviteId, null));
+        assertThrows(IllegalArgumentException.class, () -> inviteService.resend(inviteId));
         verify(inviteRepository, never()).save(any());
     }
 
@@ -389,7 +349,6 @@ class InviteServiceTest {
                 .token("t")
                 .email("e@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.REVOKED)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
@@ -397,28 +356,7 @@ class InviteServiceTest {
 
         when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
 
-        assertThrows(IllegalArgumentException.class, () -> inviteService.resend(inviteId, null));
-    }
-
-    @Test
-    void resend_wrongClinicFilter_throwsForbidden() {
-        UUID inviteId = UUID.randomUUID();
-        UUID otherClinic = UUID.randomUUID();
-        HealerInviteLink invite = HealerInviteLink.builder()
-                .id(inviteId)
-                .token("t")
-                .email("e@example.com")
-                .role(Role.HEALER)
-                .clinicId(clinicId)
-                .invitedByHealerId(invitedByHealerId)
-                .status(HealerInviteLink.Status.PENDING)
-                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
-                .build();
-
-        when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
-
-        assertThrows(ResponseStatusException.class, () -> inviteService.resend(inviteId, otherClinic));
-        verify(inviteRepository, never()).save(any());
+        assertThrows(IllegalArgumentException.class, () -> inviteService.resend(inviteId));
     }
 
     // ─── revoke ─────────────────────────────────────────────────
@@ -431,7 +369,6 @@ class InviteServiceTest {
                 .token("t")
                 .email("e@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
@@ -440,7 +377,7 @@ class InviteServiceTest {
         when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.revoke(inviteId, null);
+        InviteResponse response = inviteService.revoke(inviteId);
 
         assertEquals(HealerInviteLink.Status.REVOKED, invite.getStatus());
         assertEquals("REVOKED", response.status());
@@ -455,7 +392,6 @@ class InviteServiceTest {
                 .token("t")
                 .email("e@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.ACCEPTED)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
@@ -463,28 +399,8 @@ class InviteServiceTest {
 
         when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
 
-        assertThrows(IllegalArgumentException.class, () -> inviteService.revoke(inviteId, null));
+        assertThrows(IllegalArgumentException.class, () -> inviteService.revoke(inviteId));
         verify(inviteRepository, never()).save(any());
-    }
-
-    @Test
-    void revoke_wrongClinicFilter_throwsForbidden() {
-        UUID inviteId = UUID.randomUUID();
-        UUID otherClinic = UUID.randomUUID();
-        HealerInviteLink invite = HealerInviteLink.builder()
-                .id(inviteId)
-                .token("t")
-                .email("e@example.com")
-                .role(Role.HEALER)
-                .clinicId(clinicId)
-                .invitedByHealerId(invitedByHealerId)
-                .status(HealerInviteLink.Status.PENDING)
-                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
-                .build();
-
-        when(inviteRepository.findById(inviteId)).thenReturn(Optional.of(invite));
-
-        assertThrows(ResponseStatusException.class, () -> inviteService.revoke(inviteId, otherClinic));
     }
 
     // ─── acceptInvite ───────────────────────────────────────────
@@ -498,19 +414,16 @@ class InviteServiceTest {
                 .token(token)
                 .email("invitee@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
                 .build();
-        Clinic clinic = Clinic.builder().code("CHNY01").name("Chennai Clinic").build();
         UUID savedHealerId = UUID.randomUUID();
 
         when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
                 eq(token), eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.of(invite));
         when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
-        when(clinicRepository.findById(clinicId)).thenReturn(Optional.of(clinic));
         when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
         when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
 
@@ -531,6 +444,7 @@ class InviteServiceTest {
         Healer savedHealer = healerCaptor.getValue();
         assertEquals("New Healer", savedHealer.getFullName());
         assertEquals("hashedPw", savedHealer.getPasswordHash());
+        assertNull(savedHealer.getClinicId());
     }
 
     @Test
@@ -586,9 +500,9 @@ class InviteServiceTest {
     }
 
     @Test
-    void acceptInvite_healerExistsInAnotherClinic_throwsTokenExpiredException_noSecondActivation() {
-        // Regression test for Phase 22 code review Critical finding: the same email must
-        // not be activatable in a second clinic once it exists anywhere in the system.
+    void acceptInvite_healerExistsGlobally_throwsTokenExpiredException_noSecondActivation() {
+        // Regression test for Phase 22 code review Critical finding, preserved post-clinic-removal:
+        // the same email must not be activatable twice once it exists anywhere in the system.
         String token = "valid-token-2";
         UUID inviteId = UUID.randomUUID();
         HealerInviteLink invite = HealerInviteLink.builder()
@@ -596,18 +510,15 @@ class InviteServiceTest {
                 .token(token)
                 .email("already-elsewhere@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
                 .build();
-        Clinic clinic = Clinic.builder().code("CHNY01").name("Chennai Clinic").build();
 
         when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
                 eq(token), eq(HealerInviteLink.Status.PENDING), any()))
                 .thenReturn(Optional.of(invite));
         when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
-        when(clinicRepository.findById(clinicId)).thenReturn(Optional.of(clinic));
         when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(true);
 
         AcceptInviteRequest request = new AcceptInviteRequest("New Healer", "password1", null);
@@ -628,7 +539,6 @@ class InviteServiceTest {
                 .token(token)
                 .email("race@example.com")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .invitedByHealerId(invitedByHealerId)
                 .status(HealerInviteLink.Status.PENDING)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
