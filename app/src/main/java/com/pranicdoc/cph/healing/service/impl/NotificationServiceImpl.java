@@ -62,8 +62,13 @@ public class NotificationServiceImpl implements NotificationService {
                 FeedbackLink.builder()
                         .token(UUID.randomUUID().toString())
                         .caseId(healingCase.getId())
-                        // NOTE: intentionally still .clinicId() — FeedbackLink gains healerId in 26-11
-                        .clinicId(healingCase.getClinicId())
+                        // NOTE: FeedbackLink.clinicId field name is unchanged until 26-11 adds
+                        // FeedbackLink.healerId (V20) and flips this call site. The VALUE sourced
+                        // here is unaffected by 26-09: TenantEntity.getClinicId() was only a
+                        // deprecated bridge to getHealerId() (identical value since 26-03's @Filter
+                        // flip); calling getHealerId() directly is required now that 26-09 removes
+                        // that bridge, and is behaviorally a no-op.
+                        .clinicId(healingCase.getHealerId())
                         .status(LinkStatus.ACTIVE)
                         .isFinal(isFinal)
                         .expiresAt(Instant.now().plus(feedbackLinkExpiryHours, ChronoUnit.HOURS))

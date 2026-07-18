@@ -53,7 +53,6 @@ class JwtClaimShapeTest {
     private static final String TEST_SECRET =
             "fk6JC1uv+OE7IbpytRxWetyFg2WO38y2gM5uOeKsXuvfn6aMeKBlP7Dh0tJL2D0cYtUzIPAak6jtin2i/c+RMQ==";
 
-    @Disabled("enabled by 26-09: JWT claim contract cutover")
     @Test
     void noClinicIdClaim_stillAuthenticates() throws Exception {
         SecretKey signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(TEST_SECRET));

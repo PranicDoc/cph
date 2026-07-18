@@ -38,16 +38,4 @@ public abstract class TenantEntity extends BaseEntity {
         tenant.setCreatedAt(now);
         tenant.setUpdatedAt(now);
     }
-
-    // BRIDGE (removed in 26-09): pre-cutover callers read the tenant via getClinicId
-    @Deprecated
-    public UUID getClinicId() {
-        return getHealerId();
-    }
-
-    // BRIDGE (removed in 26-09): pre-cutover callers write the tenant via setClinicId
-    @Deprecated
-    public void setClinicId(UUID id) {
-        setHealerId(id);
-    }
 }

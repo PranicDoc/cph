@@ -14,13 +14,6 @@ import java.util.UUID;
 public class SecurityContextUtil {
 
     /**
-     * Returns the clinicId for the currently authenticated healer.
-     */
-    public UUID getCurrentClinicId() {
-        return getTenantDetails().clinicId();
-    }
-
-    /**
      * Returns the healerId for the currently authenticated healer.
      */
     public UUID getCurrentHealerId() {
@@ -30,13 +23,6 @@ public class SecurityContextUtil {
     public UUID getCurrentHealerIdOrNull() {
         TenantDetails details = getTenantDetailsOrNull();
         return details != null ? details.healerId() : null;
-    }
-
-    /**
-     * Returns the clinic code (e.g. "CHNY01") for the current healer.
-     */
-    public String getCurrentClinicCode() {
-        return getTenantDetails().clinicCode();
     }
 
     /**
@@ -90,7 +76,8 @@ public class SecurityContextUtil {
     /**
      * Record carrying tenant details set by JwtAuthFilter.
      * patientId and caseId are only populated for PATIENT_CASE tokens.
-     * healerId and clinicCode are only populated for ACCESS/SELF_REG tokens.
+     * healerId is populated for ACCESS/SELF_REG tokens; may be null for a
+     * PATIENT_CASE token until 26-11 embeds the real owning healerId (D-26-04).
      */
-    public record TenantDetails(UUID clinicId, UUID healerId, String clinicCode, UUID patientId, UUID caseId) {}
+    public record TenantDetails(UUID healerId, UUID patientId, UUID caseId) {}
 }

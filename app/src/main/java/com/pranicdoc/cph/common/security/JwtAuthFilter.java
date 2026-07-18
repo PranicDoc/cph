@@ -58,7 +58,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String tokenType = jwtService.extractTokenType(token);
             Claims claims = jwtService.parseToken(token);
             String role = claims.get("role", String.class);
-            UUID clinicId = UUID.fromString(claims.get("clinicId", String.class));
 
             UsernamePasswordAuthenticationToken authToken;
 
@@ -66,20 +65,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // Narrow case-scoped token: subject = patientId
                 UUID patientId = UUID.fromString(claims.getSubject());
                 UUID caseId = UUID.fromString(claims.get("caseId", String.class));
+                // Pitfall 4 fix: no unconditional clinicId parse. healerId is not yet a
+                // real claim on this token type (26-11/D-26-04 adds it) — tolerate null,
+                // do NOT fail closed.
+                String healerIdClaim = claims.get("healerId", String.class);
+                UUID healerId = healerIdClaim != null ? UUID.fromString(healerIdClaim) : null;
                 authToken = new UsernamePasswordAuthenticationToken(
                         patientId.toString(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                 authToken.setDetails(new SecurityContextUtil.TenantDetails(
-                        clinicId, null, null, patientId, caseId));
+                        healerId, patientId, caseId));
 
             } else if ("ACCESS".equals(tokenType) || "SELF_REG".equals(tokenType)) {
                 UUID healerId = UUID.fromString(claims.getSubject());
-                String clinicCode = claims.get("clinicCode", String.class);
                 authToken = new UsernamePasswordAuthenticationToken(
                         healerId.toString(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                 authToken.setDetails(new SecurityContextUtil.TenantDetails(
-                        clinicId, healerId, clinicCode, null, null));
+                        healerId, null, null));
 
             } else {
                 filterChain.doFilter(request, response);

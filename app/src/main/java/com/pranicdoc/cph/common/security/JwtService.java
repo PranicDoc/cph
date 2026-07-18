@@ -15,12 +15,12 @@ import java.util.UUID;
 /**
  * JWT token generation and validation service using jjwt.
  *
- * Token claims:
+ * Token claims (ACCESS/REFRESH, post-26-09 CONTRACT step):
  *   sub       = healerId (UUID)
- *   clinicId  = clinic UUID
- *   clinicCode = clinic display code (e.g. "CHNY01")
  *   role      = healer role (HEALER, SENIOR_HEALER, ADMIN, etc.)
  *   type      = "ACCESS" or "REFRESH"
+ *
+ * (SELF_REG/PATIENT_CASE token shapes are unchanged here — 26-11's D-26-04 scope.)
  */
 @Service
 public class JwtService {
@@ -39,10 +39,10 @@ public class JwtService {
     }
 
     /**
-     * Generate an access token with healer/clinic claims.
+     * Generate an access token with healer claims (clinic-free, post-26-09).
      */
-    public String generateAccessToken(UUID healerId, UUID clinicId, String clinicCode, String role) {
-        return buildToken(healerId, clinicId, clinicCode, role, "ACCESS", accessTokenExpirationMs);
+    public String generateAccessToken(UUID healerId, String role) {
+        return buildToken(healerId, null, null, role, "ACCESS", accessTokenExpirationMs);
     }
 
     /**
@@ -90,10 +90,10 @@ public class JwtService {
     }
 
     /**
-     * Generate a refresh token with minimal claims.
+     * Generate a refresh token with minimal claims (clinic-free, post-26-09).
      */
-    public String generateRefreshToken(UUID healerId, UUID clinicId, String clinicCode, String role) {
-        return buildToken(healerId, clinicId, clinicCode, role, "REFRESH", refreshTokenExpirationMs);
+    public String generateRefreshToken(UUID healerId, String role) {
+        return buildToken(healerId, null, null, role, "REFRESH", refreshTokenExpirationMs);
     }
 
     /**
@@ -124,20 +124,6 @@ public class JwtService {
      */
     public UUID extractHealerId(String token) {
         return UUID.fromString(parseToken(token).getSubject());
-    }
-
-    /**
-     * Extract clinicId from token claims.
-     */
-    public UUID extractClinicId(String token) {
-        return UUID.fromString(parseToken(token).get("clinicId", String.class));
-    }
-
-    /**
-     * Extract clinic code from token claims.
-     */
-    public String extractClinicCode(String token) {
-        return parseToken(token).get("clinicCode", String.class);
     }
 
     /**
@@ -192,8 +178,6 @@ public class JwtService {
 
         return Jwts.builder()
                 .subject(healerId.toString())
-                .claim("clinicId", clinicId.toString())
-                .claim("clinicCode", clinicCode)
                 .claim("role", role)
                 .claim("type", type)
                 .issuedAt(now)
