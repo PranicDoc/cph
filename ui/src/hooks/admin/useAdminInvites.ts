@@ -8,7 +8,6 @@ export interface AdminInvite {
   id: string;
   email: string;
   role: string;
-  clinicId: string;
   status: "PENDING" | "EXPIRED" | "ACCEPTED" | "REVOKED";
   createdAt: string;
   expiresAt: string;
@@ -17,7 +16,6 @@ export interface AdminInvite {
 export interface InviteCreatePayload {
   email: string;
   role: string;
-  clinicId?: string;
 }
 
 const QK = ["admin-invites"] as const;

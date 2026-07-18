@@ -32,15 +32,15 @@ import { cn } from "@/lib/utils";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-function SourceBadge({ clinicId }: { clinicId?: string | null }) {
+function SourceBadge({ healerId }: { healerId?: string | null }) {
   return (
     <Badge
       className={cn(
         "font-semibold px-2",
-        clinicId ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+        healerId ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
       )}
     >
-      {clinicId ? "Clinic" : "System"}
+      {healerId ? "Custom" : "System"}
     </Badge>
   );
 }
@@ -192,7 +192,7 @@ function ColorModal({
           .split("\n")
           .map((p) => p.trim())
           .filter(Boolean),
-        clinicId: initial ? initial.clinicId : null,
+        healerId: initial ? initial.healerId : null,
       };
       try {
         if (initial) {
@@ -277,7 +277,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [modal, setModal] = useState<PranaColor | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<PranaColor | null>(null);
 
-  const canModify = (item: PranaColor) => isSuperAdmin || !!item.clinicId;
+  const canModify = (item: PranaColor) => isSuperAdmin || !!item.healerId;
 
   const columns: ColumnDef<PranaColor, unknown>[] = [
     {
@@ -312,9 +312,9 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       },
     },
     {
-      accessorKey: "clinicId",
+      accessorKey: "healerId",
       header: "Source",
-      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+      cell: ({ row }) => <SourceBadge healerId={row.original.healerId} />,
     },
     {
       id: "actions",
@@ -336,7 +336,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-text-light">
-          System colors are seeded globally. Clinic colors are custom additions.
+          System colors are seeded globally. Your own custom colors are also listed here.
         </p>
         <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
           <Plus className="w-4 h-4" />
@@ -367,7 +367,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   <div className="flex items-center gap-2 min-w-0">
                     <ColorSwatch hex={item.colorHex} />
                     <span className="font-semibold text-text truncate">{item.name}</span>
-                    <SourceBadge clinicId={item.clinicId} />
+                    <SourceBadge healerId={item.healerId} />
                   </div>
                   {canModify(item) ? (
                     <RowActions
@@ -454,7 +454,7 @@ function ChakraModal({
         code: value.code.toUpperCase(),
         category: value.category,
         location: value.location,
-        clinicId: initial ? initial.clinicId : null,
+        healerId: initial ? initial.healerId : null,
       };
       try {
         if (initial) {
@@ -534,7 +534,7 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [modal, setModal] = useState<Chakra | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Chakra | null>(null);
 
-  const canModify = (item: Chakra) => isSuperAdmin || !!item.clinicId;
+  const canModify = (item: Chakra) => isSuperAdmin || !!item.healerId;
 
   const columns: ColumnDef<Chakra, unknown>[] = [
     {
@@ -566,9 +566,9 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       ),
     },
     {
-      accessorKey: "clinicId",
+      accessorKey: "healerId",
       header: "Source",
-      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+      cell: ({ row }) => <SourceBadge healerId={row.original.healerId} />,
     },
     {
       id: "actions",
@@ -590,7 +590,7 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-text-light">
-          System chakras (26 seeded) are global. Add custom chakras for your clinic.
+          System chakras (26 seeded) are global. Add your own custom chakras below.
         </p>
         <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
           <Plus className="w-4 h-4" />
@@ -622,7 +622,7 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                     <span className="font-semibold text-text">{item.name}</span>
                     <div className="flex items-center gap-2 mt-1">
                       <CategoryBadge category={item.category} />
-                      <SourceBadge clinicId={item.clinicId} />
+                      <SourceBadge healerId={item.healerId} />
                     </div>
                   </div>
                   {canModify(item) ? (
@@ -703,7 +703,7 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
           protocolName: value.protocolName,
           colorIds: Array.from(selectedIds),
           usageType,
-          clinicId: null,
+          healerId: null,
           chakraName: value.chakraName,
         });
         onClose();
@@ -808,7 +808,7 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
 
         {isSuperAdmin && (
           <p className="text-xs text-text-light">
-            Mappings will be created as system-level (no clinic restriction).
+            Mappings will be created as system-level (no healer restriction).
           </p>
         )}
         {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -829,7 +829,7 @@ type MappingItem = {
   protocolName: string;
   colorId: string;
   usageType: string;
-  clinicId?: string | null;
+  healerId?: string | null;
 };
 
 function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
@@ -840,7 +840,7 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<MappingItem | null>(null);
 
   const colorById = (id: string) => colors?.find((c) => c.id === id);
-  const canDelete = (m: { clinicId?: string | null }) => isSuperAdmin || !!m.clinicId;
+  const canDelete = (m: { healerId?: string | null }) => isSuperAdmin || !!m.healerId;
 
   const columns: ColumnDef<MappingItem, unknown>[] = [
     {
@@ -869,9 +869,9 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       cell: ({ row }) => <UsageBadge usageType={row.original.usageType} />,
     },
     {
-      accessorKey: "clinicId",
+      accessorKey: "healerId",
       header: "Source",
-      cell: ({ row }) => <SourceBadge clinicId={row.original.clinicId} />,
+      cell: ({ row }) => <SourceBadge healerId={row.original.healerId} />,
     },
     {
       id: "actions",

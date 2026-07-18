@@ -12,8 +12,6 @@ export interface HealerProfile {
   role: string;
   healingLevel?: string;
   active: boolean;
-  clinicId: string;
-  clinicCode: string;
   createdAt: string;
   hasPassword: boolean;
   hasGoogleLinked: boolean;

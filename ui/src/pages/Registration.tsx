@@ -21,7 +21,7 @@ export default function Registration() {
   const [patientFullName, setPatientFullName] = useState<string>("");
   const [pendingHistory, setPendingHistory] = useState<Record<string, unknown> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { clinicId, uuid } = useParams();
+  const { healerId, uuid } = useParams();
   const { selectPatient } = usePatient();
   const location = useLocation();
   const hasCalled = useRef(false);
@@ -41,8 +41,12 @@ export default function Registration() {
 
     const initSession = async () => {
       try {
+        // NOTE: backend InitSessionRequest is still (uuid, clinicId)-shaped until 26-11 lands
+        // (same wave, 26-11 owns the DTO rename) — sending `healerId` here matches 26-11's
+        // target contract but the self-register init-session call will not fully complete
+        // end-to-end until 26-11 executes.
         const res = await api.post("/api/v1/auth/init-session", {
-          clinicId: clinicId,
+          healerId: healerId,
           uuid: uuid,
         });
         sessionStorage.setItem("role", res.data?.data);

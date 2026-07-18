@@ -39,7 +39,7 @@ function normalizeChakra(item: any): ChakraOption {
     name: item.name ?? "",
     category: item.category ?? undefined,
     location: item.location ?? undefined,
-    clinicId: item.clinicId ?? null,
+    healerId: item.healerId ?? null,
   };
 }
 
@@ -50,7 +50,7 @@ function normalizeColor(item: any): ColorOption {
     name: item.name ?? "",
     colorHex: item.colorHex ?? undefined,
     properties: item.properties ?? undefined,
-    clinicId: item.clinicId ?? null,
+    healerId: item.healerId ?? null,
   };
 }
 

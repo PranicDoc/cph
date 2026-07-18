@@ -8,8 +8,6 @@ export interface UserInfo {
   phone?: string;
   avatarUrl?: string;
   role?: string;
-  clinicId?: string;
-  clinicCode?: string;
 }
 
 /** Auth context contract the component expects */

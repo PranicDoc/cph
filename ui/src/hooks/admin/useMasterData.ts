@@ -11,7 +11,7 @@ export interface PranaColor {
   name: string;
   colorHex: string;
   properties?: string[];
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface Chakra {
@@ -20,7 +20,7 @@ export interface Chakra {
   name: string;
   category?: string;
   location?: string;
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface ProtocolMapping {
@@ -28,7 +28,7 @@ export interface ProtocolMapping {
   protocolName: string;
   colorId: string;
   usageType: "CLEANSING" | "ENERGISING";
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface PranaColorPayload {
@@ -36,7 +36,7 @@ export interface PranaColorPayload {
   code: string;
   colorHex: string;
   properties?: string[];
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface ChakraPayload {
@@ -44,14 +44,14 @@ export interface ChakraPayload {
   code: string;
   category?: string;
   location?: string;
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface ProtocolMappingPayload {
   protocolName: string;
   colorIds: string[];
   usageType: "CLEANSING" | "ENERGISING";
-  clinicId?: string | null;
+  healerId?: string | null;
   chakraName: string;
 }
 

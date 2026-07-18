@@ -50,7 +50,7 @@ export default function App() {
             <Route element={<PublicShell />}>
               <Route path="/self-register" element={<Registration />} />
               <Route
-                path="/self-register/:clinicId/:uuid"
+                path="/self-register/:healerId/:uuid"
                 element={<Registration />}
               />
               <Route path="/feedback" element={<PatientFeedback />} />

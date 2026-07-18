@@ -143,7 +143,7 @@ export interface ColorOption {
   name: string;
   colorHex?: string;
   properties?: string[];
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface ChakraOption {
@@ -152,7 +152,7 @@ export interface ChakraOption {
   name: string;
   category?: string;
   location?: string;
-  clinicId?: string | null;
+  healerId?: string | null;
 }
 
 export interface CreateSessionPayload {
