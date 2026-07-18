@@ -5,7 +5,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -21,27 +20,23 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Contract tests describing the POST-CUTOVER JWT claim shape (Phase 26). Both
- * methods are {@code @Disabled} — the current claim shape (clinicId-bearing
- * ACCESS/REFRESH tokens, clinicId-proxied PATIENT_CASE tokens, random-UUID
- * SELF_REG subjects) is unchanged until their enabling plans land. Keeping
- * these tests compiling-but-skipped now means 26-09/26-11 enable a
- * ready-made regression net instead of writing the assertions from scratch.
+ * Contract tests proving the POST-CUTOVER JWT claim shape (Phase 26). Both
+ * tests are now enabled — 26-09 and 26-11 both landed the changes they guard.
  *
  * <ul>
  *   <li>{@link #noClinicIdClaim_stillAuthenticates()} — 26-VALIDATION.md Wave 0
  *       requirement 2 / task 26-W1-02. Guards Pitfall 4: {@code JwtAuthFilter}
- *       currently does an UNCONDITIONAL
+ *       used to do an UNCONDITIONAL
  *       {@code UUID.fromString(claims.get("clinicId", String.class))} before
  *       branching on token type, so a token minted without a {@code clinicId}
- *       claim throws (swallowed by the filter's catch-all) and silently fails
- *       to authenticate today. Enabled by 26-09, once that unconditional parse
- *       is removed/reworked in the same commit that stops issuing the claim.</li>
+ *       claim threw (swallowed by the filter's catch-all) and silently failed
+ *       to authenticate. Fixed by 26-09, which removed that unconditional parse
+ *       in the same commit that stopped issuing the claim.</li>
  *   <li>{@link #patientToken_carriesRealHealerId()} — 26-VALIDATION.md Wave 0
  *       requirement 3 / task 26-W4-01 (D-26-04). Guards against
  *       {@code PATIENT_CASE}/{@code SELF_REG} tokens carrying a null or
  *       {@code UUID.randomUUID()} healer identity instead of the real owning
- *       healer's id. Enabled by 26-11.</li>
+ *       healer's id. Fixed by 26-11.</li>
  * </ul>
  */
 class JwtClaimShapeTest {
@@ -85,7 +80,6 @@ class JwtClaimShapeTest {
         assertTrue(authentication.isAuthenticated());
     }
 
-    @Disabled("enabled by 26-11: D-26-04 patient-token real healerId")
     @Test
     void patientToken_carriesRealHealerId() {
         JwtService jwtService = new JwtService(TEST_SECRET, 3_600_000L, 604_800_000L);
