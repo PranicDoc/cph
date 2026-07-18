@@ -5,16 +5,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-import java.util.UUID;
-
 /**
- * Admin invite-creation payload (ADMIN-01).
- * clinicId is nullable — only honored for SUPADM callers; regular ADMIN callers
- * have their own clinicId resolved server-side (D-02), the controller ignores
- * this field for them.
+ * Admin invite-creation payload (ADMIN-01). Solo-healer world (CUTOVER-05):
+ * invites are no longer clinic-scoped — every ADMIN/SUPADM caller creates a
+ * plain, clinic-free invite.
  */
 public record InviteCreateRequest(
         @NotBlank @Email String email,
-        @NotNull Role role,
-        UUID clinicId
+        @NotNull Role role
 ) {}

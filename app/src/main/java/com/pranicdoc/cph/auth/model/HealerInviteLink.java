@@ -42,9 +42,6 @@ public class HealerInviteLink {
     @Column(nullable = false, length = 20)
     private Role role;
 
-    @Column(name = "clinic_id")
-    private UUID clinicId;
-
     @Column(name = "invited_by_healer_id")
     private UUID invitedByHealerId;
 

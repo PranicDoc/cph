@@ -7,12 +7,9 @@ import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.model.HealerInviteLink;
 import com.pranicdoc.cph.auth.repository.HealerInviteLinkRepository;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
-import com.pranicdoc.cph.clinic.model.Clinic;
-import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.Role;
-import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
@@ -25,16 +22,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -52,7 +46,6 @@ public class InviteService {
 
     private final HealerInviteLinkRepository inviteRepository;
     private final HealerRepository healerRepository;
-    private final ClinicRepository clinicRepository;
     private final JavaMailSender mailSender;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -68,7 +61,7 @@ public class InviteService {
     // ─── Create ─────────────────────────────────────────────────
 
     @Auditable(action = "CREATE_INVITE")
-    public InviteResponse createInvite(String email, Role role, UUID clinicId, UUID invitedByHealerId) {
+    public InviteResponse createInvite(String email, Role role, UUID invitedByHealerId) {
         // Global check: Healer.email has no per-clinic scoping anywhere else in the system —
         // AuthService.login()/HealerServiceImpl.findHealerByEmail() both look up by email alone,
         // so a per-clinic dedup here would let the same email activate in two different clinics
@@ -78,7 +71,7 @@ public class InviteService {
         }
 
         HealerInviteLink invite = inviteRepository
-                .findByEmailAndClinicIdAndStatus(email, clinicId, HealerInviteLink.Status.PENDING)
+                .findByEmailAndStatus(email, HealerInviteLink.Status.PENDING)
                 .orElse(null);
 
         String token = UUID.randomUUID().toString();
@@ -94,7 +87,6 @@ public class InviteService {
                     .token(token)
                     .email(email)
                     .role(role)
-                    .clinicId(clinicId)
                     .invitedByHealerId(invitedByHealerId)
                     .status(HealerInviteLink.Status.PENDING)
                     .expiresAt(expiresAt)
@@ -170,11 +162,9 @@ public class InviteService {
     // ─── Resend ─────────────────────────────────────────────────
 
     @Auditable(action = "RESEND_INVITE")
-    public InviteResponse resend(UUID inviteId, UUID callerClinicFilter) {
+    public InviteResponse resend(UUID inviteId) {
         HealerInviteLink invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
-
-        assertClinicAccess(invite, callerClinicFilter);
 
         if (invite.getStatus() != HealerInviteLink.Status.PENDING) {
             throw new IllegalArgumentException("Only pending invites can be resent");
@@ -193,11 +183,9 @@ public class InviteService {
     // ─── Revoke ─────────────────────────────────────────────────
 
     @Auditable(action = "REVOKE_INVITE")
-    public InviteResponse revoke(UUID inviteId, UUID callerClinicFilter) {
+    public InviteResponse revoke(UUID inviteId) {
         HealerInviteLink invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
-
-        assertClinicAccess(invite, callerClinicFilter);
 
         if (invite.getStatus() != HealerInviteLink.Status.PENDING) {
             throw new IllegalArgumentException("Only pending invites can be revoked");
@@ -224,23 +212,15 @@ public class InviteService {
             throw new TokenExpiredException("This invite link is invalid, expired, or already used.");
         }
 
-        Clinic clinic;
-        if (invite.getSource() == HealerInviteLink.Source.SELF_SIGNUP) {
-            // D-05/D-06: auto-provision a personal one-person clinic instead of joining one.
-            clinic = createSoloClinic(request.fullName());
-        } else {
-            clinic = clinicRepository.findById(invite.getClinicId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Clinic", invite.getClinicId()));
-        }
-
         if (healerRepository.existsByEmail(invite.getEmail())) {
-            // An account already exists (any clinic) — the invite is effectively already consumed.
+            // An account already exists — the invite is effectively already consumed.
             throw new TokenExpiredException("This invite link is invalid, expired, or already used.");
         }
 
         // D-04: never trust the token's role for self-signup — always plain HEALER.
         Role role = invite.getSource() == HealerInviteLink.Source.SELF_SIGNUP ? Role.HEALER : invite.getRole();
 
+        // Solo-healer world (CUTOVER-05): no clinic to create or join — the healer IS the tenant.
         Healer healer = Healer.builder()
                 .fullName(request.fullName())
                 .email(invite.getEmail())
@@ -249,7 +229,6 @@ public class InviteService {
                 .role(role)
                 .active(true)
                 .build();
-        healer.setClinicId(clinic.getId());
         Healer saved = healerRepository.save(healer);
 
         // T-22.1-09: a creditService outage must never fail account activation.
@@ -260,66 +239,19 @@ public class InviteService {
                     saved.getId(), e.getMessage());
         }
 
-        setAuthCookies(response, saved, clinic.getCode());
+        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
+        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
+        setAuthCookies(response, saved, null);
 
-        return toHealerResponse(saved, clinic.getCode());
-    }
-
-    // ─── Solo Clinic Auto-Provisioning (D-05/D-06/D-07) ────────
-
-    private static final String SOLO_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I (D-06)
-    private static final int SOLO_CODE_SUFFIX_LENGTH = 4;
-    private static final int SOLO_CODE_MAX_ATTEMPTS = 10;
-    private static final SecureRandom SOLO_CODE_RANDOM = new SecureRandom();
-
-    private Clinic createSoloClinic(String fullName) {
-        String code = null;
-        for (int attempt = 0; attempt < SOLO_CODE_MAX_ATTEMPTS; attempt++) {
-            String candidate = "SOLO-" + randomSoloCodeSuffix();
-            if (!clinicRepository.existsByCode(candidate)) {
-                code = candidate;
-                break;
-            }
-        }
-        if (code == null) {
-            throw new IllegalStateException("Unable to generate a unique solo clinic code");
-        }
-
-        Clinic clinic = Clinic.builder()
-                .code(code)
-                .name(fullName + "'s Practice")
-                .active(true)
-                .build();
-        Clinic saved = clinicRepository.save(clinic);
-
-        // T-22.1-09: replicate ClinicService.create()'s non-fatal provisioning idiom —
-        // a creditService outage must never roll back the created solo clinic.
-        try {
-            creditService.createAccount(OwnerType.CLINIC, saved.getId());
-        } catch (Exception e) {
-            log.warn("CREDIT_ACCOUNT_PROVISION_FAILED clinicId={} reason={} (clinic registration completed; manual provisioning may be needed)",
-                    saved.getId(), e.getMessage());
-        }
-
-        return saved;
-    }
-
-    private String randomSoloCodeSuffix() {
-        StringBuilder sb = new StringBuilder(SOLO_CODE_SUFFIX_LENGTH);
-        for (int i = 0; i < SOLO_CODE_SUFFIX_LENGTH; i++) {
-            sb.append(SOLO_CODE_ALPHABET.charAt(SOLO_CODE_RANDOM.nextInt(SOLO_CODE_ALPHABET.length())));
-        }
-        return sb.toString();
+        // TODO(26-09): drop clinicCode arg — bridge, see above.
+        return toHealerResponse(saved, null);
     }
 
     // ─── List ───────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Page<InviteResponse> list(UUID clinicFilter, Pageable pageable) {
-        Page<HealerInviteLink> page = clinicFilter != null
-                ? inviteRepository.findByClinicId(clinicFilter, pageable)
-                : inviteRepository.findAll(pageable);
-        return page.map(InviteService::toResponse);
+    public Page<InviteResponse> list(Pageable pageable) {
+        return inviteRepository.findAll(pageable).map(InviteService::toResponse);
     }
 
     // ─── Internal helpers ───────────────────────────────────────
@@ -339,12 +271,6 @@ public class InviteService {
                 h.getClinicId(), clinicCode, h.getCreatedAt(),
                 h.getPasswordHash() != null, h.getProviderUserId() != null
         );
-    }
-
-    private void assertClinicAccess(HealerInviteLink invite, UUID callerClinicFilter) {
-        if (callerClinicFilter != null && !callerClinicFilter.equals(invite.getClinicId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invite belongs to a different clinic");
-        }
     }
 
     private void sendInviteEmail(String email, String token) {
@@ -387,7 +313,6 @@ public class InviteService {
                 invite.getId(),
                 invite.getEmail(),
                 invite.getRole().name(),
-                invite.getClinicId(),
                 status,
                 invite.getCreatedAt(),
                 invite.getExpiresAt()

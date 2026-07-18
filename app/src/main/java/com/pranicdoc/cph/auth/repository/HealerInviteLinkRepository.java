@@ -1,8 +1,6 @@
 package com.pranicdoc.cph.auth.repository;
 
 import com.pranicdoc.cph.auth.model.HealerInviteLink;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,8 +15,8 @@ public interface HealerInviteLinkRepository extends JpaRepository<HealerInviteLi
     Optional<HealerInviteLink> findByTokenAndStatusAndExpiresAtAfter(
             String token, HealerInviteLink.Status status, Instant now);
 
-    Optional<HealerInviteLink> findByEmailAndClinicIdAndStatus(
-            String email, UUID clinicId, HealerInviteLink.Status status);
+    Optional<HealerInviteLink> findByEmailAndStatus(
+            String email, HealerInviteLink.Status status);
 
     /**
      * D-09: find a pending self-signup token for an email, so resubmission
@@ -33,8 +31,6 @@ public interface HealerInviteLinkRepository extends JpaRepository<HealerInviteLi
      */
     boolean existsByEmailAndSourceAndStatus(
             String email, HealerInviteLink.Source source, HealerInviteLink.Status status);
-
-    Page<HealerInviteLink> findByClinicId(UUID clinicId, Pageable pageable);
 
     /**
      * Conditional single-use race guard (T-22-04/05): flips PENDING → ACCEPTED

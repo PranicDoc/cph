@@ -11,7 +11,6 @@ public record InviteResponse(
         UUID id,
         String email,
         String role,
-        UUID clinicId,
         String status,
         Instant createdAt,
         Instant expiresAt
