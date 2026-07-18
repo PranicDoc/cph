@@ -25,9 +25,6 @@ public class AuditLog extends BaseEntity {
     @Column(name = "healer_id")
     private UUID healerId;
 
-    @Column(name = "clinic_id")
-    private UUID clinicId;
-
     @Column(name = "action", nullable = false)
     private String action;
 
