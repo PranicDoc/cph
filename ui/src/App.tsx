@@ -19,7 +19,6 @@ import AdminRoute from "./components/admin/AdminRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import AccountsPage from "./pages/admin/AccountsPage";
 import TransactionsPage from "./pages/admin/TransactionsPage";
-import ClinicConfigPage from "./pages/admin/ClinicConfigPage";
 import GlobalConfigPage from "./pages/admin/GlobalConfigPage";
 import PackagesPage from "./pages/admin/PackagesPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
@@ -32,7 +31,6 @@ import Forbidden from "./pages/Forbidden";
 import NotFound from "./pages/NotFound";
 import PatientFeedback from "./pages/Feedback";
 import OAuth2Success from "./components/OAuth2Success";
-import ClinicsPage from "./pages/admin/ClinicsPage";
 import HealerRegistrationPage from "./pages/admin/HealerRegistrationPage";
 import AcceptInvite from "./pages/AcceptInvite";
 import Signup from "./pages/Signup";
@@ -83,11 +81,9 @@ export default function App() {
                   path="accounts/:ownerType/:ownerId/transactions"
                   element={<TransactionsPage />}
                 />
-                <Route path="clinic-config" element={<ClinicConfigPage />} />
                 <Route path="global-config" element={<GlobalConfigPage />} />
                 <Route path="packages" element={<PackagesPage />} />
                 <Route path="master-data" element={<MasterDataPage />} />
-                <Route path="clinics" element={<ClinicsPage />} />
                 <Route path="healer-registration" element={<HealerRegistrationPage />} />
               </Route>
             </Route>

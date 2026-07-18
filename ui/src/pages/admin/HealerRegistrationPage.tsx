@@ -3,7 +3,6 @@ import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ChevronRight, ChevronLeft, UserPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { useAdminClinics } from "../../hooks/admin/useAdminClinics";
 import {
   useAdminInvites,
   useCreateInvite,
@@ -42,7 +41,6 @@ export default function HealerRegistrationPage() {
 
   const [page, setPage] = useState(0);
   const { data, isLoading, isError } = useAdminInvites(page);
-  const { data: clinics } = useAdminClinics();
 
   const createInvite = useCreateInvite();
   const resendInvite = useResendInvite();
@@ -56,14 +54,12 @@ export default function HealerRegistrationPage() {
     defaultValues: {
       email: "",
       role: "HEALER",
-      clinicId: "",
     },
     onSubmit: async ({ value, formApi }) => {
       createInvite.mutate(
         {
           email: value.email,
           role: value.role,
-          ...(isSupadm && value.clinicId ? { clinicId: value.clinicId } : {}),
         },
         {
           onSuccess: () => {
@@ -213,24 +209,6 @@ export default function HealerRegistrationPage() {
                 )}
               />
             </div>
-            {isSupadm && (
-              <div>
-                <Label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
-                  Clinic
-                </Label>
-                <inviteForm.Field
-                  name="clinicId"
-                  children={(field) => (
-                    <SelectField
-                      field={field}
-                      options={(clinics ?? []).map((c) => ({ label: c.name, value: c.id }))}
-                      placeholder="Select a clinic"
-                      className="border px-3 py-2 bg-background"
-                    />
-                  )}
-                />
-              </div>
-            )}
           </div>
           <Button
             type="submit"
