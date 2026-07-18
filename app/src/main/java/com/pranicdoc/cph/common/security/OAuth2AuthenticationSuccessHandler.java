@@ -49,12 +49,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             return;
         }
 
-        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
-        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
-        String accessToken = jwtService.generateAccessToken(
-                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
-        String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
+        String accessToken = jwtService.generateAccessToken(healer.getId(), healer.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(healer.getId(), healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
         response.sendRedirect(appBaseUrl + "/oauth2/success");
     }

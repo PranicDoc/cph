@@ -32,9 +32,7 @@ public class HealerServiceImpl implements HealerService {
     public List<HealerResponse> getHealersByClinic() {
         return healerRepository.findAll()
                 .stream()
-                // TODO(26-09): HealerResponse loses clinicCode; passing null through the
-                // still-clinic-shaped toResponse signature until 26-09's contract cutover.
-                .map(h -> toResponse(h, null))
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -53,16 +51,13 @@ public class HealerServiceImpl implements HealerService {
         healer.setActive(active);
         Healer saved = healerRepository.save(healer);
 
-        // TODO(26-09): HealerResponse loses clinicCode; passing null through the
-        // still-clinic-shaped toResponse signature until 26-09's contract cutover.
-        return toResponse(saved, null);
+        return toResponse(saved);
     }
 
-    private HealerResponse toResponse(Healer h, String clinicCode) {
+    private HealerResponse toResponse(Healer h) {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
-                h.getRole(), h.getHealingLevel(), h.isActive(),
-                h.getClinicId(), clinicCode, h.getCreatedAt(),
+                h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
                 h.getPasswordHash() != null, h.getProviderUserId() != null
         );
     }

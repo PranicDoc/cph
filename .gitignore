@@ -8,6 +8,10 @@ dist/
 build/
 .next/
 
+# JVM crash artifacts (OOM on memory-constrained dev machines, see Phase 26 plans)
+hs_err_pid*.log
+replay_pid*.log
+
 # IDE
 .vscode/
 .idea/

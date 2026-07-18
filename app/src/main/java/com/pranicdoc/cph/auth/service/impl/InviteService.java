@@ -239,12 +239,9 @@ public class InviteService {
                     saved.getId(), e.getMessage());
         }
 
-        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
-        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
-        setAuthCookies(response, saved, null);
+        setAuthCookies(response, saved);
 
-        // TODO(26-09): drop clinicCode arg — bridge, see above.
-        return toHealerResponse(saved, null);
+        return toHealerResponse(saved);
     }
 
     // ─── List ───────────────────────────────────────────────────
@@ -256,19 +253,16 @@ public class InviteService {
 
     // ─── Internal helpers ───────────────────────────────────────
 
-    private void setAuthCookies(HttpServletResponse response, Healer healer, String clinicCode) {
-        String accessToken = jwtService.generateAccessToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
-        String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
+    private void setAuthCookies(HttpServletResponse response, Healer healer) {
+        String accessToken = jwtService.generateAccessToken(healer.getId(), healer.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(healer.getId(), healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
     }
 
-    private HealerResponse toHealerResponse(Healer h, String clinicCode) {
+    private HealerResponse toHealerResponse(Healer h) {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
-                h.getRole(), h.getHealingLevel(), h.isActive(),
-                h.getClinicId(), clinicCode, h.getCreatedAt(),
+                h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
                 h.getPasswordHash() != null, h.getProviderUserId() != null
         );
     }

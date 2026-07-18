@@ -14,8 +14,6 @@ public record HealerResponse(
         Role role,
         HealingLevel healingLevel,
         boolean active,
-        UUID clinicId,
-        String clinicCode,
         Instant createdAt,
         boolean hasPassword,
         boolean hasGoogleLinked

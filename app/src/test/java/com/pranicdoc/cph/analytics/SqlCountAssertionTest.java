@@ -352,7 +352,11 @@ class SqlCountAssertionTest {
     }
 
     private Cookie accessTokenCookie(UUID healerId, UUID clinicId) {
-        String token = jwtService.generateAccessToken(healerId, clinicId, "TSTCL01", "HEALER");
+        // 26-09: JwtService.generateAccessToken is clinic-free (2-arg); the clinicId
+        // param stays here only because Healer.clinicId (the retained credit-boundary
+        // bridge field, not the JWT claim) is still seeded via this call's sibling
+        // createCaseWithSessions(healerId, clinicId, ...) fixture calls.
+        String token = jwtService.generateAccessToken(healerId, "HEALER");
         return new Cookie("accessToken", token);
     }
 }

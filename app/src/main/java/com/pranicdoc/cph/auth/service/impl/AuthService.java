@@ -67,11 +67,9 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
-        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
-        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
-        setAuthCookies(response, healer, null);
+        setAuthCookies(response, healer);
 
-        return toResponse(healer, null);
+        return toResponse(healer);
     }
 
     @Auditable(action = "FEEDBACK_SESSION")
@@ -126,8 +124,7 @@ public class AuthService {
             throw new IllegalArgumentException("Account is deactivated");
         }
 
-        // TODO(26-09): drop clinicCode arg — bridge, see login() above.
-        setAuthCookies(response, healer, null);
+        setAuthCookies(response, healer);
     }
 
     // ─── Logout ─────────────────────────────────────────────────
@@ -143,8 +140,7 @@ public class AuthService {
     public HealerResponse getCurrentHealer() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
-        String clinicCode = securityContextUtil.getCurrentClinicCode();
-        return toResponse(healer, clinicCode);
+        return toResponse(healer);
     }
 
     // ─── Update current healer profile ─────────────────────────
@@ -157,7 +153,7 @@ public class AuthService {
         healer.setEmail(request.email());
         healer.setPhone(request.phone());
         Healer saved = healerRepository.save(healer);
-        return toResponse(saved, securityContextUtil.getCurrentClinicCode());
+        return toResponse(saved);
     }
 
     // ─── Change current healer password ─────────────────────────
@@ -237,17 +233,14 @@ public class AuthService {
     @Transactional(readOnly = true)
     public HealerResponse getHealerById(UUID id) {
         Healer healer = findOrThrow(id);
-        // TODO(26-09): drop clinicCode arg — bridge, see login() above.
-        return toResponse(healer, null);
+        return toResponse(healer);
     }
 
     // ─── Internal helpers ───────────────────────────────────────
 
-    private void setAuthCookies(HttpServletResponse response, Healer healer, String clinicCode) {
-        String accessToken = jwtService.generateAccessToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
-        String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
+    private void setAuthCookies(HttpServletResponse response, Healer healer) {
+        String accessToken = jwtService.generateAccessToken(healer.getId(), healer.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(healer.getId(), healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
     }
 
@@ -256,11 +249,10 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", id));
     }
 
-    private HealerResponse toResponse(Healer h, String clinicCode) {
+    private HealerResponse toResponse(Healer h) {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
-                h.getRole(), h.getHealingLevel(), h.isActive(),
-                h.getClinicId(), clinicCode, h.getCreatedAt(),
+                h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
                 h.getPasswordHash() != null, h.getProviderUserId() != null
         );
     }

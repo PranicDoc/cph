@@ -59,12 +59,8 @@ public class BootstrapController {
                 .build();
         healer = healerRepository.save(healer);
 
-        // TODO(26-09): drop clinicId/clinicCode args — bridge, generateAccessToken/
-        // generateRefreshToken still carry these params until 26-09's JWT-claim-contract cutover.
-        String accessToken = jwtService.generateAccessToken(
-                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
-        String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
+        String accessToken = jwtService.generateAccessToken(healer.getId(), healer.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(healer.getId(), healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new BootstrapResponse(
