@@ -18,15 +18,9 @@ public class HealerController {
     private final HealerService healerService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
-    public ResponseEntity<List<HealerResponse>> getHealersInClinic() {
-        return ResponseEntity.ok(healerService.getHealersInClinic());
-    }
-
-    @GetMapping("/clinic/{clinicId}")
     @PreAuthorize("hasRole('SUPADM')")
-    public ResponseEntity<List<HealerResponse>> getHealersByClinic(@PathVariable UUID clinicId) {
-        return ResponseEntity.ok(healerService.getHealersByClinic(clinicId));
+    public ResponseEntity<List<HealerResponse>> getHealersByClinic() {
+        return ResponseEntity.ok(healerService.getHealersByClinic());
     }
 
     @PatchMapping("/{id}/active")

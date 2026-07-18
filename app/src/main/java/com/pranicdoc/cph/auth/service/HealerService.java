@@ -9,9 +9,7 @@ import java.util.UUID;
 public interface HealerService {
     Healer findHealerByEmail(String email);
 
-    List<HealerResponse> getHealersInClinic();
-
-    List<HealerResponse> getHealersByClinic(UUID clinicId);
+    List<HealerResponse> getHealersByClinic();
 
     HealerResponse setActiveStatus(UUID healerId, boolean active);
 }

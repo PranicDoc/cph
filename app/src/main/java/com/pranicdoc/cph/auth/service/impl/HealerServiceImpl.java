@@ -4,8 +4,6 @@ import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.HealerService;
-import com.pranicdoc.cph.clinic.model.Clinic;
-import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +19,6 @@ import java.util.UUID;
 public class HealerServiceImpl implements HealerService {
 
     private final HealerRepository healerRepository;
-    private final ClinicRepository clinicRepository;
     private final SecurityContextUtil securityContextUtil;
 
     @Override
@@ -32,23 +29,12 @@ public class HealerServiceImpl implements HealerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<HealerResponse> getHealersInClinic() {
-        UUID clinicId = securityContextUtil.getCurrentClinicId();
-        String clinicCode = securityContextUtil.getCurrentClinicCode();
-        return healerRepository.findAllByClinicId(clinicId)
+    public List<HealerResponse> getHealersByClinic() {
+        return healerRepository.findAll()
                 .stream()
-                .map(h -> toResponse(h, clinicCode))
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<HealerResponse> getHealersByClinic(UUID clinicId) {
-        Clinic clinic = clinicRepository.findById(clinicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", clinicId));
-        return healerRepository.findAllByClinicId(clinicId)
-                .stream()
-                .map(h -> toResponse(h, clinic.getCode()))
+                // TODO(26-09): HealerResponse loses clinicCode; passing null through the
+                // still-clinic-shaped toResponse signature until 26-09's contract cutover.
+                .map(h -> toResponse(h, null))
                 .toList();
     }
 
@@ -58,18 +44,18 @@ public class HealerServiceImpl implements HealerService {
         Healer healer = healerRepository.findById(healerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
 
-        // ADMIN can only modify healers in their own clinic
+        // SUPADM can modify any healer; an ordinary healer can only modify themselves.
         boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
-        if (!isSuperAdmin && !healer.getClinicId().equals(securityContextUtil.getCurrentClinicId())) {
-            throw new AccessDeniedException("Cannot modify healers outside your clinic");
+        if (!isSuperAdmin && !healerId.equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Cannot modify another healer's account");
         }
 
         healer.setActive(active);
         Healer saved = healerRepository.save(healer);
 
-        Clinic clinic = clinicRepository.findById(saved.getClinicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", saved.getClinicId()));
-        return toResponse(saved, clinic.getCode());
+        // TODO(26-09): HealerResponse loses clinicCode; passing null through the
+        // still-clinic-shaped toResponse signature until 26-09's contract cutover.
+        return toResponse(saved, null);
     }
 
     private HealerResponse toResponse(Healer h, String clinicCode) {

@@ -12,14 +12,17 @@ import java.util.UUID;
 /**
  * Admin proxy controller — forwards requests to creditService with RBAC + ABAC enforced.
  *
+ * Solo-healer world (D-26-02): the only remaining privilege tier is SUPADM
+ * (cross-healer, unscoped) vs. an ordinary healer (own healerId only). There
+ * is no clinic-scoped ADMIN tier — that concept no longer exists.
+ *
  * RBAC layers:
  *   @PreAuthorize("hasRole('SUPADM')")        — packages + global config (SUPADM only)
- *   @PreAuthorize("hasAnyRole('ADMIN','SUPADM')") — accounts, transactions, clinic config
+ *   @PreAuthorize("hasAnyRole('ADMIN','SUPADM')") — accounts, transactions
  *
  * ABAC:
- *   AdminAuthz.assertClinicAccess(clinicId)   — ADMIN can only touch their own clinic
- *   AdminAuthz.assertHealerAccess(healerId)   — ADMIN can only touch healers in their clinic
- *   AdminAuthz.effectiveClinicFilter()        — scopes list queries for ADMIN
+ *   AdminAuthz.assertHealerAccess(healerId)   — an ordinary healer can only touch their own account
+ *   AdminAuthz.healerScopeFilter()            — scopes list queries for a non-SUPADM caller to their own healerId
  *
  * The X-Api-Key is added by creditServiceRestClient default header (never exposed to browser).
  * Request bodies are forwarded verbatim as String to avoid coupling CPH to creditService DTOs.
@@ -98,7 +101,7 @@ public class AdminCreditController {
     // ─── Accounts (ADMIN + SUPADM, ABAC scoped) ──────────────────────────────
 
     /**
-     * List accounts. ADMIN sees only their clinic's CLINIC account.
+     * List accounts. An ordinary healer sees only their own HEALER account.
      * SUPADM sees all (no ownerType/ownerId filter injected).
      */
     @GetMapping("/accounts")
@@ -107,12 +110,12 @@ public class AdminCreditController {
             @RequestParam(required = false) String ownerType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        UUID clinicFilter = adminAuthz.effectiveClinicFilter();
+        UUID healerFilter = adminAuthz.healerScopeFilter();
 
         String uri;
-        if (clinicFilter != null) {
-            // ADMIN: scope to their own clinic account only
-            uri = "/credits/admin/accounts?ownerType=CLINIC&ownerId=" + clinicFilter
+        if (healerFilter != null) {
+            // Ordinary healer: scope to their own HEALER account only
+            uri = "/credits/admin/accounts?ownerType=HEALER&ownerId=" + healerFilter
                     + "&page=" + page + "&size=" + size;
         } else {
             // SUPADM: pass caller's filter (or no filter)
@@ -176,35 +179,10 @@ public class AdminCreditController {
                 .toEntity(String.class);
     }
 
-    // ─── Fallback policy (ADMIN + SUPADM, ABAC scoped) ───────────────────────
-
-    @GetMapping("/accounts/clinic/{clinicId}/fallback")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
-    public ResponseEntity<String> getFallback(@PathVariable UUID clinicId) {
-        adminAuthz.assertClinicAccess(clinicId);
-        return creditServiceRestClient.get()
-                .uri("/credits/admin/accounts/clinic/{id}/fallback", clinicId)
-                .retrieve()
-                .toEntity(String.class);
-    }
-
-    @PutMapping("/accounts/clinic/{clinicId}/fallback")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
-    public ResponseEntity<String> upsertFallback(@PathVariable UUID clinicId, @RequestBody String body) {
-        adminAuthz.assertClinicAccess(clinicId);
-        return creditServiceRestClient.put()
-                .uri("/credits/admin/accounts/clinic/{id}/fallback", clinicId)
-                .body(body)
-                .retrieve()
-                .toEntity(String.class);
-    }
-
     // ─── ABAC helper ─────────────────────────────────────────────────────────
 
     private void enforceOwnerAccess(String ownerType, UUID ownerId) {
-        if ("CLINIC".equalsIgnoreCase(ownerType)) {
-            adminAuthz.assertClinicAccess(ownerId);
-        } else if ("HEALER".equalsIgnoreCase(ownerType)) {
+        if ("HEALER".equalsIgnoreCase(ownerType)) {
             adminAuthz.assertHealerAccess(ownerId);
         }
     }
