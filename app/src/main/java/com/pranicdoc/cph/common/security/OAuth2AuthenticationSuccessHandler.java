@@ -2,7 +2,6 @@ package com.pranicdoc.cph.common.security;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.service.HealerService;
-import com.pranicdoc.cph.clinic.service.ClinicService;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +20,6 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
     private final JwtService jwtService;
     private final HealerService healerService;
-    private final ClinicService clinicService;
     private final CookieUtil cookieUtil;
 
     @Value("${app.base.url:http://localhost:3000}")
@@ -51,11 +49,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             return;
         }
 
-        String clinicCode = clinicService.getById(healer.getClinicId()).code();
+        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
+        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
         String accessToken = jwtService.generateAccessToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
+                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
         String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), healer.getClinicId(), clinicCode, healer.getRole().name());
+                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
         response.sendRedirect(appBaseUrl + "/oauth2/success");
     }

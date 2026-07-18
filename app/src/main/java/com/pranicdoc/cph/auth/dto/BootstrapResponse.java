@@ -4,11 +4,9 @@ import com.pranicdoc.cph.common.enums.Role;
 import java.util.UUID;
 
 /**
- * Bootstrap response — returns clinic + healer + tokens so admin can start immediately.
+ * Bootstrap response — returns the admin healer + tokens so admin can start immediately.
  */
 public record BootstrapResponse(
-        UUID clinicId,
-        String clinicCode,
         UUID healerId,
         String fullName,
         String email,

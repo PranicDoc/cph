@@ -4,8 +4,6 @@ import com.pranicdoc.cph.auth.dto.BootstrapRequest;
 import com.pranicdoc.cph.auth.dto.BootstrapResponse;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
-import com.pranicdoc.cph.clinic.model.Clinic;
-import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
@@ -22,8 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * One-time bootstrap — creates the FIRST clinic + admin healer.
- * Self-locks once any clinic exists in the database.
+ * One-time bootstrap — creates the FIRST admin healer (solo-healer world, CUTOVER-05:
+ * no clinic to create or join — the healer IS the tenant).
+ * Self-locks once any healer exists in the database.
  * Sets HttpOnly auth cookies so admin can start using the API immediately.
  *
  * POST /api/v1/bootstrap
@@ -33,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class BootstrapController {
 
-    private final ClinicRepository clinicRepository;
     private final HealerRepository healerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -45,41 +43,31 @@ public class BootstrapController {
             @Valid @RequestBody BootstrapRequest request,
             HttpServletResponse response) {
 
-        // Self-lock: only works when no clinics exist
-        if (clinicRepository.count() > 0) {
+        // Self-lock: only works when no healer exists yet
+        if (healerRepository.count() > 0) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
         }
 
-        // 1. Create clinic
-        Clinic clinic = Clinic.builder()
-                .code(request.clinicCode())
-                .name(request.clinicName() != null ? request.clinicName() : request.clinicCode())
-                .phone(request.phone())
-                .city(request.city())
-                .active(true)
-                .build();
-        clinic = clinicRepository.save(clinic);
-
-        // 2. Create admin healer
+        // Create admin healer — no clinic association
         Healer healer = Healer.builder()
                 .fullName(request.fullName())
                 .email(request.email())
+                .phone(request.phone())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .role(Role.SUPADM)
                 .active(true)
                 .build();
-        healer.setClinicId(clinic.getId());
         healer = healerRepository.save(healer);
 
-        // 3. Set auth cookies
+        // TODO(26-09): drop clinicId/clinicCode args — bridge, generateAccessToken/
+        // generateRefreshToken still carry these params until 26-09's JWT-claim-contract cutover.
         String accessToken = jwtService.generateAccessToken(
-                healer.getId(), clinic.getId(), clinic.getCode(), healer.getRole().name());
+                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
         String refreshToken = jwtService.generateRefreshToken(
-                healer.getId(), clinic.getId(), clinic.getCode(), healer.getRole().name());
+                healer.getId(), healer.getClinicId(), null, healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new BootstrapResponse(
-                clinic.getId(), clinic.getCode(),
                 healer.getId(), healer.getFullName(), healer.getEmail(), healer.getRole(),
                 null, null, 0 // tokens in cookies, not response body
         ));

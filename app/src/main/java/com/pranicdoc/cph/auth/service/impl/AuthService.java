@@ -7,8 +7,6 @@ import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
-import com.pranicdoc.cph.clinic.model.Clinic;
-import com.pranicdoc.cph.clinic.repository.ClinicRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.LinkStatus;
@@ -45,7 +43,6 @@ import static com.pranicdoc.cph.common.security.JwtAuthFilter.extractTokenFromCo
 public class AuthService {
 
     private final HealerRepository healerRepository;
-    private final ClinicRepository clinicRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
@@ -70,13 +67,11 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
-        Clinic clinic = clinicRepository.findById(healer.getClinicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", healer.getClinicId()));
+        // TODO(26-09): drop clinicCode arg — bridge, generateAccessToken/generateRefreshToken
+        // still carry a clinicCode param until 26-09's JWT-claim-contract cutover.
+        setAuthCookies(response, healer, null);
 
-        // Set auth cookies
-        setAuthCookies(response, healer, clinic.getCode());
-
-        return toResponse(healer, clinic.getCode());
+        return toResponse(healer, null);
     }
 
     @Auditable(action = "FEEDBACK_SESSION")
@@ -131,11 +126,8 @@ public class AuthService {
             throw new IllegalArgumentException("Account is deactivated");
         }
 
-        Clinic clinic = clinicRepository.findById(healer.getClinicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", healer.getClinicId()));
-
-        // Set new auth cookies
-        setAuthCookies(response, healer, clinic.getCode());
+        // TODO(26-09): drop clinicCode arg — bridge, see login() above.
+        setAuthCookies(response, healer, null);
     }
 
     // ─── Logout ─────────────────────────────────────────────────
@@ -245,9 +237,8 @@ public class AuthService {
     @Transactional(readOnly = true)
     public HealerResponse getHealerById(UUID id) {
         Healer healer = findOrThrow(id);
-        Clinic clinic = clinicRepository.findById(healer.getClinicId())
-                .orElseThrow(() -> new ResourceNotFoundException("Clinic", healer.getClinicId()));
-        return toResponse(healer, clinic.getCode());
+        // TODO(26-09): drop clinicCode arg — bridge, see login() above.
+        return toResponse(healer, null);
     }
 
     // ─── Internal helpers ───────────────────────────────────────
