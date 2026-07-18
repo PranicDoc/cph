@@ -138,8 +138,11 @@ public class CaseService {
                 String regUuid = jwtService.extractRegUuid(selfRegToken);
                 if (regUuid != null) registrationLinkRepository.markUsed(regUuid);
             }
+            // D-26-04 (PATIENT_CASE half, 26-07): the just-saved HealingCase already carries
+            // the real healerId — no extra lookup needed. 26-11 flips the JwtService claim
+            // itself from clinicId to healerId; this call site already passes the real value.
             String patientCaseToken = jwtService.generatePatientCaseToken(
-                    saved.getPatientId(), saved.getId(), securityContextUtil.getCurrentClinicId());
+                    saved.getPatientId(), saved.getId(), saved.getHealerId());
             cookieUtil.setPatientCaseSessionCookie(httpResponse, patientCaseToken);
         }
         return toResponse(saved);
@@ -265,7 +268,7 @@ public class CaseService {
         healingCase.setStatus(CaseStatus.CLOSED);
         HealingCase saved = caseRepository.save(healingCase);
         eventPublisher.publishEvent(new HealingSessionCompletedEvent(
-                this, saved.getId(), saved.getClinicId()));
+                this, saved.getId(), saved.getHealerId()));
         if(!request.isHealingContinued()) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
@@ -360,7 +363,7 @@ public class CaseService {
                 throw new AccessDeniedException("Not authorized to update this case");
             }
         } else {
-            if (!entity.getClinicId().equals(securityContextUtil.getCurrentClinicId())) {
+            if (!entity.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
                 throw new AccessDeniedException("Case does not belong to your clinic");
             }
         }
@@ -555,7 +558,11 @@ public class CaseService {
                 return new JobAckResponse(existingJobId, JobStatus.PROCESSING);
             }
         }
-        String jobId = securityContextUtil.getCurrentClinicCode() + "-" + UUID.randomUUID();
+        // D-26-03: healer-derived prefix ('H' + first 8 hex of healerId, uppercased,
+        // hyphens stripped); uniqueness comes from the trailing UUID, not the prefix.
+        // FLAG(Phase 28/pdfWorker): confirm jobId is treated as opaque or update pdfWorker's parser.
+        String jobId = "H" + securityContextUtil.getCurrentHealerId().toString()
+                .replace("-", "").substring(0, 8).toUpperCase() + "-" + UUID.randomUUID();
         PdfJobEntity entity = PdfJobEntity.create(jobId, healingCaseId, healingCaseData);
         pdfJobRepository.save(entity);
         publishJobMessage(jobId, healingCaseId);

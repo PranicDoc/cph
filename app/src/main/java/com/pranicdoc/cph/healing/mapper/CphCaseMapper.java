@@ -106,7 +106,7 @@ public abstract class CphCaseMapper {
             com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding hpu) {
         return new HealerProtocolUnderstandingSnapshot(
                 hpu.getHealerId(),
-                hpu.getClinicId(),
+                hpu.getHealerId(),
                 0,
                 hpu.getCompletionDate(),
                 hpu.getProtocolName(),

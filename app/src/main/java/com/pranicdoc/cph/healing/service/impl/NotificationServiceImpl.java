@@ -62,6 +62,7 @@ public class NotificationServiceImpl implements NotificationService {
                 FeedbackLink.builder()
                         .token(UUID.randomUUID().toString())
                         .caseId(healingCase.getId())
+                        // NOTE: intentionally still .clinicId() — FeedbackLink gains healerId in 26-11
                         .clinicId(healingCase.getClinicId())
                         .status(LinkStatus.ACTIVE)
                         .isFinal(isFinal)
