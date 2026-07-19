@@ -13,6 +13,9 @@ import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
 import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -37,6 +40,13 @@ public class CreditServiceImpl implements CreditService {
     }
 
     @Override
+    @Caching(
+        evict = {
+            @CacheEvict(value = "dashboard.summary", key = "#healerId"),
+            @CacheEvict(value = "dashboard.credit-usage",
+                    key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate")
+        }
+    )
     public String purchase(String requestBody, @Nullable String idempotencyKey) {
         return creditServiceRestClient.purchase(requestBody, idempotencyKey);
     }

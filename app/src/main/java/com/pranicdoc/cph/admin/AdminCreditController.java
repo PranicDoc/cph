@@ -42,39 +42,40 @@ public class AdminCreditController {
     @GetMapping("/packages")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> listAllPackages() {
-        return creditServiceRestClient.get()
+        String body = creditServiceRestClient.get()
                 .uri("/credits/admin/packages")
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class);
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/packages")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> createPackage(@RequestBody String body) {
-        return creditServiceRestClient.post()
+        return ResponseEntity.ok(creditServiceRestClient.post()
                 .uri("/credits/admin/packages")
                 .body(body)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     @PutMapping("/packages/{id}")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> updatePackage(@PathVariable UUID id, @RequestBody String body) {
-        return creditServiceRestClient.put()
+        return ResponseEntity.ok(creditServiceRestClient.put()
                 .uri("/credits/admin/packages/{id}", id)
                 .body(body)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     @DeleteMapping("/packages/{id}")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> deactivatePackage(@PathVariable UUID id) {
-        return creditServiceRestClient.delete()
+        return ResponseEntity.ok(creditServiceRestClient.delete()
                 .uri("/credits/admin/packages/{id}", id)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── Global config (SUPADM only) ─────────────────────────────────────────
@@ -82,20 +83,20 @@ public class AdminCreditController {
     @GetMapping("/config")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> listConfig() {
-        return creditServiceRestClient.get()
+        return ResponseEntity.ok(creditServiceRestClient.get()
                 .uri("/credits/admin/config")
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     @PutMapping("/config/{key}")
     @PreAuthorize("hasRole('SUPADM')")
     public ResponseEntity<String> updateConfig(@PathVariable String key, @RequestBody String body) {
-        return creditServiceRestClient.put()
+        return ResponseEntity.ok(creditServiceRestClient.put()
                 .uri("/credits/admin/config/{key}", key)
                 .body(body)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── Accounts (ADMIN + SUPADM, ABAC scoped) ──────────────────────────────
@@ -124,10 +125,10 @@ public class AdminCreditController {
                     + (ownerType != null ? "&ownerType=" + ownerType : "");
         }
 
-        return creditServiceRestClient.get()
+        return ResponseEntity.ok(creditServiceRestClient.get()
                 .uri(uri)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── Transactions (ADMIN + SUPADM, ABAC scoped) ──────────────────────────
@@ -140,11 +141,11 @@ public class AdminCreditController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         enforceOwnerAccess(ownerType, ownerId);
-        return creditServiceRestClient.get()
+        return ResponseEntity.ok(creditServiceRestClient.get()
                 .uri("/credits/transactions?ownerType={ot}&ownerId={id}&page={p}&size={s}",
                         ownerType, ownerId, page, size)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── Manual adjustment (ADMIN + SUPADM, ABAC scoped) ─────────────────────
@@ -156,11 +157,11 @@ public class AdminCreditController {
             @PathVariable UUID ownerId,
             @RequestBody String body) {
         enforceOwnerAccess(ownerType, ownerId);
-        return creditServiceRestClient.post()
+        return ResponseEntity.ok(creditServiceRestClient.post()
                 .uri("/credits/adjust")
                 .body(body)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── PAYG toggle (ADMIN + SUPADM, ABAC scoped) ───────────────────────────
@@ -172,11 +173,11 @@ public class AdminCreditController {
             @PathVariable UUID ownerId,
             @RequestBody String body) {
         enforceOwnerAccess(ownerType, ownerId);
-        return creditServiceRestClient.put()
+        return ResponseEntity.ok(creditServiceRestClient.put()
                 .uri("/credits/accounts/payg")
                 .body(body)
                 .retrieve()
-                .toEntity(String.class);
+                .body(String.class));
     }
 
     // ─── ABAC helper ─────────────────────────────────────────────────────────
