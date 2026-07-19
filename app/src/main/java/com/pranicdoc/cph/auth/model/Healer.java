@@ -24,13 +24,6 @@ import java.util.UUID;
 @Audited
 public class Healer extends BaseEntity {
 
-    // BRIDGE (removed in 26-09/26-12): keeps healer.getClinicId()/setClinicId()
-    // alive for auth + credit-boundary callers until they migrate and the
-    // healer.clinic_id column is dropped. Plain column, NOT tenant/filtered.
-    @Deprecated
-    @Column(name = "clinic_id")
-    private UUID clinicId;
-
     @Column(name = "full_name", nullable = false)
     private String fullName;
 

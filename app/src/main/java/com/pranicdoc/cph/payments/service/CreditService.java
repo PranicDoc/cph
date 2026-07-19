@@ -6,7 +6,6 @@ import com.pranicdoc.cph.payments.dto.BalanceCreditResponse;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
 import jakarta.annotation.Nullable;
-import org.springframework.http.ResponseEntity;
 
 import java.util.UUID;
 
@@ -16,5 +15,5 @@ public interface CreditService {
     BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId);
     PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size);
     AccountResponse createAccount(OwnerType ownerType, UUID ownerId);
-    AccountResponse createAccount(OwnerType ownerType);
+    AccountResponse createAccount();
 }

@@ -57,19 +57,8 @@ public class CreditServiceImpl implements CreditService {
     }
 
     @Override
-    public AccountResponse createAccount(OwnerType ownerType) {
-        UUID ownerId;
-        if (OwnerType.HEALER.equals(ownerType)) {
-            ownerId = securityContextUtil.getCurrentHealerId();
-        } else {
-            // CROSS-SERVICE BOUNDARY (Phase 27): creditService still keys CLINIC-owned accounts
-            // on a clinic-shaped ownerId; sourced from the current healer's clinicId bridge
-            // field until Phase 27 migrates accounts to OwnerType.HEALER. Do NOT remove.
-            UUID currentHealerId = securityContextUtil.getCurrentHealerId();
-            ownerId = healerRepository.findById(currentHealerId)
-                    .map(Healer::getClinicId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Healer", currentHealerId));
-        }
-        return createAccount(ownerType, ownerId);
+    public AccountResponse createAccount() {
+        UUID ownerId = securityContextUtil.getCurrentHealerId();
+        return createAccount(OwnerType.HEALER, ownerId);
     }
 }

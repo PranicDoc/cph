@@ -491,17 +491,8 @@ public class CaseService {
         UUID caseHealerId = caseRepository.findById(healingCaseId)
                 .map(HealingCase::getHealerId)
                 .orElseThrow(() -> new ResourceNotFoundException("HealingCase", healingCaseId));
-        // CROSS-SERVICE BOUNDARY (Phase 27): creditService still keys on a clinic-shaped
-        // ownerId; sourced from healer.clinicId bridge until Phase 27 migrates accounts to
-        // OwnerType.HEALER. Do NOT remove. Preserves the real clinic-shaped ownerId without
-        // reading the JWT clinicId claim (removed by 26-09).
-        UUID clinicShapedOwnerId = healerRepository.findById(caseHealerId)
-                .map(Healer::getClinicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Healer", caseHealerId));
-
         creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
-                clinicShapedOwnerId, healingCaseId);
-
+                caseHealerId, healingCaseId);
         return self.getObject().buildAndEnqueuePdfJob(healingCaseId);
     }
 

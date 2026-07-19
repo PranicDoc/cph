@@ -54,9 +54,7 @@ public class CreditProxyController {
     }
 
     @PostMapping("/account")
-    public ResponseEntity<ApiResponse<AccountResponse>> createAccount(
-            @RequestParam(defaultValue = "HEALER") OwnerType ownerType
-    ) {
-        return ResponseEntity.ok(ApiResponse.of(creditService.createAccount(ownerType)));
+    public ResponseEntity<ApiResponse<AccountResponse>> createAccount() {
+        return ResponseEntity.ok(ApiResponse.of(creditService.createAccount()));
     }
 }
