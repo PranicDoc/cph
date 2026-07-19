@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { MultiSelectList } from "./multi-select-list";
 import { MultiSelectOverlay } from "./multi-select-overlay";
@@ -7,6 +7,17 @@ import { MultiSelectProps } from "./types";
 
 import { Button } from "@/components/ui/button";
 
+/**
+ * Selections commit to the parent immediately on every toggle -- there is
+ * no staged "draft" the user must remember to confirm. An earlier design
+ * held toggles in local draft state and only called `onChange` from a
+ * "Done" button; checking an item ticked the checkbox but never reached
+ * the parent unless the user explicitly clicked Done, so moving on (e.g.
+ * clicking a different row, or "Next") silently discarded the selection.
+ *
+ * `openSnapshotRef` captures `value` at the moment the dropdown opens, so
+ * "Cancel" can still revert to it -- that's its only job now.
+ */
 export function MultiSelect<T>({
   options,
   value,
@@ -25,52 +36,39 @@ export function MultiSelect<T>({
   loading,
 }: MultiSelectProps<T>) {
   const [open, setOpen] = useState(false);
+  const openSnapshotRef = useRef<T[]>(value);
 
   /**
-   * Temporary selection while popup is open.
-   */
-  const [draftValue, setDraftValue] = useState<T[]>(value);
-
-  /**
-   * Whenever parent changes,
-   * keep local draft in sync.
-   */
-  useEffect(() => {
-    setDraftValue(value);
-  }, [value]);
-
-  /**
-   * User clicked Cancel.
+   * User clicked Cancel: revert to whatever the value was when the
+   * dropdown opened.
    */
   const handleCancel = () => {
-    setDraftValue(value);
+    onChange(openSnapshotRef.current);
     setOpen(false);
   };
 
   /**
-   * User clicked Done.
+   * User clicked Done: nothing to commit, every toggle already did.
    */
   const handleDone = () => {
-    onChange(draftValue);
     setOpen(false);
   };
 
-  useEffect(() => {
-    console.log("MultiSelect MOUNTED");
-    return () => console.log("MultiSelect UNMOUNTED");
-  }, []);
+  const handleOnOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        openSnapshotRef.current = value;
+      }
+
+      setOpen(nextOpen);
+    },
+    [value]
+  );
 
   return (
     <MultiSelectOverlay
       open={open}
-      onOpenChange={(nextOpen) => {
-        console.log("onOpenChange", nextOpen, new Error().stack);
-        if (nextOpen) {
-          setDraftValue(value);
-        }
-
-        setOpen(nextOpen);
-      }}
+      onOpenChange={handleOnOpenChange}
       title={title}
       trigger={
         <MultiSelectTrigger
@@ -89,8 +87,8 @@ export function MultiSelect<T>({
       <div className="flex flex-col">
         <MultiSelectList
           options={options}
-          value={draftValue}
-          onChange={setDraftValue}
+          value={value}
+          onChange={onChange}
           getOptionKey={getOptionKey}
           getOptionLabel={getOptionLabel}
           renderOption={renderOption}

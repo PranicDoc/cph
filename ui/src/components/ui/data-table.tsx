@@ -1,3 +1,4 @@
+import * as React from "react"
 import { useState } from "react"
 import type { ComponentType } from "react"
 import {
@@ -27,6 +28,97 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table"
+
+interface DataTableRowProps<T> {
+  row: Row<T>
+  // Not read directly by this component -- row.getVisibleCells() reads
+  // column defs off the row's own table instance. Included purely so the
+  // memo comparator below can detect "columns changed" and re-render,
+  // since that doesn't change `row.original` at all.
+  columns: ColumnDef<T, unknown>[]
+  // Same reasoning as `columns`, but for `meta`: cell renderers read
+  // dynamic values (e.g. reference data that loads asynchronously) via
+  // `table.options.meta` instead of closing over them directly, precisely
+  // so `columns` itself can stay referentially stable (an unstable cell
+  // function reference makes TanStack's flexRender -- which calls
+  // `React.createElement(cellFn, props)` -- treat it as a brand new
+  // component type and fully remount it, destroying any state inside,
+  // e.g. an open dropdown). But that means `columns`/`row.original` alone
+  // no longer capture "did this row's rendered content actually change" --
+  // `meta` must be compared too, or the memo skips re-rendering a row
+  // whose meta-driven props are stale.
+  meta: TableMeta<T> | undefined
+  cellPadding: string
+  cellClassName?: string
+  rowClassName?: string | ((row: Row<T>) => string)
+  onRowClick?: (row: Row<T>) => void
+}
+
+function DataTableRowInner<T>({
+  row,
+  cellPadding,
+  cellClassName,
+  rowClassName,
+  onRowClick,
+}: DataTableRowProps<T>) {
+  // `columns` isn't read here -- row.getVisibleCells() already resolves
+  // cell renderers via the row's own table instance. It only exists on
+  // this component's props for the memo comparator (see above/below).
+  return (
+    <TableRow
+      className={cn(
+        "hover:bg-muted/50 transition-colors border-0",
+        onRowClick && "cursor-pointer",
+        typeof rowClassName === "function" ? rowClassName(row) : rowClassName
+      )}
+      onClick={onRowClick ? () => onRowClick(row) : undefined}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          className={cn(
+            "text-text whitespace-normal",
+            cellPadding,
+            cellClassName,
+            (cell.column.columnDef.meta as ColumnClassMeta | undefined)
+              ?.cellClassName
+          )}
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  )
+}
+
+// TanStack recomputes `getRowModel()` (new row wrapper objects for every
+// row) whenever the `data` array reference changes, i.e. on every edit —
+// but unchanged rows keep the same `row.original` reference. Skipping
+// re-render when that reference (and the other row-affecting props) is
+// unchanged stops one row's edit from re-rendering every other row.
+function dataTableRowPropsAreEqual<T>(
+  prev: DataTableRowProps<T>,
+  next: DataTableRowProps<T>
+) {
+  return (
+    prev.row.id === next.row.id &&
+    prev.row.original === next.row.original &&
+    prev.columns === next.columns &&
+    prev.meta === next.meta &&
+    prev.cellPadding === next.cellPadding &&
+    prev.cellClassName === next.cellClassName &&
+    prev.rowClassName === next.rowClassName &&
+    prev.onRowClick === next.onRowClick
+  )
+}
+
+// React.memo doesn't preserve generic type params on its return type; cast
+// back to the generic function-component signature so callers still get
+// correct per-usage type inference for T.
+const DataTableRow = React.memo(
+  DataTableRowInner,
+  dataTableRowPropsAreEqual
+) as typeof DataTableRowInner
 
 interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[]
@@ -175,32 +267,16 @@ export function DataTable<T>(props: DataTableProps<T>) {
                 </TableRow>
               ))
             : table.getRowModel().rows.map((row) => (
-                <TableRow
+                <DataTableRow
                   key={row.id}
-                  className={cn(
-                    "hover:bg-muted/50 transition-colors border-0",
-                    onRowClick && "cursor-pointer",
-                    typeof rowClassName === "function"
-                      ? rowClassName(row)
-                      : rowClassName
-                  )}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        "text-text whitespace-normal",
-                        cellPadding,
-                        cellClassName,
-                        (cell.column.columnDef.meta as ColumnClassMeta | undefined)
-                          ?.cellClassName
-                      )}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                  row={row}
+                  columns={columns}
+                  meta={meta}
+                  cellPadding={cellPadding}
+                  cellClassName={cellClassName}
+                  rowClassName={rowClassName}
+                  onRowClick={onRowClick}
+                />
               ))}
         </TableBody>
       </Table>

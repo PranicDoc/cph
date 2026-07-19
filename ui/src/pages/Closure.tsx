@@ -38,7 +38,7 @@ export function ClosurePopup({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-full max-w-md space-y-4 gap-0">
+      <DialogContent className="w-full max-w-[calc(100%-2rem)] md:max-w-4xl space-y-4 gap-0">
         <div className="flex items-center justify-between">
           <DialogTitle className="text-lg font-semibold text-primary-dark">
             Close Case: {patient.firstName} {patient.lastName}

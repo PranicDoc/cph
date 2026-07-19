@@ -4,24 +4,22 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.common.dto.ChakraReadingSummarySnapshot;
 import com.pranicdoc.common.dto.ColorUsedSnapshot;
-import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
-import com.pranicdoc.cph.healing.event.HealingSessionCompletedEvent;
+import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest;
+import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ChakraColorSelection;
+import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ColorSelection;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
-import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
-import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
+import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,23 +30,36 @@ public class HealerProtocolUnderstandingService {
 
     private final CaseRepository caseRepository;
     private final HealerProtocolUnderstandingRepository hpuRepository;
-    private final ProtocolColorMappingRepository protocolColorMappingRepository;
     private final PranaColorCatalogRepository pranaColorCatalogRepository;
     private final ObjectMapper objectMapper;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void onSessionCompleted(HealingSessionCompletedEvent event) {
-        if (hpuRepository.findByHealingCaseId(event.getHealingCaseId()).isPresent()) {
-            return;
-        }
-
-        HealingCase healingCase = caseRepository.findById(event.getHealingCaseId())
+    /**
+     * Synchronous replacement for the old AFTER_COMMIT event-listener auto-generation.
+     * Persists exactly what the healer picked in the closure form's color/property
+     * selector, instead of deriving colors from ProtocolColorMapping master data.
+     */
+    @Transactional
+    public void saveFromHealerSelection(UUID healingCaseId, HealerProtocolUnderstandingRequest request) {
+        HealingCase healingCase = caseRepository.findById(healingCaseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Healing case not found for id %s"
-                                .formatted(event.getHealingCaseId())));
-        HealingDetails details = healingCase.getHealingDetails();
-        String protocolName = details != null ? details.getProtocolName() : null;
+                                .formatted(healingCaseId)));
+
+        Map<String, PranaColorCatalog> catalogByName = pranaColorCatalogRepository
+                .findByHealerIdIsNullOrHealerId(healingCase.getHealerId())
+                .stream()
+                .collect(Collectors.toMap(
+                        PranaColorCatalog::getName,
+                        c -> c,
+                        (a, b) -> a));
+
+        Map<String, List<ColorUsedSnapshot>> energisingColors = new LinkedHashMap<>();
+        Map<String, List<ColorUsedSnapshot>> cleansingColors = new LinkedHashMap<>();
+
+        for (ChakraColorSelection selection : request.chakraSelections()) {
+            energisingColors.put(selection.chakra(), toColorSnapshots(selection.energisingColors(), catalogByName));
+            cleansingColors.put(selection.chakra(), toColorSnapshots(selection.cleansingColors(), catalogByName));
+        }
 
         List<ChakraReadingSummarySnapshot> chakraReadings =
                 healingCase.getSessions()
@@ -56,28 +67,52 @@ public class HealerProtocolUnderstandingService {
                         .flatMap(session -> buildChakraReadings(session).stream())
                         .toList();
 
+        HealingDetails details = healingCase.getHealingDetails();
+        String protocolName = details != null ? details.getProtocolName() : null;
 
-        List<ProtocolColorMapping> mappings = protocolName != null
-                ? resolveColorMappings(protocolName, healingCase.getHealerId())
-                : Collections.emptyList();
-
-        if (mappings.isEmpty()) {
-            log.error("No protocol color mapping found for {}", protocolName);
-            return;
-        }
-
-        Map<String, List<ColorUsedSnapshot>> cleansingColors = buildColorsFromMappings(mappings, ColorUsageType.CLEANSING);;
-        Map<String, List<ColorUsedSnapshot>> energisingColors = buildColorsFromMappings(mappings, ColorUsageType.ENERGISING);
-        HealerProtocolUnderstanding hpu = new HealerProtocolUnderstanding();
-        hpu.setHealingCaseId(healingCase.getId());
+        HealerProtocolUnderstanding hpu = hpuRepository.findByHealingCaseId(healingCaseId)
+                .orElseGet(HealerProtocolUnderstanding::new);
+        hpu.setHealingCaseId(healingCaseId);
         hpu.setHealerId(healingCase.getHealerId());
-        hpu.setCompletionDate(healingCase.getClosure().getClosureDate());
+        hpu.setCompletionDate(LocalDate.now());
         hpu.setProtocolName(protocolName);
         hpu.setCleansingColorsJson(serialize(cleansingColors));
         hpu.setEnergisingColorsJson(serialize(energisingColors));
         hpu.setChakraReadingsJson(serialize(chakraReadings));
 
         hpuRepository.save(hpu);
+    }
+
+    /**
+     * Returns the previously saved selection for a case, so the closure form
+     * can pre-populate instead of always starting blank -- reopening an
+     * already-filled ACTIVE case then edits the same record via the upsert
+     * in {@link #saveFromHealerSelection}, rather than losing track of what
+     * was chosen before.
+     */
+    @Transactional(readOnly = true)
+    public HealerProtocolUnderstandingRequest getExistingSelection(UUID healingCaseId) {
+        Optional<HealerProtocolUnderstanding> existing = hpuRepository.findByHealingCaseId(healingCaseId);
+        if (existing.isEmpty()) {
+            return new HealerProtocolUnderstandingRequest(List.of());
+        }
+
+        HealerProtocolUnderstanding hpu = existing.get();
+        Map<String, List<ColorUsedSnapshot>> energisingColors = deserializeColors(hpu.getEnergisingColorsJson());
+        Map<String, List<ColorUsedSnapshot>> cleansingColors = deserializeColors(hpu.getCleansingColorsJson());
+
+        Set<String> chakraNames = new LinkedHashSet<>();
+        chakraNames.addAll(energisingColors.keySet());
+        chakraNames.addAll(cleansingColors.keySet());
+
+        List<ChakraColorSelection> chakraSelections = chakraNames.stream()
+                .map(chakra -> new ChakraColorSelection(
+                        chakra,
+                        toColorSelections(energisingColors.get(chakra)),
+                        toColorSelections(cleansingColors.get(chakra))))
+                .toList();
+
+        return new HealerProtocolUnderstandingRequest(chakraSelections);
     }
 
     // ── Deserializers (used by mapper) ───────────────────────────────────────
@@ -105,35 +140,34 @@ public class HealerProtocolUnderstandingService {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private List<ProtocolColorMapping> resolveColorMappings(String protocolName, UUID healerId) {
-        List<ProtocolColorMapping> healerCustom = protocolColorMappingRepository
-                .findByProtocolNameAndHealerId(protocolName, healerId);
-        if (!healerCustom.isEmpty()) return healerCustom;
-        return protocolColorMappingRepository.findByProtocolNameAndHealerIdIsNull(protocolName);
+    private List<ColorUsedSnapshot> toColorSnapshots(
+            List<ColorSelection> selections,
+            Map<String, PranaColorCatalog> catalogByName) {
+
+        if (selections == null || selections.isEmpty()) return Collections.emptyList();
+
+        return selections.stream()
+                .map(selection -> {
+                    PranaColorCatalog color = catalogByName.get(selection.color());
+                    String code = color != null ? color.getCode() : selection.color();
+                    String properties = selection.properties() == null
+                            ? ""
+                            : String.join(", ", selection.properties());
+                    return new ColorUsedSnapshot(code, selection.color(), properties);
+                })
+                .toList();
     }
 
-    private Map<String, List<ColorUsedSnapshot>> buildColorsFromMappings(
-            List<ProtocolColorMapping> mappings,
-            ColorUsageType usageType) {
+    private List<ColorSelection> toColorSelections(List<ColorUsedSnapshot> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) return Collections.emptyList();
 
-        return mappings.stream()
-                .filter(Objects::nonNull)
-                .filter(m -> m.getUsageType() == usageType)
-                .collect(Collectors.groupingBy(
-                        ProtocolColorMapping::getChakraName,
-                        Collectors.mapping(
-                                m -> pranaColorCatalogRepository.findById(m.getColorId())
-                                        .map(c -> new ColorUsedSnapshot(
-                                                c.getCode(),
-                                                c.getName(),
-                                                String.join(", ", c.getProperties())))
-                                        .orElse(null),
-                                Collectors.filtering(
-                                        Objects::nonNull,
-                                        Collectors.toList()
-                                )
-                        )
-                ));
+        return snapshots.stream()
+                .map(snapshot -> new ColorSelection(
+                        snapshot.colorName(),
+                        snapshot.properties() == null || snapshot.properties().isBlank()
+                                ? Collections.emptyList()
+                                : List.of(snapshot.properties().split(", "))))
+                .toList();
     }
 
     private List<ChakraReadingSummarySnapshot> buildChakraReadings(HealingSession session) {

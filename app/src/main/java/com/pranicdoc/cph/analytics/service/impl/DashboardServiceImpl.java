@@ -63,6 +63,7 @@ public class DashboardServiceImpl implements DashboardService {
         Long creditsRemaining = null;
         boolean creditServiceUnavailable = false;
 
+        // TODO update this when there is a 404 error with the error detail no account found, then send another boolean flag saying to create account first and while registering the account creation should be taken care, while data migration it was deleted then we need to have a fallback for creating one during migration, not in this section
         try {
             BalanceCreditResponse balance = creditService.getBalance(OwnerType.HEALER, healerId);
             if (balance != null) {

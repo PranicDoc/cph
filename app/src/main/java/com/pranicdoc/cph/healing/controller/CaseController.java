@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
+import com.pranicdoc.cph.healing.service.impl.HealerProtocolUnderstandingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class CaseController {
 
     private final CaseService caseService;
+    private final HealerProtocolUnderstandingService healerProtocolUnderstandingService;
 
     @PostMapping
     public ResponseEntity<CaseResponse> create(@Valid @RequestBody CaseCreateRequest request,
@@ -80,6 +82,20 @@ public class CaseController {
                                            @Valid @RequestBody CaseClosureRequest request) {
         caseService.closeCase(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/protocol-understanding")
+    public ResponseEntity<Void> saveProtocolUnderstanding(
+            @PathVariable UUID id,
+            @Valid @RequestBody HealerProtocolUnderstandingRequest request) {
+        healerProtocolUnderstandingService.saveFromHealerSelection(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/protocol-understanding")
+    public ResponseEntity<HealerProtocolUnderstandingRequest> getProtocolUnderstanding(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(healerProtocolUnderstandingService.getExistingSelection(id));
     }
 
     @DeleteMapping("/{id}")

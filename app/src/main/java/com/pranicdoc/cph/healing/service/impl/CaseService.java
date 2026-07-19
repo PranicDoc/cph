@@ -22,14 +22,12 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
-import com.pranicdoc.cph.healing.event.HealingSessionCompletedEvent;
 import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.healing.service.MessageService;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import com.pranicdoc.cph.healing.dto.*;
@@ -81,7 +79,6 @@ public class CaseService {
     private final HealingDetailsRepository healingDetailsRepository;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
-    private final ApplicationEventPublisher eventPublisher;
     private final FeedbackLinkRepository feedbackLinkRepository;
     // 26-07 Task 2: NOT previously injected. Needed to source the credit-boundary
     // clinic-shaped ownerId from the owning healer's bridge clinic reference
@@ -273,9 +270,7 @@ public class CaseService {
                 .build();
         healingCase.setClosure(closure);
         healingCase.setStatus(CaseStatus.CLOSED);
-        HealingCase saved = caseRepository.save(healingCase);
-        eventPublisher.publishEvent(new HealingSessionCompletedEvent(
-                this, saved.getId(), saved.getHealerId()));
+        caseRepository.save(healingCase);
         if(!request.isHealingContinued()) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }

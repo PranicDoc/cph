@@ -10,7 +10,6 @@ import com.pranicdoc.cph.common.exception.SessionIncompleteException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
-import com.pranicdoc.cph.healing.event.HealingSessionCompletedEvent;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
