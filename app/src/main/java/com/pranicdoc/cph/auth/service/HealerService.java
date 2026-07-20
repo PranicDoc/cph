@@ -9,7 +9,7 @@ import java.util.UUID;
 public interface HealerService {
     Healer findHealerByEmail(String email);
 
-    List<HealerResponse> getHealersByClinic();
+    List<HealerResponse> getAllHealers();
 
     HealerResponse setActiveStatus(UUID healerId, boolean active);
 }

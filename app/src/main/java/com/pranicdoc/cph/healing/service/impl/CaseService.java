@@ -80,10 +80,10 @@ public class CaseService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final FeedbackLinkRepository feedbackLinkRepository;
-    // 26-07 Task 2: NOT previously injected. Needed to source the credit-boundary
-    // clinic-shaped ownerId from the owning healer's bridge clinic reference
-    // (Healer.clinicId, 26-03 bridge field) instead of the JWT clinicId claim
-    // (removed by 26-09). @RequiredArgsConstructor extends automatically.
+    // 26-07 Task 2: NOT previously injected; @RequiredArgsConstructor extends
+    // automatically. 29-01: the Healer bridge field this was originally wired for
+    // no longer exists (dropped by a7fcafe) — retained here as a pre-existing,
+    // out-of-scope unused field; not removed by this cleanup plan.
     private final HealerRepository healerRepository;
     // D-18: self-injection via ObjectProvider so postMessageToGeneratePdf can
     // invoke validateCaseExists/buildAndEnqueuePdfJob THROUGH the Spring
@@ -144,7 +144,7 @@ public class CaseService {
             }
             // D-26-04 (PATIENT_CASE half, 26-07): the just-saved HealingCase already carries
             // the real healerId — no extra lookup needed. 26-11 flips the JwtService claim
-            // itself from clinicId to healerId; this call site already passes the real value.
+            // itself to a real healerId claim; this call site already passes that value.
             String patientCaseToken = jwtService.generatePatientCaseToken(
                     saved.getPatientId(), saved.getId(), saved.getHealerId());
             cookieUtil.setPatientCaseSessionCookie(httpResponse, patientCaseToken);
@@ -366,7 +366,7 @@ public class CaseService {
             }
         } else {
             if (!entity.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
-                throw new AccessDeniedException("Case does not belong to your clinic");
+                throw new AccessDeniedException("Case does not belong to you");
             }
         }
         healingCaseMapper.toEntity(caseUpdateRequest, entity);

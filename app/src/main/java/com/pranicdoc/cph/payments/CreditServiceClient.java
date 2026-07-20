@@ -20,11 +20,11 @@ public class CreditServiceClient {
         this.restClient = restClient;
     }
 
-    public DeductResponse deduct(UUID healerId, UUID clinicId, String idempotencyKey) {
+    public DeductResponse deduct(UUID healerId, String idempotencyKey) {
         return restClient.post()
                 .uri("/credits/deduct")
                 .header("X-Idempotency-Key", idempotencyKey)
-                .body(new DeductRequest(healerId, clinicId))
+                .body(new DeductRequest(healerId))
                 .retrieve()
                 .body(DeductResponse.class);
     }
@@ -32,7 +32,7 @@ public class CreditServiceClient {
     public AccountResponse createAccount(OwnerType ownerType, UUID ownerId) {
         return restClient.post()
                 .uri("/credits/accounts")
-                .body(new CreateAccountRequest(ownerType.name(), ownerId, null))
+                .body(new CreateAccountRequest(ownerType.name(), ownerId))
                 .retrieve()
                 .body(AccountResponse.class);
     }

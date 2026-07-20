@@ -65,8 +65,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // Narrow case-scoped token: subject = patientId
                 UUID patientId = UUID.fromString(claims.getSubject());
                 UUID caseId = UUID.fromString(claims.get("caseId", String.class));
-                // Pitfall 4 fix: no unconditional clinicId parse. healerId is not yet a
-                // real claim on this token type (26-11/D-26-04 adds it) — tolerate null,
+                // Pitfall 4 fix: no unconditional tenant-claim parse. healerId is not yet
+                // a real claim on this token type (26-11/D-26-04 adds it) — tolerate null,
                 // do NOT fail closed.
                 String healerIdClaim = claims.get("healerId", String.class);
                 UUID healerId = healerIdClaim != null ? UUID.fromString(healerIdClaim) : null;

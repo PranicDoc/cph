@@ -22,25 +22,23 @@ public class CreditGateServiceImpl implements CreditGateService {
 
     @Override
     @CircuitBreaker(name = "creditService", fallbackMethod = "checkAndDeductFallback")
-    public void checkAndDeduct(UUID healerId, UUID clinicId, UUID healingCaseId) {
-        // CROSS-SERVICE BOUNDARY (Phase 27): clinicId here is the caller-sourced clinic-shaped
-        // ownerId (26-07: sourced from healer.clinicId bridge, not the JWT clinicId claim).
-        // Shape/idempotency key preserved unchanged so creditService's contract is untouched.
-        // TODO(Phase 27): idempotencyKey + DeductRequest.clinicId retire when creditService
-        // moves to OwnerType.HEALER.
-        String idempotencyKey = clinicId + "-" + healingCaseId;
-        DeductResponse response = creditServiceClient.deduct(healerId, clinicId, idempotencyKey);
+    public void checkAndDeduct(UUID healerId, UUID caseHealerId, UUID healingCaseId) {
+        // caseHealerId is the case owner's real healerId (sourced from
+        // HealingCase.getHealerId() at the CaseService call site) and is used only
+        // to build the idempotency key below; it is not sent on the wire.
+        String idempotencyKey = caseHealerId + "-" + healingCaseId;
+        DeductResponse response = creditServiceClient.deduct(healerId, idempotencyKey);
         if ("INSUFFICIENT".equals(response.result())) {
             throw new InsufficientCreditsException();
         }
     }
 
-    // TODO: switch to fail-closed + add PDF rate limiting per clinic (Phase 5 hardening)
-    private void checkAndDeductFallback(UUID healerId, UUID clinicId, UUID healingCaseId, Throwable t) {
+    // TODO: switch to fail-closed + add PDF rate limiting per healer (Phase 5 hardening)
+    private void checkAndDeductFallback(UUID healerId, UUID caseHealerId, UUID healingCaseId, Throwable t) {
         if (t instanceof InsufficientCreditsException ice) {
             throw ice;
         }
-        log.warn("CREDIT_GATE_FAIL_OPEN caseId={} clinicId={} needsReconciliation=true reason={}",
-                healingCaseId, clinicId, t.toString());
+        log.warn("CREDIT_GATE_FAIL_OPEN caseId={} caseHealerId={} needsReconciliation=true reason={}",
+                healingCaseId, caseHealerId, t.toString());
     }
 }

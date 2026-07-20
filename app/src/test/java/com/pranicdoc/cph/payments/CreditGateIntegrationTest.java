@@ -51,32 +51,32 @@ class CreditGateIntegrationTest {
     @Test
     void approved_returnsNormally() {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
+        UUID caseHealerId = UUID.randomUUID();
         UUID caseId = UUID.randomUUID();
 
         wireMock.stubFor(post(urlEqualTo("/credits/deduct"))
                 .willReturn(okJson("{\"result\":\"APPROVED\",\"balance_after\":2}")));
 
-        assertDoesNotThrow(() -> creditGateService.checkAndDeduct(healerId, clinicId, caseId));
+        assertDoesNotThrow(() -> creditGateService.checkAndDeduct(healerId, caseHealerId, caseId));
     }
 
     @Test
     void insufficient_throwsAndDoesNotFailOpen() {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
+        UUID caseHealerId = UUID.randomUUID();
         UUID caseId = UUID.randomUUID();
 
         wireMock.stubFor(post(urlEqualTo("/credits/deduct"))
                 .willReturn(okJson("{\"result\":\"INSUFFICIENT\",\"balance_after\":0}")));
 
         assertThrows(InsufficientCreditsException.class,
-                () -> creditGateService.checkAndDeduct(healerId, clinicId, caseId));
+                () -> creditGateService.checkAndDeduct(healerId, caseHealerId, caseId));
     }
 
     @Test
     void timeout_failsOpenAndLogsReconciliation() {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
+        UUID caseHealerId = UUID.randomUUID();
         UUID caseId = UUID.randomUUID();
 
         wireMock.stubFor(post(urlEqualTo("/credits/deduct"))
@@ -88,7 +88,7 @@ class CreditGateIntegrationTest {
         logger.addAppender(listAppender);
 
         try {
-            assertDoesNotThrow(() -> creditGateService.checkAndDeduct(healerId, clinicId, caseId));
+            assertDoesNotThrow(() -> creditGateService.checkAndDeduct(healerId, caseHealerId, caseId));
 
             boolean hasReconciliationLog = listAppender.list.stream()
                     .anyMatch(e -> e.getFormattedMessage().contains("needsReconciliation=true"));

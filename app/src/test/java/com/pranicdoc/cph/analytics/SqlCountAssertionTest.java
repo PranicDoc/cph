@@ -134,7 +134,6 @@ class SqlCountAssertionTest {
     @Test
     void dashboardSummary_boundedQueryCount() throws Exception {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
         when(creditService.getBalance(eq(OwnerType.HEALER), eq(healerId)))
                 .thenReturn(new BalanceCreditResponse(healerId, "HEALER", 42, false, false));
 
@@ -142,7 +141,7 @@ class SqlCountAssertionTest {
         stats.clear();
 
         mockMvc.perform(get("/api/v1/dashboard/summary")
-                        .cookie(accessTokenCookie(healerId, clinicId)))
+                        .cookie(accessTokenCookie(healerId)))
                 .andExpect(status().isOk());
 
         long queryCount = stats.getPrepareStatementCount();
@@ -155,17 +154,16 @@ class SqlCountAssertionTest {
     @Test
     void generatePdf_singleSession_boundedQueryCount() throws Exception {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
 
-        HealingCase healingCase = createCaseWithSessions(healerId, clinicId, 1, false);
+        HealingCase healingCase = createCaseWithSessions(healerId, 1, false);
 
         Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         stats.clear();
 
         mockMvc.perform(post("/api/v1/cases/generate-pdf")
                         .param("healingCaseId", healingCase.getId().toString())
-                        .cookie(accessTokenCookie(healerId, clinicId)))
+                        .cookie(accessTokenCookie(healerId)))
                 .andExpect(status().isAccepted());
 
         long queryCount = stats.getPrepareStatementCount();
@@ -178,21 +176,20 @@ class SqlCountAssertionTest {
     @Test
     void generatePdf_multiSession_boundedQueryCount_provesNoNPlus1() throws Exception {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
 
         // 6 sessions (each with a scan/symptomFeedback/qualitativeFeedback) +
         // a HealingDetails with 2 TreatmentSteps — if the N+1 fix regresses,
         // this fixture's query count grows proportionally with session
         // count and blows past GENERATE_PDF_MULTI_SESSION_BOUND.
-        HealingCase healingCase = createCaseWithSessions(healerId, clinicId, 6, true);
+        HealingCase healingCase = createCaseWithSessions(healerId, 6, true);
 
         Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         stats.clear();
 
         mockMvc.perform(post("/api/v1/cases/generate-pdf")
                         .param("healingCaseId", healingCase.getId().toString())
-                        .cookie(accessTokenCookie(healerId, clinicId)))
+                        .cookie(accessTokenCookie(healerId)))
                 .andExpect(status().isAccepted());
 
         long queryCount = stats.getPrepareStatementCount();
@@ -205,7 +202,6 @@ class SqlCountAssertionTest {
     @Test
     void generatePdf_creditGate_runsOutsideActiveTransaction() throws Exception {
         UUID healerId = UUID.randomUUID();
-        UUID clinicId = UUID.randomUUID();
 
         // D-18 (T-23-04-CG): record whether a DB transaction is active at the
         // exact moment checkAndDeduct is invoked. Must be false — proves the
@@ -216,11 +212,11 @@ class SqlCountAssertionTest {
             return null;
         }).when(creditGateService).checkAndDeduct(any(), any(), any());
 
-        HealingCase healingCase = createCaseWithSessions(healerId, clinicId, 1, false);
+        HealingCase healingCase = createCaseWithSessions(healerId, 1, false);
 
         mockMvc.perform(post("/api/v1/cases/generate-pdf")
                         .param("healingCaseId", healingCase.getId().toString())
-                        .cookie(accessTokenCookie(healerId, clinicId)))
+                        .cookie(accessTokenCookie(healerId)))
                 .andExpect(status().isAccepted());
 
         assertThat(txActiveDuringDeduct.get())
@@ -246,23 +242,21 @@ class SqlCountAssertionTest {
      *
      * 26-03: the Hibernate {@code tenantFilter} now scopes by {@code healer_id}
      * (populated from the request's authenticated {@code healerId}, see
-     * {@code accessTokenCookie} below) rather than {@code clinic_id} — every
-     * seeded row's tenant column must therefore be set to {@code healerId},
-     * not {@code clinicId} (which remains a distinct value, only used for the
-     * still-unchanged JWT clinicId/clinicCode claim), or the filter will scope
-     * these rows out and the MockMvc requests below will 404/fail.
+     * {@code accessTokenCookie} below) — every seeded row's tenant column must
+     * therefore be set to {@code healerId}, or the filter will scope these rows
+     * out and the MockMvc requests below will 404/fail.
      */
-    private HealingCase createCaseWithSessions(UUID healerId, UUID clinicId, int sessionCount,
+    private HealingCase createCaseWithSessions(UUID healerId, int sessionCount,
                                                 boolean withTreatmentSteps) {
         // 26-07 Task 2: postMessageToGeneratePdf now looks up this healerId via
         // HealerRepository to source the credit-boundary clinic-shaped ownerId
         // from the healer bridge — a real Healer row must exist or the request
-        // 404s before reaching the PDF-generation logic under test.
+        // 404s before reaching the PDF-generation logic under test. Healer no
+        // longer carries a clinic-shaped bridge field (a7fcafe) — no value to seed.
         Healer healer = Healer.builder()
                 .fullName("Test Healer")
                 .email("healer-" + healerId + "@test.local")
                 .role(Role.HEALER)
-                .clinicId(clinicId)
                 .build();
         healer.setId(healerId);
         healerRepository.save(healer);
@@ -351,11 +345,9 @@ class SqlCountAssertionTest {
         return caseRepository.save(healingCase);
     }
 
-    private Cookie accessTokenCookie(UUID healerId, UUID clinicId) {
-        // 26-09: JwtService.generateAccessToken is clinic-free (2-arg); the clinicId
-        // param stays here only because Healer.clinicId (the retained credit-boundary
-        // bridge field, not the JWT claim) is still seeded via this call's sibling
-        // createCaseWithSessions(healerId, clinicId, ...) fixture calls.
+    private Cookie accessTokenCookie(UUID healerId) {
+        // 26-09/29-01: JwtService.generateAccessToken is clinic-free (2-arg) and carries
+        // no clinic-shaped claim at all — this helper needs only the healerId.
         String token = jwtService.generateAccessToken(healerId, "HEALER");
         return new Cookie("accessToken", token);
     }

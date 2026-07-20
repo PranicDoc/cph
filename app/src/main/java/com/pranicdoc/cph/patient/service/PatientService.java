@@ -192,10 +192,10 @@ public class PatientService {
 
     @Auditable(action = "GENERATE_LINK")
     public Map<String, String> generateLink() {
-        // Value is already the healerId post-26-03 (TenantContext now holds healerId, not
-        // clinicId) — this rename just makes the URL segment name honest. The consuming
-        // frontend route param is renamed in 26-10; the SELF_REG token identity itself is
-        // hardened in 26-11.
+        // Value is already the healerId post-26-03 (TenantContext now holds the real
+        // healerId) — this rename just makes the healerId URL segment name honest. The
+        // consuming frontend route param is renamed in 26-10; the SELF_REG token identity
+        // itself is hardened in 26-11.
         String healerId = TenantContext.get().toString();
         String randomUuid = UUID.randomUUID().toString();
         RegistrationLink link = new RegistrationLink();

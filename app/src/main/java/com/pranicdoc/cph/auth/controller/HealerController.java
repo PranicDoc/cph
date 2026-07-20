@@ -19,8 +19,8 @@ public class HealerController {
 
     @GetMapping
     @PreAuthorize("hasRole('SUPADM')")
-    public ResponseEntity<List<HealerResponse>> getHealersByClinic() {
-        return ResponseEntity.ok(healerService.getHealersByClinic());
+    public ResponseEntity<List<HealerResponse>> getAllHealers() {
+        return ResponseEntity.ok(healerService.getAllHealers());
     }
 
     @PatchMapping("/{id}/active")

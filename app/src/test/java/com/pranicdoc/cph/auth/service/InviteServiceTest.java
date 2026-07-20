@@ -289,7 +289,6 @@ class InviteServiceTest {
 
         Healer savedHealer = healerCaptor.getValue();
         assertEquals(Role.HEALER, savedHealer.getRole());
-        assertNull(savedHealer.getClinicId());
 
         assertEquals(savedHealerId, response.id());
         verify(creditService, never()).createAccount(eq(OwnerType.CLINIC), any());
@@ -444,7 +443,6 @@ class InviteServiceTest {
         Healer savedHealer = healerCaptor.getValue();
         assertEquals("New Healer", savedHealer.getFullName());
         assertEquals("hashedPw", savedHealer.getPasswordHash());
-        assertNull(savedHealer.getClinicId());
     }
 
     @Test

@@ -29,7 +29,7 @@ public class HealerServiceImpl implements HealerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<HealerResponse> getHealersByClinic() {
+    public List<HealerResponse> getAllHealers() {
         return healerRepository.findAll()
                 .stream()
                 .map(this::toResponse)

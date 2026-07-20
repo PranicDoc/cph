@@ -143,8 +143,7 @@ class CaseServiceTest {
 
         // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
         // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
-        UUID clinicShapedOwnerId = UUID.randomUUID();
-        Healer healer = Healer.builder().clinicId(clinicShapedOwnerId).build();
+        Healer healer = Healer.builder().build();
 
         // Wire mocks
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
@@ -201,7 +200,7 @@ class CaseServiceTest {
 
         // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
         // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
-        Healer healer = Healer.builder().clinicId(UUID.randomUUID()).build();
+        Healer healer = Healer.builder().build();
 
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
@@ -238,7 +237,7 @@ class CaseServiceTest {
         // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
         // to source the credit-boundary clinic-shaped ownerId from the healer bridge,
         // BEFORE the (mocked) credit-gate call that throws in this test.
-        Healer healer = Healer.builder().clinicId(UUID.randomUUID()).build();
+        Healer healer = Healer.builder().build();
 
         doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
