@@ -87,6 +87,12 @@ dependencies {
 	// --- Redis ---
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+	// --- Bucket4j (Redis-backed rate limiting, INFRA-02/D-12) ---
+	// [ASSUMED — legitimacy checkpoint approved 2026-07-20; JDK17-split coordinates
+	// confirmed on Maven Central, traced to github.com/bucket4j/bucket4j via POM SCM]
+	implementation 'com.bucket4j:bucket4j_jdk17-core:8.14.0'
+	implementation 'com.bucket4j:bucket4j_jdk17-lettuce:8.14.0'
+
 	// --- Dev tools ---
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

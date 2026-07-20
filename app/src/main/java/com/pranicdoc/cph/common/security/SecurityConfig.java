@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.common.security;
 
+import com.pranicdoc.cph.common.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,7 @@ public class SecurityConfig {
     private String appBaseUrl;
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final OAuth2AuthenticationSuccessHandler authenticationSuccessHandler;
 
     @Bean
@@ -69,6 +71,9 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth -> oauth.successHandler(authenticationSuccessHandler))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedEntryPoint()))
+                // RateLimitFilter runs FIRST (before jwtAuthFilter) — these are pre-auth
+                // public endpoints (INFRA-02, D-12); no token exists yet to authenticate.
+                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

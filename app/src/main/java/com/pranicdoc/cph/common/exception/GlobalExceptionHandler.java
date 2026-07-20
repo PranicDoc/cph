@@ -106,6 +106,15 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ProblemDetail handleRateLimitExceeded(RateLimitExceededException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+        pd.setTitle("Rate Limit Exceeded");
+        pd.setType(URI.create("https://pranicdoc.com/errors/rate-limit-exceeded"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(NoHandlerFoundException.class)
     public ProblemDetail handleNoHandlerFound(NoHandlerFoundException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,
