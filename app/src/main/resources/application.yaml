@@ -69,7 +69,10 @@ spring:
     throw-exception-if-no-handler-found: true
 
 server:
-  port: 9918
+  # Cloud Run injects $PORT and routes to whatever port the process listens on
+  # (23-07, INFRA-04); ${PORT:9918} keeps 9918 as the local/VM-compose default
+  # while letting Cloud Run's deploy script override it via --port/--set-env-vars.
+  port: ${PORT:9918}
   servlet:
     context-path: /cph
 
