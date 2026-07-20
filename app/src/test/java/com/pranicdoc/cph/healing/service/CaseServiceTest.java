@@ -154,8 +154,8 @@ class CaseServiceTest {
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId))
                 .thenReturn(Optional.empty());
-        // 26-07 D-26-03: jobId prefix is now healer-derived, not clinic-code-derived
-        // (getCurrentClinicCode() stub removed — no longer invoked by this path).
+        // 26-07 D-26-03: jobId prefix is now healer-derived, not tenant-code-derived
+        // (the old tenant-code lookup stub was removed — no longer invoked by this path).
         when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
 
         ArgumentCaptor<PdfJobEntity> captor = ArgumentCaptor.forClass(PdfJobEntity.class);
@@ -209,8 +209,8 @@ class CaseServiceTest {
         when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
-        // 26-07 D-26-03: jobId prefix is now healer-derived, not clinic-code-derived
-        // (getCurrentClinicCode() stub removed — no longer invoked by this path).
+        // 26-07 D-26-03: jobId prefix is now healer-derived, not tenant-code-derived
+        // (the old tenant-code lookup stub was removed — no longer invoked by this path).
         when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
         when(pdfJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
