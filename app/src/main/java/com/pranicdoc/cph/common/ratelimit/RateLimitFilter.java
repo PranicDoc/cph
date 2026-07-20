@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
@@ -86,6 +87,17 @@ import java.util.function.Supplier;
  * {@code @RestControllerAdvice}, so {@code GlobalExceptionHandler.handleRateLimitExceeded}
  * still renders the response — matching the plan's "PREFER throwing ... caught by
  * GlobalExceptionHandler" intent without silently dropping the 429 shape.
+ *
+ * <p><b>Why {@code @Lazy} on the {@code ProxyManager} constructor parameter:</b> Bucket4j's
+ * {@code Bucket4jLettuce.casBasedBuilder(RedisClient)} synchronously opens a real TCP
+ * connection to Redis at proxy-manager construction time (unlike Spring Data Redis's
+ * autoconfigured {@code LettuceConnectionFactory}, which connects lazily on first cache
+ * operation). Without {@code @Lazy} here, any test — even a plain {@code @SpringBootTest}
+ * with no interest in rate-limiting — would fail application-context startup the moment
+ * Redis is unreachable (this filter is a {@code @Component}, eagerly instantiated at boot).
+ * {@code @Lazy} makes Spring inject a deferred-resolution proxy instead, so the real
+ * {@code RateLimitConfig.rateLimitProxyManager()} bean (and its Redis connection) is only
+ * built the first time this filter actually processes a rate-limited request.
  */
 @Slf4j
 @Component
@@ -101,7 +113,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v1/auth/accept-invite", new RateLimitRule("accept-invite", 10, Duration.ofMinutes(1))
     );
 
-    public RateLimitFilter(ProxyManager<byte[]> rateLimitProxyManager,
+    public RateLimitFilter(@Lazy ProxyManager<byte[]> rateLimitProxyManager,
                             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver handlerExceptionResolver,
                             ObjectMapper objectMapper) {
         this.rateLimitProxyManager = rateLimitProxyManager;

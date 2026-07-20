@@ -71,10 +71,15 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth -> oauth.successHandler(authenticationSuccessHandler))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedEntryPoint()))
+                // jwtAuthFilter's position must be registered with Spring Security's internal
+                // FilterComparator BEFORE it can be used as a reference point for another
+                // custom filter below — registering rateLimitFilter's addFilterBefore call
+                // first (referencing JwtAuthFilter.class before that class has a known
+                // position) throws "The Filter class ... does not have a registered order".
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 // RateLimitFilter runs FIRST (before jwtAuthFilter) — these are pre-auth
                 // public endpoints (INFRA-02, D-12); no token exists yet to authenticate.
-                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class);
 
         return http.build();
     }
