@@ -14,6 +14,10 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository_owner }}/cph
+  # Google Artifact Registry (Cloud Run's required image source, D-07) — set the
+  # GCP_REGION / GCP_PROJECT_ID / GCP_ARTIFACT_REPO repo variables (Settings → Actions → Variables).
+  AR_REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev
+  AR_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/cph
 
 jobs:
   build:
@@ -22,6 +26,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write   # required for GCP Workload Identity Federation (google-github-actions/auth)
 
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}   # used by deploy job
@@ -40,11 +45,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Authenticate to GCP (Workload Identity Federation)
+        id: gcp-auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.AR_REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.gcp-auth.outputs.access_token }}
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: |
+            ${{ env.IMAGE }}
+            ${{ env.AR_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
