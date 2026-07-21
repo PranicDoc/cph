@@ -45,8 +45,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GCP push is best-effort for now (no GCP account/secrets provisioned yet) — GHCR push
+      # and deploy must not block on it. Flip back to a hard failure once GCP_* secrets/vars
+      # are provisioned by removing the `continue-on-error: true` lines below.
       - name: Authenticate to GCP (Workload Identity Federation)
         id: gcp-auth
+        continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -54,33 +58,60 @@ jobs:
           token_format: 'access_token'
 
       - name: Set up gcloud CLI
+        if: steps.gcp-auth.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Log in to Google Artifact Registry
+        id: gcp-ar-login
+        if: steps.gcp-auth.outcome == 'success'
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           registry: ${{ env.AR_REGISTRY }}
           username: oauth2accesstoken
           password: ${{ steps.gcp-auth.outputs.access_token }}
 
-      - name: Extract image metadata
+      - name: Extract image metadata (GHCR)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.IMAGE }}
-            ${{ env.AR_IMAGE }}
+          images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push
+      - name: Build and push (GHCR)
         uses: docker/build-push-action@v6
         with:
           context: app                 # Dockerfile lives in cph/app/
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GPR_USER=${{ github.actor }}
+            GPR_KEY=${{ secrets.GPR_KEY }}
+          cache-from: type=gha,scope=cph
+          cache-to: type=gha,mode=max,scope=cph
+
+      - name: Extract image metadata (Artifact Registry)
+        id: meta-ar
+        if: steps.gcp-ar-login.outcome == 'success'
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.AR_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push (Artifact Registry)
+        if: steps.gcp-ar-login.outcome == 'success'
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-ar.outputs.tags }}
+          labels: ${{ steps.meta-ar.outputs.labels }}
           build-args: |
             GPR_USER=${{ github.actor }}
             GPR_KEY=${{ secrets.GPR_KEY }}
