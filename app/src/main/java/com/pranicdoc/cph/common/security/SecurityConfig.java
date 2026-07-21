@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Spring Security configuration.
@@ -36,7 +37,9 @@ public class SecurityConfig {
     private String appBaseUrl;
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final RateLimitFilter rateLimitFilter;
+    // Optional: RateLimitFilter is conditionally absent when app.ratelimit.enabled=false
+    // (see RateLimitConfig/RateLimitFilter — local dev has no Redis instance).
+    private final Optional<RateLimitFilter> rateLimitFilter;
     private final OAuth2AuthenticationSuccessHandler authenticationSuccessHandler;
 
     @Bean
@@ -76,10 +79,12 @@ public class SecurityConfig {
                 // custom filter below — registering rateLimitFilter's addFilterBefore call
                 // first (referencing JwtAuthFilter.class before that class has a known
                 // position) throws "The Filter class ... does not have a registered order".
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                // RateLimitFilter runs FIRST (before jwtAuthFilter) — these are pre-auth
-                // public endpoints (INFRA-02, D-12); no token exists yet to authenticate.
-                .addFilterBefore(rateLimitFilter, JwtAuthFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // RateLimitFilter runs FIRST (before jwtAuthFilter) — these are pre-auth
+        // public endpoints (INFRA-02, D-12); no token exists yet to authenticate.
+        // Skipped entirely when app.ratelimit.enabled=false (no Redis available).
+        rateLimitFilter.ifPresent(filter -> http.addFilterBefore(filter, JwtAuthFilter.class));
 
         return http.build();
     }

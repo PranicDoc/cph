@@ -26,6 +26,10 @@ spring:
             scope: [openid, email, profile]
 
 app:
+  # No local Redis instance — Bucket4jLettuce would otherwise fail app startup
+  # trying to connect (see RateLimitConfig javadoc).
+  ratelimit:
+    enabled: false
   base:
     url: http://localhost:3000
   jwt:

@@ -7,6 +7,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,6 +15,15 @@ import java.time.Duration;
 
 /**
  * Bucket4j Redis-backed proxy manager for rate-limiting (INFRA-02, D-12).
+ *
+ * <p>Gated behind {@code app.ratelimit.enabled} (default {@code true} via
+ * {@code matchIfMissing}) — {@code application-localdev.yml} sets it to {@code false} since
+ * local dev has no Redis instance and {@code Bucket4jLettuce}'s builder opens a real TCP
+ * connection synchronously at bean-creation time (unlike Spring Data Redis's
+ * lazily-connecting {@code LettuceConnectionFactory}, see {@link RedisConfig}). With this
+ * disabled, {@link com.pranicdoc.cph.common.ratelimit.RateLimitFilter} (same condition) also
+ * does not exist as a bean, and {@code SecurityConfig} skips wiring it into the filter chain
+ * — rate limiting is simply off, not failing open per-request.
  *
  * <p><b>Why a dedicated {@link RedisClient} instead of reusing {@link RedisConfig}'s
  * autoconfigured {@code RedisConnectionFactory}:</b> Bucket4j's {@code LettuceBasedProxyManager}
@@ -28,6 +38,11 @@ import java.time.Duration;
  * only one extra TCP connection to the same Redis container.
  */
 @Configuration
+@ConditionalOnProperty(
+        name = "app.ratelimit.enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class RateLimitConfig {
 
     @Value("${spring.data.redis.host:localhost}")

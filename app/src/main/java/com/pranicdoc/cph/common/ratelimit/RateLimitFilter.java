@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -101,6 +102,11 @@ import java.util.function.Supplier;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(
+        name = "app.ratelimit.enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private final ProxyManager<byte[]> rateLimitProxyManager;
