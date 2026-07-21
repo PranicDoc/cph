@@ -1,22 +1,31 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/pranic_doc
+    # Routed through PgBouncer (transaction-pool mode), not directly at Postgres —
+    # pranic_doc's Aiven tier has max_connections=20, ~10 of which are fixed Aiven
+    # overhead (background workers/HA), leaving too little for direct per-connection
+    # Hikari pools across cph + pdfWorker. prepareThreshold=0 disables server-side
+    # prepared-statement caching, which doesn't survive PgBouncer's transaction-mode
+    # connection multiplexing.
+    url: jdbc:postgresql://${PGBOUNCER_HOST}:${PGBOUNCER_PORT:6432}/pranic_doc?prepareThreshold=0
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      # D-18: was 5 — exhausted at 10 concurrent users (Gatling
-      # AdminScenarioSimulation baseline 2026-07-07: 11/16 pass, 5 KO all
-      # "found 502" — pool exhaustion). Raised to 15; stay well under
-      # Aiven's plan-tier max_connections ceiling (shared across every cph
-      # instance + pdfWorker + creditService connecting to the same
-      # Aiven-managed Postgres) — re-check the ceiling before raising
-      # further or before adding more concurrently-deployed instances.
-      maximum-pool-size: 15
+      # Trimmed from 15 (D-18) to fit the real budget once PgBouncer absorbs burst
+      # concurrency — 15 direct connections alone could exceed the ~10-connection
+      # budget left after Aiven's fixed overhead.
+      maximum-pool-size: 6
       minimum-idle: 1
       connection-timeout: 30000
       idle-timeout: 30000
       max-lifetime: 1800000
+
+  # Flyway bypasses PgBouncer — migrations use session-level advisory locks that
+  # don't survive transaction-mode connection multiplexing. Direct connection only.
+  flyway:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/pranic_doc
+    user: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   mail:
     host: ${MAIL_HOST}
