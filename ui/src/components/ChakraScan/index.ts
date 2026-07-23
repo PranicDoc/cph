@@ -3,6 +3,7 @@
 export { ChakraAccordionPanel, default } from "./ChakraAccordionPanel";
 export { ChakraQuickPanel } from "./ChakraQuickPanel"
 export { ChakraDataGrid } from "./ChakraDataGrid"
+export { ChakraManualEntry } from "./ChakraManualEntry"
 export {
   buildBackendChakraCatalog,
   buildPranaColorCatalog,

@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { DEFAULT_SCAN_ENTRY_MODE, type ScanEntryMode } from "@/config/scanEntryConfig";
 
-import { VoiceRecorder } from "./VoiceRecorder";
 import { ScanPreviewDialog } from "./ScanPreviewDialog";
-import { parseChakraTranscript } from "../../lib/chakraNlp";
 
 import type {
   ChakraCatalogEntry,
   ChakraDocEntry,
 } from "../ChakraScan/types/spatial-chakra";
+import { ChakraManualEntry } from "../ChakraScan/ChakraManualEntry";
 import { ScanPreviewTable } from "./ScanPreviewTable";
+import { TranscriptionRecorder } from "./TranscriptionRecorder";
+import { VoiceRecorder } from "./VoiceRecorder";
+import { parseChakraTranscript } from "@/lib/chakraNlp";
 
 interface ScanStepProps {
   title: string;
@@ -26,41 +30,85 @@ export function ScanStep({
   availableChakras,
 }: ScanStepProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [mode, setMode] = useState<ScanEntryMode>(DEFAULT_SCAN_ENTRY_MODE);
+
+  function handleEntriesResolved(entries: ChakraDocEntry[]) {
+    onChange(entries);
+  }
 
   function handleTranscript(transcript: string) {
     const updated = parseChakraTranscript(transcript, availableChakras, value);
-
     onChange(updated);
   }
 
   return (
     <>
       <div className="space-y-6">
-        <h2 className="text-lg font-semibold border-b pb-2">{title}</h2>
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1">
-              <p className="mt-1 text-sm leading-6 text-sky-700">
-                Press the microphone button below and clearly dictate the
-                scanned chakra details. Once recording is complete, you can
-                preview the extracted information before proceeding.
-              </p>
+        <div className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
+              <Button
+                type="button"
+                variant={mode === "manual" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("manual")}
+                className={cn("rounded-md px-3", mode !== "manual" && "shadow-none")}
+              >
+                Manual
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "voice" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("voice")}
+                className={cn("rounded-md px-3", mode !== "voice" && "shadow-none")}
+              >
+                Voice
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setPreviewOpen(true)}
-              className="rounded-md border-sky-300 bg-white px-4 py-2 h-auto gap-2 text-sky-700 hover:bg-sky-100 hover:text-sky-700 w-full sm:w-auto"
-            >
-              <Eye className="h-4 w-4" />
-              Preview
-            </Button>
+            {mode === "voice" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPreviewOpen(true)}
+                className="gap-1.5"
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <VoiceRecorder onTranscript={handleTranscript} />
-        </div>
+        {mode === "voice" && (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <p className="text-sm leading-6 text-sky-700">
+              Press the microphone button below and clearly dictate the
+              scanned chakra details. Once recording is complete, you can
+              preview the extracted information before proceeding.
+            </p>
+          </div>
+        )}
+
+        {mode === "manual" ? (
+          <ChakraManualEntry
+            value={value}
+            onChange={onChange}
+            availableChakras={availableChakras}
+          />
+        ) : (
+          <div className="flex justify-center">
+            {/* <TranscriptionRecorder
+              engine="whisper"
+              availableChakras={availableChakras}
+              currentEntries={value}
+              onEntriesResolved={handleEntriesResolved}
+            /> */}
+            <VoiceRecorder onTranscript={handleTranscript} />
+          </div>
+        )}
       </div>
       <ScanPreviewDialog
         open={previewOpen}

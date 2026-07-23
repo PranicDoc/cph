@@ -12,6 +12,16 @@ interface MultiSelectOverlayProps {
   children: ReactNode;
 
   title?: string;
+
+  /**
+   * When false, the trigger wrapper doesn't intercept clicks to toggle
+   * open state itself — for a live text-input trigger (e.g. Combobox) that
+   * already opens on focus/typing, an unconditional click-toggle would
+   * close the panel again on a second click inside an already-focused
+   * input (e.g. repositioning the caret). Defaults to true, the original
+   * click-to-toggle-button behavior this component was built for.
+   */
+  toggleOnTriggerClick?: boolean;
 }
 
 /**
@@ -44,6 +54,7 @@ export function MultiSelectOverlay({
   onOpenChange,
   trigger,
   children,
+  toggleOnTriggerClick = true,
 }: MultiSelectOverlayProps) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -68,22 +79,30 @@ export function MultiSelectOverlay({
     const container = dialogContent ?? document.body;
     setPortalTarget(container);
 
+    // Same 280/380 sizing as before -- CSS decides the actual width within
+    // that range based on content. `left` is clamped against the widest
+    // that range allows (380) so the panel aligns under its trigger but
+    // can never run past the container's right edge regardless of which
+    // width it ends up rendering at.
+    const EDGE_MARGIN = 8;
+    const MAX_WIDTH = 380;
+
     const updatePosition = () => {
       const rect = anchorRef.current!.getBoundingClientRect();
-      if (container === document.body) {
-        setPosition({
-          top: rect.bottom + 4,
-          left: rect.left,
-          width: rect.width,
-        });
-      } else {
-        const containerRect = container.getBoundingClientRect();
-        setPosition({
-          top: rect.bottom - containerRect.top + 4,
-          left: rect.left - containerRect.left,
-          width: rect.width,
-        });
-      }
+      const isBody = container === document.body;
+      const containerRect = isBody ? null : container.getBoundingClientRect();
+      const containerWidth = isBody ? window.innerWidth : containerRect!.width;
+      const containerLeft = isBody ? 0 : containerRect!.left;
+      const containerTop = isBody ? 0 : containerRect!.top;
+
+      const maxLeft = containerWidth - Math.min(MAX_WIDTH, containerWidth - EDGE_MARGIN * 2) - EDGE_MARGIN;
+      const left = Math.min(
+        Math.max(rect.left - containerLeft, EDGE_MARGIN),
+        Math.max(EDGE_MARGIN, maxLeft)
+      );
+      const top = rect.bottom - containerTop + 4;
+
+      setPosition({ top, left, width: rect.width });
     };
 
     updatePosition();
@@ -123,7 +142,10 @@ export function MultiSelectOverlay({
 
   return (
     <>
-      <div ref={anchorRef} onClick={() => onOpenChange(!open)}>
+      <div
+        ref={anchorRef}
+        onClick={toggleOnTriggerClick ? () => onOpenChange(!open) : undefined}
+      >
         {trigger}
       </div>
 
