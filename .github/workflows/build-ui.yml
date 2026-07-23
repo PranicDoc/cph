@@ -26,7 +26,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write   # required for GCP Workload Identity Federation (google-github-actions/auth)
+      id-token: write
 
     steps:
       - name: Checkout
@@ -42,41 +42,75 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # -----------------------------
+      # Best-effort GCP authentication
+      # -----------------------------
       - name: Authenticate to GCP (Workload Identity Federation)
         id: gcp-auth
+        continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          token_format: 'access_token'
+          token_format: access_token
 
       - name: Set up gcloud CLI
+        if: steps.gcp-auth.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Log in to Google Artifact Registry
+        id: gcp-ar-login
+        if: steps.gcp-auth.outcome == 'success'
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           registry: ${{ env.AR_REGISTRY }}
           username: oauth2accesstoken
           password: ${{ steps.gcp-auth.outputs.access_token }}
 
-      - name: Extract image metadata
+      # -----------------------------
+      # GHCR
+      # -----------------------------
+      - name: Extract image metadata (GHCR)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.IMAGE }}
-            ${{ env.AR_IMAGE }}
+          images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push
+      - name: Build and push (GHCR)
         uses: docker/build-push-action@v6
         with:
           context: ui
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=cph-ui
+          cache-to: type=gha,mode=max,scope=cph-ui
+
+      # -----------------------------
+      # Google Artifact Registry
+      # -----------------------------
+      - name: Extract image metadata (Artifact Registry)
+        id: meta-ar
+        if: steps.gcp-ar-login.outcome == 'success'
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.AR_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push (Artifact Registry)
+        if: steps.gcp-ar-login.outcome == 'success'
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: ui
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-ar.outputs.tags }}
+          labels: ${{ steps.meta-ar.outputs.labels }}
           cache-from: type=gha,scope=cph-ui
           cache-to: type=gha,mode=max,scope=cph-ui
