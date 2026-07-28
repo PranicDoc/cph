@@ -9,7 +9,8 @@ import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.auth.model.Healer;
-import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.auth.service.HealerCacheService;
+import com.pranicdoc.cph.auth.service.HealerService;
 import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
@@ -80,17 +81,13 @@ public class CaseService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final FeedbackLinkRepository feedbackLinkRepository;
-    // 26-07 Task 2: NOT previously injected; @RequiredArgsConstructor extends
-    // automatically. 29-01: the Healer bridge field this was originally wired for
-    // no longer exists (dropped by a7fcafe) — retained here as a pre-existing,
-    // out-of-scope unused field; not removed by this cleanup plan.
-    private final HealerRepository healerRepository;
     // D-18: self-injection via ObjectProvider so postMessageToGeneratePdf can
     // invoke validateCaseExists/buildAndEnqueuePdfJob THROUGH the Spring
     // proxy — a plain `this.foo()` call would not cross the @Transactional
     // AOP proxy (self-invocation), silently running without a transaction.
     // ObjectProvider defers bean lookup past construction, avoiding a
     // circular-dependency error from injecting CaseService into itself.
+    private final HealerCacheService healerService;
     private final ObjectProvider<CaseService> self;
 
     /**
@@ -110,6 +107,8 @@ public class CaseService {
             throw new IllegalStateException("Draft already exists for this patient");
         }
         Declaration declaration = declarationMapper.toEntity(request.declaration());
+        String healerName = healerService.getName(securityContextUtil.getCurrentHealerId());
+        declaration.setHealerSignature(healerName);
         if(!checkSignature(declaration, patient)) throw new IllegalStateException("Signature Mismatch in declaration");
         HealingCase healingCase = HealingCase.create(
                 request.patientId(),
@@ -249,6 +248,8 @@ public class CaseService {
         if (sessions.isEmpty()) {
             throw new IllegalArgumentException("Cannot close a case with no recorded sessions");
         }
+        UUID currentHealerId = securityContextUtil.getCurrentHealerId();
+        String healerName = healerService.getName(currentHealerId);
         int healingCount = sessions.size();
         HealingSession lastSession = sessions.get(sessions.size() - 1);
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
@@ -265,8 +266,8 @@ public class CaseService {
                 .healingCount(healingCount)
                 .isHealingContinued(request.isHealingContinued())
                 .lastFeedbackDate(lastFeedbackDate)
-//                .healerSignature()
-                .closedBy(securityContextUtil.getCurrentHealerId())
+                .healerSignature(healerName)
+                .closedBy(currentHealerId)
                 .build();
         healingCase.setClosure(closure);
         healingCase.setStatus(CaseStatus.CLOSED);
@@ -487,7 +488,6 @@ public class CaseService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         self.getObject().validateCaseExists(healingCaseId);
-
         UUID caseHealerId = caseRepository.findById(healingCaseId)
                 .map(HealingCase::getHealerId)
                 .orElseThrow(() -> new ResourceNotFoundException("HealingCase", healingCaseId));
@@ -532,6 +532,7 @@ public class CaseService {
         try {
             ObjectNode root = objectMapper.valueToTree(caseSnapshot);
             root.set("patient", objectMapper.valueToTree(patientSnapshot));
+            root.put("healerSign", healingCase.getDeclaration().getHealerSignature());
             newJsonNode = root;
             healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {

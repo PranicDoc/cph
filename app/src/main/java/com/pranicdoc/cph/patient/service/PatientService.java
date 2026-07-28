@@ -58,6 +58,7 @@ public class PatientService {
         return toResponse(patientRepository.save(patient));
     }
 
+    // TODO Add SSE for created self reg patients to that healer alone
     @Auditable(action = "SELF_REGISTER_PATIENT")
     public PatientResponse selfRegister(PatientCreateRequest request) {
         // SELF_REG tokens carry a random UUID as subject — no real healer in context.
