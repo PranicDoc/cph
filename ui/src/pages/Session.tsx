@@ -277,12 +277,23 @@ export default function Session() {
     });
   };
 
-  // Dynamic label for the next action button
+  // Dynamic label for the next action button — driven by the case's own
+  // status (DRAFT | ACTIVE | CLOSED), not any per-session sub-state.
   const getNextButtonLabel = () => {
     if (!sessionData) return "Proceed to Session";
     if (sessionData.status === "DRAFT") return "Start Session";
-    if (sessionData.status === "COMPLETED") return "Get Report";
+    if (sessionData.status === "CLOSED") return "Case Summary";
     return "Proceed to Session";
+  };
+
+  // For a closed case, "next" means viewing its generated report instead of
+  // continuing the session wizard.
+  const handleNextAction = () => {
+    if (sessionData?.status === "CLOSED") {
+      navigate(`/cases/${healingCaseId}/summary`);
+      return;
+    }
+    goToNextStep();
   };
 
   // ----------------- Loading state -----------------
@@ -315,7 +326,7 @@ export default function Session() {
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Patient Medical Details</h2>
-            {sessionData.status !== "COMPLETED" && (
+            {sessionData.status !== "CLOSED" && (
               <Button
                 type="button"
                 variant="ghost"
@@ -435,7 +446,7 @@ export default function Session() {
             </Button>
             <Button
               type="button"
-              onClick={goToNextStep}
+              onClick={handleNextAction}
               className="flex-1 sm:flex-none px-6 py-2.5 h-auto"
             >
               {getNextButtonLabel()}
