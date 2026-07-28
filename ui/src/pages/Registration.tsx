@@ -19,7 +19,10 @@ export default function Registration() {
   const [step, setStep] = useState(1);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientFullName, setPatientFullName] = useState<string>("");
-  const [pendingHistory, setPendingHistory] = useState<Record<string, unknown> | null>(null);
+  const [pendingHistory, setPendingHistory] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { healerId, uuid } = useParams();
   const { selectPatient } = usePatient();
@@ -114,17 +117,29 @@ export default function Registration() {
       setIsSubmitting(true);
       try {
         if (isSelfRegister) {
-          const payload = { ...patientForm.state.values, medicalHistory: value };
+          const payload = {
+            ...patientForm.state.values,
+            firstName: patientForm.state.values.firstName.trim(),
+            lastName: patientForm.state.values.lastName.trim(),
+            medicalHistory: value,
+          };
           const res = await api.post("/api/v1/patients/self-register", payload);
           setPatientId(res.data.id);
           toast.success("Patient registered");
         } else {
           setPendingHistory(value);
         }
-        setPatientFullName(patientForm.state.values.firstName + " " + patientForm.state.values.lastName);
+        setPatientFullName(
+          patientForm.state.values.firstName.trim() +
+            " " +
+            patientForm.state.values.lastName.trim()
+        );
         setStep(3);
       } catch (error) {
-        toast.error(extractDetail(error) || "Registration failed — please try again", { duration: 5000 });
+        toast.error(
+          extractDetail(error) || "Registration failed — please try again",
+          { duration: 5000 }
+        );
       } finally {
         setIsSubmitting(false);
       }
@@ -148,7 +163,10 @@ export default function Registration() {
           signedAt: new Date().toISOString(),
         };
         if (isSelfRegister) {
-          const res = await api.post(`/api/v1/cases`, { patientId, declaration });
+          const res = await api.post(`/api/v1/cases`, {
+            patientId,
+            declaration,
+          });
           selectPatient(patientId);
           const caseId = res.data?.id;
           sessionStorage.setItem("caseId", caseId);
@@ -156,7 +174,10 @@ export default function Registration() {
           navigate(`/patient-health/${caseId}`);
         } else {
           await api.post("/api/v1/patients/register", {
-            patient: { ...patientForm.state.values, medicalHistory: pendingHistory },
+            patient: {
+              ...patientForm.state.values,
+              medicalHistory: pendingHistory,
+            },
             declaration,
           });
           toast.success("Registration complete");
@@ -164,7 +185,11 @@ export default function Registration() {
           navigate("/patients");
         }
       } catch (error) {
-        toast.error(extractDetail(error) || "Failed to save declaration — please try again", { duration: 5000 });
+        toast.error(
+          extractDetail(error) ||
+            "Failed to save declaration — please try again",
+          { duration: 5000 }
+        );
       } finally {
         setIsSubmitting(false);
       }
