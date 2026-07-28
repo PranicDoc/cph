@@ -1,15 +1,19 @@
 package com.pranicdoc.cph.masterdata.service;
 
+import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
+import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,6 +30,7 @@ public class MasterDataService {
     private final ChakraCatalogRepository chakraRepo;
     private final PranaColorCatalogRepository colorRepo;
     private final ProtocolColorMappingRepository mappingRepo;
+    private final ProtocolCatalogRepository protocolRepo;
     private final SecurityContextUtil securityContextUtil;
 
     // ── Chakras ──────────────────────────────────────────────────────────────
@@ -161,5 +166,63 @@ public class MasterDataService {
             throw new AccessDeniedException("System mappings can only be deleted by SUPADM");
         mapping.softDelete();
         mappingRepo.save(mapping);
+    }
+
+    // ── Protocols ────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<ProtocolCatalog> getAllProtocols(UUID healerId, ProtocolType type) {
+        if (type != null) {
+            return healerId == null
+                    ? protocolRepo.findByProtocolTypeAndHealerIdIsNull(type)
+                    : protocolRepo.findByProtocolTypeAndHealerIdIsNullOrHealerId(type, healerId);
+        }
+        return healerId == null
+                ? protocolRepo.findByHealerIdIsNull()
+                : protocolRepo.findByHealerIdIsNullOrHealerId(healerId);
+    }
+
+    @Transactional(readOnly = true)
+    public ProtocolCatalog getProtocolById(UUID id) {
+        return protocolRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("ProtocolCatalog", id));
+    }
+
+    @Transactional
+    public ProtocolCatalog createProtocol(ProtocolRequest req) {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setName(req.name());
+        protocol.setSourceBook(req.sourceBook());
+        protocol.setPageNumber(req.pageNumber());
+        protocol.setCategory(req.category());
+        protocol.setDescription(req.description());
+        protocol.setChapter(req.chapter());
+        protocol.setProtocolType(req.protocolType());
+        protocol.setHealerId(securityContextUtil.getCurrentHealerId());
+        return protocolRepo.save(protocol);
+    }
+
+    @Transactional
+    public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean isSuperAdmin) {
+        ProtocolCatalog protocol = getProtocolById(id);
+        if (protocol.getHealerId() == null && !isSuperAdmin)
+            throw new AccessDeniedException("System protocols can only be edited by SUPADM");
+        protocol.setName(req.name());
+        protocol.setSourceBook(req.sourceBook());
+        protocol.setPageNumber(req.pageNumber());
+        protocol.setCategory(req.category());
+        protocol.setDescription(req.description());
+        protocol.setChapter(req.chapter());
+        protocol.setProtocolType(req.protocolType());
+        return protocolRepo.save(protocol);
+    }
+
+    @Transactional
+    public void deleteProtocol(UUID id, boolean isSuperAdmin) {
+        ProtocolCatalog protocol = getProtocolById(id);
+        if (protocol.getHealerId() == null && !isSuperAdmin)
+            throw new AccessDeniedException("System protocols can only be deleted by SUPADM");
+        protocol.softDelete();
+        protocolRepo.save(protocol);
     }
 }

@@ -1,14 +1,20 @@
 package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
+import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
+import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
+import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +30,7 @@ import java.util.UUID;
 public class MasterDataController {
 
     private final MasterDataService masterDataService;
+    private final ProtocolImportService protocolImportService;
     private final SecurityContextUtil securityContextUtil;
 
     @GetMapping("/chakras")
@@ -122,5 +129,46 @@ public class MasterDataController {
         boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
         masterDataService.deleteMapping(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Mapping deleted", null));
+    }
+
+    @GetMapping("/protocols")
+    public ResponseEntity<ApiResponse<List<ProtocolCatalog>>> getProtocols(
+            @RequestParam(required = false) UUID healerId,
+            @RequestParam(required = false) ProtocolType type) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllProtocols(healerId, type)));
+    }
+
+    @GetMapping("/protocols/{id}")
+    public ResponseEntity<ApiResponse<ProtocolCatalog>> getProtocolById(@PathVariable UUID id) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getProtocolById(id)));
+    }
+
+    @PostMapping("/protocols")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    public ResponseEntity<ApiResponse<ProtocolCatalog>> createProtocol(@Valid @RequestBody ProtocolRequest req) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Protocol created", masterDataService.createProtocol(req)));
+    }
+
+    @PutMapping("/protocols/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    public ResponseEntity<ApiResponse<ProtocolCatalog>> updateProtocol(
+            @PathVariable UUID id, @Valid @RequestBody ProtocolRequest req) {
+        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        return ResponseEntity.ok(new ApiResponse<>(true, "Protocol updated", masterDataService.updateProtocol(id, req, isSuperAdmin)));
+    }
+
+    @DeleteMapping("/protocols/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    public ResponseEntity<ApiResponse<Void>> deleteProtocol(@PathVariable UUID id) {
+        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        masterDataService.deleteProtocol(id, isSuperAdmin);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
+    }
+
+    @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    public ResponseEntity<ApiResponse<ProtocolImportResult>> importProtocols(
+            @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
     }
 }
