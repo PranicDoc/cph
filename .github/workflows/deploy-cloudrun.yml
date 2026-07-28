@@ -1,0 +1,88 @@
+# ============================================================================
+# Deploy — cph (Cloud Run) — DISABLED, documented-not-enabled (D-08)
+# ============================================================================
+# Entire file is commented out on purpose. GitHub Actions will not register
+# this as a runnable workflow (no `on:`/`jobs:` keys survive the comments),
+# so it cannot fire by accident.
+#
+# Per DEPLOYMENT.md section 7 (D-08): Cloud Run must "prove itself" via a
+# manual deploy (../deploy/deployment.sh) before any pipeline is trusted to
+# promote an image automatically. Do not enable this until:
+#   1. deploy/deployment.sh has been run manually at least once and cph is
+#      confirmed healthy on Cloud Run.
+#   2. A GitHub Environment named "cloudrun-production" exists with at least
+#      one required reviewer (repo Settings -> Environments) — this is what
+#      gates the job below behind a human click, not an env-var check.
+#   3. The GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT secrets and
+#      GCP_REGION / GCP_PROJECT_ID / GCP_ARTIFACT_REPO variables used by
+#      build-and-push.yml already exist (this workflow reuses the same auth).
+#   4. All 9 Secret Manager secrets exist (deployment.sh's job, not this
+#      workflow's — CI should never be the thing creating secrets).
+#   5. The repo secrets/vars referenced in the `Deploy to Cloud Run` step
+#      below (AIVEN_DB_HOST, DB_USERNAME, UPSTASH_REDIS_HOST, etc.) are set.
+#
+# To enable: uncomment everything below this line, fill in anything marked
+# TODO, then commit.
+# ----------------------------------------------------------------------------
+#
+# name: Deploy — cph (Cloud Run)
+#
+# on:
+#   workflow_run:
+#     workflows: ["Build & Push — cph"]
+#     types: [completed]
+#     branches: [main, master]
+#
+# jobs:
+#   deploy:
+#     name: Deploy cph to Cloud Run
+#     runs-on: ubuntu-latest
+#     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+#     environment: cloudrun-production   # required-reviewer gate lives here
+#     permissions:
+#       contents: read
+#       id-token: write   # required for GCP Workload Identity Federation
+#
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+#
+#       - name: Authenticate to GCP (Workload Identity Federation)
+#         uses: google-github-actions/auth@v2
+#         with:
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+#
+#       - name: Set up gcloud CLI
+#         uses: google-github-actions/setup-gcloud@v2
+#
+#       - name: Deploy to Cloud Run
+#         working-directory: .
+#         env:
+#           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+#           GCP_REGION: ${{ vars.GCP_REGION }}
+#           GCP_ARTIFACT_REPO: ${{ vars.GCP_ARTIFACT_REPO }}
+#           IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+#           # Non-secret runtime config — repo Variables (Settings -> Actions -> Variables)
+#           CREDIT_SERVICE_URL: ${{ vars.CREDIT_SERVICE_URL }}
+#           APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+#           R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+#           MAIL_HOST: ${{ vars.MAIL_HOST }}
+#           # Secret-ish config that isn't in Secret Manager itself (connection
+#           # hosts/usernames, not the passwords — those come from --set-secrets
+#           # inside cloudrun-deploy.sh, unchanged by this workflow).
+#           AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+#           DB_USERNAME: ${{ secrets.DB_USERNAME }}
+#           UPSTASH_REDIS_HOST: ${{ secrets.UPSTASH_REDIS_HOST }}
+#           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+#           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+#         run: ./deploy/cloudrun-deploy.sh
+#
+#       - name: Smoke test
+#         run: |
+#           SERVICE_URL=$(gcloud run services describe cph \
+#             --project="${{ vars.GCP_PROJECT_ID }}" \
+#             --region="${{ vars.GCP_REGION }}" \
+#             --format='value(status.url)')
+#           TOKEN=$(gcloud auth print-identity-token --audiences="${SERVICE_URL}")
+#           curl -sf -H "Authorization: Bearer ${TOKEN}" "${SERVICE_URL}/cph/actuator/health"

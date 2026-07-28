@@ -57,6 +57,15 @@ APP_INVITE_URL="${APP_INVITE_URL:-$APP_BASE_URL}"
 #     yaml-templated value; DB_HOST/DB_PORT are simply never consulted. ─────
 SPRING_DATASOURCE_URL="jdbc:postgresql://${AIVEN_DB_HOST}:${AIVEN_DB_PORT}/pranic_doc?sslmode=require"
 
+# ─── Runtime identity (T-23-18 least-privilege) — if CLOUD_RUN_SERVICE_ACCOUNT
+#     is set (deployment.sh creates/grants this account its per-secret access),
+#     run the service as it instead of the project's default compute SA, which
+#     otherwise has broad project-level Editor-like permissions by default. ──
+SERVICE_ACCOUNT_ARGS=()
+if [[ -n "${CLOUD_RUN_SERVICE_ACCOUNT:-}" ]]; then
+  SERVICE_ACCOUNT_ARGS=(--service-account="${CLOUD_RUN_SERVICE_ACCOUNT}")
+fi
+
 gcloud run deploy cph \
   --project="${PROJECT_ID}" \
   --image="${IMAGE}" \
@@ -65,6 +74,7 @@ gcloud run deploy cph \
   --port=9918 \
   --cpu="${CPU}" \
   --memory="${MEMORY}" \
+  "${SERVICE_ACCOUNT_ARGS[@]}" \
   --min-instances="${MIN_INSTANCES}" \
   --max-instances="${MAX_INSTANCES}" \
   --concurrency="${CONCURRENCY}" \
