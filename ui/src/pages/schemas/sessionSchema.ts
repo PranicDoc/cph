@@ -1,5 +1,6 @@
 // src/schemas/sessionSchema.ts
 import { FormSchema } from "../../components/DynamicFormEngine";
+import type { Protocol } from "../../hooks/admin/useMasterData";
 
 export const COMMON_SYMPTOMS = [
   "Headache",
@@ -10,7 +11,8 @@ export const COMMON_SYMPTOMS = [
   "Dizziness",
 ];
 
-export const sessionSchema: FormSchema = [
+export function buildSessionSchema(protocols: Protocol[]): FormSchema {
+  return [
   {
     fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
     fields: [
@@ -84,9 +86,15 @@ export const sessionSchema: FormSchema = [
     title: "Protocol Details",
     fields: [
       {
-        name: "healingDetails.protocolName",
-        label: "Protocol Name",
+        name: "healingDetails.selectedProtocols",
+        label: "Protocols",
+        type: "multiselect",
         wrapperClassName: "col-span-1",
+        multiSelectPlaceholder: "Select protocols...",
+        multiSelectOptions: protocols,
+        getOptionKey: (p: Protocol) => p.id,
+        getOptionLabel: (p: Protocol) => p.name,
+        renderBadge: (p: Protocol) => `${p.name} — ${p.sourceBook}, p.${p.pageNumber}`,
       },
       {
         name: "healingDetails.detailedProtocol",
@@ -95,24 +103,6 @@ export const sessionSchema: FormSchema = [
         wrapperClassName: "row-span-2",
         rows: 4,
       }
-    ],
-  },
-  {
-    containerClassName: "bg-background rounded-xl p-4 mt-4",
-    fieldsContainerClassName: "flex flex-wrap justify-around gap-4",
-    title: "Book page numbers",
-    fields: [
-      { name: "basicBookPg", label: "Basic Book pg no", type: "number" },
-      {
-        name: "advancedBookPg",
-        label: "Advanced Book pg no",
-        type: "number",
-      },
-      {
-        name: "psychotherapyPg",
-        label: "Psychotherapy Book pg no",
-        type: "number",
-      },
     ],
   },
   {
@@ -134,4 +124,5 @@ export const sessionSchema: FormSchema = [
       },
     ],
   },
-];
+  ];
+}

@@ -55,11 +55,43 @@ export interface ProtocolMappingPayload {
   chakraName: string;
 }
 
+export interface Protocol {
+  id: string;
+  name: string;
+  sourceBook: string;
+  pageNumber: number;
+  category?: string;
+  description?: string;
+  chapter?: string;
+  protocolType: "PROTOCOL" | "SUPPLEMENTARY";
+  healerId?: string | null;
+}
+
+export interface ProtocolPayload {
+  name: string;
+  sourceBook: string;
+  pageNumber: number;
+  category?: string;
+  description?: string;
+  chapter?: string;
+  protocolType: "PROTOCOL" | "SUPPLEMENTARY";
+  healerId?: string | null;
+}
+
+export interface ProtocolImportResult {
+  totalRows: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+}
+
 // -- Query Keys -------------------------------------------------------------------------
 
 const COLOR_QK = ["master-colors"] as const;
 const CHAKRA_QK = ["master-chakras"] as const;
 const MAPPING_QK = ["master-mappings"] as const;
+const PROTOCOL_QK = ["master-protocols"] as const;
 
 // -- Prana Colors -----------------------------------------------------------------------
 
@@ -192,5 +224,76 @@ export function useDeleteMapping() {
       toast.success("Deleted");
     },
     onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
+  });
+}
+
+// -- Protocols ----------------------------------------------------------------------------
+
+export function useProtocols(type?: "PROTOCOL" | "SUPPLEMENTARY") {
+  return useQuery<Protocol[]>({
+    queryKey: [...PROTOCOL_QK, type ?? "all"],
+    queryFn: () =>
+      api
+        .get("/api/v1/masterdata/protocols", { params: type ? { type } : {} })
+        .then((r) => r.data.data ?? r.data),
+  });
+}
+
+export function useCreateProtocol() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ProtocolPayload) =>
+      api.post("/api/v1/masterdata/protocols", payload).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
+  });
+}
+
+export function useUpdateProtocol() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ProtocolPayload }) =>
+      api.put(`/api/v1/masterdata/protocols/${id}`, payload).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
+  });
+}
+
+export function useDeleteProtocol() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/api/v1/masterdata/protocols/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      toast.success("Deleted");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to delete", { duration: 5000 }),
+  });
+}
+
+export function useImportProtocols() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api
+        .post("/api/v1/masterdata/protocols/import", formData, {
+          headers: { "Content-Type": undefined },
+        })
+        .then((r) => r.data.data as ProtocolImportResult);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      toast.success("Import complete");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Import failed", { duration: 5000 }),
   });
 }

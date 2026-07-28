@@ -3,6 +3,7 @@ import { CustomDOBPicker } from "./CustomDOBPicker";
 import { TagInput } from "./TagInput";
 import { FileUpload } from "./FileUPload";
 import { TableInput } from "./TableInput";
+import { MultiSelect } from "@/components/ui/multi-select/multi-select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -28,7 +29,8 @@ export type FieldType =
   | "time"
   | "chip"
   | "table"
-  | "file";
+  | "file"
+  | "multiselect";
 
 export type FieldConfig = {
   name: string;
@@ -57,6 +59,11 @@ export type FieldConfig = {
   readOnly?: boolean;
   enableToggle?: boolean;
   trimSpaces?: boolean;
+  multiSelectOptions?: any[];
+  getOptionKey?: (option: any) => string;
+  getOptionLabel?: (option: any) => string;
+  renderBadge?: (option: any) => React.ReactNode;
+  multiSelectPlaceholder?: string;
   validate?: (
     value: any,
     formValues: any,
@@ -206,6 +213,24 @@ export function DynamicField({
                 editableFields={fieldConfig.editableFields}
                 createNewTag={fieldConfig.createNewTag}
                 readOnly={fieldConfig.readOnly}
+              />
+            </div>
+          );
+        }
+
+        if (type === "multiselect") {
+          return (
+            <div className={wrapperClassName}>
+              <Label className="block text-sm font-semibold mb-2">{label}</Label>
+              <MultiSelect
+                options={fieldConfig.multiSelectOptions ?? []}
+                value={field.state.value ?? []}
+                onChange={field.handleChange}
+                getOptionKey={fieldConfig.getOptionKey ?? ((o: any) => String(o))}
+                getOptionLabel={fieldConfig.getOptionLabel ?? ((o: any) => String(o))}
+                renderBadge={fieldConfig.renderBadge}
+                placeholder={fieldConfig.multiSelectPlaceholder ?? placeholder}
+                disabled={fieldConfig.readOnly}
               />
             </div>
           );

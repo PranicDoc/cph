@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { sessionSchema } from "./schemas/sessionSchema";
+import { buildSessionSchema } from "./schemas/sessionSchema";
 import { SessionHeader } from "./SessionHeader";
 import { HealingSession, TreatmentStep } from "../interfaces";
+import { useProtocols, type Protocol } from "../hooks/admin/useMasterData";
 import { FieldDisplay } from "../components/FieldDisplay";
 import { HealingSessionWizard } from "../components/HealingSession";
 import {
@@ -33,13 +34,19 @@ const scanReadingColumns: ColumnDef<
   { accessorKey: "activationLevel", header: "Activation" },
 ];
 
+// Which of the 3 legacy page-number fields a protocol's source book buckets into.
+const BOOK_FIELD_MAP: Record<string, "basicBookPg" | "advancedBookPg" | "psychotherapyPg"> = {
+  "Advanced Pranic Healing": "advancedBookPg",
+  "The Ancient Science and Art of Pranic Healing": "basicBookPg",
+  "Pranic Psychotherapy": "psychotherapyPg",
+  "Practical Psychic Self-Defense for Home and Office": "basicBookPg",
+};
+const bookToField = (book: string) => BOOK_FIELD_MAP[book] ?? "basicBookPg";
+
 type SessionFormValues = {
   medicalCondition: string;
   symptoms: string[];
   medications: string[];
-  basicBookPg: string;
-  advancedBookPg: string;
-  psychotherapyPg: string;
   labFindings: (File | string)[];
   complementaryDetails: string;
   infectiousDetails: string;
@@ -48,6 +55,7 @@ type SessionFormValues = {
     bookReference: string;
     detailedProtocol: string;
     treatmentSteps: TreatmentStep[];
+    selectedProtocols: Protocol[];
   };
 };
 
@@ -60,6 +68,20 @@ export default function Session() {
   const [currentStep, setCurrentStep] = useState(0);
   const navigate = useNavigate();
 
+  const { data: protocols = [] } = useProtocols("PROTOCOL");
+  const schema = useMemo(() => buildSessionSchema(protocols), [protocols]);
+
+  // Best-effort: reconstruct which catalog protocols a comma-joined legacy
+  // protocolName string refers to, by exact name match. Names that don't
+  // match anything (pre-catalog free text) simply won't pre-select a chip.
+  const reconstructSelectedProtocols = (protocolNameCsv: string): Protocol[] => {
+    if (!protocolNameCsv) return [];
+    const names = protocolNameCsv.split(",").map((n) => n.trim()).filter(Boolean);
+    return names
+      .map((name) => protocols.find((p) => p.name === name))
+      .filter((p): p is Protocol => !!p);
+  };
+
   // Persist edit mode per step (only step 0 for now)
   const stepEditModeRef = useRef<Record<number, boolean>>({ 0: false });
 
@@ -68,9 +90,6 @@ export default function Session() {
     medicalCondition: "",
     symptoms: [],
     medications: [],
-    basicBookPg: "",
-    advancedBookPg: "",
-    psychotherapyPg: "",
     labFindings: [] as (File | string)[],
     complementaryDetails: "",
     infectiousDetails: "",
@@ -79,6 +98,7 @@ export default function Session() {
       bookReference: "",
       detailedProtocol: "",
       treatmentSteps: [],
+      selectedProtocols: [],
     },
   });
 
@@ -87,9 +107,6 @@ export default function Session() {
       medicalCondition: "",
       symptoms: [] as string[],
       medications: [] as string[],
-      basicBookPg: "",
-      advancedBookPg: "",
-      psychotherapyPg: "",
       labFindings: [] as (File | string)[],
       complementaryDetails: "",
       infectiousDetails: "",
@@ -97,19 +114,36 @@ export default function Session() {
         protocolName: "",
         bookReference: "",
         detailedProtocol: "",
-        treatmentSteps: [],
+        treatmentSteps: [] as TreatmentStep[],
+        selectedProtocols: [] as Protocol[],
       },
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, ...rest } = value;
+        const { labFindings, healingDetails, ...rest } = value;
+        const { selectedProtocols, ...restHealingDetails } = healingDetails;
         const files = labFindings.filter((f): f is File => f instanceof File);
         const existingKeys = labFindings.filter(
           (f): f is string => typeof f === "string"
         );
+
+        const protocolName = selectedProtocols.map((p) => p.name).join(", ");
+        const buckets: Record<"basicBookPg" | "advancedBookPg" | "psychotherapyPg", string[]> = {
+          basicBookPg: [],
+          advancedBookPg: [],
+          psychotherapyPg: [],
+        };
+        selectedProtocols.forEach((p) => {
+          buckets[bookToField(p.sourceBook)].push(String(p.pageNumber));
+        });
+
         const payload = {
           ...rest,
+          healingDetails: { ...restHealingDetails, protocolName },
+          basicBookPg: buckets.basicBookPg.join(","),
+          advancedBookPg: buckets.advancedBookPg.join(","),
+          psychotherapyPg: buckets.psychotherapyPg.join(","),
           labFindings: existingKeys,
           healingCaseId,
           complementaryTreatments: !!value.complementaryDetails,
@@ -141,9 +175,6 @@ export default function Session() {
     medicalCondition: data.medicalCondition || "",
     symptoms: data.symptoms || [],
     medications: data.medications || [],
-    basicBookPg: data.basicBookPg || "",
-    advancedBookPg: data.advancedBookPg || "",
-    psychotherapyPg: data.psychotherapyPg || "",
     labFindings: data.labFindings || [],
     complementaryDetails: data.complementaryModalities || "",
     infectiousDetails: data.infectiousIllness || "",
@@ -152,6 +183,7 @@ export default function Session() {
       bookReference: data.healingDetails?.bookReference || "",
       detailedProtocol: data.healingDetails?.detailedProtocol || "",
       treatmentSteps: data.healingDetails?.treatmentSteps || [],
+      selectedProtocols: reconstructSelectedProtocols(data.healingDetails?.protocolName || ""),
     },
   });
 
@@ -175,9 +207,6 @@ export default function Session() {
           medicalCondition: data.medicalCondition || "",
           symptoms: data.symptoms || [],
           medications: data.medications || [],
-          basicBookPg: data.basicBookPg || "",
-          advancedBookPg: data.advancedBookPg || "",
-          psychotherapyPg: data.psychotherapyPg || "",
           labFindings: data?.labFindings || [],
           complementaryDetails: data?.complementaryDetails || "",
           infectiousDetails: data?.infectiousDetails || "",
@@ -186,6 +215,7 @@ export default function Session() {
             detailedProtocol: data.healingDetails?.detailedProtocol || "",
             bookReference: data.healingDetails?.bookReference || "",
             treatmentSteps: data.healingDetails?.treatmentSteps || [],
+            selectedProtocols: reconstructSelectedProtocols(data.healingDetails?.protocolName || ""),
           },
         };
 
@@ -198,6 +228,18 @@ export default function Session() {
 
     fetchData();
   }, [healingCaseId]);
+
+  // The protocol catalog loads asynchronously and may not be ready yet when
+  // the case data above is first mapped into the form — re-derive the
+  // multi-select's value once the catalog arrives so pre-selection isn't lost.
+  useEffect(() => {
+    if (!sessionData?.healingDetails?.protocolName || protocols.length === 0) return;
+    const reconstructed = reconstructSelectedProtocols(sessionData.healingDetails.protocolName);
+    if (reconstructed.length > 0) {
+      sessionForm.setFieldValue("healingDetails.selectedProtocols", reconstructed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [protocols, sessionData]);
 
   // ---- Navigation handlers ----
   const goToNextStep = () => {
@@ -421,7 +463,7 @@ export default function Session() {
         }}
         className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
       >
-        <DynamicFormEngine form={sessionForm} schema={sessionSchema} />
+        <DynamicFormEngine form={sessionForm} schema={schema} />
 
         {/* <sessionForm.Field name="healingDetails">
           {(field) => (

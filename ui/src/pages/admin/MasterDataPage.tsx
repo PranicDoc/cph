@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, Pencil, Trash2, Lock } from "lucide-react";
+import { Plus, Pencil, Trash2, Lock, Upload } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
   usePranaColors,
   useChakras,
   useProtocolMappings,
+  useProtocols,
   useCreateColor,
   useUpdateColor,
   useDeleteColor,
@@ -15,10 +16,17 @@ import {
   useDeleteChakra,
   useCreateMapping,
   useDeleteMapping,
+  useCreateProtocol,
+  useUpdateProtocol,
+  useDeleteProtocol,
+  useImportProtocols,
   type PranaColor,
   type Chakra,
+  type Protocol,
   type PranaColorPayload,
   type ChakraPayload,
+  type ProtocolPayload,
+  type ProtocolImportResult,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -972,9 +980,407 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   );
 }
 
+// ── Protocols Tab ─────────────────────────────────────────────────────────────
+
+function ProtocolTypeBadge({ protocolType }: { protocolType: string }) {
+  return (
+    <Badge
+      className={cn(
+        "font-semibold px-2",
+        protocolType === "PROTOCOL"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-gray-100 text-gray-600"
+      )}
+    >
+      {protocolType}
+    </Badge>
+  );
+}
+
+function ProtocolModal({
+  initial,
+  onClose,
+}: {
+  initial?: Protocol;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState("");
+  const create = useCreateProtocol();
+  const update = useUpdateProtocol();
+
+  const form = useForm({
+    defaultValues: {
+      name: initial?.name ?? "",
+      sourceBook: initial?.sourceBook ?? "",
+      pageNumber: initial?.pageNumber?.toString() ?? "",
+      category: initial?.category ?? "",
+      description: initial?.description ?? "",
+      chapter: initial?.chapter ?? "",
+      protocolType: initial?.protocolType ?? "PROTOCOL",
+    },
+    onSubmit: async ({ value }) => {
+      setError("");
+      const pageNumber = parseInt(value.pageNumber, 10);
+      if (!value.sourceBook.trim() || Number.isNaN(pageNumber)) {
+        setError("Book and Page number are required.");
+        return;
+      }
+      const payload: ProtocolPayload = {
+        name: value.name,
+        sourceBook: value.sourceBook,
+        pageNumber,
+        category: value.category,
+        description: value.description,
+        chapter: value.chapter,
+        protocolType: value.protocolType as "PROTOCOL" | "SUPPLEMENTARY",
+        healerId: initial ? initial.healerId : null,
+      };
+      try {
+        if (initial) {
+          await update.mutateAsync({ id: initial.id, payload });
+        } else {
+          await create.mutateAsync(payload);
+        }
+        onClose();
+      } catch {
+        setError("Failed to save. Please try again.");
+      }
+    },
+  });
+
+  const isPending = create.isPending || update.isPending;
+
+  return (
+    <ModalShell title={initial ? "Edit Protocol" : "Add Protocol"} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+        className="space-y-3"
+      >
+        <Field label="Protocol/Technique Name">
+          <form.Field
+            name="name"
+            children={(field) => <TextField field={field} className={fieldCls} />}
+          />
+        </Field>
+        <Field label="Book">
+          <form.Field
+            name="sourceBook"
+            children={(field) => (
+              <TextField field={field} placeholder="e.g. Advanced Pranic Healing" className={fieldCls} />
+            )}
+          />
+        </Field>
+        <Field label="Page">
+          <form.Field
+            name="pageNumber"
+            children={(field) => (
+              <TextField field={field} type="number" className={fieldCls} />
+            )}
+          />
+        </Field>
+        <Field label="Type">
+          <form.Field
+            name="protocolType"
+            children={(field) => (
+              <SelectField
+                field={field}
+                options={[
+                  { label: "Protocol", value: "PROTOCOL" },
+                  { label: "Supplementary", value: "SUPPLEMENTARY" },
+                ]}
+                className={fieldCls}
+              />
+            )}
+          />
+        </Field>
+        <Field label="Category">
+          <form.Field
+            name="category"
+            children={(field) => <TextField field={field} className={fieldCls} />}
+          />
+        </Field>
+        <Field label="Chapter">
+          <form.Field
+            name="chapter"
+            children={(field) => <TextField field={field} className={fieldCls} />}
+          />
+        </Field>
+        <Field label="Description">
+          <form.Field
+            name="description"
+            children={(field) => (
+              <TextareaField field={field} className={cn(fieldCls, "p-2.5")} />
+            )}
+          />
+        </Field>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+        <ModalFooter
+          isPending={isPending}
+          submitLabel={initial ? "Save Changes" : "Add Protocol"}
+          onClose={onClose}
+        />
+      </form>
+    </ModalShell>
+  );
+}
+
+function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<ProtocolImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const importProtocols = useImportProtocols();
+
+  const handleUpload = async () => {
+    if (!file) return;
+    try {
+      const res = await importProtocols.mutateAsync(file);
+      setResult(res);
+    } catch {
+      // error toast already shown by the hook
+    }
+  };
+
+  return (
+    <ModalShell title="Import Protocols" onClose={onClose}>
+      {!result ? (
+        <div className="space-y-4">
+          <p className="text-sm text-text-light">
+            Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
+            Page, Category, Description, Chapter, Type.
+          </p>
+          <Input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.csv"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              disabled={!file || importProtocols.isPending}
+              onClick={handleUpload}
+              className="flex-1 py-2.5 h-auto"
+            >
+              {importProtocols.isPending ? "Uploading…" : "Upload"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="px-4 py-2.5 h-auto font-normal text-text"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-text">
+            {result.totalRows} rows processed — {result.created} created,{" "}
+            {result.updated} updated, {result.skipped} skipped.
+          </p>
+          {result.errors.length > 0 && (
+            <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 space-y-1">
+              {result.errors.map((err, i) => (
+                <p key={i} className="text-xs text-red-500">
+                  {err}
+                </p>
+              ))}
+            </div>
+          )}
+          <Button onClick={onClose} className="w-full py-2.5 h-auto">
+            Done
+          </Button>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const { data, isLoading, isError } = useProtocols();
+  const deleteProtocol = useDeleteProtocol();
+  const [modal, setModal] = useState<Protocol | null | "new">(null);
+  const [deleteTarget, setDeleteTarget] = useState<Protocol | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const canModify = (item: Protocol) => isSuperAdmin || !!item.healerId;
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return data ?? [];
+    return (data ?? []).filter((p) =>
+      [p.name, p.sourceBook, p.chapter]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(query))
+    );
+  }, [data, search]);
+
+  const columns: ColumnDef<Protocol, unknown>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: (info) => (
+        <span className="font-medium text-text">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "sourceBook",
+      header: "Book",
+      cell: (info) => (
+        <span className="text-text-light text-xs max-w-xs truncate block">
+          {(info.getValue() as string | null) ?? "—"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "pageNumber",
+      header: "Page",
+    },
+    {
+      accessorKey: "protocolType",
+      header: "Type",
+      cell: ({ row }) => <ProtocolTypeBadge protocolType={row.original.protocolType} />,
+    },
+    {
+      accessorKey: "category",
+      header: "Category",
+      cell: (info) => (
+        <span className="text-text-light text-xs">{(info.getValue() as string) ?? "—"}</span>
+      ),
+    },
+    {
+      accessorKey: "healerId",
+      header: "Source",
+      cell: ({ row }) => <SourceBadge healerId={row.original.healerId} />,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) =>
+        canModify(row.original) ? (
+          <RowActions
+            onEdit={() => setModal(row.original)}
+            onDelete={() => setDeleteTarget(row.original)}
+            deleting={deleteProtocol.isPending}
+          />
+        ) : (
+          <LockIcon />
+        ),
+    },
+  ];
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-text-light">
+          Bulk-imported protocol catalog. Only "Protocol" type entries appear in the
+          session form's dropdown.
+        </p>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            className="px-3 py-2 h-auto"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Protocol</span>
+          </Button>
+        </div>
+      </div>
+
+      <Input
+        placeholder="Search by name, book, or chapter…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-4 max-w-sm"
+      />
+
+      {isLoading && <p className="text-text-light text-sm">Loading…</p>}
+      {isError && <p className="text-red-500 text-sm">Failed to load protocols.</p>}
+
+      {data && (
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <DataTable<Protocol>
+              columns={columns}
+              data={filtered}
+              enableSorting={false}
+              emptyMessage="No protocols found."
+            />
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {filtered.map((item) => (
+              <div key={item.id} className="border border-border rounded-xl p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="min-w-0">
+                    <span className="font-semibold text-text truncate block">
+                      {item.name}
+                    </span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <ProtocolTypeBadge protocolType={item.protocolType} />
+                      <SourceBadge healerId={item.healerId} />
+                    </div>
+                  </div>
+                  {canModify(item) ? (
+                    <RowActions
+                      onEdit={() => setModal(item)}
+                      onDelete={() => setDeleteTarget(item)}
+                      deleting={deleteProtocol.isPending}
+                    />
+                  ) : (
+                    <Lock className="w-4 h-4 text-text-light/40 mt-1" />
+                  )}
+                </div>
+                <p className="text-xs text-text-light">
+                  {item.sourceBook ?? "—"}, p.{item.pageNumber}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {modal !== null && (
+        <ProtocolModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+      )}
+
+      {showImport && <ImportProtocolsDialog onClose={() => setShowImport(false)} />}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete protocol?"
+        description={deleteTarget ? `"${deleteTarget.name}" will be removed.` : undefined}
+        confirmLabel="Delete"
+        destructive
+        loading={deleteProtocol.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteProtocol.mutate(deleteTarget.id, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type Tab = "colors" | "chakras" | "mappings";
+type Tab = "colors" | "chakras" | "mappings" | "protocols";
 
 export default function MasterDataPage() {
   const { user } = useAuth();
@@ -985,6 +1391,7 @@ export default function MasterDataPage() {
     { key: "colors", label: "Prana Colors" },
     { key: "chakras", label: "Chakras" },
     { key: "mappings", label: "Protocol Mappings" },
+    { key: "protocols", label: "Protocols" },
   ];
 
   return (
@@ -1019,6 +1426,7 @@ export default function MasterDataPage() {
       {activeTab === "colors" && <PranaColorsTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "chakras" && <ChakrasTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "mappings" && <ProtocolMappingsTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "protocols" && <ProtocolsTab isSuperAdmin={isSuperAdmin} />}
     </div>
   );
 }
