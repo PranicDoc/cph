@@ -5,10 +5,10 @@ on:
     branches: [main, master]
     paths:
       - 'app/**'           # only rebuild when the Spring Boot app changes, not ui/
-  pull_request:
-    branches: [main, master]
-    paths:
-      - 'app/**'
+  # No pull_request trigger — build & push only runs automatically on a real
+  # push/merge to main. PR authors who need to test a build run this workflow
+  # manually (Actions tab -> this workflow -> Run workflow, choosing their PR
+  # branch) via the workflow_dispatch trigger below.
   workflow_dispatch:
 
 env:
@@ -84,7 +84,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: app                 # Dockerfile lives in cph/app/
-          push: ${{ github.event_name != 'pull_request' }}
+          # Always push: this workflow only ever runs on a real push to main
+          # or a manual workflow_dispatch run (see `on:` above) — never on a
+          # pull_request event — so there's no case where a build shouldn't push.
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -109,7 +112,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: app
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta-ar.outputs.tags }}
           labels: ${{ steps.meta-ar.outputs.labels }}
           build-args: |
@@ -127,7 +130,16 @@ jobs:
     name: Deploy cph on VM
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # Only a real push/merge to main queues a deploy — a manual workflow_dispatch
+    # run (used to build & push a test image for a PR, see `on:` above) never
+    # triggers one, so testing a PR build can't accidentally roll out to the VM.
+    if: github.event_name == 'push'
+    # Requires a GitHub Environment named `cph-vm-deploy` with "Required reviewers"
+    # set to just the repo owner (Settings -> Environments -> cph-vm-deploy) —
+    # that setting can't be expressed in YAML, it must be configured in the
+    # GitHub UI/API. Until that environment exists, this job will fail to start
+    # rather than silently skip the approval gate.
+    environment: cph-vm-deploy
 
     steps:
       - name: Redeploy cph only

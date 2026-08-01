@@ -51,6 +51,12 @@ public class RateLimitConfig {
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
+    @Value("${spring.data.redis.ssl.enabled:false}")
+    private boolean redisSslEnabled;
+
     private RedisClient redisClient;
 
     /**
@@ -61,7 +67,11 @@ public class RateLimitConfig {
      */
     @Bean
     public ProxyManager<byte[]> rateLimitProxyManager() {
-        this.redisClient = RedisClient.create(RedisURI.Builder.redis(redisHost, redisPort).build());
+        RedisURI.Builder uriBuilder = RedisURI.Builder.redis(redisHost, redisPort).withSsl(redisSslEnabled);
+        if (redisPassword != null && !redisPassword.isBlank()) {
+            uriBuilder.withPassword(redisPassword);
+        }
+        this.redisClient = RedisClient.create(uriBuilder.build());
         return Bucket4jLettuce.casBasedBuilder(redisClient)
                 .expirationAfterWrite(
                         ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(1)))

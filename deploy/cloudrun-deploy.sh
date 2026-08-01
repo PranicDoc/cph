@@ -22,6 +22,12 @@ set -euo pipefail
 #     a guessed value for anything environment-specific) ──────────────────────
 PROJECT_ID="${GCP_PROJECT_ID:?Set GCP_PROJECT_ID (the GCP project the dual-push CI in 23-04 targets)}"
 AIVEN_DB_HOST="${AIVEN_DB_HOST:?Set AIVEN_DB_HOST to the Aiven pranic_doc Postgres host (Aiven console -> connection info)}"
+# Aiven assigns a non-standard per-service port, never 5432 — defaulting it
+# silently caused a multi-hour debugging session that looked exactly like a
+# network/firewall block (silent TCP timeout) but was actually just a closed
+# port. Fail loudly instead: check the Aiven console's connection info, or
+# DB_PORT in the VM's own .env, which already has the right value.
+AIVEN_DB_PORT="${AIVEN_DB_PORT:?Set AIVEN_DB_PORT to the actual port Aiven assigned this service (Aiven console -> connection info — NOT the Postgres default 5432)}"
 UPSTASH_REDIS_HOST="${UPSTASH_REDIS_HOST:?Set UPSTASH_REDIS_HOST — Upstash console -> database -> connection details (TLS)}"
 
 # ─── Optional overrides (sane defaults; adjust per Claude's Discretion /
@@ -29,7 +35,6 @@ UPSTASH_REDIS_HOST="${UPSTASH_REDIS_HOST:?Set UPSTASH_REDIS_HOST — Upstash con
 REGION="${GCP_REGION:-us-central1}"
 ARTIFACT_REPO="${GCP_ARTIFACT_REPO:?Set GCP_ARTIFACT_REPO (the Artifact Registry Docker repo created per 23-04 User Setup Required)}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-AIVEN_DB_PORT="${AIVEN_DB_PORT:-5432}"
 UPSTASH_REDIS_PORT="${UPSTASH_REDIS_PORT:-6379}"
 MIN_INSTANCES="${MIN_INSTANCES:-0}"
 MAX_INSTANCES="${MAX_INSTANCES:-3}"
@@ -49,13 +54,26 @@ APP_FEEDBACK_URL="${APP_FEEDBACK_URL:-$APP_BASE_URL}"
 APP_INVITE_URL="${APP_INVITE_URL:-$APP_BASE_URL}"
 
 # ─── D-03 amended: Aiven-managed Postgres, sslmode=require, no pg_hba edits.
-#     Overriding spring.datasource.url/username directly (rather than the
-#     DB_HOST/DB_PORT placeholders application.yaml's local/VM profile uses)
-#     is the only way to inject sslmode=require without editing app source —
+#     Overriding spring.datasource.url/username directly is the only way to
+#     inject sslmode=require into the MAIN pool without editing app source —
 #     Spring Boot's environment-variable PropertySource outranks
 #     application-prod.yml, so SPRING_DATASOURCE_URL below fully replaces the
-#     yaml-templated value; DB_HOST/DB_PORT are simply never consulted. ─────
+#     yaml-templated (PgBouncer-routed) value for spring.datasource.url.
+#     DB_HOST/DB_PORT below are a SEPARATE requirement — Flyway's own
+#     spring.flyway.url template still needs them directly (see next block). ─
 SPRING_DATASOURCE_URL="jdbc:postgresql://${AIVEN_DB_HOST}:${AIVEN_DB_PORT}/pranic_doc?sslmode=require"
+
+# ─── Flyway bypasses PgBouncer by design (application-prod.yml's spring.flyway.*
+#     templates ${DB_HOST}/${DB_PORT}/${DB_USERNAME}/${DB_PASSWORD} directly —
+#     transaction-pooling mode doesn't support the session-level features Flyway
+#     needs). SPRING_DATASOURCE_* above only overrides the MAIN pool
+#     (spring.datasource.*, which templates ${PGBOUNCER_HOST}/${PGBOUNCER_PORT} on
+#     the VM) — it does not satisfy Flyway's separate placeholders. Without these,
+#     the container crashes at startup with "Could not resolve placeholder
+#     'DB_HOST'" before it ever opens its listening port. Same direct-to-Aiven
+#     values the VM's DB_HOST/DB_USERNAME/DB_PASSWORD already point at. ──────────
+DB_HOST="${AIVEN_DB_HOST}"
+DB_PORT="${AIVEN_DB_PORT}"
 
 # ─── Runtime identity (T-23-18 least-privilege) — if CLOUD_RUN_SERVICE_ACCOUNT
 #     is set (deployment.sh creates/grants this account its per-secret access),
@@ -82,6 +100,9 @@ gcloud run deploy cph \
 JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Dfile.encoding=UTF-8,\
 SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL},\
 SPRING_DATASOURCE_USERNAME=${DB_USERNAME:?Set DB_USERNAME (the Aiven app DB user)},\
+DB_HOST=${DB_HOST},\
+DB_PORT=${DB_PORT},\
+DB_USERNAME=${DB_USERNAME},\
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID},\
 R2_ENDPOINT=${R2_ENDPOINT:?Set R2_ENDPOINT},\
 APP_BASE_URL=${APP_BASE_URL},\
@@ -97,6 +118,7 @@ SPRING_DATA_REDIS_HOST=${UPSTASH_REDIS_HOST},\
 SPRING_DATA_REDIS_PORT=${UPSTASH_REDIS_PORT},\
 SPRING_DATA_REDIS_SSL_ENABLED=true" \
   --set-secrets="SPRING_DATASOURCE_PASSWORD=db-password:latest,\
+DB_PASSWORD=db-password:latest,\
 JWT_SECRET=jwt-secret:latest,\
 ENCRYPTION_KEY=encryption-key:latest,\
 GOOGLE_CLIENT_SECRET=google-client-secret:latest,\
