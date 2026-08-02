@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
+import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
 import com.pranicdoc.cph.consent.model.Consent;
 import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.model.PolicyVersion;
@@ -19,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -208,5 +210,147 @@ class ConsentServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> consentService.withdraw(consentId));
         verify(consentRepository, never()).save(any());
+    }
+
+    // --- history ---
+
+    @Test
+    void history_returnsAllRecordsInHistoryOrder_includingWithdrawn() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+
+        Consent superseded = Consent.builder()
+                .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
+                .consentType(ConsentType.PRIVACY_POLICY).policyVersion(1)
+                .acceptedAt(Instant.now().minusSeconds(3600)).method("CLICKWRAP")
+                .build();
+        superseded.setId(UUID.randomUUID());
+
+        Consent withdrawn = Consent.builder()
+                .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
+                .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                .acceptedAt(Instant.now().minusSeconds(7200)).withdrawnAt(Instant.now())
+                .method("CLICKWRAP")
+                .build();
+        withdrawn.setId(UUID.randomUUID());
+
+        when(consentRepository.findBySubjectIdOrderByAcceptedAtDesc(healerId))
+                .thenReturn(List.of(superseded, withdrawn));
+
+        List<ConsentResponse> result = consentService.history();
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(r -> r.id().equals(superseded.getId())));
+        assertTrue(result.stream().anyMatch(r -> r.id().equals(withdrawn.getId()) && r.withdrawnAt() != null));
+    }
+
+    // --- activePolicyVersions ---
+
+    @Test
+    void activePolicyVersions_returnsLatestPerType_omitsTypesWithNoPolicyVersion() {
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(3)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        // MEDICAL_DISCLAIMER / PRACTITIONER_AGREEMENT left unstubbed -> Optional.empty() by default -> omitted
+
+        List<PolicyVersionResponse> result = consentService.activePolicyVersions();
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(r -> r.consentType() == ConsentType.PRIVACY_POLICY && r.policyVersion() == 3));
+        assertTrue(result.stream().anyMatch(r -> r.consentType() == ConsentType.TERMS_AND_CONDITIONS && r.policyVersion() == 1));
+    }
+
+    // --- outstandingConsents ---
+
+    @Test
+    void outstanding_neverAccepted_returnsCurrentMandatoryVersion() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
+                healerId, ConsentType.PRIVACY_POLICY)).thenReturn(Optional.empty());
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertEquals(1, result.size());
+        assertEquals(ConsentType.PRIVACY_POLICY, result.get(0).consentType());
+        assertEquals(2, result.get(0).policyVersion());
+    }
+
+    @Test
+    void outstanding_superseded_returnsCurrentVersion() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        Consent acceptedV1 = Consent.builder()
+                .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
+                .consentType(ConsentType.PRIVACY_POLICY).policyVersion(1)
+                .acceptedAt(Instant.now()).method("CLICKWRAP").build();
+        acceptedV1.setId(UUID.randomUUID());
+        when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
+                healerId, ConsentType.PRIVACY_POLICY)).thenReturn(Optional.of(acceptedV1));
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertEquals(1, result.size());
+        assertEquals(2, result.get(0).policyVersion());
+    }
+
+    @Test
+    void outstanding_withdrawnOnly_returnsCurrentVersion() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.MEDICAL_DISCLAIMER).policyVersion(1)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        // healer accepted v1 then withdrew it -> the WithdrawnAtIsNull query returns empty
+        when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
+                healerId, ConsentType.MEDICAL_DISCLAIMER)).thenReturn(Optional.empty());
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertEquals(1, result.size());
+        assertEquals(ConsentType.MEDICAL_DISCLAIMER, result.get(0).consentType());
+    }
+
+    @Test
+    void outstanding_satisfied_notInResult() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        Consent acceptedV1 = Consent.builder()
+                .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
+                .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                .acceptedAt(Instant.now()).method("CLICKWRAP").build();
+        acceptedV1.setId(UUID.randomUUID());
+        when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
+                healerId, ConsentType.TERMS_AND_CONDITIONS)).thenReturn(Optional.of(acceptedV1));
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.TERMS_AND_CONDITIONS));
+    }
+
+    @Test
+    void outstanding_nonMandatory_notInResult() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.PRACTITIONER_AGREEMENT).policyVersion(1)
+                        .mandatory(false).effectiveDate(Instant.now()).build()));
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.PRACTITIONER_AGREEMENT));
     }
 }
