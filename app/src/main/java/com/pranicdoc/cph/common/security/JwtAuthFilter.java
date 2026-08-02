@@ -43,14 +43,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = extractTokenFromCookie(request, "accessToken");
         if(StringUtils.isBlank(token)) token = extractTokenFromCookie(request, "selfRegToken");
 
-        // No token → let Spring Security handle (401 for protected endpoints)
+        // No token → let Spring Security handle (401 for protected endpoints).
+        // Clear first: a stale session (e.g. leftover OAuth2 login state) must never
+        // stand in for JWT-cookie auth, which is the only auth this filter understands.
         if (token == null) {
+            SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
             if (!jwtService.isTokenValid(token)) {
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -92,7 +96,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authToken);
 
         } catch (Exception ex) {
-            // Token parsing failed — don't set auth, let Spring Security reject downstream
+            // Token parsing failed — clear any stale auth, let Spring Security reject downstream
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
