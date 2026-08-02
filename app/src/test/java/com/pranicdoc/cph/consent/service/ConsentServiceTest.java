@@ -247,6 +247,10 @@ class ConsentServiceTest {
 
     @Test
     void activePolicyVersions_returnsLatestPerType_omitsTypesWithNoPolicyVersion() {
+        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+                .thenReturn(Optional.empty());
+        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+                .thenReturn(Optional.empty());
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.PRIVACY_POLICY).policyVersion(3)
@@ -255,7 +259,6 @@ class ConsentServiceTest {
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
-        // MEDICAL_DISCLAIMER / PRACTITIONER_AGREEMENT left unstubbed -> Optional.empty() by default -> omitted
 
         List<PolicyVersionResponse> result = consentService.activePolicyVersions();
 
@@ -269,6 +272,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_neverAccepted_returnsCurrentMandatoryVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubNoCurrentPolicyExcept(ConsentType.PRIVACY_POLICY);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
@@ -286,6 +290,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_superseded_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubNoCurrentPolicyExcept(ConsentType.PRIVACY_POLICY);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
@@ -307,6 +312,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_withdrawnOnly_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubNoCurrentPolicyExcept(ConsentType.MEDICAL_DISCLAIMER);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.MEDICAL_DISCLAIMER).policyVersion(1)
@@ -324,6 +330,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_satisfied_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubNoCurrentPolicyExcept(ConsentType.TERMS_AND_CONDITIONS);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
@@ -344,6 +351,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_nonMandatory_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubNoCurrentPolicyExcept(ConsentType.PRACTITIONER_AGREEMENT);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType(ConsentType.PRACTITIONER_AGREEMENT).policyVersion(1)
@@ -352,5 +360,23 @@ class ConsentServiceTest {
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
         assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.PRACTITIONER_AGREEMENT));
+    }
+
+    /**
+     * outstandingConsents() iterates ConsentType.values() and calls
+     * findTopByConsentTypeOrderByPolicyVersionDesc for every type. Under
+     * Mockito's strict stubs, once ANY stubbing exists for that method,
+     * an invocation with a different (unstubbed) type throws
+     * PotentialStubbingProblem rather than silently returning empty — so
+     * every type besides the one under test must be explicitly stubbed
+     * to Optional.empty() (no current policy version -> not outstanding).
+     */
+    private void stubNoCurrentPolicyExcept(ConsentType typeUnderTest) {
+        for (ConsentType type : ConsentType.values()) {
+            if (type != typeUnderTest) {
+                lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type))
+                        .thenReturn(Optional.empty());
+            }
+        }
     }
 }
