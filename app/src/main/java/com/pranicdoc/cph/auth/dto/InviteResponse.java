@@ -13,5 +13,6 @@ public record InviteResponse(
         String role,
         String status,
         Instant createdAt,
-        Instant expiresAt
+        Instant expiresAt,
+        boolean emailSent
 ) {}
