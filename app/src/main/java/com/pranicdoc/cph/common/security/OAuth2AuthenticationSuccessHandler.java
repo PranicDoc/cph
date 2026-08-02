@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -34,7 +35,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         try {
             healer = healerService.findHealerByEmail(email);
         } catch (ResourceNotFoundException ex) {
-            // Healer not pre-registered in the system — reject SSO and redirect with error
+            // Healer not pre-registered in the system — reject SSO and redirect with error.
+            // Spring's oauth2Login() already persisted the raw Google identity into the
+            // HTTP session before this handler ran; clear it so it can't leak into later
+            // requests as a stand-in for our own JWT-based auth (JwtAuthFilter only knows
+            // how to authenticate via the accessToken cookie, which we never set here).
+            clearSessionAuth(request);
             response.sendRedirect(appBaseUrl + "/login");
             return;
         }
@@ -45,6 +51,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         // could log in without ever having linked — this closes that pre-existing bypass.
         String googleSub = oAuth2User.getAttribute("sub");
         if (healer.getProviderUserId() == null || !healer.getProviderUserId().equals(googleSub)) {
+            clearSessionAuth(request);
             response.sendRedirect(appBaseUrl + "/login?error=not_linked");
             return;
         }
@@ -52,6 +59,18 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         String accessToken = jwtService.generateAccessToken(healer.getId(), healer.getRole().name());
         String refreshToken = jwtService.generateRefreshToken(healer.getId(), healer.getRole().name());
         cookieUtil.setAuthCookies(response, accessToken, refreshToken);
+        // The app is JWT-cookie-authenticated from here on — drop the session-based Google
+        // identity now that it's done its job, so it can never stand in for the JWT auth
+        // JwtAuthFilter expects on every subsequent request.
+        clearSessionAuth(request);
         response.sendRedirect(appBaseUrl + "/oauth2/success");
+    }
+
+    private void clearSessionAuth(HttpServletRequest request) {
+        SecurityContextHolder.clearContext();
+        var session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
     }
 }
