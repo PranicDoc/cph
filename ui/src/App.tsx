@@ -91,7 +91,7 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        <Toaster position="top-right" richColors duration={3000} />
+        <Toaster position="top-right" richColors duration={3000} closeButton />
       </PatientProvider>
     </AuthProvider>
   );
