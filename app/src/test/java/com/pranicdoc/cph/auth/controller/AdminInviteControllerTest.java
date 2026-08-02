@@ -156,6 +156,6 @@ class AdminInviteControllerTest {
     private static InviteResponse sampleResponse() {
         return new InviteResponse(
                 UUID.randomUUID(), "healer@example.com", Role.HEALER.name(),
-                "PENDING", Instant.now(), Instant.now().plusSeconds(3600));
+                "PENDING", Instant.now(), Instant.now().plusSeconds(3600), true);
     }
 }
