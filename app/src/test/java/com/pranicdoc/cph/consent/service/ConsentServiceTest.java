@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.consent.service;
 
+import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
@@ -18,8 +19,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -360,6 +369,234 @@ class ConsentServiceTest {
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
         assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.PRACTITIONER_AGREEMENT));
+    }
+
+    // --- publish ---
+
+    @Test
+    void publish_pastedText_noPriorVersion_savesVersion1() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        PolicyVersionResponse response = consentService.publish(
+                ConsentType.PRIVACY_POLICY, null, "Pasted policy content", true);
+
+        PolicyVersion saved = captor.getValue();
+        assertEquals(1, saved.getPolicyVersion());
+        assertEquals("Pasted policy content", saved.getContent());
+        assertEquals(healerId, saved.getPublisherId());
+        assertNotNull(saved.getEffectiveDate());
+        assertEquals(ConsentType.PRIVACY_POLICY, response.consentType());
+        assertEquals(1, response.policyVersion());
+        assertEquals("Pasted policy content", response.content());
+        assertEquals(healerId, response.publisherId());
+    }
+
+    @Test
+    void publish_pastedText_priorVersion3Exists_savesVersion4() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(3)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        consentService.publish(ConsentType.TERMS_AND_CONDITIONS, null, "Updated T&C", true);
+
+        assertEquals(4, captor.getValue().getPolicyVersion());
+    }
+
+    @Test
+    void publish_uploadedFile_noPastedText_savesFileBytesDecodedAsUtf8() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+                .thenReturn(Optional.empty());
+        String multiByteContent = "Café ☃ policy text"; // accented char + snowman, proves explicit UTF-8
+        MockMultipartFile file = new MockMultipartFile("file", "policy.txt", "text/plain",
+                multiByteContent.getBytes(StandardCharsets.UTF_8));
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        consentService.publish(ConsentType.MEDICAL_DISCLAIMER, file, null, true);
+
+        assertEquals(multiByteContent, captor.getValue().getContent());
+    }
+
+    @Test
+    void publish_bothFileAndContent_throwsAndNeverSaves() {
+        MockMultipartFile file = new MockMultipartFile("file", "policy.txt", "text/plain",
+                "content".getBytes(StandardCharsets.UTF_8));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> consentService.publish(ConsentType.PRIVACY_POLICY, file, "pasted text", true));
+
+        assertEquals("Provide either pasted text or a file, not both.", ex.getMessage());
+        verify(policyVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publish_neitherFileNorContent_throwsAndNeverSaves() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> consentService.publish(ConsentType.PRIVACY_POLICY, null, null, true));
+
+        assertEquals("Provide either pasted text or a file.", ex.getMessage());
+        verify(policyVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publish_emptyFileAndBlankContent_treatedAsNeither_throws() {
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "policy.txt", "text/plain", new byte[0]);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> consentService.publish(ConsentType.PRIVACY_POLICY, emptyFile, "   ", true));
+
+        assertEquals("Provide either pasted text or a file.", ex.getMessage());
+        verify(policyVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publish_mandatoryNull_savesMandatoryTrue() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        consentService.publish(ConsentType.PRACTITIONER_AGREEMENT, null, "Agreement text", null);
+
+        assertTrue(captor.getValue().isMandatory());
+    }
+
+    @Test
+    void publish_mandatoryFalse_savesMandatoryFalse() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        consentService.publish(ConsentType.PRACTITIONER_AGREEMENT, null, "Agreement text", false);
+
+        assertFalse(captor.getValue().isMandatory());
+    }
+
+    // --- publish: per-ConsentType traceability (DOC-01/DOC-02/DOC-04/DOC-05) ---
+
+    @Test
+    void publish_termsAndConditions_savesCorrectType() {
+        assertPublishSavesType(ConsentType.TERMS_AND_CONDITIONS);
+    }
+
+    @Test
+    void publish_privacyPolicy_savesCorrectType() {
+        assertPublishSavesType(ConsentType.PRIVACY_POLICY);
+    }
+
+    @Test
+    void publish_medicalDisclaimer_savesCorrectType() {
+        assertPublishSavesType(ConsentType.MEDICAL_DISCLAIMER);
+    }
+
+    @Test
+    void publish_practitionerAgreement_savesCorrectType() {
+        assertPublishSavesType(ConsentType.PRACTITIONER_AGREEMENT);
+    }
+
+    private void assertPublishSavesType(ConsentType type) {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
+        when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
+            PolicyVersion p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        consentService.publish(type, null, "Content for " + type, true);
+
+        assertEquals(type, captor.getValue().getConsentType());
+        assertEquals("Content for " + type, captor.getValue().getContent());
+    }
+
+    @Test
+    void publish_saveThrowsDataIntegrityViolation_propagatesUnchanged() {
+        // T-31-03: no read-then-write lock is added here; the V25 unique constraint is the
+        // atomic backstop and Plan 02's GlobalExceptionHandler maps this to a 409 ProblemDetail
+        // at the controller boundary. This test only proves publish() does not swallow it.
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+                .thenReturn(Optional.empty());
+        when(policyVersionRepository.save(any(PolicyVersion.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> consentService.publish(ConsentType.PRIVACY_POLICY, null, "content", true));
+    }
+
+    // --- publish: annotation contract assertions (D-10/D-11/AUDIT-03) ---
+    // Plain Mockito unit tests never run through the Spring AOP proxy, so annotation
+    // presence is the only unit-level proof these are wired. End-to-end audit and cache
+    // behaviour is verified by Plan 07's checkpoint.
+
+    @Test
+    void publish_isAuditedWithPublishPolicyVersionAction() throws NoSuchMethodException {
+        Method method = ConsentService.class.getMethod(
+                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+
+        Auditable auditable = method.getAnnotation(Auditable.class);
+
+        assertNotNull(auditable);
+        assertEquals("PUBLISH_POLICY_VERSION", auditable.action());
+    }
+
+    @Test
+    void publish_evictsPolicyActiveVersionCacheWithMatchingKey() throws NoSuchMethodException {
+        Method publishMethod = ConsentService.class.getMethod(
+                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+        Method activeVersionsMethod = ConsentService.class.getMethod("activePolicyVersions");
+
+        CacheEvict cacheEvict = publishMethod.getAnnotation(CacheEvict.class);
+        Cacheable cacheable = activeVersionsMethod.getAnnotation(Cacheable.class);
+
+        assertNotNull(cacheEvict);
+        assertNotNull(cacheable);
+        assertTrue(Arrays.asList(cacheEvict.value()).contains("policy.active-version"));
+        assertEquals(cacheable.key(), cacheEvict.key());
+    }
+
+    @Test
+    void publish_cacheEvictDoesNotFlushEntireRegion() throws NoSuchMethodException {
+        Method method = ConsentService.class.getMethod(
+                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+
+        CacheEvict cacheEvict = method.getAnnotation(CacheEvict.class);
+
+        assertFalse(cacheEvict.allEntries());
     }
 
     /**
