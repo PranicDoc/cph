@@ -3,13 +3,16 @@ package com.pranicdoc.cph.consent.controller;
 import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
 import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
+import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.service.ConsentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,7 +24,9 @@ import java.util.UUID;
  * via {@code SecurityContextUtil} (same posture as {@code PatientController}).
  * Authentication itself is already enforced globally by SecurityConfig's
  * {@code .anyRequest().authenticated()} gate; these paths are never added to
- * a permitAll list (T-30-08).
+ * a permitAll list (T-30-08). The one deliberate exception is {@code publish}
+ * below, which carries {@code @PreAuthorize} as the sole admin-only write path
+ * (D-02) — a future reader should not "fix" this inconsistency.
  */
 @RestController
 @RequestMapping("/api/v1/consents")
@@ -49,6 +54,16 @@ public class ConsentController {
     @GetMapping("/policy-versions/active")
     public ResponseEntity<List<PolicyVersionResponse>> activePolicies() {
         return ResponseEntity.ok(consentService.activePolicyVersions());
+    }
+
+    @PostMapping(value = "/policy-versions", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    public ResponseEntity<PolicyVersionResponse> publish(
+            @RequestParam("consentType") ConsentType consentType,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "mandatory", required = false) Boolean mandatory) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(consentService.publish(consentType, file, content, mandatory));
     }
 
     @GetMapping("/outstanding")
