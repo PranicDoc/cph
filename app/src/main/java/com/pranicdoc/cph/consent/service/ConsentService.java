@@ -14,6 +14,7 @@ import com.pranicdoc.cph.consent.repository.PolicyVersionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,6 +110,7 @@ public class ConsentService {
     }
 
     /** CONSENT-07 — the current version of every consent type that has one. */
+    @Cacheable(value = "policy.active-version", key = "'all'", sync = true)
     @Transactional(readOnly = true)
     public List<PolicyVersionResponse> activePolicyVersions() {
         List<PolicyVersionResponse> active = new ArrayList<>();

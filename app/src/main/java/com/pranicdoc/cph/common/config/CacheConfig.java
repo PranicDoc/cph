@@ -57,6 +57,12 @@ public class CacheConfig {
             manager.registerCache(name);
         }
 
+        // Phase 31 (D-10): policy.active-version must be explicitly registered here --
+        // TwoLevelCacheManager.getCache(name) returns null for any unregistered name, so
+        // without this call every @Cacheable("policy.active-version") invocation would fail
+        // at runtime with "Cannot find cache named 'policy.active-version'".
+        manager.registerCache("policy.active-version");
+
         return manager;
     }
 }
