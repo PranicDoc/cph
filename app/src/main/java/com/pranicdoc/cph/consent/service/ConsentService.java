@@ -183,7 +183,9 @@ public class ConsentService {
                 p.getConsentType(),
                 p.getPolicyVersion(),
                 p.isMandatory(),
-                p.getEffectiveDate()
+                p.getEffectiveDate(),
+                p.getContent(),
+                p.getPublisherId()
         );
     }
 }

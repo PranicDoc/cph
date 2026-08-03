@@ -166,6 +166,7 @@ class ConsentControllerTest {
 
     private static PolicyVersionResponse samplePolicyVersionResponse() {
         return new PolicyVersionResponse(
-                UUID.randomUUID(), ConsentType.PRIVACY_POLICY, 1, true, Instant.now());
+                UUID.randomUUID(), ConsentType.PRIVACY_POLICY, 1, true, Instant.now(),
+                "Sample policy content.", UUID.randomUUID());
     }
 }

@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.envers.Audited;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * PolicyVersion — registry of policy versions per consentType (D-06). Created
@@ -37,4 +38,7 @@ public class PolicyVersion extends BaseEntity {
 
     @Column(name = "content", columnDefinition = "TEXT")
     private String content; // D-07: nullable placeholder until Phase 31
+
+    @Column(name = "publisher_id")
+    private UUID publisherId; // D-04/D-05 — denormalized "who published this version"; nullable, no FK, not a scoping key (D-06)
 }
