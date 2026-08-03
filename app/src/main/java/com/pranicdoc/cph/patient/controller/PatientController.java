@@ -82,6 +82,7 @@ public class PatientController {
         return ResponseEntity.ok(patientService.getMedicalHistory(id));
     }
 
+    // TODO Make this auto sendable using invite service to specific number or email provided
     @GetMapping("/generate-link")
     public ResponseEntity<Map<String, String>> generateLink() {
         return ResponseEntity.ok(patientService.generateLink());
