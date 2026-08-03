@@ -8,6 +8,7 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
+import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
 import com.pranicdoc.cph.healing.model.Declaration;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
@@ -82,6 +83,27 @@ public class PatientService {
         }
 
         HealingCase healingCase = HealingCase.create(patient.getId(), healerId, declaration);
+
+        PatientMedicalHistory history = patient.getMedicalHistory();
+        if (history != null) {
+            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
+                    .healingCase(healingCase)
+                    .generalHealth(history.getGeneralHealth())
+                    .diet(history.getDiet())
+                    .exercise(history.getExercise())
+                    .exerciseFrequency(history.getExerciseFrequency())
+                    .hypertension(history.getHypertension())
+                    .giIssues(history.getGiIssues())
+                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
+                    .pregnant(history.getPregnant())
+                    .cancer(history.getCancer())
+                    .cancerLocation(history.getCancerLocation())
+                    .cancerDetails(history.getCancerDetails())
+                    .additionalNotes(history.getAdditionalNotes())
+                    .build();
+            healingCase.setMedicalSnapshot(snapshot);
+        }
+
         HealingCase savedCase = caseRepository.save(healingCase);
 
         return new PatientRegisterResponse(patient.getId(), savedCase.getId(), patient.getFirstName(), patient.getLastName());

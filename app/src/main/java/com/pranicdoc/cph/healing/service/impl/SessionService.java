@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.service.impl;
 import com.pranicdoc.cph.analytics.dto.DashboardSessionTrend;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -79,9 +80,21 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setStatus(SessionStatus.COMPLETED);
         session.setHealingCase(healingCase);
+        activateCaseIfDraft(healingCase);
         HealingSession saved = sessionRepository.save(session);
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
+    }
+
+    /**
+     * A completed session is proof the case is under active treatment --
+     * cases otherwise only leave DRAFT via the separate case-details PATCH,
+     * which a healer may never call before finishing the first session.
+     */
+    private void activateCaseIfDraft(HealingCase healingCase) {
+        if (healingCase.getStatus() == CaseStatus.DRAFT) {
+            healingCase.setStatus(CaseStatus.ACTIVE);
+        }
     }
 
     private void validatePrePostAndProtocolExists(HealingSession session) {
@@ -136,6 +149,7 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setEndTime(LocalTime.now());
         session.setStatus(SessionStatus.COMPLETED);
+        activateCaseIfDraft(session.getHealingCase());
         HealingSession saved = sessionRepository.save(session);
         return toResponse(saved);
     }

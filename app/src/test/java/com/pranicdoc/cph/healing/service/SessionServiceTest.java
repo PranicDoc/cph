@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.service;
 
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
@@ -7,10 +8,12 @@ import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.ScanRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
+import com.pranicdoc.cph.healing.model.ChakraReading;
 import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
@@ -51,6 +54,9 @@ class SessionServiceTest {
 
     @Mock
     private PranaColorCatalogRepository pranaColorCatalogRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private SessionService sessionService;
@@ -100,6 +106,71 @@ class SessionServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
         verify(mapper, never()).toEntity(any());
+    }
+
+    @Test
+    void createActivatesDraftCase() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        UUID colorId = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                chakraId, colorId);
+        HealingCase healingCase = healingCase(caseId);
+        assertEquals(CaseStatus.DRAFT, healingCase.getStatus());
+        HealingSession session = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
+        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(mapper.toEntity(request)).thenReturn(session);
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.create(request);
+
+        assertEquals(CaseStatus.ACTIVE, healingCase.getStatus());
+    }
+
+    @Test
+    void createDoesNotOverwriteAlreadyActiveCaseStatus() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        UUID colorId = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                chakraId, colorId);
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setStatus(CaseStatus.CLOSED);
+        HealingSession session = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
+        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(mapper.toEntity(request)).thenReturn(session);
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.create(request);
+
+        assertEquals(CaseStatus.CLOSED, healingCase.getStatus());
+    }
+
+    @Test
+    void completeActivatesDraftCase() {
+        UUID sessionId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(UUID.randomUUID());
+        HealingSession session = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), null);
+        session.setId(sessionId);
+        session.setHealingCase(healingCase);
+
+        when(sessionRepository.findById(sessionId)).thenReturn(java.util.Optional.of(session));
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.complete(sessionId);
+
+        assertEquals(CaseStatus.ACTIVE, healingCase.getStatus());
     }
 
     @Test
@@ -181,6 +252,18 @@ class SessionServiceTest {
 
         session.setSymptomFeedbacks(List.of());
         session.setQualitativeFeedbacks(List.of());
+        return session;
+    }
+
+    /** Same as {@link #completedSession} but with a reading on each scan, satisfying validatePrePostAndProtocolExists. */
+    private HealingSession completedSessionWithReadings(
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime
+    ) {
+        HealingSession session = completedSession(sessionDate, startTime, endTime);
+        session.getScans().forEach(scan ->
+                scan.setReadings(List.of(ChakraReading.builder().chakraName("Crown Chakra").build())));
         return session;
     }
 }

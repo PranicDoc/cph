@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ChakraDocEntry } from "../components/ChakraScan";
 import { useReferenceData } from "./useReferenceData";
 import { useHealingSessionForm } from "./useHealingSessionForm";
@@ -37,6 +38,7 @@ export function useHealingSessionWizard({
     ChakraDocEntry[]
   >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const referenceData = useReferenceData();
   const { form } = useHealingSessionForm(symptoms);
@@ -98,6 +100,11 @@ export function useHealingSessionWizard({
       });
 
       await api.post("/api/v1/sessions/case", payload);
+      // Completing a session flips the case out of DRAFT server-side --
+      // refetch so the Patients list/dashboard don't keep showing stale status.
+      await queryClient.invalidateQueries({ queryKey: ["patients"] });
+      await queryClient.invalidateQueries({ queryKey: ["healingCases"] });
+      await queryClient.invalidateQueries({ queryKey: ["upcoming-sessions"] });
       toast.success("Session saved");
       setStep(COMPLETED_STEP);
     } catch (error) {
@@ -108,7 +115,7 @@ export function useHealingSessionWizard({
     } finally {
       setIsSubmitting(false);
     }
-  }, [caseId, form, postScanChakraData, preScanChakraData, step]);
+  }, [caseId, form, postScanChakraData, preScanChakraData, queryClient, step]);
 
   return {
     step,

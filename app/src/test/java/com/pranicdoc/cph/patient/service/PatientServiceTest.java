@@ -2,15 +2,26 @@ package com.pranicdoc.cph.patient.service;
 
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.common.tenant.TenantContext;
+import com.pranicdoc.cph.healing.dto.DeclarationRequest;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
+import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
+import com.pranicdoc.cph.healing.model.Declaration;
+import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
+import com.pranicdoc.cph.patient.dto.MedicalHistoryRequest;
 import com.pranicdoc.cph.patient.dto.PatientCaseResponse;
+import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
+import com.pranicdoc.cph.patient.dto.PatientRegisterRequest;
+import com.pranicdoc.cph.patient.dto.PatientRegisterResponse;
 import com.pranicdoc.cph.patient.dto.PatientSort;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,6 +56,12 @@ class PatientServiceTest {
     @BeforeEach
     void setUp() {
         healerId = UUID.randomUUID();
+        TenantContext.set(healerId);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -107,5 +124,45 @@ class PatientServiceTest {
                 patientService.getAllPatients(
                         null, LocalDate.of(2026, 7, 5), LocalDate.of(2026, 7, 1), null));
         verifyNoInteractions(patientRepository);
+    }
+
+    @Test
+    void register_withMedicalHistory_attachesCaseMedicalSnapshotMatchingHistory() {
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        when(patientRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(caseRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        Declaration declaration = Declaration.builder()
+                .patientSignature("Santhosh G N")
+                .patientConsent(true)
+                .build();
+        when(declarationMapper.toEntity(any(DeclarationRequest.class))).thenReturn(declaration);
+
+        MedicalHistoryRequest historyRequest = new MedicalHistoryRequest(
+                "GOOD", "MIXED", "", "DAILY",
+                false, false, true, false, false, "", "", "");
+        PatientCreateRequest patientRequest = new PatientCreateRequest(
+                "Santhosh", "G N", null, null, null, "santhoshgn9@gmail.com",
+                "7708680144", "Doctor", "No.34", "Perumal nagar",
+                "Coimbatore", "Tamil Nadu", "641042", historyRequest);
+        DeclarationRequest declarationRequest = new DeclarationRequest(
+                true, false, "Santhosh G N", null, Instant.now().toString());
+
+        PatientRegisterResponse response = patientService.register(
+                new PatientRegisterRequest(patientRequest, declarationRequest));
+
+        assertNotNull(response.caseId());
+        ArgumentCaptor<HealingCase> caseCaptor = ArgumentCaptor.forClass(HealingCase.class);
+        verify(caseRepository).save(caseCaptor.capture());
+        HealingCase savedCase = caseCaptor.getValue();
+
+        assertEquals(CaseStatus.DRAFT, savedCase.getStatus());
+        CaseMedicalSnapshot snapshot = savedCase.getMedicalSnapshot();
+        assertNotNull(snapshot, "REGISTER_PATIENT_WITH_CASE must snapshot the patient's "
+                + "medical history onto the case, same as the self-register flow does");
+        assertEquals("GOOD", snapshot.getGeneralHealth());
+        assertEquals("MIXED", snapshot.getDiet());
+        assertEquals("DAILY", snapshot.getExerciseFrequency());
+        assertEquals(Boolean.TRUE, snapshot.getStressDepressionAnxiety());
+        assertEquals(Boolean.FALSE, snapshot.getHypertension());
     }
 }
