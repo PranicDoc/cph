@@ -40,11 +40,14 @@ public class CreditServiceImpl implements CreditService {
     }
 
     @Override
+    // purchase() only receives the raw request body + idempotency key (no healerId/filter
+    // params), so the cache keys can't be reconstructed from method args like the read-side
+    // dashboard caches do -- resolve healerId from the security context instead, and evict
+    // credit-usage wholesale since its key also composes a date-range filter we don't have here.
     @Caching(
         evict = {
-            @CacheEvict(value = "dashboard.summary", key = "#healerId"),
-            @CacheEvict(value = "dashboard.credit-usage",
-                    key = "#healerId + ':' + #filter.period + ':' + #filter.startDate + ':' + #filter.endDate")
+            @CacheEvict(value = "dashboard.summary", key = "@securityContextUtil.getCurrentHealerId()"),
+            @CacheEvict(value = "dashboard.credit-usage", allEntries = true)
         }
     )
     public String purchase(String requestBody, @Nullable String idempotencyKey) {
