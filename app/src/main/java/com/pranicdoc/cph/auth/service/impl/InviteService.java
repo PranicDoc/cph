@@ -15,9 +15,11 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -63,6 +65,29 @@ public class InviteService {
     // relays (correctly) reject. Every outgoing message must set this explicitly.
     @Value("${spring.mail.username}")
     private String mailFromAddress;
+
+    /**
+     * Fail startup rather than silently ship broken invite emails. `@Value` alone
+     * doesn't catch this: an env var explicitly set to an empty string (as opposed
+     * to unset) resolves fine as far as Spring's placeholder resolver is concerned —
+     * it only errors when the key is missing from every property source. Blank
+     * inviteUrl/mailFromAddress produced exactly this kind of silent failure before
+     * (invite emails "succeeded" with a broken activation link or an unroutable
+     * sender), so refuse to come up at all rather than repeat it.
+     */
+    @PostConstruct
+    void validateMailConfig() {
+        if (StringUtils.isBlank(inviteUrl)) {
+            throw new IllegalStateException(
+                    "app.invite.url must be set to a non-blank value — invite/self-signup "
+                            + "emails need a real activation URL. Refusing to start.");
+        }
+        if (StringUtils.isBlank(mailFromAddress)) {
+            throw new IllegalStateException(
+                    "spring.mail.username must be set to a non-blank value — it's used as the "
+                            + "From address for every outgoing invite email. Refusing to start.");
+        }
+    }
 
     // ─── Create ─────────────────────────────────────────────────
 
