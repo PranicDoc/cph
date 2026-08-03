@@ -44,7 +44,15 @@ public class AuditAspect {
                 auditLog.setHealerId(securityContextUtil.getCurrentHealerId());
             } catch (IllegalStateException ignored) {}
 
-            // entityId: first UUID arg, then return value getId() fallback
+            // entityId: first UUID arg, then return value getId()/id() fallback.
+            // Every DTO in the consent module (ConsentResponse, PolicyVersionResponse)
+            // is a Java record, whose component accessor is id() rather than getId() —
+            // AUDIT-03 depends on AuditLog.entityId pointing at the saved policy_version
+            // row so the audit trail can be joined back to the version number and
+            // effective date (D-05). Both reflective lookups stay inside this
+            // swallow-and-return-null guard so audit reflection can never fail an
+            // audited method, and the instanceof UUID narrowing still guards against a
+            // non-UUID id accessor.
             Object[] args = joinPoint.getArgs();
             UUID entityId = Arrays.stream(args)
                     .filter(a -> a instanceof UUID)
@@ -55,6 +63,11 @@ public class AuditAspect {
                         try {
                             Object id = result.getClass().getMethod("getId").invoke(result);
                             return id instanceof UUID uid ? uid : null;
+                        } catch (NoSuchMethodException noGetId) {
+                            try {
+                                Object id = result.getClass().getMethod("id").invoke(result);
+                                return id instanceof UUID uid ? uid : null;
+                            } catch (Exception ignored2) { return null; }
                         } catch (Exception ignored2) { return null; }
                     });
             auditLog.setEntityId(entityId);
