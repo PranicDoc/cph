@@ -22,6 +22,7 @@ import TransactionsPage from "./pages/admin/TransactionsPage";
 import GlobalConfigPage from "./pages/admin/GlobalConfigPage";
 import PackagesPage from "./pages/admin/PackagesPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
+import LegalDocumentsPage from "./pages/admin/LegalDocumentsPage";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
@@ -85,6 +86,7 @@ export default function App() {
                 <Route path="packages" element={<PackagesPage />} />
                 <Route path="master-data" element={<MasterDataPage />} />
                 <Route path="healer-registration" element={<HealerRegistrationPage />} />
+                <Route path="legal-documents" element={<LegalDocumentsPage />} />
               </Route>
             </Route>
 
