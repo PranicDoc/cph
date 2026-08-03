@@ -6,6 +6,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -68,6 +69,21 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access denied");
         pd.setTitle("Forbidden");
         pd.setType(URI.create("https://pranicdoc.com/errors/forbidden"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * A missing required @RequestParam (e.g. publish()'s consentType) must surface
+     * as a clean 400, not fall through to the catch-all 500 — Spring throws this
+     * before the handler body ever runs, so it is functionally identical to a
+     * validation failure from the caller's perspective.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingServletRequestParameter(MissingServletRequestParameterException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Bad Request");
+        pd.setType(URI.create("https://pranicdoc.com/errors/bad-request"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }
