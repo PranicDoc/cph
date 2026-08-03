@@ -14,10 +14,14 @@ import com.pranicdoc.cph.consent.repository.PolicyVersionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,6 +97,59 @@ public class ConsentService {
 
         consent.setWithdrawnAt(Instant.now());
         return toResponse(consentRepository.save(consent));
+    }
+
+    /**
+     * DOC-01/DOC-02/DOC-04/DOC-05 — the sole write path by which policy content
+     * ever enters {@code policy_version} (D-01/D-02). {@code consentType} is
+     * deliberately the FIRST parameter: {@code AuditAspect} serializes
+     * {@code joinPoint.getArgs()[0]} as the audit payload, so keeping it first
+     * avoids serializing the {@code MultipartFile} or the full document body
+     * into {@code audit_log} (T-31-12). {@code publisherId} is resolved
+     * server-side only via {@code securityContextUtil} (T-31-11) and is never
+     * accepted as a method parameter. The {@code @CacheEvict} key must stay
+     * byte-identical to {@code activePolicyVersions()}'s {@code @Cacheable}
+     * key, or the cached active-policy list is never invalidated (D-10/D-11).
+     */
+    @Auditable(action = "PUBLISH_POLICY_VERSION")
+    @CacheEvict(value = "policy.active-version", key = "'all'")
+    public PolicyVersionResponse publish(ConsentType consentType, MultipartFile file, String content, Boolean mandatory) {
+        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasContent = StringUtils.isNotBlank(content);
+
+        if (hasFile == hasContent) {
+            throw new IllegalArgumentException(hasFile
+                    ? "Provide either pasted text or a file, not both."
+                    : "Provide either pasted text or a file.");
+        }
+
+        String resolvedContent;
+        if (hasFile) {
+            try {
+                resolvedContent = new String(file.getBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Could not read the uploaded file.");
+            }
+        } else {
+            resolvedContent = content;
+        }
+
+        int nextVersion = policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(consentType)
+                .map(p -> p.getPolicyVersion() + 1)
+                .orElse(1);
+
+        UUID publisherId = securityContextUtil.getCurrentHealerId();
+
+        PolicyVersion saved = policyVersionRepository.save(PolicyVersion.builder()
+                .consentType(consentType)
+                .policyVersion(nextVersion)
+                .mandatory(mandatory == null || mandatory)
+                .effectiveDate(Instant.now())
+                .content(resolvedContent)
+                .publisherId(publisherId)
+                .build());
+
+        return toPolicyResponse(saved);
     }
 
     /**
