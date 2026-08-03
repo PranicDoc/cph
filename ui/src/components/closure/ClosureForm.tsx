@@ -13,12 +13,16 @@ import { AxiosResponse } from "axios";
 import { extractDetail } from "@/lib/utils";
 import { ColorPropertySelector } from "./ColorPropertySelector";
 import { useReferenceData } from "@/hooks/useReferenceData";
+import { MultiSelect } from "../ui/multi-select/multi-select";
+import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
 
 type ClosureFormProps = {
   comments: string;
   setComments: React.Dispatch<React.SetStateAction<string>>;
   isHealingContinued: boolean;
   setIsHealingContinued: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedProtocols: Protocol[];
+  setSelectedProtocols: React.Dispatch<React.SetStateAction<Protocol[]>>;
   closeMutation: UseMutationResult<
     AxiosResponse<any, any, {}>,
     Error,
@@ -56,12 +60,16 @@ const ClosureForm = ({
   setComments,
   isHealingContinued,
   setIsHealingContinued,
+  selectedProtocols,
+  setSelectedProtocols,
   onClose,
   closeMutation,
   healingCaseId,
 }: ClosureFormProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [hpuTableData, setHpuTableData] = useState<HPUTable[]>([]);
+  const { data: supplementaryProtocols = [], isLoading: protocolsLoading } =
+    useProtocols("SUPPLEMENTARY");
 
   useEffect(() => {
     /**
@@ -297,6 +305,21 @@ const ClosureForm = ({
           </>
         ) : (
           <>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">
+                Recommended Protocols
+              </Label>
+              <MultiSelect
+                options={supplementaryProtocols}
+                value={selectedProtocols}
+                onChange={setSelectedProtocols}
+                getOptionKey={(p: Protocol) => p.id}
+                getOptionLabel={(p: Protocol) => p.name}
+                placeholder="Select protocols to recommend..."
+                loading={protocolsLoading}
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-gray-700">
                 Additional Comments
