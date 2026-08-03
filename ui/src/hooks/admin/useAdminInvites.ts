@@ -11,6 +11,7 @@ export interface AdminInvite {
   status: "PENDING" | "EXPIRED" | "ACCEPTED" | "REVOKED";
   createdAt: string;
   expiresAt: string;
+  emailSent: boolean;
 }
 
 export interface InviteCreatePayload {
@@ -37,9 +38,16 @@ export function useCreateInvite() {
   return useMutation({
     mutationFn: (payload: InviteCreatePayload) =>
       api.post<AdminInvite>("/api/admin/invites", payload).then((r) => r.data),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: QK });
-      toast.success(`Invite sent to ${variables.email}`);
+      if (data.emailSent) {
+        toast.success(`Invite sent to ${variables.email}`);
+      } else {
+        toast.warning(
+          `Invite created for ${variables.email}, but the email failed to send — use Resend to try again`,
+          { duration: 6000 },
+        );
+      }
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to send invite. Please try again.", { duration: 5000 }),
@@ -51,9 +59,16 @@ export function useResendInvite() {
   return useMutation({
     mutationFn: ({ id }: { id: string; email: string }) =>
       api.post<AdminInvite>(`/api/admin/invites/${id}/resend`).then((r) => r.data),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: QK });
-      toast.success(`Invite resent — new link sent to ${variables.email}`);
+      if (data.emailSent) {
+        toast.success(`Invite resent — new link sent to ${variables.email}`);
+      } else {
+        toast.warning(
+          `Invite token rotated for ${variables.email}, but the email failed to send — try Resend again`,
+          { duration: 6000 },
+        );
+      }
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to resend invite", { duration: 5000 }),

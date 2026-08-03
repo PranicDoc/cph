@@ -58,6 +58,12 @@ public class InviteService {
     @Value("${app.invite.token-expiry-hours:72}")
     private int inviteExpiryHours;
 
+    // JavaMail has no implicit From — without setFrom() it synthesizes
+    // <os-user>@<container-hostname> as the envelope sender, which most SMTP
+    // relays (correctly) reject. Every outgoing message must set this explicitly.
+    @Value("${spring.mail.username}")
+    private String mailFromAddress;
+
     // ─── Create ─────────────────────────────────────────────────
 
     @Auditable(action = "CREATE_INVITE")
@@ -94,9 +100,9 @@ public class InviteService {
         }
 
         HealerInviteLink saved = inviteRepository.save(invite);
-        sendInviteEmail(saved.getEmail(), saved.getToken());
+        boolean emailSent = sendInviteEmail(saved.getEmail(), saved.getToken());
 
-        return toResponse(saved);
+        return toResponse(saved, emailSent);
     }
 
     // ─── Self-Signup Request (SELFREG-01) ──────────────────────
@@ -175,9 +181,9 @@ public class InviteService {
         invite.setExpiresAt(Instant.now().plus(inviteExpiryHours, ChronoUnit.HOURS));
         HealerInviteLink saved = inviteRepository.save(invite);
 
-        sendInviteEmail(saved.getEmail(), saved.getToken());
+        boolean emailSent = sendInviteEmail(saved.getEmail(), saved.getToken());
 
-        return toResponse(saved);
+        return toResponse(saved, emailSent);
     }
 
     // ─── Revoke ─────────────────────────────────────────────────
@@ -267,9 +273,15 @@ public class InviteService {
         );
     }
 
-    private void sendInviteEmail(String email, String token) {
+    /**
+     * @return true if the email was handed off to the SMTP server successfully,
+     * false if it failed (logged, never thrown — a mail outage must never block
+     * invite creation, the admin has Resend).
+     */
+    private boolean sendInviteEmail(String email, String token) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailFromAddress);
             message.setTo(email);
             message.setSubject("You're invited to PranicDoc");
             message.setText(
@@ -278,15 +290,18 @@ public class InviteService {
                             + inviteUrl + "?token=" + token + "\n\n"
                             + "This link expires in 72 hours.");
             mailSender.send(message);
+            return true;
         } catch (MailException ex) {
             // Don't let SMTP downtime block invite creation — the admin has Resend (D-06/Pitfall 3).
             log.warn("Failed to send invite email to {}: {}", email, ex.getMessage());
+            return false;
         }
     }
 
-    private void sendSelfSignupEmail(String email, String token) {
+    private boolean sendSelfSignupEmail(String email, String token) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailFromAddress);
             message.setTo(email);
             message.setSubject("Verify your email to complete PranicDoc registration");
             message.setText(
@@ -295,13 +310,21 @@ public class InviteService {
                             + inviteUrl + "?token=" + token + "\n\n"
                             + "This link expires in 72 hours.");
             mailSender.send(message);
+            return true;
         } catch (MailException ex) {
             // Don't let SMTP downtime block the request — resubmitting /signup rotates the token.
             log.warn("Failed to send self-signup verification email to {}: {}", email, ex.getMessage());
+            return false;
         }
     }
 
     static InviteResponse toResponse(HealerInviteLink invite) {
+        // Used by list()/revoke() where no fresh send just happened — true is the
+        // neutral default (we don't retroactively know past delivery outcomes).
+        return toResponse(invite, true);
+    }
+
+    static InviteResponse toResponse(HealerInviteLink invite, boolean emailSent) {
         String status = computeStatus(invite);
         return new InviteResponse(
                 invite.getId(),
@@ -309,7 +332,8 @@ public class InviteService {
                 invite.getRole().name(),
                 status,
                 invite.getCreatedAt(),
-                invite.getExpiresAt()
+                invite.getExpiresAt(),
+                emailSent
         );
     }
 
