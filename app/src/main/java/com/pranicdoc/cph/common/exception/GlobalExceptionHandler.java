@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.common.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -7,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.URI;
@@ -121,6 +123,40 @@ public class GlobalExceptionHandler {
                 "No endpoint " + ex.getHttpMethod() + " " + ex.getRequestURL());
         pd.setTitle("Not Found");
         pd.setType(URI.create("https://pranicdoc.com/errors/not-found"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * T-31-03: a concurrent publish for the same consentType races on the V25 unique
+     * constraint uq_policy_version_type_ver. Rather than falling through to the
+     * catch-all 500, surface this loudly and cleanly as a 409 so the client knows
+     * to reload and retry instead of assuming the request silently corrupted state.
+     * Detail text is fixed (never ex.getMessage()) — Hibernate/Postgres constraint
+     * violation messages leak table/column/constraint names (T-31-09).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "The requested change conflicts with existing data. It may have been modified concurrently — reload and retry.");
+        pd.setTitle("Conflict");
+        pd.setType(URI.create("https://pranicdoc.com/errors/conflict"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * T-31-05: an oversized policy upload to the publish endpoint must not return a
+     * raw 500 or leak a stack trace. Detail text is fixed (never ex.getMessage()) —
+     * this project deliberately does not raise Spring Boot's default multipart
+     * limits here, it only makes the resulting exception legible (T-31-09).
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,
+                "The uploaded file is too large.");
+        pd.setTitle("Payload Too Large");
+        pd.setType(URI.create("https://pranicdoc.com/errors/payload-too-large"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }
