@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { CreditCard } from "lucide-react";
+import { CreditCard, CheckCircle2 } from "lucide-react";
 import {
   useCreditPackages,
   type PackageResponse,
 } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
+import { useCreditAccount } from "../hooks/useCreditAccount";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -23,12 +24,18 @@ export function PlanPicker({
   onSkip,
 }: PlanPickerProps) {
   const { data: packages, isLoading, error } = useCreditPackages();
+  const { data: account } = useCreditAccount();
   const { mutate: purchase, isPending } = usePurchasePackage();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
   const idempotencyKeyRef = useRef<string | null>(null);
 
+  const currentTier = account?.plan_tier?.toUpperCase();
+  const isCurrentPlan = (pkg: PackageResponse) =>
+    !!currentTier && pkg.name.toUpperCase() === currentTier;
+
   const handleSelectPlan = (pkg: PackageResponse) => {
+    if (isCurrentPlan(pkg)) return;
     if (pkg.price_paise === 0) {
       onComplete();
       return;
@@ -104,13 +111,25 @@ export function PlanPicker({
         {sorted.map((pkg) => {
           const isFree = pkg.price_paise === 0;
           const isThisSelected = selectedPkgId === pkg.id && isPending;
+          const isCurrent = isCurrentPlan(pkg);
 
           return (
             <div
               key={pkg.id}
-              className="rounded-xl border border-border p-5 space-y-3 shadow-sm bg-card flex flex-col"
+              className={cn(
+                "rounded-xl border p-5 space-y-3 shadow-sm bg-card flex flex-col",
+                isCurrent ? "border-primary ring-1 ring-primary" : "border-border"
+              )}
             >
-              <p className="text-base sm:text-lg font-bold text-primary-dark leading-tight">{pkg.name}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-base sm:text-lg font-bold text-primary-dark leading-tight">{pkg.name}</p>
+                {isCurrent && (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-primary shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Current
+                  </span>
+                )}
+              </div>
               <p className="text-text-light text-sm">{pkg.credits} credits</p>
               <p className="text-base sm:text-lg font-semibold text-primary">
                 {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
@@ -118,10 +137,10 @@ export function PlanPicker({
               <div className="flex-1" />
               <Button
                 onClick={() => handleSelectPlan(pkg)}
-                disabled={isPending}
+                disabled={isPending || isCurrent}
                 className={cn(
                   "w-full",
-                  isFree && "bg-border text-text hover:bg-border/80"
+                  isFree && !isCurrent && "bg-border text-text hover:bg-border/80"
                 )}
               >
                 {isThisSelected ? (
@@ -129,6 +148,8 @@ export function PlanPicker({
                     <Spinner size="sm" className="text-current" />
                     Processing…
                   </span>
+                ) : isCurrent ? (
+                  "Current Plan"
                 ) : isFree ? (
                   "Get Started Free"
                 ) : (
