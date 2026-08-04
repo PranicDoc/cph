@@ -115,7 +115,15 @@ export const patientMedicalHistorySchema: FormSchema = [
       {
         name: "exercise",
         label: "Exercise Type",
-        placeholder: "E.g. Yoga, Walking, Gym, Sports",
+        type: "select",
+        placeholder: "Select exercise type...",
+        options: [
+          { label: "None", value: "NONE" },
+          { label: "Walking", value: "WALKING" },
+          { label: "Yoga", value: "YOGA" },
+          { label: "Gym", value: "GYM" },
+          { label: "Sports", value: "SPORTS" },
+        ],
       },
       {
         name: "exerciseFrequency",
