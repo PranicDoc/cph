@@ -69,7 +69,10 @@ export default function Session() {
   const navigate = useNavigate();
 
   const { data: protocols = [] } = useProtocols("PROTOCOL");
-  const schema = useMemo(() => buildSessionSchema(protocols), [protocols]);
+  const schema = useMemo(
+    () => buildSessionSchema(protocols, sessionData?.status === "DRAFT"),
+    [protocols, sessionData?.status]
+  );
 
   // Best-effort: reconstruct which catalog protocols a comma-joined legacy
   // protocolName string refers to, by exact name match. Names that don't
