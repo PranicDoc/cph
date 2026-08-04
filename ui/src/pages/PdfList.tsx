@@ -11,11 +11,12 @@ import api from "../lib/axios";
 type PDFJob = ComputedPatient & {
   healingCaseId: string;
   fileUrl: string;
+  completedAt: string;
 };
 
 export function PdfList() {
   const [pdfJobs, setPdfJobs] = useState<
-    { healingCaseId: string; fileUrl: string }[]
+    { healingCaseId: string; fileUrl: string; completedAt: string }[]
   >([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { patients } = usePatient();
@@ -40,6 +41,7 @@ export function PdfList() {
         ...(patientData as ComputedPatient),
         healingCaseId: job.healingCaseId,
         fileUrl: job.fileUrl,
+        completedAt: job.completedAt,
         fullName: patientData?.fullName || "Unknown Patient",
       };
     });
@@ -174,6 +176,17 @@ export function PdfList() {
       cell: (info) => (
         <span className="font-medium text-left block">{info.getValue()}</span>
       ),
+    }),
+    columnHelper.accessor("completedAt", {
+      header: () => <div className="text-left">Created</div>,
+      cell: (info) => {
+        const value = info.getValue();
+        return (
+          <span className="text-left block">
+            {value ? new Date(value).toLocaleDateString() : "—"}
+          </span>
+        );
+      },
     }),
     columnHelper.display({
       id: "actions",

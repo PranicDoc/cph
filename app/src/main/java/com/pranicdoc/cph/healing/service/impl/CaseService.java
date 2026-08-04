@@ -461,7 +461,7 @@ public class CaseService {
         );
         return jobWindow.map(job -> {
 //            String signedUrl = storageService.generatePresignedDownloadUrl(job.getFileUrl()).toString();
-            return new PdfJobDTO(job.getHealingCaseId(), job.getFileUrl());
+            return new PdfJobDTO(job.getHealingCaseId(), job.getFileUrl(), job.getUpdatedAt());
         });
     }
 
