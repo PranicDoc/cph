@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { DayPicker } from 'react-day-picker';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface CustomDOBPickerProps {
   value: string;
@@ -16,100 +11,162 @@ interface CustomDOBPickerProps {
   disabled: boolean;
 }
 
-export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }: CustomDOBPickerProps) {
-  const [year, setYear] = useState('');
-  const [month, setMonth] = useState('');
-  const [day, setDay] = useState('');
+function parseDateValue(value: string): Date | undefined {
+  if (!value) return undefined;
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+}
 
+function formatDateValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Display/typing format is DD/MM/YYYY.
+function dateToDisplay(date: Date): string {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+function isRealCalendarDate(day: number, month: number, year: number): boolean {
+  if (month < 1 || month > 12) return false;
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+// Auto-inserts '/' as digits are typed: 01022000 -> 01/02/2000
+function autoFormat(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
+    .filter(Boolean)
+    .join('/');
+}
+
+export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }: CustomDOBPickerProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selected = parseDateValue(value);
+
+  const [text, setText] = useState(() => (selected ? dateToDisplay(selected) : ''));
+
+  // Keep the typed text in sync when the value changes from outside typing
+  // (calendar selection, form reset, editing an existing patient).
   useEffect(() => {
-    if (!value) {
-      setYear('');
-      setMonth('');
-      setDay('');
-    } else {
-      const [y, m, d] = value.split('-');
-      setYear(y || '');
-      setMonth(m || '');
-      setDay(d || '');
-    }
+    const parsed = parseDateValue(value);
+    setText(parsed ? dateToDisplay(parsed) : '');
   }, [value]);
 
-  const updateParent = (y: string, m: string, d: string) => {
-    if (y && m && d) {
-      const maxDays = new Date(parseInt(y), parseInt(m), 0).getDate();
-      const validDay = Math.min(parseInt(d), maxDays).toString().padStart(2, '0');
-      onChange(`${y}-${m}-${validDay}`);
-    } else {
-      onChange('');
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+        onBlur();
+      }
     }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setShowPicker(false);
+        onBlur();
+      }
+    }
+    if (showPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showPicker, onBlur]);
+
+  const today = new Date();
+  // Patients can be up to 120 years old; the dropdown caption lets you jump
+  // straight to a year instead of paging month-by-month.
+  const oldestDob = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+
+  const handleSelect = (date: Date | undefined) => {
+    if (!date) return;
+    onChange(formatDateValue(date));
+    setShowPicker(false);
+    onBlur();
   };
 
-  const handleYearChange = (y: string) => {
-    setYear(y);
-    updateParent(y, month, day);
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = autoFormat(e.target.value);
+    setText(formatted);
+
+    const [dd, mm, yyyy] = formatted.split('/');
+    if (dd?.length === 2 && mm?.length === 2 && yyyy?.length === 4) {
+      const day = Number(dd);
+      const month = Number(mm);
+      const year = Number(yyyy);
+      const candidate = new Date(year, month - 1, day);
+      if (
+        isRealCalendarDate(day, month, year) &&
+        candidate <= today &&
+        candidate >= oldestDob
+      ) {
+        onChange(formatDateValue(candidate));
+        return;
+      }
+    }
+    // Incomplete or out-of-range — don't commit a half-typed/invalid date.
+    if (value) onChange('');
   };
-
-  const handleMonthChange = (m: string) => {
-    setMonth(m);
-    updateParent(year, m, day);
-  };
-
-  const handleDayChange = (d: string) => {
-    setDay(d);
-    updateParent(year, month, d);
-  };
-
-  const currentYear = new Date().getFullYear();
-  // Generate a list of years (e.g., from current year back to 120 years ago)
-  const years = Array.from({ length: 120 }, (_, i) => currentYear - i);
-  const months = [
-    { v: '01', l: 'Jan' }, { v: '02', l: 'Feb' }, { v: '03', l: 'Mar' },
-    { v: '04', l: 'Apr' }, { v: '05', l: 'May' }, { v: '06', l: 'Jun' },
-    { v: '07', l: 'Jul' }, { v: '08', l: 'Aug' }, { v: '09', l: 'Sep' },
-    { v: '10', l: 'Oct' }, { v: '11', l: 'Nov' }, { v: '12', l: 'Dec' }
-  ];
-
-  const maxDaysInMonth = month && year ? new Date(parseInt(year), parseInt(month), 0).getDate() : 31;
-  const days = Array.from({ length: maxDaysInMonth }, (_, i) => (i + 1).toString().padStart(2, '0'));
 
   return (
-    <div className={cn('flex gap-2', className)}>
-      <Select value={month} onValueChange={handleMonthChange} disabled={disabled}>
-        <SelectTrigger className="flex-1" onBlur={onBlur}>
-          <SelectValue placeholder="Month" />
-        </SelectTrigger>
-        <SelectContent>
-          {months.map((m) => (
-            <SelectItem key={m.v} value={m.v}>
-              {m.l}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={day} onValueChange={handleDayChange} disabled={disabled}>
-        <SelectTrigger className="flex-1" onBlur={onBlur}>
-          <SelectValue placeholder="Day" />
-        </SelectTrigger>
-        <SelectContent>
-          {days.map((d) => (
-            <SelectItem key={d} value={d}>
-              {d}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={year} onValueChange={handleYearChange} disabled={disabled}>
-        <SelectTrigger className="flex-1" onBlur={onBlur}>
-          <SelectValue placeholder="Year" />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>
-              {y}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className={cn('relative', className)} ref={containerRef}>
+      <div
+        className={cn(
+          'flex items-center gap-2 rounded-lg border-2 border-border bg-white pr-2.5 text-sm transition-colors focus-within:border-primary',
+          disabled && 'pointer-events-none cursor-not-allowed opacity-50'
+        )}
+      >
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          value={text}
+          disabled={disabled}
+          placeholder="DD/MM/YYYY"
+          onChange={handleTextChange}
+          onBlur={onBlur}
+          className="w-full min-w-0 bg-transparent p-2.5 outline-none placeholder:text-muted-foreground"
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label="Open calendar"
+          onClick={() => setShowPicker((prev) => !prev)}
+          className="shrink-0 text-text-light transition-colors hover:text-primary"
+        >
+          <CalendarIcon className="w-4 h-4" />
+        </button>
+      </div>
+
+      {showPicker && (
+        <div className="absolute top-full left-0 mt-2 z-50 bg-card rounded-2xl shadow-xl border border-border p-4 min-w-max text-sm">
+          <DayPicker
+            mode="single"
+            captionLayout="dropdown"
+            selected={selected}
+            onSelect={handleSelect}
+            defaultMonth={selected ?? today}
+            startMonth={oldestDob}
+            endMonth={today}
+            disabled={{ after: today }}
+          />
+        </div>
+      )}
     </div>
   );
 }
