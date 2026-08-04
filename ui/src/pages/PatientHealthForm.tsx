@@ -55,9 +55,15 @@ export default function PatientHealthForm() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, ...rest } = value;
+        const { labFindings, medications, ...rest } = value;
         const payload = {
           ...rest,
+          // Omit the key entirely when the patient added no medications, rather than
+          // sending medications: []. CaseService.updateCaseDetails treats a null/absent
+          // medications field as "don't touch" and an explicit [] as "clear existing" —
+          // a stale patient-tab submission with none added must not wipe out medications
+          // a healer has since entered on the same still-DRAFT case.
+          ...(medications.length > 0 ? { medications } : {}),
           healingCaseId: caseId,
           complementaryTreatments: !!value.complementaryDetails,
           infectiousIllness: !!value.infectiousDetails,

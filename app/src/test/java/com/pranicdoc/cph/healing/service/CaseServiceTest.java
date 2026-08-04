@@ -410,4 +410,30 @@ class CaseServiceTest {
         assertTrue(entity.getMedications().isEmpty(),
                 "an explicit empty medications list must clear existing medications, not leave them untouched");
     }
+
+    @Test
+    void updateCaseDetails_medicationsAbsentFromRequest_leavesExistingMedicationsUntouched() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        CaseMedication existingMedication = CaseMedication.builder()
+                .medicationName("Aspirin")
+                .dosage("500mg")
+                .build();
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE,
+                null, List.of(existingMedication));
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        // Simulates PatientHealthForm.tsx omitting the medications key entirely when the
+        // patient added none (fix round 2) — Jackson deserializes this as null, which must
+        // be treated as "don't touch", not as an implicit clear.
+        CaseUpdateRequest request = buildUpdateRequest(caseId, null, null);
+
+        caseService.updateCaseDetails(request, null);
+
+        assertEquals(1, entity.getMedications().size(),
+                "medications() absent (null) must leave existing medications untouched");
+        assertEquals("Aspirin", entity.getMedications().get(0).getMedicationName());
+    }
 }
