@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 
 interface FileUploadProps {
   value?: (File | string)[];
-  onChange?: (files: File[]) => void;
+  onChange?: (files: (File | string)[]) => void;
   onBlur?: () => void;
   readOnly?: boolean;
 }
@@ -28,16 +28,16 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming || !onChange) return;
-    const existing = value.filter((v): v is File => v instanceof File);
+    const existingFiles = value.filter((v): v is File => v instanceof File);
     const newFiles = Array.from(incoming).filter(
-      (f) => !existing.some((e) => e.name === f.name && e.size === f.size)
+      (f) => !existingFiles.some((e) => e.name === f.name && e.size === f.size)
     );
-    onChange([...existing, ...newFiles]);
+    onChange([...value, ...newFiles]);
   };
 
   const removeFile = (idx: number) => {
     if (!onChange) return;
-    onChange(value.filter((v, i) => i !== idx) as File[]);
+    onChange(value.filter((v, i) => i !== idx) as (File | string)[]);
   };
 
   const downloadKey = async (key: string) => {

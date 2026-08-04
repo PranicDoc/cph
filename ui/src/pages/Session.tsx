@@ -124,11 +124,14 @@ export default function Session() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, healingDetails, ...rest } = value;
+        const { labFindings, healingDetails, medications, ...rest } = value;
         const { selectedProtocols, ...restHealingDetails } = healingDetails;
         const files = labFindings.filter((f): f is File => f instanceof File);
         const existingKeys = labFindings.filter(
           (f): f is string => typeof f === "string"
+        );
+        const filteredMedications = (medications as any[]).filter(
+          (m) => typeof m?.medicationName === "string" && m.medicationName.trim() !== ""
         );
 
         const protocolName = selectedProtocols.map((p) => p.name).join(", ");
@@ -143,6 +146,7 @@ export default function Session() {
 
         const payload = {
           ...rest,
+          medications: filteredMedications,
           healingDetails: { ...restHealingDetails, protocolName },
           basicBookPg: buckets.basicBookPg.join(","),
           advancedBookPg: buckets.advancedBookPg.join(","),
