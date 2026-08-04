@@ -26,6 +26,7 @@ type AccountRow = {
   id: string;
   owner_type: string;
   owner_id: string;
+  owner_name: string | null;
   free_balance: number;
   paid_balance: number;
   plan_tier: string;
@@ -56,12 +57,19 @@ const accountColumns: ColumnDef<AccountRow, unknown>[] = [
   },
   {
     accessorKey: "owner_id",
-    header: "Owner ID",
-    cell: (info) => (
-      <span className="font-mono text-xs text-text-light truncate max-w-[160px] block">
-        {String(info.getValue())}
-      </span>
-    ),
+    header: "Owner",
+    cell: (info) => {
+      const row = info.row.original;
+      return row.owner_name ? (
+        <span className="font-medium text-text truncate max-w-[160px] block">
+          {row.owner_name}
+        </span>
+      ) : (
+        <span className="font-mono text-xs text-text-light truncate max-w-[160px] block">
+          {String(info.getValue())}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "free_balance",
@@ -194,7 +202,9 @@ export default function AccountsPage() {
                   </div>
                   <ChevronRight className="w-4 h-4 text-text-light shrink-0" />
                 </div>
-                <p className="font-mono text-xs text-text-light truncate mb-3">{acc.owner_id}</p>
+                <p className={cn("truncate mb-3", acc.owner_name ? "text-sm font-medium text-text" : "font-mono text-xs text-text-light")}>
+                  {acc.owner_name ?? acc.owner_id}
+                </p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="bg-muted/50 rounded-lg px-2 py-1.5 text-center">
                     <div className="text-text-light">Free</div>

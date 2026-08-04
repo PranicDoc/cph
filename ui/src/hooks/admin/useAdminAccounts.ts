@@ -5,6 +5,7 @@ export interface AdminAccount {
   id: string;
   owner_type: "HEALER" | "CLINIC";
   owner_id: string;
+  owner_name: string | null;
   free_balance: number;
   paid_balance: number;
   plan_tier: string;

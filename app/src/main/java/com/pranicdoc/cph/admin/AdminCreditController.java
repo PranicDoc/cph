@@ -1,5 +1,10 @@
 package com.pranicdoc.cph.admin;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
@@ -7,7 +12,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Admin proxy controller — forwards requests to creditService with RBAC + ABAC enforced.
@@ -36,6 +45,8 @@ public class AdminCreditController {
     private final RestClient creditServiceRestClient;
 
     private final AdminAuthz adminAuthz;
+    private final HealerRepository healerRepository;
+    private final ObjectMapper objectMapper;
 
     // ─── Packages (SUPADM only) ───────────────────────────────────────────────
 
@@ -125,10 +136,52 @@ public class AdminCreditController {
                     + (ownerType != null ? "&ownerType=" + ownerType : "");
         }
 
-        return ResponseEntity.ok(creditServiceRestClient.get()
+        String body = creditServiceRestClient.get()
                 .uri(uri)
                 .retrieve()
-                .body(String.class));
+                .body(String.class);
+
+        return ResponseEntity.ok(withHealerNames(body));
+    }
+
+    /**
+     * creditService only knows owner_id (a UUID); it has no visibility into healer
+     * identity. Inject an owner_name field for HEALER-type accounts so the admin UI
+     * doesn't have to show raw UUIDs. Best-effort — falls back to the raw body if the
+     * upstream shape ever changes, since name display isn't critical to the accounts list.
+     */
+    private String withHealerNames(String body) {
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode content = root.path("content");
+            if (!content.isArray()) {
+                return body;
+            }
+
+            Set<UUID> healerIds = new HashSet<>();
+            for (JsonNode account : content) {
+                if ("HEALER".equalsIgnoreCase(account.path("owner_type").asText())) {
+                    healerIds.add(UUID.fromString(account.path("owner_id").asText()));
+                }
+            }
+            if (healerIds.isEmpty()) {
+                return body;
+            }
+
+            Map<UUID, String> namesById = healerRepository.findAllById(healerIds).stream()
+                    .collect(Collectors.toMap(Healer::getId, Healer::getFullName));
+
+            for (JsonNode account : content) {
+                if (account instanceof ObjectNode accountNode
+                        && "HEALER".equalsIgnoreCase(account.path("owner_type").asText())) {
+                    UUID ownerId = UUID.fromString(account.path("owner_id").asText());
+                    accountNode.put("owner_name", namesById.get(ownerId));
+                }
+            }
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            return body;
+        }
     }
 
     // ─── Transactions (ADMIN + SUPADM, ABAC scoped) ──────────────────────────
