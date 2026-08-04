@@ -257,6 +257,9 @@ export default function Registration() {
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => {
+                  if (!isSelfRegister) navigate("/patients");
+                }}
                 className="px-6 py-2.5 h-auto border-2 text-text"
               >
                 Cancel
