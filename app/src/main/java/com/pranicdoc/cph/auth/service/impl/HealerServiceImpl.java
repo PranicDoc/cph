@@ -7,6 +7,7 @@ import com.pranicdoc.cph.auth.service.HealerService;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class HealerServiceImpl implements HealerService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "healerActiveStatus", key = "#healerId")
     public HealerResponse setActiveStatus(UUID healerId, boolean active) {
         Healer healer = healerRepository.findById(healerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
@@ -52,6 +54,20 @@ public class HealerServiceImpl implements HealerService {
         Healer saved = healerRepository.save(healer);
 
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "healerActiveStatus", key = "#healerId")
+    public void removeHealer(UUID healerId) {
+        Healer healer = healerRepository.findById(healerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
+        // Soft-delete only (BaseEntity.is_deleted) — never a hard delete. @SQLRestriction on
+        // Healer then hides them from every default query app-wide (findById, findByEmail,
+        // findAll), while their patients/cases/PDFs/credit account are untouched and the
+        // removal is reversible at the data level (nothing is actually destroyed).
+        healer.softDelete();
+        healerRepository.save(healer);
     }
 
     private HealerResponse toResponse(Healer h) {

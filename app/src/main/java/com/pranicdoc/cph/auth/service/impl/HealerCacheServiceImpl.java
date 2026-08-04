@@ -28,4 +28,14 @@ public class HealerCacheServiceImpl implements HealerCacheService {
                 .orElseThrow(() -> new ResourceNotFoundException(String.format("Healer not found for the given id %s", healerId)));
         return healer.getFullName();
     }
+
+    @Override
+    @Cacheable(key = "#healerId", value = "healerActiveStatus", sync = true)
+    public boolean isActive(UUID healerId) {
+        // findById respects Healer's @SQLRestriction(is_deleted = false), so a soft-removed
+        // healer falls into the same "not active" branch as an explicitly deactivated one.
+        return healerRepository.findById(healerId)
+                .map(Healer::isActive)
+                .orElse(false);
+    }
 }

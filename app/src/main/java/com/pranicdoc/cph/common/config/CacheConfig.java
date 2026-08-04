@@ -63,6 +63,11 @@ public class CacheConfig {
         // at runtime with "Cannot find cache named 'policy.active-version'".
         manager.registerCache("policy.active-version");
 
+        // Backs JwtAuthFilter's per-request active-status check (healer deactivation/removal
+        // must take effect immediately, not just at next login). Evicted explicitly by
+        // HealerServiceImpl on activate/deactivate/remove; short default TTL is a safety net.
+        manager.registerCache("healerActiveStatus");
+
         return manager;
     }
 }

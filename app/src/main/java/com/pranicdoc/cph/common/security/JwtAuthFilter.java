@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.common.security;
 
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final HealerCacheService healerCacheService;
 
     @Override
     protected void doFilterInternal(
@@ -82,6 +84,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             } else if ("ACCESS".equals(tokenType) || "SELF_REG".equals(tokenType)) {
                 UUID healerId = UUID.fromString(claims.getSubject());
+
+                // Deactivated/removed healers are rejected immediately (not just at next
+                // login) — a stale ACCESS token must not keep working after an admin acts.
+                if (!healerCacheService.isActive(healerId)) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 authToken = new UsernamePasswordAuthenticationToken(
                         healerId.toString(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + role)));

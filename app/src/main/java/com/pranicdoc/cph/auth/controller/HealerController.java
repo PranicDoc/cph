@@ -29,4 +29,15 @@ public class HealerController {
                                                     @RequestParam boolean active) {
         return ResponseEntity.ok(healerService.setActiveStatus(id, active));
     }
+
+    /**
+     * Soft-removes a healer (SUPADM only — more sensitive than deactivation).
+     * Never a hard delete; see HealerServiceImpl.removeHealer.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPADM')")
+    public ResponseEntity<Void> remove(@PathVariable UUID id) {
+        healerService.removeHealer(id);
+        return ResponseEntity.noContent().build();
+    }
 }

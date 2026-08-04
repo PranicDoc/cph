@@ -10,6 +10,12 @@ import {
   useRevokeInvite,
   type AdminInvite,
 } from "../../hooks/admin/useAdminInvites";
+import {
+  useAdminHealers,
+  useSetHealerActive,
+  useRemoveHealer,
+  type AdminHealer,
+} from "../../hooks/admin/useAdminHealers";
 import { cn } from "../../lib/utils";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +41,19 @@ function InviteStatusBadge({ status }: { status: AdminInvite["status"] }) {
   );
 }
 
+function HealerStatusBadge({ active }: { active: boolean }) {
+  return (
+    <Badge
+      className={cn(
+        "font-semibold px-2 shrink-0",
+        active ? "bg-success/10 text-success" : "bg-gray-100 text-gray-700"
+      )}
+    >
+      {active ? "Active" : "Inactive"}
+    </Badge>
+  );
+}
+
 export default function HealerRegistrationPage() {
   const { user } = useAuth();
   const isSupadm = user?.role === "SUPADM";
@@ -47,6 +66,11 @@ export default function HealerRegistrationPage() {
   const revokeInvite = useRevokeInvite();
 
   const [revokeTarget, setRevokeTarget] = useState<AdminInvite | null>(null);
+
+  const { data: healers, isLoading: healersLoading } = useAdminHealers(isSupadm);
+  const setHealerActive = useSetHealerActive();
+  const removeHealer = useRemoveHealer();
+  const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
 
   const roleOptions = isSupadm ? ROLE_OPTIONS : ROLE_OPTIONS.filter((r) => r !== "SUPADM");
 
@@ -160,6 +184,67 @@ export default function HealerRegistrationPage() {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => <InviteActions invite={row.original} />,
+    },
+  ];
+
+  const HealerActions = ({ healer }: { healer: AdminHealer }) => {
+    if (healer.id === user?.id) {
+      return <span className="text-xs text-text-light">You</span>;
+    }
+    return (
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => setHealerActive.mutate({ id: healer.id, active: !healer.active })}
+          disabled={setHealerActive.isPending}
+          className="h-auto p-0 text-xs font-medium"
+        >
+          {healer.active ? "Deactivate" : "Activate"}
+        </Button>
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => setRemoveTarget(healer)}
+          className="h-auto p-0 text-xs font-medium text-danger hover:text-danger"
+        >
+          Remove
+        </Button>
+      </div>
+    );
+  };
+
+  const healerColumns: ColumnDef<AdminHealer, unknown>[] = [
+    {
+      accessorKey: "fullName",
+      header: "Name",
+      cell: (info) => (
+        <span className="font-medium text-text">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: (info) => (
+        <span className="text-text-light">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "role",
+      header: "Role",
+      cell: (info) => (
+        <span className="text-text-light">{String(info.getValue())}</span>
+      ),
+    },
+    {
+      accessorKey: "active",
+      header: "Status",
+      cell: (info) => <HealerStatusBadge active={Boolean(info.getValue())} />,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => <HealerActions healer={row.original} />,
     },
   ];
 
@@ -281,6 +366,70 @@ export default function HealerRegistrationPage() {
           <Pagination />
         </>
       )}
+
+      {/* Existing healers — activate/deactivate/remove (SUPADM only) */}
+      {isSupadm && (
+        <div className="mt-10">
+          <h2 className="text-xl font-semibold text-text mb-4">Healers</h2>
+
+          {healersLoading && <p className="text-text-light">Loading healers…</p>}
+
+          {healers && healers.length > 0 && (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <DataTable<AdminHealer>
+                  columns={healerColumns}
+                  data={healers}
+                  enableSorting={false}
+                  headerRowClassName="bg-background hover:bg-background"
+                  headCellClassName="font-semibold"
+                  rowClassName="hover:bg-background/50"
+                />
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3">
+                {healers.map((healer) => (
+                  <div key={healer.id} className="border border-border rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="font-semibold text-text text-sm truncate">{healer.fullName}</span>
+                      <HealerStatusBadge active={healer.active} />
+                    </div>
+                    <p className="text-xs text-text-light">{healer.email}</p>
+                    <p className="text-xs text-text-light">{healer.role}</p>
+                    <div className="mt-3">
+                      <HealerActions healer={healer} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => !open && setRemoveTarget(null)}
+        title="Remove healer?"
+        description={
+          removeTarget
+            ? `${removeTarget.fullName} will no longer be able to sign in. Their patients, cases, and PDFs are kept as-is.`
+            : undefined
+        }
+        confirmLabel="Confirm Remove"
+        cancelLabel="Cancel"
+        destructive
+        loading={removeHealer.isPending}
+        onConfirm={() => {
+          if (removeTarget) {
+            removeHealer.mutate(removeTarget.id, {
+              onSettled: () => setRemoveTarget(null),
+            });
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={revokeTarget !== null}

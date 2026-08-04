@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.common.security;
 
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -18,6 +19,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Contract tests proving the POST-CUTOVER JWT claim shape (Phase 26). Both
@@ -66,7 +69,9 @@ class JwtClaimShapeTest {
                 .compact();
 
         JwtService jwtService = new JwtService(TEST_SECRET, 3_600_000L, 604_800_000L);
-        JwtAuthFilter filter = new JwtAuthFilter(jwtService);
+        HealerCacheService healerCacheService = mock(HealerCacheService.class);
+        when(healerCacheService.isActive(healerId)).thenReturn(true);
+        JwtAuthFilter filter = new JwtAuthFilter(jwtService, healerCacheService);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(new Cookie("accessToken", tokenWithoutClinicIdClaim));

@@ -12,4 +12,6 @@ public interface HealerService {
     List<HealerResponse> getAllHealers();
 
     HealerResponse setActiveStatus(UUID healerId, boolean active);
+
+    void removeHealer(UUID healerId);
 }
