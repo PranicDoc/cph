@@ -10,6 +10,7 @@ import com.pranicdoc.cph.consent.model.Consent;
 import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.model.PolicyVersion;
 import com.pranicdoc.cph.consent.repository.ConsentRepository;
+import com.pranicdoc.cph.consent.repository.ConsentTypeRepository;
 import com.pranicdoc.cph.consent.repository.PolicyVersionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class ConsentService {
 
     private final ConsentRepository consentRepository;
     private final PolicyVersionRepository policyVersionRepository;
+    private final ConsentTypeRepository consentTypeRepository;
     private final SecurityContextUtil securityContextUtil;
 
     /**
@@ -114,6 +116,9 @@ public class ConsentService {
     @Auditable(action = "PUBLISH_POLICY_VERSION")
     @CacheEvict(value = "policy.active-version", key = "'all'")
     public PolicyVersionResponse publish(String consentType, MultipartFile file, String content, Boolean mandatory) {
+        consentTypeRepository.findByKeyAndActiveTrue(consentType)
+                .orElseThrow(() -> new ResourceNotFoundException("ConsentType", consentType));
+
         boolean hasFile = file != null && !file.isEmpty();
         boolean hasContent = StringUtils.isNotBlank(content);
 
@@ -171,9 +176,8 @@ public class ConsentService {
     @Transactional(readOnly = true)
     public List<PolicyVersionResponse> activePolicyVersions() {
         List<PolicyVersionResponse> active = new ArrayList<>();
-        // TODO(31.1-02): replace enum iteration with consentTypeRepository.findAllByActiveTrueOrderByIdAsc()
-        for (ConsentType type : ConsentType.values()) {
-            String key = type.name();
+        for (ConsentType type : consentTypeRepository.findAllByActiveTrueOrderByIdAsc()) {
+            String key = type.getKey();
             policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key)
                     .ifPresent(current -> active.add(toPolicyResponse(current)));
         }
@@ -186,17 +190,26 @@ public class ConsentService {
      * withdrew (D-08 supersession: accepted.policyVersion < current.policyVersion).
      * Non-mandatory policies never gate. Resolves the subject internally
      * (T-30-07, BOLA — never accepts a caller-supplied subjectId).
+     *
+     * <p>Mandatoriness is type-level (CONSENT-10, Pitfall 1): the gate reads
+     * {@code ConsentType.isMandatory()} from the registry row, never
+     * {@code PolicyVersion.mandatory} — the version-level flag is vestigial
+     * for gating purposes as of this method. The loop only ever iterates
+     * the registry's active rows, so a deactivated type is excluded for
+     * free; no separate {@code active} check is needed here.
      */
     @Transactional(readOnly = true)
     public List<PolicyVersionResponse> outstandingConsents() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         List<PolicyVersionResponse> outstanding = new ArrayList<>();
 
-        // TODO(31.1-02): replace enum iteration with consentTypeRepository.findAllByActiveTrueOrderByIdAsc()
-        for (ConsentType type : ConsentType.values()) {
-            String key = type.name();
+        for (ConsentType type : consentTypeRepository.findAllByActiveTrueOrderByIdAsc()) {
+            if (!type.isMandatory()) {
+                continue;
+            }
+            String key = type.getKey();
             Optional<PolicyVersion> currentOpt = policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key);
-            if (currentOpt.isEmpty() || !currentOpt.get().isMandatory()) {
+            if (currentOpt.isEmpty()) {
                 continue;
             }
             PolicyVersion current = currentOpt.get();

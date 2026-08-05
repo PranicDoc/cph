@@ -41,7 +41,7 @@ public class Consent extends BaseEntity {
     @Column(name = "subject_id", nullable = false)
     private UUID subjectId; // in practice, healer.id
 
-    @Column(name = "consent_type", nullable = false, length = 40)
+    @Column(name = "consent_type", nullable = false, length = 60)
     private String consentType;
 
     @Column(name = "policy_version", nullable = false)

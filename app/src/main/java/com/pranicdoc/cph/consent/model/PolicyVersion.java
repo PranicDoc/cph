@@ -23,7 +23,7 @@ import java.util.UUID;
 @Audited
 public class PolicyVersion extends BaseEntity {
 
-    @Column(name = "consent_type", nullable = false, length = 40)
+    @Column(name = "consent_type", nullable = false, length = 60)
     private String consentType;
 
     @Column(name = "policy_version", nullable = false)
