@@ -7,7 +7,6 @@ import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
 import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
 import com.pranicdoc.cph.consent.model.Consent;
-import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.model.PolicyVersion;
 import com.pranicdoc.cph.consent.repository.ConsentRepository;
 import com.pranicdoc.cph.consent.repository.PolicyVersionRepository;
@@ -40,6 +39,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ConsentServiceTest {
 
+    private static final List<String> SEEDED_KEYS = List.of(
+            "TERMS_AND_CONDITIONS", "PRIVACY_POLICY", "MEDICAL_DISCLAIMER", "PRACTITIONER_AGREEMENT");
+
     @Mock private ConsentRepository consentRepository;
     @Mock private PolicyVersionRepository policyVersionRepository;
     @Mock private SecurityContextUtil securityContextUtil;
@@ -59,9 +61,9 @@ class ConsentServiceTest {
     @Test
     void accept_versionExists_savesServerCapturedConsentAndReturnsResponse() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findByConsentTypeAndPolicyVersion(ConsentType.PRIVACY_POLICY, 1))
+        when(policyVersionRepository.findByConsentTypeAndPolicyVersion("PRIVACY_POLICY", 1))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRIVACY_POLICY)
+                        .consentType("PRIVACY_POLICY")
                         .policyVersion(1)
                         .mandatory(true)
                         .effectiveDate(Instant.now())
@@ -77,30 +79,30 @@ class ConsentServiceTest {
             return c;
         });
 
-        ConsentAcceptRequest request = new ConsentAcceptRequest(ConsentType.PRIVACY_POLICY, 1);
+        ConsentAcceptRequest request = new ConsentAcceptRequest("PRIVACY_POLICY", 1);
         ConsentResponse response = consentService.accept(request, httpRequest);
 
         Consent saved = captor.getValue();
         assertEquals("HEALER", saved.getSubjectType());
         assertEquals(healerId, saved.getSubjectId());
         assertEquals(healerId, saved.getAcceptedBy());
-        assertEquals(ConsentType.PRIVACY_POLICY, saved.getConsentType());
+        assertEquals("PRIVACY_POLICY", saved.getConsentType());
         assertEquals(1, saved.getPolicyVersion());
         assertNotNull(saved.getAcceptedAt());
         assertEquals("CLICKWRAP", saved.getMethod());
         assertNull(saved.getWithdrawnAt());
 
-        assertEquals(ConsentType.PRIVACY_POLICY, response.consentType());
+        assertEquals("PRIVACY_POLICY", response.consentType());
         assertEquals(1, response.policyVersion());
     }
 
     @Test
     void accept_versionDoesNotExist_throwsAndSavesNothing() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findByConsentTypeAndPolicyVersion(ConsentType.PRIVACY_POLICY, 99))
+        when(policyVersionRepository.findByConsentTypeAndPolicyVersion("PRIVACY_POLICY", 99))
                 .thenReturn(Optional.empty());
 
-        ConsentAcceptRequest request = new ConsentAcceptRequest(ConsentType.PRIVACY_POLICY, 99);
+        ConsentAcceptRequest request = new ConsentAcceptRequest("PRIVACY_POLICY", 99);
 
         assertThrows(ResourceNotFoundException.class, () -> consentService.accept(request, httpRequest));
         verify(consentRepository, never()).save(any());
@@ -109,9 +111,9 @@ class ConsentServiceTest {
     @Test
     void accept_metadataSource_userAgentAndLanguageComeFromHeadersNotDto() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findByConsentTypeAndPolicyVersion(ConsentType.PRIVACY_POLICY, 1))
+        when(policyVersionRepository.findByConsentTypeAndPolicyVersion("PRIVACY_POLICY", 1))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRIVACY_POLICY)
+                        .consentType("PRIVACY_POLICY")
                         .policyVersion(1)
                         .mandatory(true)
                         .effectiveDate(Instant.now())
@@ -127,7 +129,7 @@ class ConsentServiceTest {
             return c;
         });
 
-        consentService.accept(new ConsentAcceptRequest(ConsentType.PRIVACY_POLICY, 1), httpRequest);
+        consentService.accept(new ConsentAcceptRequest("PRIVACY_POLICY", 1), httpRequest);
 
         Consent saved = captor.getValue();
         assertEquals("Mozilla/5.0 TestBrowser", saved.getUserAgent());
@@ -140,9 +142,9 @@ class ConsentServiceTest {
         // language, but the saved Consent row (the AuditLog.entityId join target) carries
         // all three, so the full request metadata stays recoverable.
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findByConsentTypeAndPolicyVersion(ConsentType.MEDICAL_DISCLAIMER, 1))
+        when(policyVersionRepository.findByConsentTypeAndPolicyVersion("MEDICAL_DISCLAIMER", 1))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.MEDICAL_DISCLAIMER)
+                        .consentType("MEDICAL_DISCLAIMER")
                         .policyVersion(1)
                         .mandatory(true)
                         .effectiveDate(Instant.now())
@@ -157,7 +159,7 @@ class ConsentServiceTest {
             return c;
         });
 
-        consentService.accept(new ConsentAcceptRequest(ConsentType.MEDICAL_DISCLAIMER, 1), httpRequest);
+        consentService.accept(new ConsentAcceptRequest("MEDICAL_DISCLAIMER", 1), httpRequest);
 
         Consent saved = captor.getValue();
         assertEquals("10.0.0.1", saved.getIpAddress());
@@ -174,7 +176,7 @@ class ConsentServiceTest {
                 .subjectType("HEALER")
                 .subjectId(healerId)
                 .acceptedBy(healerId)
-                .consentType(ConsentType.TERMS_AND_CONDITIONS)
+                .consentType("TERMS_AND_CONDITIONS")
                 .policyVersion(1)
                 .acceptedAt(Instant.now())
                 .method("CLICKWRAP")
@@ -199,7 +201,7 @@ class ConsentServiceTest {
                 .subjectType("HEALER")
                 .subjectId(otherHealerId)
                 .acceptedBy(otherHealerId)
-                .consentType(ConsentType.TERMS_AND_CONDITIONS)
+                .consentType("TERMS_AND_CONDITIONS")
                 .policyVersion(1)
                 .acceptedAt(Instant.now())
                 .method("CLICKWRAP")
@@ -229,14 +231,14 @@ class ConsentServiceTest {
 
         Consent superseded = Consent.builder()
                 .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
-                .consentType(ConsentType.PRIVACY_POLICY).policyVersion(1)
+                .consentType("PRIVACY_POLICY").policyVersion(1)
                 .acceptedAt(Instant.now().minusSeconds(3600)).method("CLICKWRAP")
                 .build();
         superseded.setId(UUID.randomUUID());
 
         Consent withdrawn = Consent.builder()
                 .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
-                .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                .consentType("TERMS_AND_CONDITIONS").policyVersion(1)
                 .acceptedAt(Instant.now().minusSeconds(7200)).withdrawnAt(Instant.now())
                 .method("CLICKWRAP")
                 .build();
@@ -256,24 +258,24 @@ class ConsentServiceTest {
 
     @Test
     void activePolicyVersions_returnsLatestPerType_omitsTypesWithNoPolicyVersion() {
-        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.empty());
-        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+        lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.empty());
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(3)
+                        .consentType("PRIVACY_POLICY").policyVersion(3)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                        .consentType("TERMS_AND_CONDITIONS").policyVersion(1)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
 
         List<PolicyVersionResponse> result = consentService.activePolicyVersions();
 
         assertEquals(2, result.size());
-        assertTrue(result.stream().anyMatch(r -> r.consentType() == ConsentType.PRIVACY_POLICY && r.policyVersion() == 3));
-        assertTrue(result.stream().anyMatch(r -> r.consentType() == ConsentType.TERMS_AND_CONDITIONS && r.policyVersion() == 1));
+        assertTrue(result.stream().anyMatch(r -> "PRIVACY_POLICY".equals(r.consentType()) && r.policyVersion() == 3));
+        assertTrue(result.stream().anyMatch(r -> "TERMS_AND_CONDITIONS".equals(r.consentType()) && r.policyVersion() == 1));
     }
 
     // --- outstandingConsents ---
@@ -281,36 +283,36 @@ class ConsentServiceTest {
     @Test
     void outstanding_neverAccepted_returnsCurrentMandatoryVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        stubNoCurrentPolicyExcept(ConsentType.PRIVACY_POLICY);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+        stubNoCurrentPolicyExcept("PRIVACY_POLICY");
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
+                        .consentType("PRIVACY_POLICY").policyVersion(2)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
         when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
-                healerId, ConsentType.PRIVACY_POLICY)).thenReturn(Optional.empty());
+                healerId, "PRIVACY_POLICY")).thenReturn(Optional.empty());
 
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
         assertEquals(1, result.size());
-        assertEquals(ConsentType.PRIVACY_POLICY, result.get(0).consentType());
+        assertEquals("PRIVACY_POLICY", result.get(0).consentType());
         assertEquals(2, result.get(0).policyVersion());
     }
 
     @Test
     void outstanding_superseded_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        stubNoCurrentPolicyExcept(ConsentType.PRIVACY_POLICY);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+        stubNoCurrentPolicyExcept("PRIVACY_POLICY");
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRIVACY_POLICY).policyVersion(2)
+                        .consentType("PRIVACY_POLICY").policyVersion(2)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
         Consent acceptedV1 = Consent.builder()
                 .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
-                .consentType(ConsentType.PRIVACY_POLICY).policyVersion(1)
+                .consentType("PRIVACY_POLICY").policyVersion(1)
                 .acceptedAt(Instant.now()).method("CLICKWRAP").build();
         acceptedV1.setId(UUID.randomUUID());
         when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
-                healerId, ConsentType.PRIVACY_POLICY)).thenReturn(Optional.of(acceptedV1));
+                healerId, "PRIVACY_POLICY")).thenReturn(Optional.of(acceptedV1));
 
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
@@ -321,54 +323,54 @@ class ConsentServiceTest {
     @Test
     void outstanding_withdrawnOnly_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        stubNoCurrentPolicyExcept(ConsentType.MEDICAL_DISCLAIMER);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+        stubNoCurrentPolicyExcept("MEDICAL_DISCLAIMER");
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.MEDICAL_DISCLAIMER).policyVersion(1)
+                        .consentType("MEDICAL_DISCLAIMER").policyVersion(1)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
         // healer accepted v1 then withdrew it -> the WithdrawnAtIsNull query returns empty
         when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
-                healerId, ConsentType.MEDICAL_DISCLAIMER)).thenReturn(Optional.empty());
+                healerId, "MEDICAL_DISCLAIMER")).thenReturn(Optional.empty());
 
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
         assertEquals(1, result.size());
-        assertEquals(ConsentType.MEDICAL_DISCLAIMER, result.get(0).consentType());
+        assertEquals("MEDICAL_DISCLAIMER", result.get(0).consentType());
     }
 
     @Test
     void outstanding_satisfied_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        stubNoCurrentPolicyExcept(ConsentType.TERMS_AND_CONDITIONS);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+        stubNoCurrentPolicyExcept("TERMS_AND_CONDITIONS");
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                        .consentType("TERMS_AND_CONDITIONS").policyVersion(1)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
         Consent acceptedV1 = Consent.builder()
                 .subjectType("HEALER").subjectId(healerId).acceptedBy(healerId)
-                .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(1)
+                .consentType("TERMS_AND_CONDITIONS").policyVersion(1)
                 .acceptedAt(Instant.now()).method("CLICKWRAP").build();
         acceptedV1.setId(UUID.randomUUID());
         when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
-                healerId, ConsentType.TERMS_AND_CONDITIONS)).thenReturn(Optional.of(acceptedV1));
+                healerId, "TERMS_AND_CONDITIONS")).thenReturn(Optional.of(acceptedV1));
 
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
-        assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.TERMS_AND_CONDITIONS));
+        assertTrue(result.stream().noneMatch(r -> "TERMS_AND_CONDITIONS".equals(r.consentType())));
     }
 
     @Test
     void outstanding_nonMandatory_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        stubNoCurrentPolicyExcept(ConsentType.PRACTITIONER_AGREEMENT);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+        stubNoCurrentPolicyExcept("PRACTITIONER_AGREEMENT");
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.PRACTITIONER_AGREEMENT).policyVersion(1)
+                        .consentType("PRACTITIONER_AGREEMENT").policyVersion(1)
                         .mandatory(false).effectiveDate(Instant.now()).build()));
 
         List<PolicyVersionResponse> result = consentService.outstandingConsents();
 
-        assertTrue(result.stream().noneMatch(r -> r.consentType() == ConsentType.PRACTITIONER_AGREEMENT));
+        assertTrue(result.stream().noneMatch(r -> "PRACTITIONER_AGREEMENT".equals(r.consentType())));
     }
 
     // --- publish ---
@@ -376,7 +378,7 @@ class ConsentServiceTest {
     @Test
     void publish_pastedText_noPriorVersion_savesVersion1() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
         when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
@@ -386,14 +388,14 @@ class ConsentServiceTest {
         });
 
         PolicyVersionResponse response = consentService.publish(
-                ConsentType.PRIVACY_POLICY, null, "Pasted policy content", true);
+                "PRIVACY_POLICY", null, "Pasted policy content", true);
 
         PolicyVersion saved = captor.getValue();
         assertEquals(1, saved.getPolicyVersion());
         assertEquals("Pasted policy content", saved.getContent());
         assertEquals(healerId, saved.getPublisherId());
         assertNotNull(saved.getEffectiveDate());
-        assertEquals(ConsentType.PRIVACY_POLICY, response.consentType());
+        assertEquals("PRIVACY_POLICY", response.consentType());
         assertEquals(1, response.policyVersion());
         assertEquals("Pasted policy content", response.content());
         assertEquals(healerId, response.publisherId());
@@ -402,9 +404,9 @@ class ConsentServiceTest {
     @Test
     void publish_pastedText_priorVersion3Exists_savesVersion4() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.TERMS_AND_CONDITIONS))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
-                        .consentType(ConsentType.TERMS_AND_CONDITIONS).policyVersion(3)
+                        .consentType("TERMS_AND_CONDITIONS").policyVersion(3)
                         .mandatory(true).effectiveDate(Instant.now()).build()));
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
         when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
@@ -413,7 +415,7 @@ class ConsentServiceTest {
             return p;
         });
 
-        consentService.publish(ConsentType.TERMS_AND_CONDITIONS, null, "Updated T&C", true);
+        consentService.publish("TERMS_AND_CONDITIONS", null, "Updated T&C", true);
 
         assertEquals(4, captor.getValue().getPolicyVersion());
     }
@@ -421,7 +423,7 @@ class ConsentServiceTest {
     @Test
     void publish_uploadedFile_noPastedText_savesFileBytesDecodedAsUtf8() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.MEDICAL_DISCLAIMER))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.empty());
         String multiByteContent = "Café ☃ policy text"; // accented char + snowman, proves explicit UTF-8
         MockMultipartFile file = new MockMultipartFile("file", "policy.txt", "text/plain",
@@ -433,7 +435,7 @@ class ConsentServiceTest {
             return p;
         });
 
-        consentService.publish(ConsentType.MEDICAL_DISCLAIMER, file, null, true);
+        consentService.publish("MEDICAL_DISCLAIMER", file, null, true);
 
         assertEquals(multiByteContent, captor.getValue().getContent());
     }
@@ -444,7 +446,7 @@ class ConsentServiceTest {
                 "content".getBytes(StandardCharsets.UTF_8));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> consentService.publish(ConsentType.PRIVACY_POLICY, file, "pasted text", true));
+                () -> consentService.publish("PRIVACY_POLICY", file, "pasted text", true));
 
         assertEquals("Provide either pasted text or a file, not both.", ex.getMessage());
         verify(policyVersionRepository, never()).save(any());
@@ -453,7 +455,7 @@ class ConsentServiceTest {
     @Test
     void publish_neitherFileNorContent_throwsAndNeverSaves() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> consentService.publish(ConsentType.PRIVACY_POLICY, null, null, true));
+                () -> consentService.publish("PRIVACY_POLICY", null, null, true));
 
         assertEquals("Provide either pasted text or a file.", ex.getMessage());
         verify(policyVersionRepository, never()).save(any());
@@ -464,7 +466,7 @@ class ConsentServiceTest {
         MockMultipartFile emptyFile = new MockMultipartFile("file", "policy.txt", "text/plain", new byte[0]);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> consentService.publish(ConsentType.PRIVACY_POLICY, emptyFile, "   ", true));
+                () -> consentService.publish("PRIVACY_POLICY", emptyFile, "   ", true));
 
         assertEquals("Provide either pasted text or a file.", ex.getMessage());
         verify(policyVersionRepository, never()).save(any());
@@ -473,7 +475,7 @@ class ConsentServiceTest {
     @Test
     void publish_mandatoryNull_savesMandatoryTrue() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
         when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
@@ -482,7 +484,7 @@ class ConsentServiceTest {
             return p;
         });
 
-        consentService.publish(ConsentType.PRACTITIONER_AGREEMENT, null, "Agreement text", null);
+        consentService.publish("PRACTITIONER_AGREEMENT", null, "Agreement text", null);
 
         assertTrue(captor.getValue().isMandatory());
     }
@@ -490,7 +492,7 @@ class ConsentServiceTest {
     @Test
     void publish_mandatoryFalse_savesMandatoryFalse() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRACTITIONER_AGREEMENT))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
         when(policyVersionRepository.save(captor.capture())).thenAnswer(inv -> {
@@ -499,7 +501,7 @@ class ConsentServiceTest {
             return p;
         });
 
-        consentService.publish(ConsentType.PRACTITIONER_AGREEMENT, null, "Agreement text", false);
+        consentService.publish("PRACTITIONER_AGREEMENT", null, "Agreement text", false);
 
         assertFalse(captor.getValue().isMandatory());
     }
@@ -508,25 +510,25 @@ class ConsentServiceTest {
 
     @Test
     void publish_termsAndConditions_savesCorrectType() {
-        assertPublishSavesType(ConsentType.TERMS_AND_CONDITIONS);
+        assertPublishSavesType("TERMS_AND_CONDITIONS");
     }
 
     @Test
     void publish_privacyPolicy_savesCorrectType() {
-        assertPublishSavesType(ConsentType.PRIVACY_POLICY);
+        assertPublishSavesType("PRIVACY_POLICY");
     }
 
     @Test
     void publish_medicalDisclaimer_savesCorrectType() {
-        assertPublishSavesType(ConsentType.MEDICAL_DISCLAIMER);
+        assertPublishSavesType("MEDICAL_DISCLAIMER");
     }
 
     @Test
     void publish_practitionerAgreement_savesCorrectType() {
-        assertPublishSavesType(ConsentType.PRACTITIONER_AGREEMENT);
+        assertPublishSavesType("PRACTITIONER_AGREEMENT");
     }
 
-    private void assertPublishSavesType(ConsentType type) {
+    private void assertPublishSavesType(String type) {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type))
                 .thenReturn(Optional.empty());
@@ -549,13 +551,13 @@ class ConsentServiceTest {
         // atomic backstop and Plan 02's GlobalExceptionHandler maps this to a 409 ProblemDetail
         // at the controller boundary. This test only proves publish() does not swallow it.
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(ConsentType.PRIVACY_POLICY))
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.empty());
         when(policyVersionRepository.save(any(PolicyVersion.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
         assertThrows(DataIntegrityViolationException.class,
-                () -> consentService.publish(ConsentType.PRIVACY_POLICY, null, "content", true));
+                () -> consentService.publish("PRIVACY_POLICY", null, "content", true));
     }
 
     // --- publish: annotation contract assertions (D-10/D-11/AUDIT-03) ---
@@ -566,7 +568,7 @@ class ConsentServiceTest {
     @Test
     void publish_isAuditedWithPublishPolicyVersionAction() throws NoSuchMethodException {
         Method method = ConsentService.class.getMethod(
-                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+                "publish", String.class, MultipartFile.class, String.class, Boolean.class);
 
         Auditable auditable = method.getAnnotation(Auditable.class);
 
@@ -577,7 +579,7 @@ class ConsentServiceTest {
     @Test
     void publish_evictsPolicyActiveVersionCacheWithMatchingKey() throws NoSuchMethodException {
         Method publishMethod = ConsentService.class.getMethod(
-                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+                "publish", String.class, MultipartFile.class, String.class, Boolean.class);
         Method activeVersionsMethod = ConsentService.class.getMethod("activePolicyVersions");
 
         CacheEvict cacheEvict = publishMethod.getAnnotation(CacheEvict.class);
@@ -592,7 +594,7 @@ class ConsentServiceTest {
     @Test
     void publish_cacheEvictDoesNotFlushEntireRegion() throws NoSuchMethodException {
         Method method = ConsentService.class.getMethod(
-                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+                "publish", String.class, MultipartFile.class, String.class, Boolean.class);
 
         CacheEvict cacheEvict = method.getAnnotation(CacheEvict.class);
 
@@ -600,18 +602,18 @@ class ConsentServiceTest {
     }
 
     /**
-     * outstandingConsents() iterates ConsentType.values() and calls
-     * findTopByConsentTypeOrderByPolicyVersionDesc for every type. Under
+     * outstandingConsents() iterates the seeded consent-type keys and calls
+     * findTopByConsentTypeOrderByPolicyVersionDesc for every key. Under
      * Mockito's strict stubs, once ANY stubbing exists for that method,
-     * an invocation with a different (unstubbed) type throws
+     * an invocation with a different (unstubbed) key throws
      * PotentialStubbingProblem rather than silently returning empty — so
-     * every type besides the one under test must be explicitly stubbed
+     * every key besides the one under test must be explicitly stubbed
      * to Optional.empty() (no current policy version -> not outstanding).
      */
-    private void stubNoCurrentPolicyExcept(ConsentType typeUnderTest) {
-        for (ConsentType type : ConsentType.values()) {
-            if (type != typeUnderTest) {
-                lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type))
+    private void stubNoCurrentPolicyExcept(String keyUnderTest) {
+        for (String key : SEEDED_KEYS) {
+            if (!key.equals(keyUnderTest)) {
+                lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key))
                         .thenReturn(Optional.empty());
             }
         }

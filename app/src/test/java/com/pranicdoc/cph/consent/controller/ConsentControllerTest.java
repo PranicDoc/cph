@@ -5,7 +5,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
 import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
-import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.service.ConsentService;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import jakarta.servlet.http.HttpServletRequest;
@@ -94,7 +93,7 @@ class ConsentControllerTest {
         verify(consentService).accept(captor.capture(), any(HttpServletRequest.class));
 
         ConsentAcceptRequest captured = captor.getValue();
-        assertThat(captured.consentType()).isEqualTo(ConsentType.PRIVACY_POLICY);
+        assertThat(captured.consentType()).isEqualTo("PRIVACY_POLICY");
         assertThat(captured.policyVersion()).isEqualTo(1);
         // ConsentAcceptRequest structurally has no ipAddress/userAgent/language accessors —
         // the extra JSON fields above were silently dropped by Jackson at bind time.
@@ -168,7 +167,7 @@ class ConsentControllerTest {
     @Test
     void publish_pastedTextMode_returns201AndDelegatesWithNullFile() throws Exception {
         PolicyVersionResponse response = samplePolicyVersionResponse();
-        when(consentService.publish(any(ConsentType.class), any(), anyString(), any()))
+        when(consentService.publish(anyString(), any(), anyString(), any()))
                 .thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/consents/policy-versions")
@@ -176,12 +175,12 @@ class ConsentControllerTest {
                         .param("content", "Sample pasted policy text."))
                 .andExpect(status().isCreated());
 
-        ArgumentCaptor<ConsentType> typeCaptor = ArgumentCaptor.forClass(ConsentType.class);
+        ArgumentCaptor<String> typeCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MultipartFile> fileCaptor = ArgumentCaptor.forClass(MultipartFile.class);
         ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
         verify(consentService).publish(typeCaptor.capture(), fileCaptor.capture(), contentCaptor.capture(), any());
 
-        assertThat(typeCaptor.getValue()).isEqualTo(ConsentType.PRIVACY_POLICY);
+        assertThat(typeCaptor.getValue()).isEqualTo("PRIVACY_POLICY");
         assertThat(fileCaptor.getValue()).isNull();
         assertThat(contentCaptor.getValue()).isEqualTo("Sample pasted policy text.");
     }
@@ -189,7 +188,7 @@ class ConsentControllerTest {
     @Test
     void publish_fileUploadMode_returns201AndDelegatesWithNullContent() throws Exception {
         PolicyVersionResponse response = samplePolicyVersionResponse();
-        when(consentService.publish(any(ConsentType.class), any(), any(), any()))
+        when(consentService.publish(anyString(), any(), any(), any()))
                 .thenReturn(response);
 
         byte[] fileBytes = "Uploaded policy document content.".getBytes(StandardCharsets.UTF_8);
@@ -202,7 +201,7 @@ class ConsentControllerTest {
 
         ArgumentCaptor<MultipartFile> fileCaptor = ArgumentCaptor.forClass(MultipartFile.class);
         ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
-        verify(consentService).publish(eq(ConsentType.TERMS_AND_CONDITIONS), fileCaptor.capture(), contentCaptor.capture(), any());
+        verify(consentService).publish(eq("TERMS_AND_CONDITIONS"), fileCaptor.capture(), contentCaptor.capture(), any());
 
         assertThat(fileCaptor.getValue()).isNotNull();
         assertThat(fileCaptor.getValue().getBytes()).isEqualTo(fileBytes);
@@ -212,7 +211,7 @@ class ConsentControllerTest {
     @Test
     void publish_returns201WithFullSevenFieldResponseBody() throws Exception {
         PolicyVersionResponse response = samplePolicyVersionResponse();
-        when(consentService.publish(any(ConsentType.class), any(), anyString(), any()))
+        when(consentService.publish(anyString(), any(), anyString(), any()))
                 .thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/consents/policy-versions")
@@ -220,7 +219,7 @@ class ConsentControllerTest {
                         .param("content", "Sample pasted policy text."))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(response.id().toString()))
-                .andExpect(jsonPath("$.consentType").value(response.consentType().name()))
+                .andExpect(jsonPath("$.consentType").value(response.consentType()))
                 .andExpect(jsonPath("$.policyVersion").value(response.policyVersion()))
                 .andExpect(jsonPath("$.mandatory").value(response.mandatory()))
                 .andExpect(jsonPath("$.effectiveDate").exists())
@@ -233,7 +232,7 @@ class ConsentControllerTest {
 
     @Test
     void publish_bothFileAndContentProvided_returns400WithExactDetail() throws Exception {
-        when(consentService.publish(any(ConsentType.class), any(), any(), any()))
+        when(consentService.publish(anyString(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Provide either pasted text or a file, not both."));
 
         MockMultipartFile file = new MockMultipartFile("file", "policy.md", "text/markdown", "content".getBytes(StandardCharsets.UTF_8));
@@ -248,7 +247,7 @@ class ConsentControllerTest {
 
     @Test
     void publish_neitherFileNorContentProvided_returns400() throws Exception {
-        when(consentService.publish(any(ConsentType.class), any(), any(), any()))
+        when(consentService.publish(anyString(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Provide either pasted text or a file."));
 
         mockMvc.perform(multipart("/api/v1/consents/policy-versions")
@@ -274,7 +273,7 @@ class ConsentControllerTest {
     @Test
     void publish_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
         Method publishMethod = ConsentController.class.getMethod(
-                "publish", ConsentType.class, MultipartFile.class, String.class, Boolean.class);
+                "publish", String.class, MultipartFile.class, String.class, Boolean.class);
 
         PreAuthorize preAuthorize = publishMethod.getAnnotation(PreAuthorize.class);
 
@@ -284,13 +283,13 @@ class ConsentControllerTest {
 
     private static ConsentResponse sampleConsentResponse() {
         return new ConsentResponse(
-                UUID.randomUUID(), UUID.randomUUID(), ConsentType.PRIVACY_POLICY, 1,
+                UUID.randomUUID(), UUID.randomUUID(), "PRIVACY_POLICY", 1,
                 Instant.now(), null, "CLICKWRAP");
     }
 
     private static PolicyVersionResponse samplePolicyVersionResponse() {
         return new PolicyVersionResponse(
-                UUID.randomUUID(), ConsentType.PRIVACY_POLICY, 1, true, Instant.now(),
+                UUID.randomUUID(), "PRIVACY_POLICY", 1, true, Instant.now(),
                 "Sample policy content.", UUID.randomUUID());
     }
 }
