@@ -23,9 +23,8 @@ import java.util.UUID;
 @Audited
 public class PolicyVersion extends BaseEntity {
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "consent_type", nullable = false, length = 40)
-    private ConsentType consentType;
+    private String consentType;
 
     @Column(name = "policy_version", nullable = false)
     private int policyVersion; // D-08: integer sequence per consentType

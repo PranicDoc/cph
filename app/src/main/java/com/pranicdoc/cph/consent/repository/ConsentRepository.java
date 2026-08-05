@@ -1,7 +1,6 @@
 package com.pranicdoc.cph.consent.repository;
 
 import com.pranicdoc.cph.consent.model.Consent;
-import com.pranicdoc.cph.consent.model.ConsentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -21,5 +20,5 @@ public interface ConsentRepository extends JpaRepository<Consent, UUID> {
      * record must not count as a held consent.
      */
     Optional<Consent> findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
-            UUID subjectId, ConsentType consentType);
+            UUID subjectId, String consentType);
 }

@@ -41,9 +41,8 @@ public class Consent extends BaseEntity {
     @Column(name = "subject_id", nullable = false)
     private UUID subjectId; // in practice, healer.id
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "consent_type", nullable = false, length = 40)
-    private ConsentType consentType;
+    private String consentType;
 
     @Column(name = "policy_version", nullable = false)
     private int policyVersion; // D-08: simple integer sequence per consentType

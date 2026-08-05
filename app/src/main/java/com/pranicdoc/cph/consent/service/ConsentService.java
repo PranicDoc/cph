@@ -113,7 +113,7 @@ public class ConsentService {
      */
     @Auditable(action = "PUBLISH_POLICY_VERSION")
     @CacheEvict(value = "policy.active-version", key = "'all'")
-    public PolicyVersionResponse publish(ConsentType consentType, MultipartFile file, String content, Boolean mandatory) {
+    public PolicyVersionResponse publish(String consentType, MultipartFile file, String content, Boolean mandatory) {
         boolean hasFile = file != null && !file.isEmpty();
         boolean hasContent = StringUtils.isNotBlank(content);
 
@@ -171,8 +171,10 @@ public class ConsentService {
     @Transactional(readOnly = true)
     public List<PolicyVersionResponse> activePolicyVersions() {
         List<PolicyVersionResponse> active = new ArrayList<>();
+        // TODO(31.1-02): replace enum iteration with consentTypeRepository.findAllByActiveTrueOrderByIdAsc()
         for (ConsentType type : ConsentType.values()) {
-            policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type)
+            String key = type.name();
+            policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key)
                     .ifPresent(current -> active.add(toPolicyResponse(current)));
         }
         return active;
@@ -190,15 +192,17 @@ public class ConsentService {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         List<PolicyVersionResponse> outstanding = new ArrayList<>();
 
+        // TODO(31.1-02): replace enum iteration with consentTypeRepository.findAllByActiveTrueOrderByIdAsc()
         for (ConsentType type : ConsentType.values()) {
-            Optional<PolicyVersion> currentOpt = policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type);
+            String key = type.name();
+            Optional<PolicyVersion> currentOpt = policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key);
             if (currentOpt.isEmpty() || !currentOpt.get().isMandatory()) {
                 continue;
             }
             PolicyVersion current = currentOpt.get();
 
             Optional<Consent> acceptedOpt = consentRepository
-                    .findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(healerId, type);
+                    .findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(healerId, key);
 
             boolean isOutstanding = acceptedOpt.isEmpty()
                     || acceptedOpt.get().getPolicyVersion() < current.getPolicyVersion();

@@ -3,7 +3,6 @@ package com.pranicdoc.cph.consent.controller;
 import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
 import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
-import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.service.ConsentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -59,7 +58,9 @@ public class ConsentController {
     @PostMapping(value = "/policy-versions", consumes = "multipart/form-data")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
     public ResponseEntity<PolicyVersionResponse> publish(
-            @RequestParam("consentType") ConsentType consentType,
+            // Unknown-key rejection moved from Spring's enum converter to the service-layer
+            // registry check landing in 31.1-02 (T-31.1-02).
+            @RequestParam("consentType") String consentType,
             @RequestPart(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "mandatory", required = false) Boolean mandatory) {

@@ -1,7 +1,5 @@
 package com.pranicdoc.cph.consent.dto;
 
-import com.pranicdoc.cph.consent.model.ConsentType;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,7 +12,7 @@ import java.util.UUID;
 public record ConsentResponse(
         UUID id,
         UUID subjectId,
-        ConsentType consentType,
+        String consentType,
         int policyVersion,
         Instant acceptedAt,
         Instant withdrawnAt,
