@@ -5,13 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../../context/AuthContext";
 import {
   useActivePolicyVersions,
   usePublishPolicyVersion,
   useConsentTypes,
   useCreateConsentType,
+  useToggleConsentTypeMandatory,
   type ConsentType,
+  type ConsentTypeResponse,
   type PolicyVersionResponse,
 } from "../../hooks/admin/useLegalDocuments";
 
@@ -180,6 +184,42 @@ function EmptyState() {
   );
 }
 
+// ── Per-type action row (D-04, D-07) ────────────────────────────────────────────
+
+function TypeActionRow({
+  type,
+  isSuperAdmin,
+}: {
+  type: ConsentTypeResponse;
+  isSuperAdmin: boolean;
+}) {
+  const toggleMandatory = useToggleConsentTypeMandatory();
+
+  const canManage = !type.systemDefined || isSuperAdmin;
+  if (!canManage) return null;
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+      <Switch
+        checked={type.mandatory}
+        onCheckedChange={(checked) =>
+          toggleMandatory.mutate({ id: type.id, value: checked })
+        }
+        disabled={toggleMandatory.isPending}
+      />
+      <div>
+        <Label className="text-sm text-text">Required at registration</Label>
+        {type.systemDefined && (
+          <p className="text-xs text-text-light mt-0.5">
+            This is one of the four original documents that gates account registration
+            (REG-02). This control is visible to super admins only.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Add Consent Form modal (D-03) ───────────────────────────────────────────────
 
 function AddConsentTypeModal({
@@ -245,6 +285,9 @@ function AddConsentTypeModal({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LegalDocumentsPage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPADM";
+
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
@@ -282,13 +325,18 @@ export default function LegalDocumentsPage() {
               variant="ghost"
               onClick={() => setSelectedKey(type.key)}
               className={cn(
-                "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent",
+                "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent gap-2",
                 activeKey === type.key
                   ? "border-b-primary text-primary hover:text-primary"
                   : "border-b-transparent text-text-light hover:text-text"
               )}
             >
-              {type.label}
+              <span>{type.label}</span>
+              {!type.systemDefined && (
+                <Badge variant="neutral" className="font-medium">
+                  {type.mandatory ? "Mandatory" : "Optional"}
+                </Badge>
+              )}
             </Button>
           ))}
         </div>
@@ -301,6 +349,10 @@ export default function LegalDocumentsPage() {
           Add Consent Form
         </Button>
       </div>
+
+      {!isLoading && !isError && activeConsentType && (
+        <TypeActionRow type={activeConsentType} isSuperAdmin={isSuperAdmin} />
+      )}
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
       {isError && <p className="text-red-500 text-sm">Failed to load active versions.</p>}
