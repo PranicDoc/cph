@@ -204,12 +204,9 @@ public class ConsentService {
         List<PolicyVersionResponse> outstanding = new ArrayList<>();
 
         for (ConsentType type : consentTypeRepository.findAllByActiveTrueOrderByIdAsc()) {
-            if (!type.isMandatory()) {
-                continue;
-            }
             String key = type.getKey();
             Optional<PolicyVersion> currentOpt = policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(key);
-            if (currentOpt.isEmpty()) {
+            if (currentOpt.isEmpty() || !type.isMandatory()) {
                 continue;
             }
             PolicyVersion current = currentOpt.get();

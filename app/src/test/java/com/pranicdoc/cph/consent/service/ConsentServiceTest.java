@@ -7,8 +7,10 @@ import com.pranicdoc.cph.consent.dto.ConsentAcceptRequest;
 import com.pranicdoc.cph.consent.dto.ConsentResponse;
 import com.pranicdoc.cph.consent.dto.PolicyVersionResponse;
 import com.pranicdoc.cph.consent.model.Consent;
+import com.pranicdoc.cph.consent.model.ConsentType;
 import com.pranicdoc.cph.consent.model.PolicyVersion;
 import com.pranicdoc.cph.consent.repository.ConsentRepository;
+import com.pranicdoc.cph.consent.repository.ConsentTypeRepository;
 import com.pranicdoc.cph.consent.repository.PolicyVersionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +46,7 @@ class ConsentServiceTest {
 
     @Mock private ConsentRepository consentRepository;
     @Mock private PolicyVersionRepository policyVersionRepository;
+    @Mock private ConsentTypeRepository consentTypeRepository;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private HttpServletRequest httpRequest;
 
@@ -258,6 +261,7 @@ class ConsentServiceTest {
 
     @Test
     void activePolicyVersions_returnsLatestPerType_omitsTypesWithNoPolicyVersion() {
+        stubActiveTypes(allSeededTypesMandatory());
         lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.empty());
         lenient().when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
@@ -283,6 +287,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_neverAccepted_returnsCurrentMandatoryVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(allSeededTypesMandatory());
         stubNoCurrentPolicyExcept("PRIVACY_POLICY");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
@@ -301,6 +306,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_superseded_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(allSeededTypesMandatory());
         stubNoCurrentPolicyExcept("PRIVACY_POLICY");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
@@ -323,6 +329,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_withdrawnOnly_returnsCurrentVersion() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(allSeededTypesMandatory());
         stubNoCurrentPolicyExcept("MEDICAL_DISCLAIMER");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
@@ -341,6 +348,7 @@ class ConsentServiceTest {
     @Test
     void outstanding_satisfied_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(allSeededTypesMandatory());
         stubNoCurrentPolicyExcept("TERMS_AND_CONDITIONS");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
@@ -359,9 +367,18 @@ class ConsentServiceTest {
         assertTrue(result.stream().noneMatch(r -> "TERMS_AND_CONDITIONS".equals(r.consentType())));
     }
 
+    // RENAMED from outstanding_nonMandatory_notInResult (31.1-02): mandatoriness is now
+    // a type-level (ConsentType.mandatory) decision, not a version-level (PolicyVersion.mandatory)
+    // one (Pitfall 1) - stubbing reworked to drive the type-level flag; the version-level flag is
+    // left mandatory=false too only to prove it is no longer what the gate reads.
     @Test
-    void outstanding_nonMandatory_notInResult() {
+    void outstanding_typeNotMandatory_notInResult() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(List.of(
+                typeFixture("TERMS_AND_CONDITIONS", true),
+                typeFixture("PRIVACY_POLICY", true),
+                typeFixture("MEDICAL_DISCLAIMER", true),
+                typeFixture("PRACTITIONER_AGREEMENT", false)));
         stubNoCurrentPolicyExcept("PRACTITIONER_AGREEMENT");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
@@ -378,6 +395,7 @@ class ConsentServiceTest {
     @Test
     void publish_pastedText_noPriorVersion_savesVersion1() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("PRIVACY_POLICY");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
@@ -404,6 +422,7 @@ class ConsentServiceTest {
     @Test
     void publish_pastedText_priorVersion3Exists_savesVersion4() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("TERMS_AND_CONDITIONS");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
                 .thenReturn(Optional.of(PolicyVersion.builder()
                         .consentType("TERMS_AND_CONDITIONS").policyVersion(3)
@@ -423,6 +442,7 @@ class ConsentServiceTest {
     @Test
     void publish_uploadedFile_noPastedText_savesFileBytesDecodedAsUtf8() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("MEDICAL_DISCLAIMER");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER"))
                 .thenReturn(Optional.empty());
         String multiByteContent = "Café ☃ policy text"; // accented char + snowman, proves explicit UTF-8
@@ -442,6 +462,7 @@ class ConsentServiceTest {
 
     @Test
     void publish_bothFileAndContent_throwsAndNeverSaves() {
+        stubExistingType("PRIVACY_POLICY");
         MockMultipartFile file = new MockMultipartFile("file", "policy.txt", "text/plain",
                 "content".getBytes(StandardCharsets.UTF_8));
 
@@ -454,6 +475,8 @@ class ConsentServiceTest {
 
     @Test
     void publish_neitherFileNorContent_throwsAndNeverSaves() {
+        stubExistingType("PRIVACY_POLICY");
+
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> consentService.publish("PRIVACY_POLICY", null, null, true));
 
@@ -463,6 +486,7 @@ class ConsentServiceTest {
 
     @Test
     void publish_emptyFileAndBlankContent_treatedAsNeither_throws() {
+        stubExistingType("PRIVACY_POLICY");
         MockMultipartFile emptyFile = new MockMultipartFile("file", "policy.txt", "text/plain", new byte[0]);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -475,6 +499,7 @@ class ConsentServiceTest {
     @Test
     void publish_mandatoryNull_savesMandatoryTrue() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("PRACTITIONER_AGREEMENT");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
@@ -492,6 +517,7 @@ class ConsentServiceTest {
     @Test
     void publish_mandatoryFalse_savesMandatoryFalse() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("PRACTITIONER_AGREEMENT");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
@@ -530,6 +556,7 @@ class ConsentServiceTest {
 
     private void assertPublishSavesType(String type) {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType(type);
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc(type))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<PolicyVersion> captor = ArgumentCaptor.forClass(PolicyVersion.class);
@@ -551,6 +578,7 @@ class ConsentServiceTest {
         // atomic backstop and Plan 02's GlobalExceptionHandler maps this to a 409 ProblemDetail
         // at the controller boundary. This test only proves publish() does not swallow it.
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubExistingType("PRIVACY_POLICY");
         when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
                 .thenReturn(Optional.empty());
         when(policyVersionRepository.save(any(PolicyVersion.class)))
@@ -617,5 +645,129 @@ class ConsentServiceTest {
                         .thenReturn(Optional.empty());
             }
         }
+    }
+
+    // --- ConsentType registry fixtures (31.1-02) ---
+
+    /** Builds a ConsentType fixture; active=true and systemDefined=true always, mandatory supplied by the caller. */
+    private ConsentType typeFixture(String key, boolean mandatory) {
+        return ConsentType.builder()
+                .key(key)
+                .label(key)
+                .mandatory(mandatory)
+                .active(true)
+                .systemDefined(true)
+                .build();
+    }
+
+    /** Stubs consentTypeRepository.findAllByActiveTrueOrderByIdAsc() with the supplied registry snapshot. */
+    private void stubActiveTypes(List<ConsentType> types) {
+        when(consentTypeRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(types);
+    }
+
+    /** All 4 seeded keys, mandatory=true - mirrors V27's actual seed data; the common case for existing tests. */
+    private List<ConsentType> allSeededTypesMandatory() {
+        return SEEDED_KEYS.stream().map(key -> typeFixture(key, true)).toList();
+    }
+
+    /** Stubs the publish() existence guard (T-31.1-02) so a publish test reaches its intended assertion instead of 404ing. */
+    private void stubExistingType(String key) {
+        when(consentTypeRepository.findByKeyAndActiveTrue(key)).thenReturn(Optional.of(typeFixture(key, true)));
+    }
+
+    // --- publish: consent-type existence guard (Pitfall 2 / T-31.1-02) ---
+
+    @Test
+    void publish_unknownConsentTypeKey_throwsAndNeverSaves() {
+        when(consentTypeRepository.findByKeyAndActiveTrue("NOT_A_REAL_KEY")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> consentService.publish("NOT_A_REAL_KEY", null, "text", null));
+        verify(policyVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publish_deactivatedConsentTypeKey_throwsAndNeverSaves() {
+        // D-02: a deactivated type's findByKeyAndActiveTrue also returns empty (the repository
+        // method filters on active) - same stubbing shape as the unknown-key case, distinct test
+        // documenting the deactivation intent specifically.
+        when(consentTypeRepository.findByKeyAndActiveTrue("PRIVACY_POLICY")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> consentService.publish("PRIVACY_POLICY", null, "text", null));
+        verify(policyVersionRepository, never()).save(any());
+    }
+
+    // --- outstandingConsents: Pitfall 1 mandatory-flag reconciliation ---
+
+    @Test
+    void outstandingConsents_typeMandatoryButVersionNotMandatory_isOutstanding() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(List.of(typeFixture("PRIVACY_POLICY", true)));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType("PRIVACY_POLICY").policyVersion(1)
+                        .mandatory(false).effectiveDate(Instant.now()).build()));
+        when(consentRepository.findTopBySubjectIdAndConsentTypeAndWithdrawnAtIsNullOrderByPolicyVersionDesc(
+                healerId, "PRIVACY_POLICY")).thenReturn(Optional.empty());
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertEquals(1, result.size());
+        assertEquals("PRIVACY_POLICY", result.get(0).consentType());
+    }
+
+    @Test
+    void outstandingConsents_typeNotMandatoryButVersionMandatory_isNotOutstanding() {
+        // Pitfall 1 inversion proof: ConsentType.mandatory=false, PolicyVersion.mandatory=true, a
+        // current version exists - this can only pass if the type-level flag is the one being read.
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(List.of(typeFixture("PRIVACY_POLICY", false)));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType("PRIVACY_POLICY").policyVersion(2)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertTrue(result.stream().noneMatch(r -> "PRIVACY_POLICY".equals(r.consentType())));
+    }
+
+    @Test
+    void outstandingConsents_deactivatedType_isNotOutstanding() {
+        // MEDICAL_DISCLAIMER is deliberately absent from the active-types stub, simulating
+        // deactivation - it should never even be queried against policyVersionRepository.
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubActiveTypes(List.of(typeFixture("PRIVACY_POLICY", true)));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
+                .thenReturn(Optional.empty());
+
+        List<PolicyVersionResponse> result = consentService.outstandingConsents();
+
+        assertTrue(result.stream().noneMatch(r -> "MEDICAL_DISCLAIMER".equals(r.consentType())));
+        verify(policyVersionRepository, never()).findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER");
+    }
+
+    // --- activePolicyVersions: registry-driven iteration ---
+
+    @Test
+    void activePolicyVersions_onlyIteratesActiveTypes() {
+        stubActiveTypes(List.of(typeFixture("TERMS_AND_CONDITIONS", true), typeFixture("PRIVACY_POLICY", true)));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("TERMS_AND_CONDITIONS"))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType("TERMS_AND_CONDITIONS").policyVersion(1)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+        when(policyVersionRepository.findTopByConsentTypeOrderByPolicyVersionDesc("PRIVACY_POLICY"))
+                .thenReturn(Optional.of(PolicyVersion.builder()
+                        .consentType("PRIVACY_POLICY").policyVersion(1)
+                        .mandatory(true).effectiveDate(Instant.now()).build()));
+
+        List<PolicyVersionResponse> result = consentService.activePolicyVersions();
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(r ->
+                "TERMS_AND_CONDITIONS".equals(r.consentType()) || "PRIVACY_POLICY".equals(r.consentType())));
+        verify(policyVersionRepository, never()).findTopByConsentTypeOrderByPolicyVersionDesc("MEDICAL_DISCLAIMER");
+        verify(policyVersionRepository, never()).findTopByConsentTypeOrderByPolicyVersionDesc("PRACTITIONER_AGREEMENT");
     }
 }
