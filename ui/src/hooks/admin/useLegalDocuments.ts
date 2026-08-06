@@ -5,11 +5,9 @@ import { extractDetail } from "../../lib/utils";
 
 // -- Interfaces -------------------------------------------------------------------------
 
-export type ConsentType =
-  | "TERMS_AND_CONDITIONS"
-  | "PRIVACY_POLICY"
-  | "MEDICAL_DISCLAIMER"
-  | "PRACTITIONER_AGREEMENT";
+// The key is now a runtime value sourced from the consent_type registry
+// (Phase 31.1), not a compile-time set — see ConsentTypeResponse below.
+export type ConsentType = string;
 
 export interface PolicyVersionResponse {
   id: string;
@@ -28,16 +26,30 @@ export interface PublishPolicyPayload {
   mandatory?: boolean;
 }
 
-export const CONSENT_TYPE_LABELS: Record<ConsentType, string> = {
+// removed in 31.1-05 Task 2
+export const CONSENT_TYPE_LABELS: Record<string, string> = {
   TERMS_AND_CONDITIONS: "Terms & Conditions",
   PRIVACY_POLICY: "Privacy Policy",
   MEDICAL_DISCLAIMER: "Medical Disclaimer",
   PRACTITIONER_AGREEMENT: "Practitioner Agreement",
 };
 
+export interface ConsentTypeResponse {
+  id: string;
+  key: string;
+  label: string;
+  mandatory: boolean;
+  active: boolean;
+  systemDefined: boolean;
+  createdAt: string;
+}
+
 // -- Query Keys -------------------------------------------------------------------------
 
 const POLICY_VERSIONS_QK = ["policy-versions", "active"] as const;
+const CONSENT_TYPES_QK = ["consent-types"] as const;
+const consentTypesKey = (includeInactive: boolean) =>
+  [...CONSENT_TYPES_QK, includeInactive] as const;
 
 // -- Active Policy Versions ---------------------------------------------------------------
 
@@ -70,13 +82,95 @@ export function usePublishPolicyVersion() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: POLICY_VERSIONS_QK });
-      toast.success(
-        `Version ${data.policyVersion} published for ${CONSENT_TYPE_LABELS[data.consentType]}.`
-      );
+      toast.success(`Version ${data.policyVersion} published for ${data.consentType}.`);
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to publish. Please try again.", {
         duration: 5000,
       }),
+  });
+}
+
+// -- Consent Types (registry) -------------------------------------------------------------
+
+export function useConsentTypes(includeInactive = false) {
+  return useQuery<ConsentTypeResponse[]>({
+    queryKey: consentTypesKey(includeInactive),
+    queryFn: () =>
+      api
+        .get("/api/v1/consents/types", { params: { includeInactive } })
+        .then((r) => r.data),
+  });
+}
+
+export function useCreateConsentType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { label: string }) =>
+      api
+        .post("/api/v1/consents/types", payload)
+        .then((r) => r.data as ConsentTypeResponse),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: CONSENT_TYPES_QK });
+      toast.success(`Consent form "${data.label}" created.`);
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to create consent form.", { duration: 5000 }),
+  });
+}
+
+export function useRenameConsentType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) =>
+      api
+        .patch(`/api/v1/consents/types/${id}/label`, { label })
+        .then((r) => r.data as ConsentTypeResponse),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CONSENT_TYPES_QK });
+      toast.success("Consent form renamed.");
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to rename consent form.", { duration: 5000 }),
+  });
+}
+
+export function useToggleConsentTypeMandatory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) =>
+      api
+        .patch(`/api/v1/consents/types/${id}/mandatory`, null, { params: { value } })
+        .then((r) => r.data as ConsentTypeResponse),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: CONSENT_TYPES_QK });
+      qc.invalidateQueries({ queryKey: POLICY_VERSIONS_QK });
+      toast.success(
+        data.mandatory
+          ? `"${data.label}" is now mandatory.`
+          : `"${data.label}" is now optional.`
+      );
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update consent form.", { duration: 5000 }),
+  });
+}
+
+export function useToggleConsentTypeActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) =>
+      api
+        .patch(`/api/v1/consents/types/${id}/active`, null, { params: { value } })
+        .then((r) => r.data as ConsentTypeResponse),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: CONSENT_TYPES_QK });
+      qc.invalidateQueries({ queryKey: POLICY_VERSIONS_QK });
+      toast.success(
+        data.active ? `"${data.label}" activated.` : `"${data.label}" deactivated.`
+      );
+    },
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update consent form.", { duration: 5000 }),
   });
 }
