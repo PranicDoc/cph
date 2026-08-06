@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import {
   useActivePolicyVersions,
   usePublishPolicyVersion,
-  CONSENT_TYPE_LABELS,
+  useConsentTypes,
+  useCreateConsentType,
   type ConsentType,
   type PolicyVersionResponse,
 } from "../../hooks/admin/useLegalDocuments";
@@ -41,9 +42,11 @@ type PublishMode = "paste" | "upload";
 
 function PublishModal({
   consentType,
+  label,
   onClose,
 }: {
   consentType: ConsentType;
+  label: string;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<PublishMode>("paste");
@@ -81,7 +84,7 @@ function PublishModal({
   };
 
   return (
-    <ModalShell title={`Publish New Version — ${CONSENT_TYPE_LABELS[consentType]}`} onClose={onClose}>
+    <ModalShell title={`Publish New Version — ${label}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           {(["paste", "upload"] as const).map((m) => (
@@ -177,56 +180,132 @@ function EmptyState() {
   );
 }
 
+// ── Add Consent Form modal (D-03) ───────────────────────────────────────────────
+
+function AddConsentTypeModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (key: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const create = useCreateConsentType();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const created = await create.mutateAsync({ label: name });
+      onCreated(created.key);
+      onClose();
+    } catch {
+      // error toast already shown by the hook; keep modal open with the entered text intact
+    }
+  };
+
+  return (
+    <ModalShell title="Add Consent Form" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label className="block text-xs text-text-light mb-1">Form name</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Photo Release Consent"
+            className="border px-3 py-2.5"
+            autoFocus
+          />
+          <p className="text-xs text-text-light mt-1">
+            The internal identifier is generated from the name automatically.
+          </p>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="submit"
+            disabled={create.isPending || !name.trim()}
+            className="flex-1 py-2 h-auto"
+          >
+            {create.isPending ? "Creating…" : "Add Consent Form"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="px-4 py-2 h-auto font-normal text-text"
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const CONSENT_TYPES: ConsentType[] = [
-  "TERMS_AND_CONDITIONS",
-  "PRIVACY_POLICY",
-  "MEDICAL_DISCLAIMER",
-  "PRACTITIONER_AGREEMENT",
-];
-
 export default function LegalDocumentsPage() {
-  const [activeTab, setActiveTab] = useState<ConsentType>("TERMS_AND_CONDITIONS");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
-  const { data, isLoading, isError } = useActivePolicyVersions();
+  const [showAddType, setShowAddType] = useState(false);
+  const {
+    data: types,
+    isLoading: typesLoading,
+    isError: typesError,
+  } = useConsentTypes();
+  const { data, isLoading: versionsLoading, isError: versionsError } = useActivePolicyVersions();
 
-  const entry = data?.find((d) => d.consentType === activeTab) ?? null;
+  const isLoading = typesLoading || versionsLoading;
+  const isError = typesError || versionsError;
+
+  const activeKey = selectedKey ?? types?.[0]?.key ?? null;
+  const activeConsentType = types?.find((t) => t.key === activeKey) ?? null;
+  const entry = data?.find((d) => d.consentType === activeKey) ?? null;
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-text">Legal Documents</h1>
         <p className="text-sm text-text-light mt-0.5">
-          Publish and manage versioned policy content for Terms & Conditions, Privacy
-          Policy, Medical Disclaimer, and Practitioner Agreement.
+          Publish and manage versioned policy content for every consent form in the
+          registry.
         </p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-border mb-6 overflow-x-auto">
-        {CONSENT_TYPES.map((type) => (
-          <Button
-            key={type}
-            type="button"
-            variant="ghost"
-            onClick={() => setActiveTab(type)}
-            className={cn(
-              "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent",
-              activeTab === type
-                ? "border-b-primary text-primary hover:text-primary"
-                : "border-b-transparent text-text-light hover:text-text"
-            )}
-          >
-            {CONSENT_TYPE_LABELS[type]}
-          </Button>
-        ))}
+      <div className="flex items-center justify-between border-b border-border mb-6">
+        <div className="flex overflow-x-auto">
+          {(types ?? []).map((type) => (
+            <Button
+              key={type.key}
+              type="button"
+              variant="ghost"
+              onClick={() => setSelectedKey(type.key)}
+              className={cn(
+                "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent",
+                activeKey === type.key
+                  ? "border-b-primary text-primary hover:text-primary"
+                  : "border-b-transparent text-text-light hover:text-text"
+              )}
+            >
+              {type.label}
+            </Button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowAddType(true)}
+          className="px-3 py-1.5 h-auto text-sm font-medium shrink-0 ml-2 mb-1"
+        >
+          Add Consent Form
+        </Button>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
       {isError && <p className="text-red-500 text-sm">Failed to load active versions.</p>}
 
-      {!isLoading && !isError && (
+      {!isLoading && !isError && activeConsentType && (
         <div className="space-y-4">
           {entry ? <ActiveVersionCard entry={entry} /> : <EmptyState />}
           <Button onClick={() => setShowPublish(true)} className="px-3 py-2 h-auto">
@@ -235,8 +314,19 @@ export default function LegalDocumentsPage() {
         </div>
       )}
 
-      {showPublish && (
-        <PublishModal consentType={activeTab} onClose={() => setShowPublish(false)} />
+      {showPublish && activeConsentType && (
+        <PublishModal
+          consentType={activeConsentType.key}
+          label={activeConsentType.label}
+          onClose={() => setShowPublish(false)}
+        />
+      )}
+
+      {showAddType && (
+        <AddConsentTypeModal
+          onClose={() => setShowAddType(false)}
+          onCreated={(key) => setSelectedKey(key)}
+        />
       )}
     </div>
   );

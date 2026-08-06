@@ -26,14 +26,6 @@ export interface PublishPolicyPayload {
   mandatory?: boolean;
 }
 
-// removed in 31.1-05 Task 2
-export const CONSENT_TYPE_LABELS: Record<string, string> = {
-  TERMS_AND_CONDITIONS: "Terms & Conditions",
-  PRIVACY_POLICY: "Privacy Policy",
-  MEDICAL_DISCLAIMER: "Medical Disclaimer",
-  PRACTITIONER_AGREEMENT: "Practitioner Agreement",
-};
-
 export interface ConsentTypeResponse {
   id: string;
   key: string;
