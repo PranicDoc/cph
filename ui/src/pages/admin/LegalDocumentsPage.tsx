@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -14,6 +15,7 @@ import {
   useConsentTypes,
   useCreateConsentType,
   useToggleConsentTypeMandatory,
+  useToggleConsentTypeActive,
   type ConsentType,
   type ConsentTypeResponse,
   type PolicyVersionResponse,
@@ -189,33 +191,96 @@ function EmptyState() {
 function TypeActionRow({
   type,
   isSuperAdmin,
+  onDeactivated,
 }: {
   type: ConsentTypeResponse;
   isSuperAdmin: boolean;
+  onDeactivated: () => void;
 }) {
   const toggleMandatory = useToggleConsentTypeMandatory();
+  const toggleActive = useToggleConsentTypeActive();
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
   const canManage = !type.systemDefined || isSuperAdmin;
+
+  // Deactivated types (D-08): only a Reactivate action, no mandatory
+  // toggle and no Deactivate — publishing against them is refused
+  // server-side (T-31.1-02), so nothing here offers it either.
+  if (!type.active) {
+    return (
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-text">This consent form is deactivated</p>
+          <p className="text-xs text-text-light mt-0.5">
+            Its published versions and healers&apos; recorded acceptances were preserved
+            while it was inactive.
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => toggleActive.mutate({ id: type.id, value: true })}
+          disabled={toggleActive.isPending}
+          className="shrink-0"
+        >
+          Reactivate
+        </Button>
+      </div>
+    );
+  }
+
   if (!canManage) return null;
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-      <Switch
-        checked={type.mandatory}
-        onCheckedChange={(checked) =>
-          toggleMandatory.mutate({ id: type.id, value: checked })
-        }
-        disabled={toggleMandatory.isPending}
-      />
-      <div>
-        <Label className="text-sm text-text">Required at registration</Label>
-        {type.systemDefined && (
-          <p className="text-xs text-text-light mt-0.5">
-            This is one of the four original documents that gates account registration
-            (REG-02). This control is visible to super admins only.
-          </p>
-        )}
+    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+      <div className="flex items-center gap-3">
+        <Switch
+          checked={type.mandatory}
+          onCheckedChange={(checked) =>
+            toggleMandatory.mutate({ id: type.id, value: checked })
+          }
+          disabled={toggleMandatory.isPending}
+        />
+        <div>
+          <Label className="text-sm text-text">Required at registration</Label>
+          {type.systemDefined && (
+            <p className="text-xs text-text-light mt-0.5">
+              This is one of the four original documents that gates account registration
+              (REG-02). This control is visible to super admins only.
+            </p>
+          )}
+        </div>
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setConfirmDeactivate(true)}
+        className="text-danger hover:text-danger shrink-0"
+      >
+        Deactivate
+      </Button>
+
+      <ConfirmDialog
+        open={confirmDeactivate}
+        onOpenChange={setConfirmDeactivate}
+        title="Deactivate this consent form?"
+        description={`"${type.label}" will disappear from the default tab bar and can no longer accept a new published version. Its published versions and healers' recorded acceptances are kept, and you can reactivate it any time via "Show inactive".`}
+        confirmLabel="Confirm Deactivate"
+        cancelLabel="Keep Active"
+        destructive
+        loading={toggleActive.isPending}
+        onConfirm={() => {
+          toggleActive.mutate(
+            { id: type.id, value: false },
+            {
+              onSuccess: onDeactivated,
+              onSettled: () => setConfirmDeactivate(false),
+            }
+          );
+        }}
+      />
     </div>
   );
 }
@@ -291,11 +356,12 @@ export default function LegalDocumentsPage() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const {
     data: types,
     isLoading: typesLoading,
     isError: typesError,
-  } = useConsentTypes();
+  } = useConsentTypes(showInactive);
   const { data, isLoading: versionsLoading, isError: versionsError } = useActivePolicyVersions();
 
   const isLoading = typesLoading || versionsLoading;
@@ -328,7 +394,8 @@ export default function LegalDocumentsPage() {
                 "px-4 py-2.5 h-auto rounded-none whitespace-nowrap border-b-2 -mb-px hover:bg-transparent gap-2",
                 activeKey === type.key
                   ? "border-b-primary text-primary hover:text-primary"
-                  : "border-b-transparent text-text-light hover:text-text"
+                  : "border-b-transparent text-text-light hover:text-text",
+                !type.active && "opacity-50"
               )}
             >
               <span>{type.label}</span>
@@ -337,21 +404,38 @@ export default function LegalDocumentsPage() {
                   {type.mandatory ? "Mandatory" : "Optional"}
                 </Badge>
               )}
+              {!type.active && (
+                <Badge variant="neutral" className="font-medium">
+                  Inactive
+                </Badge>
+              )}
             </Button>
           ))}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setShowAddType(true)}
-          className="px-3 py-1.5 h-auto text-sm font-medium shrink-0 ml-2 mb-1"
-        >
-          Add Consent Form
-        </Button>
+        <div className="flex items-center gap-3 shrink-0 ml-2 mb-1">
+          <label className="flex items-center gap-2 text-xs font-medium text-text-light cursor-pointer select-none">
+            <Switch size="sm" checked={showInactive} onCheckedChange={setShowInactive} />
+            Show inactive
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowAddType(true)}
+            className="px-3 py-1.5 h-auto text-sm font-medium"
+          >
+            Add Consent Form
+          </Button>
+        </div>
       </div>
 
       {!isLoading && !isError && activeConsentType && (
-        <TypeActionRow type={activeConsentType} isSuperAdmin={isSuperAdmin} />
+        <TypeActionRow
+          type={activeConsentType}
+          isSuperAdmin={isSuperAdmin}
+          onDeactivated={() => {
+            if (!showInactive) setSelectedKey(null);
+          }}
+        />
       )}
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -360,13 +444,15 @@ export default function LegalDocumentsPage() {
       {!isLoading && !isError && activeConsentType && (
         <div className="space-y-4">
           {entry ? <ActiveVersionCard entry={entry} /> : <EmptyState />}
-          <Button onClick={() => setShowPublish(true)} className="px-3 py-2 h-auto">
-            Publish New Version
-          </Button>
+          {activeConsentType.active && (
+            <Button onClick={() => setShowPublish(true)} className="px-3 py-2 h-auto">
+              Publish New Version
+            </Button>
+          )}
         </div>
       )}
 
-      {showPublish && activeConsentType && (
+      {showPublish && activeConsentType && activeConsentType.active && (
         <PublishModal
           consentType={activeConsentType.key}
           label={activeConsentType.label}
