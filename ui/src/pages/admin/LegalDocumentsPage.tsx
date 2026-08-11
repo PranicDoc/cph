@@ -159,7 +159,7 @@ function PublishModal({
 
 function ActiveVersionCard({ entry }: { entry: PolicyVersionResponse }) {
   const publishedDate = new Date(entry.effectiveDate).toLocaleDateString();
-  const publisher = entry.publisherId ?? "unknown";
+  const publisher = entry.publisherName ?? "Unknown";
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-2">

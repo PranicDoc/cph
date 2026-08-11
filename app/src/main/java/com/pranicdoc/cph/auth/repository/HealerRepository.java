@@ -23,4 +23,11 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
            WHERE h.id = :healerId
        """)
     String findEmailById(UUID healerId);
+
+    @Query("""
+           SELECT h.fullName
+           FROM Healer h
+           WHERE h.id = :healerId
+       """)
+    String findFullNameById(UUID healerId);
 }

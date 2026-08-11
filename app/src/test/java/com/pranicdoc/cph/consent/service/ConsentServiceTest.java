@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.consent.service;
 
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -49,6 +50,7 @@ class ConsentServiceTest {
     @Mock private ConsentTypeRepository consentTypeRepository;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private HttpServletRequest httpRequest;
+    @Mock private HealerRepository healerRepository;
 
     @InjectMocks private ConsentService consentService;
 

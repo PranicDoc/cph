@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.consent.service;
 
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -45,6 +46,7 @@ public class ConsentService {
     private final PolicyVersionRepository policyVersionRepository;
     private final ConsentTypeRepository consentTypeRepository;
     private final SecurityContextUtil securityContextUtil;
+    private final HealerRepository healerRepository;
 
     /**
      * Records an acceptance. Every field that could otherwise be spoofed by a
@@ -251,6 +253,8 @@ public class ConsentService {
     }
 
     private PolicyVersionResponse toPolicyResponse(PolicyVersion p) {
+        UUID publisherId = p.getPublisherId();
+        String publisherName = publisherId == null ? null : healerRepository.findFullNameById(publisherId);
         return new PolicyVersionResponse(
                 p.getId(),
                 p.getConsentType(),
@@ -258,7 +262,8 @@ public class ConsentService {
                 p.isMandatory(),
                 p.getEffectiveDate(),
                 p.getContent(),
-                p.getPublisherId()
+                publisherId,
+                publisherName
         );
     }
 }

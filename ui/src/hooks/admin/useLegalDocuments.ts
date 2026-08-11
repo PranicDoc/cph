@@ -17,6 +17,7 @@ export interface PolicyVersionResponse {
   effectiveDate: string;
   content: string | null;
   publisherId: string | null;
+  publisherName: string | null;
 }
 
 export interface PublishPolicyPayload {
