@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
+import { installIntersectionObserverMock } from "./intersectionObserverMock";
+
 // jsdom doesn't implement these — Radix components (Popover/Select/Command)
 // call them during pointer interaction and scroll-into-view handling.
 if (!Element.prototype.hasPointerCapture) {
@@ -39,3 +41,11 @@ if (!("ResizeObserver" in window)) {
   // @ts-expect-error - test-only stub
   window.ResizeObserver = ResizeObserverStub;
 }
+
+// jsdom doesn't implement IntersectionObserver — the Phase 33 scroll gate uses
+// it. Installed unconditionally (NOT gated behind an `if (!("IntersectionObserver"
+// in window))` check like the ResizeObserver stub above): the scroll-gate tests
+// need a *controllable* double even if a future jsdom ships a real
+// implementation, because a real implementation would never fire in a
+// zero-layout jsdom environment (see 33-RESEARCH.md Pitfall 1).
+installIntersectionObserverMock();

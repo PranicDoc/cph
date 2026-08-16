@@ -58,6 +58,11 @@ describe("intersectionObserverMock", () => {
     const observer = new IntersectionObserver(cb);
     observer.observe(el);
     observer.disconnect();
+    // Re-observe after disconnect to isolate the `disconnected` guard from
+    // disconnect()'s targets-clearing side effect: if only the empty-targets
+    // check gated delivery, this re-added target would make the callback
+    // fire again. The `disconnected` flag must independently stop it.
+    observer.observe(el);
 
     triggerIntersection(true);
 
