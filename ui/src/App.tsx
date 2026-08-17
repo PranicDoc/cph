@@ -35,6 +35,7 @@ import OAuth2Success from "./components/OAuth2Success";
 import HealerRegistrationPage from "./pages/admin/HealerRegistrationPage";
 import AcceptInvite from "./pages/AcceptInvite";
 import Signup from "./pages/Signup";
+import LegalCenter from "./pages/LegalCenter";
 
 export default function App() {
   return (
@@ -71,6 +72,10 @@ export default function App() {
                 <Route path="cases/:healingCaseId/summary" element={<CaseSummary />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
+              {/* Sibling of the Layout route, not nested inside it: /legal-center
+                  must stay behind ProtectedRoute's gate check but must not render
+                  Layout's nav/sidebar chrome (UI-SPEC item 1). */}
+              <Route path="/legal-center" element={<LegalCenter />} />
             </Route>
 
             {/* Admin routes — ADMIN + SUPADM only */}
