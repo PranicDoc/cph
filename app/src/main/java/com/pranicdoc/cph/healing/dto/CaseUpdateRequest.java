@@ -18,6 +18,7 @@ public record CaseUpdateRequest(
         String complementaryDetails,
         boolean infectiousIllness,
         String infectiousDetails,
-        List<MedicationRequest> medications
+        List<MedicationRequest> medications,
+        List<String> labFindings
 ) {
 }

@@ -69,7 +69,10 @@ export default function Session() {
   const navigate = useNavigate();
 
   const { data: protocols = [] } = useProtocols("PROTOCOL");
-  const schema = useMemo(() => buildSessionSchema(protocols), [protocols]);
+  const schema = useMemo(
+    () => buildSessionSchema(protocols, sessionData?.status === "DRAFT"),
+    [protocols, sessionData?.status]
+  );
 
   // Best-effort: reconstruct which catalog protocols a comma-joined legacy
   // protocolName string refers to, by exact name match. Names that don't
@@ -121,11 +124,14 @@ export default function Session() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, healingDetails, ...rest } = value;
+        const { labFindings, healingDetails, medications, ...rest } = value;
         const { selectedProtocols, ...restHealingDetails } = healingDetails;
         const files = labFindings.filter((f): f is File => f instanceof File);
         const existingKeys = labFindings.filter(
           (f): f is string => typeof f === "string"
+        );
+        const filteredMedications = (medications as any[]).filter(
+          (m) => typeof m?.medicationName === "string" && m.medicationName.trim() !== ""
         );
 
         const protocolName = selectedProtocols.map((p) => p.name).join(", ");
@@ -140,6 +146,7 @@ export default function Session() {
 
         const payload = {
           ...rest,
+          medications: filteredMedications,
           healingDetails: { ...restHealingDetails, protocolName },
           basicBookPg: buckets.basicBookPg.join(","),
           advancedBookPg: buckets.advancedBookPg.join(","),

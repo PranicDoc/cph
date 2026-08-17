@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -8,6 +9,10 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.dto.CaseResponse;
+import com.pranicdoc.cph.healing.dto.CaseUpdateRequest;
+import com.pranicdoc.cph.healing.dto.HealingDetailsRequest;
+import com.pranicdoc.cph.healing.dto.MedicationRequest;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapperImpl;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
@@ -29,6 +34,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
@@ -248,5 +254,186 @@ class CaseServiceTest {
                 () -> caseService.postMessageToGeneratePdf(caseId));
 
         verify(pdfJobRepository, never()).save(any());
+    }
+
+    // --- updateCaseDetails: lab findings merge + medications clear (lab-findings-draft-edit fix round 1) ---
+
+    /**
+     * Builds a minimal HealingCase that will pass updateCaseDetails' authorization and
+     * protocol-validation checks: healerId matches the mocked current healer, and a
+     * non-null HealingDetails is already attached so the "existing details" (else) branch
+     * is taken instead of the "new details" branch that would otherwise call the mocked
+     * (and unstubbed) healingCaseMapper.toHealingDetails(...) and NPE on the null result.
+     */
+    private HealingCase buildCaseForUpdate(UUID caseId, UUID healerId, UUID patientId, CaseStatus status,
+                                            String existingLabFindingsJson,
+                                            List<CaseMedication> existingMedications) {
+        HealingDetails existingDetails = new HealingDetails();
+        HealingCase entity = HealingCase.builder()
+                .patientId(patientId)
+                .status(status)
+                .healingDetails(existingDetails)
+                .symptoms(new ArrayList<>())
+                .medications(new ArrayList<>(existingMedications))
+                .sessions(new ArrayList<>())
+                .build();
+        entity.setId(caseId);
+        entity.setHealerId(healerId);
+        entity.setLabFindings(existingLabFindingsJson);
+        existingDetails.setHealingCase(entity);
+        return entity;
+    }
+
+    private CaseUpdateRequest buildUpdateRequest(UUID caseId, List<MedicationRequest> medications, List<String> labFindings) {
+        HealingDetailsRequest healingDetailsRequest =
+                new HealingDetailsRequest("Test Protocol", "Test Book", "", null);
+        return new CaseUpdateRequest(
+                caseId,
+                "Test condition",
+                null,
+                healingDetailsRequest,
+                "Test Protocol",
+                "Test Book",
+                "",
+                "",
+                "",
+                "",
+                false,
+                "",
+                false,
+                "",
+                medications,
+                labFindings
+        );
+    }
+
+    private void stubHealerUpdateAuthorization(UUID caseId, UUID healerId, HealingCase entity) {
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(entity));
+        when(securityContextUtil.getCurrentRole()).thenReturn("Healer");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+    }
+
+    @Test
+    void updateCaseDetails_existingKeysPlusNewFile_mergesIntoPersistedLabFindings() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        String existingKey = "lab-findings/" + caseId + "/existing-report.pdf";
+
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE,
+                "[\"" + existingKey + "\"]", List.of());
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        CaseUpdateRequest request = buildUpdateRequest(caseId, null, List.of(existingKey));
+        MockMultipartFile newFile = new MockMultipartFile(
+                "labFindings", "new-scan.png", "image/png", "dummy-bytes".getBytes());
+
+        CaseResponse response = caseService.updateCaseDetails(request, List.of(newFile));
+
+        List<String> persisted = new ObjectMapper()
+                .readValue(entity.getLabFindings(), new TypeReference<List<String>>() {});
+        assertEquals(2, persisted.size(), "existing key + newly uploaded key must both be persisted");
+        assertTrue(persisted.contains(existingKey), "pre-existing key must be retained, not replaced");
+        assertTrue(persisted.stream().anyMatch(k -> k.startsWith("lab-findings/" + caseId + "/") && k.endsWith(".png")),
+                "newly uploaded file must be appended with a generated key");
+
+        // Response DTO (built from the same persisted column) must reflect the merge too.
+        assertEquals(2, response.labFindings().size());
+        verify(storageService, times(1)).upload(anyString(), any(byte[].class), anyString());
+    }
+
+    @Test
+    void updateCaseDetails_emptyExistingKeysNoNewFile_clearsPersistedLabFindings() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        String existingKey = "lab-findings/" + caseId + "/existing-report.pdf";
+
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE,
+                "[\"" + existingKey + "\"]", List.of());
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        // Healer removed the only file and saved with none new — labFindings() sent as [].
+        CaseUpdateRequest request = buildUpdateRequest(caseId, null, List.of());
+
+        CaseResponse response = caseService.updateCaseDetails(request, null);
+
+        List<String> persisted = new ObjectMapper()
+                .readValue(entity.getLabFindings(), new TypeReference<List<String>>() {});
+        assertTrue(persisted.isEmpty(), "explicit empty list must clear previously-persisted lab findings");
+        assertTrue(response.labFindings().isEmpty());
+        verify(storageService, never()).upload(anyString(), any(byte[].class), anyString());
+    }
+
+    @Test
+    void updateCaseDetails_nullLabFindingsFieldPlusNewFile_persistsOnlyNewFileKey() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        // No pre-existing lab findings on the case, mirroring PatientHealthForm's flow
+        // where the JSON labFindings field is never sent (stays null).
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE, null, List.of());
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        CaseUpdateRequest request = buildUpdateRequest(caseId, null, null);
+        MockMultipartFile newFile = new MockMultipartFile(
+                "labFindings", "intake-scan.jpg", "image/jpeg", "dummy-bytes".getBytes());
+
+        caseService.updateCaseDetails(request, List.of(newFile));
+
+        List<String> persisted = new ObjectMapper()
+                .readValue(entity.getLabFindings(), new TypeReference<List<String>>() {});
+        assertEquals(1, persisted.size());
+        assertTrue(persisted.get(0).startsWith("lab-findings/" + caseId + "/") && persisted.get(0).endsWith(".jpg"));
+    }
+
+    @Test
+    void updateCaseDetails_medicationsSentAsEmptyList_clearsExistingMedications() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        CaseMedication existingMedication = CaseMedication.builder()
+                .medicationName("Aspirin")
+                .dosage("500mg")
+                .build();
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE,
+                null, List.of(existingMedication));
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        // Healer deleted every medication row and saved — medications() sent as [].
+        CaseUpdateRequest request = buildUpdateRequest(caseId, List.of(), null);
+
+        caseService.updateCaseDetails(request, null);
+
+        assertTrue(entity.getMedications().isEmpty(),
+                "an explicit empty medications list must clear existing medications, not leave them untouched");
+    }
+
+    @Test
+    void updateCaseDetails_medicationsAbsentFromRequest_leavesExistingMedicationsUntouched() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        CaseMedication existingMedication = CaseMedication.builder()
+                .medicationName("Aspirin")
+                .dosage("500mg")
+                .build();
+        HealingCase entity = buildCaseForUpdate(caseId, healerId, patientId, CaseStatus.ACTIVE,
+                null, List.of(existingMedication));
+        stubHealerUpdateAuthorization(caseId, healerId, entity);
+
+        // Simulates PatientHealthForm.tsx omitting the medications key entirely when the
+        // patient added none (fix round 2) — Jackson deserializes this as null, which must
+        // be treated as "don't touch", not as an implicit clear.
+        CaseUpdateRequest request = buildUpdateRequest(caseId, null, null);
+
+        caseService.updateCaseDetails(request, null);
+
+        assertEquals(1, entity.getMedications().size(),
+                "medications() absent (null) must leave existing medications untouched");
+        assertEquals("Aspirin", entity.getMedications().get(0).getMedicationName());
     }
 }

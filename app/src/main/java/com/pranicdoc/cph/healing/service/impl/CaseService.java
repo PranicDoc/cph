@@ -379,7 +379,7 @@ public class CaseService {
                 entity.getSymptoms().add(symptom);
             }
         }
-        if(caseUpdateRequest.medications() != null && !caseUpdateRequest.medications().isEmpty()) {
+        if(caseUpdateRequest.medications() != null) {
             entity.getMedications().clear();
             for(MedicationRequest medicationRequest : caseUpdateRequest.medications()) {
                 CaseMedication medication = healingCaseMapper.toMedication(medicationRequest);
@@ -408,19 +408,23 @@ public class CaseService {
                 }
             }
         }
-        if (labFindings != null && !labFindings.isEmpty()) {
-            List<String> keys = new ArrayList<>();
-            for (MultipartFile file : labFindings) {
-                String original = file.getOriginalFilename();
-                String ext = (original != null && original.contains("."))
-                        ? original.substring(original.lastIndexOf('.')) : "";
-                String key = "lab-findings/" + entity.getId() + "/" + UUID.randomUUID() + ext;
-                try {
-                    storageService.upload(key, file.getBytes(), file.getContentType());
-                } catch (Exception e) {
-                    throw new RuntimeException("Failed to upload lab finding: " + original, e);
+        if (caseUpdateRequest.labFindings() != null || (labFindings != null && !labFindings.isEmpty())) {
+            List<String> keys = caseUpdateRequest.labFindings() != null
+                    ? new ArrayList<>(caseUpdateRequest.labFindings())
+                    : new ArrayList<>();
+            if (labFindings != null) {
+                for (MultipartFile file : labFindings) {
+                    String original = file.getOriginalFilename();
+                    String ext = (original != null && original.contains("."))
+                            ? original.substring(original.lastIndexOf('.')) : "";
+                    String key = "lab-findings/" + entity.getId() + "/" + UUID.randomUUID() + ext;
+                    try {
+                        storageService.upload(key, file.getBytes(), file.getContentType());
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to upload lab finding: " + original, e);
+                    }
+                    keys.add(key);
                 }
-                keys.add(key);
             }
             try {
                 entity.setLabFindings(objectMapper.writeValueAsString(keys));
