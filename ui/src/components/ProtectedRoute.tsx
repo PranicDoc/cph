@@ -10,9 +10,10 @@ import { useOutstandingConsents } from "../hooks/legal/useOutstandingConsents";
  * .outstandingConsents()` already computes the correct per-practitioner
  * outstanding-consent set for both a brand-new practitioner (REG-01) and a
  * returning practitioner after a republish (REG-03), so both cases funnel
- * through the identical check below (D-02/D-06). `Healer.active` is
- * deliberately not consulted here either — it keeps its separate
- * admin-deactivation meaning, checked in `AuthService`.
+ * through the identical check below (D-02/D-06). The account-active flag
+ * owned by the healer entity is deliberately not consulted here either —
+ * it keeps its separate admin-deactivation meaning, checked in
+ * `AuthService`.
  */
 
 const GATE_EXEMPT_ROLES = ["ADMIN", "SUPADM"];
