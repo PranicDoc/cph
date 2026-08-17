@@ -65,6 +65,6 @@ public class Consent extends BaseEntity {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
-    @Column(name = "language", length = 10)
+    @Column(name = "language", length = 100)
     private String language;
 }
