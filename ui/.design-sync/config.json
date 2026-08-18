@@ -1,0 +1,21 @@
+{
+  "projectId": "c10c9a9c-c41b-48fe-8ce7-3575061d9040",
+  "shape": "package",
+  "pkg": "..",
+  "globalName": "PranicDocUI",
+  "srcDir": ".design-sync/scope-src",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".design-sync/compiled-tailwind.css",
+  "buildCmd": "npm run build && cp dist/assets/index-*.css .design-sync/compiled-tailwind.css",
+  "dtsPropsFor": {
+    "Button": "  variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'destructive-soft' | 'link';\n  size?: 'default' | 'xs' | 'sm' | 'lg' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg';\n  asChild?: boolean;\n  className?: string;\n  children?: React.ReactNode;\n  disabled?: boolean;\n  onClick?: React.MouseEventHandler<HTMLButtonElement>;\n  [key: string]: unknown;",
+    "Table": "  className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "Dialog": "  open?: boolean;\n  defaultOpen?: boolean;\n  onOpenChange?: (open: boolean) => void;\n  modal?: boolean;\n  children?: React.ReactNode;",
+    "AlertDialog": "  open?: boolean;\n  defaultOpen?: boolean;\n  onOpenChange?: (open: boolean) => void;\n  children?: React.ReactNode;"
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "Dialog": {"cardMode": "single", "viewport": "480x520"},
+    "AlertDialog": {"cardMode": "single", "viewport": "480x420"}
+  }
+}

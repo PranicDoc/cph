@@ -21,3 +21,11 @@ replay_pid*.log
 .DS_Store
 
 .gradle/
+
+# design-sync (cph/ui) — staged converter scripts, build output, machine state
+ui/.ds-sync/
+ui/ds-bundle/
+ui/.design-sync/.cache/
+ui/.design-sync/learnings/
+ui/.design-sync/node_modules
+ui/.design-sync/compiled-tailwind.css
