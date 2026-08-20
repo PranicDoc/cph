@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -159,6 +160,25 @@ public class GlobalExceptionHandler {
                 "The requested change conflicts with existing data. It may have been modified concurrently — reload and retry.");
         pd.setTitle("Conflict");
         pd.setType(URI.create("https://pranicdoc.com/errors/conflict"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * PD-36-07 (36-RESEARCH.md Pitfall 3): every entity extending BaseEntity
+     * carries a version column, so two concurrent edits of the same row (a
+     * role, or anything else) raise this exception on the losing write.
+     * Before this handler existed it fell through to the catch-all Exception
+     * handler and surfaced as an opaque 500. Detail text is fixed (never
+     * ex.getMessage()) so no entity/table internals leak to the client —
+     * mirrors handleDataIntegrityViolation's existing non-leaking wording.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "This record was changed by someone else. Reload it and try again.");
+        pd.setTitle("Concurrent Modification");
+        pd.setType(URI.create("https://pranicdoc.com/errors/concurrent-modification"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }
