@@ -42,4 +42,11 @@ public class AuditLog extends BaseEntity {
 
     @Column(name = "performed_at", nullable = false)
     private Instant performedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private AuditStatus status = AuditStatus.SUCCESS;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
 }
