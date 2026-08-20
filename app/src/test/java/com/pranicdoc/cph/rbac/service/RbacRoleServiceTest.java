@@ -1,0 +1,307 @@
+package com.pranicdoc.cph.rbac.service;
+
+import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.rbac.dto.ResourceGrantDto;
+import com.pranicdoc.cph.rbac.dto.RoleCreateRequest;
+import com.pranicdoc.cph.rbac.dto.RoleResponse;
+import com.pranicdoc.cph.rbac.dto.RoleUpdateRequest;
+import com.pranicdoc.cph.rbac.model.Operation;
+import com.pranicdoc.cph.rbac.model.RbacRole;
+import com.pranicdoc.cph.rbac.model.Resource;
+import com.pranicdoc.cph.rbac.model.RolePermission;
+import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
+import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
+import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class RbacRoleServiceTest {
+
+    @Mock private RbacRoleRepository rbacRoleRepository;
+    @Mock private RolePermissionRepository rolePermissionRepository;
+    @Mock private UserRoleRepository userRoleRepository;
+
+    @InjectMocks private RbacRoleService rbacRoleService;
+
+    // --- fixtures ---
+
+    private RbacRole existingRole(String name) {
+        RbacRole role = RbacRole.builder().name(name).description("desc").build();
+        role.setId(UUID.randomUUID());
+        return role;
+    }
+
+    private void stubRoleSaveAssignsRandomId() {
+        lenient().when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> {
+            RbacRole r = inv.getArgument(0);
+            if (r.getId() == null) {
+                r.setId(UUID.randomUUID());
+            }
+            return r;
+        });
+    }
+
+    private void stubGrantSaveAllReturnsInput() {
+        lenient().when(rolePermissionRepository.saveAll(any())).thenAnswer(inv -> {
+            List<RolePermission> rows = inv.getArgument(0);
+            rows.forEach(r -> {
+                if (r.getId() == null) {
+                    r.setId(UUID.randomUUID());
+                }
+            });
+            return rows;
+        });
+    }
+
+    // --- create ---
+
+    @Test
+    void create_persistsRoleAndOneGrantRowPerPair() {
+        stubRoleSaveAssignsRandomId();
+        stubGrantSaveAllReturnsInput();
+        when(rbacRoleRepository.existsByNameIgnoreCase("Billing Ops")).thenReturn(false);
+
+        ArgumentCaptor<RbacRole> roleCaptor = ArgumentCaptor.forClass(RbacRole.class);
+        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.forClass(List.class);
+
+        RoleCreateRequest request = new RoleCreateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ", "CREATE"))));
+
+        RoleResponse response = rbacRoleService.create(request);
+
+        verify(rbacRoleRepository).save(roleCaptor.capture());
+        assertEquals("Billing Ops", roleCaptor.getValue().getName());
+        assertEquals("desc", roleCaptor.getValue().getDescription());
+
+        verify(rolePermissionRepository).saveAll(grantsCaptor.capture());
+        List<RolePermission> savedGrants = grantsCaptor.getValue();
+        assertEquals(2, savedGrants.size());
+        assertTrue(savedGrants.stream().allMatch(g -> g.getRoleId().equals(roleCaptor.getValue().getId())));
+        assertTrue(savedGrants.stream().anyMatch(
+                g -> g.getResource() == Resource.ROLES && g.getOperation() == Operation.READ));
+        assertTrue(savedGrants.stream().anyMatch(
+                g -> g.getResource() == Resource.ROLES && g.getOperation() == Operation.CREATE));
+
+        assertEquals(2, response.grants().get(0).operations().size());
+    }
+
+    @Test
+    void create_duplicateNameIgnoringCase_throwsAndNeverSaves() {
+        when(rbacRoleRepository.existsByNameIgnoreCase("billing ops")).thenReturn(true);
+
+        RoleCreateRequest request = new RoleCreateRequest(
+                "billing ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> rbacRoleService.create(request));
+
+        assertEquals("A role with that name already exists. Please choose a different name.", ex.getMessage());
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void create_usesCaseInsensitiveCheckNotCaseSensitiveOne() {
+        stubRoleSaveAssignsRandomId();
+        stubGrantSaveAllReturnsInput();
+        when(rbacRoleRepository.existsByNameIgnoreCase(anyString())).thenReturn(false);
+
+        RoleCreateRequest request = new RoleCreateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        rbacRoleService.create(request);
+
+        verify(rbacRoleRepository).existsByNameIgnoreCase(anyString());
+        verify(rbacRoleRepository, never()).existsByName(anyString());
+    }
+
+    @Test
+    void create_unsupportedOperationForResource_throwsAndNeverSaves() {
+        RoleCreateRequest request = new RoleCreateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("WRITE"))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> rbacRoleService.create(request));
+
+        assertTrue(ex.getMessage().contains("WRITE"));
+        assertTrue(ex.getMessage().contains("ROLES"));
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void create_unknownResourceLiteral_throwsAndNeverSaves() {
+        RoleCreateRequest request = new RoleCreateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("NOT_A_RESOURCE", List.of("READ"))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> rbacRoleService.create(request));
+
+        assertTrue(ex.getMessage().contains("NOT_A_RESOURCE"));
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void create_unknownOperationLiteral_throwsAndNeverSaves() {
+        RoleCreateRequest request = new RoleCreateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("FROBNICATE"))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> rbacRoleService.create(request));
+
+        assertTrue(ex.getMessage().contains("FROBNICATE"));
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    // --- update ---
+
+    @Test
+    void update_replacesGrantSetEntirely() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+
+        RolePermission existingRead = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.READ).build();
+        RolePermission existingDelete = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.DELETE).build();
+        when(rolePermissionRepository.findAllByRoleId(role.getId()))
+                .thenReturn(List.of(existingRead, existingDelete));
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("UPDATE"))));
+
+        ArgumentCaptor<List<RolePermission>> deleteCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.forClass(List.class);
+
+        rbacRoleService.update(request, role.getId());
+
+        verify(rolePermissionRepository).deleteAll(deleteCaptor.capture());
+        assertEquals(List.of(existingRead, existingDelete), deleteCaptor.getValue());
+
+        verify(rolePermissionRepository).saveAll(saveCaptor.capture());
+        List<RolePermission> saved = saveCaptor.getValue();
+        assertEquals(1, saved.size());
+        assertEquals(Resource.ROLES, saved.get(0).getResource());
+        assertEquals(Operation.UPDATE, saved.get(0).getOperation());
+    }
+
+    @Test
+    void update_keepingOwnNameDoesNotTripUniquenessCheck() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Stubbed to return true to prove the self-name case is exempted from ever consulting this.
+        lenient().when(rbacRoleRepository.existsByNameIgnoreCase(anyString())).thenReturn(true);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+        stubGrantSaveAllReturnsInput();
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        RoleResponse response = rbacRoleService.update(request, role.getId());
+
+        assertEquals("Billing Ops", response.name());
+    }
+
+    @Test
+    void update_renamingToAnotherExistingNameThrows() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.existsByNameIgnoreCase("content reviewer")).thenReturn(true);
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "content reviewer", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> rbacRoleService.update(request, role.getId()));
+
+        assertEquals("A role with that name already exists. Please choose a different name.", ex.getMessage());
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void update_unknownId_throwsResourceNotFound() {
+        UUID unknownId = UUID.randomUUID();
+        when(rbacRoleRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> rbacRoleService.update(request, unknownId));
+    }
+
+    // --- delete ---
+
+    @Test
+    void delete_softDeletesRoleAndItsGrants() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(rolePermissionRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        RolePermission grantOne = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.READ).build();
+        RolePermission grantTwo = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.DELETE).build();
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(grantOne, grantTwo));
+
+        ArgumentCaptor<RbacRole> roleCaptor = ArgumentCaptor.forClass(RbacRole.class);
+        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.forClass(List.class);
+
+        rbacRoleService.delete(role.getId());
+
+        verify(rbacRoleRepository).save(roleCaptor.capture());
+        assertTrue(roleCaptor.getValue().isDeleted());
+
+        verify(rolePermissionRepository).saveAll(grantsCaptor.capture());
+        assertTrue(grantsCaptor.getValue().stream().allMatch(RolePermission::isDeleted));
+
+        verify(rbacRoleRepository, never()).delete(any());
+        verify(rbacRoleRepository, never()).deleteById(any());
+    }
+
+    // --- getById ---
+
+    @Test
+    void getById_unknownId_throwsResourceNotFound() {
+        UUID unknownId = UUID.randomUUID();
+        when(rbacRoleRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> rbacRoleService.getById(unknownId));
+    }
+}
