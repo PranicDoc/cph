@@ -24,7 +24,7 @@ import java.util.UUID;
 public class AuditAspect {
 
     private static final int PAYLOAD_MAX_LENGTH = 4000;
-    private static final int MESSAGE_MAX_LENGTH = 2000;
+    private static final int MESSAGE_MAX_LENGTH = 10_000;
 
     private final AuditLogRepository auditLogRepository;
     private final SecurityContextUtil securityContextUtil;
