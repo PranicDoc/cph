@@ -3,6 +3,7 @@ package com.pranicdoc.cph.rbac.model;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 /**
@@ -28,6 +29,7 @@ import org.hibernate.envers.Audited;
  */
 @Entity
 @Table(name = "rbac_role")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor
