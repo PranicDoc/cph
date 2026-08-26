@@ -5,6 +5,7 @@ import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.UUID;
@@ -15,6 +16,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "patient_medical_history")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

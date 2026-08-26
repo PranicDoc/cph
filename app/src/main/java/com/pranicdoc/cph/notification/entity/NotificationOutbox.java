@@ -6,11 +6,13 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "notification_outbox", indexes = {
         @Index(name = "idx_status_created", columnList = "status, created_at")
 })
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

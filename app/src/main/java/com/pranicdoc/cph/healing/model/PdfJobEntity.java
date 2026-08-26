@@ -5,12 +5,14 @@ import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
 @Entity
 @Table(name = "pdf_job")
+@SQLRestriction("is_deleted = false")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

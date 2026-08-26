@@ -10,6 +10,7 @@ import com.pranicdoc.cph.patient.dto.MedicalHistoryRequest;
 import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.nio.charset.StandardCharsets;
@@ -25,6 +26,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "patient")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

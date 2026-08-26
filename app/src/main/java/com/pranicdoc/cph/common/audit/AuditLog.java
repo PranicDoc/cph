@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "audit_log")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -42,4 +44,11 @@ public class AuditLog extends BaseEntity {
 
     @Column(name = "performed_at", nullable = false)
     private Instant performedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private AuditStatus status = AuditStatus.SUCCESS;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
 }

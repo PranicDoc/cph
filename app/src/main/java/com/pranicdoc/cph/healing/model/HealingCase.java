@@ -6,6 +6,7 @@ import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "healing_case")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

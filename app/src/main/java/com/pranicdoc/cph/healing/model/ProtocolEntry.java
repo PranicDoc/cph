@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "protocol_entry")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

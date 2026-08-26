@@ -68,6 +68,15 @@ spring:
     # ProblemDetail shape as every other error in this API.
     throw-exception-if-no-handler-found: true
 
+logging:
+  level:
+    # D-19's spring.jpa.properties.hibernate.generate_statistics: true (above)
+    # is a permanent regression guard for SqlCountAssertionTest, not a logging
+    # feature — but it also makes Hibernate auto-register this listener, which
+    # logs a "Session Metrics" block at INFO on every session close. Silence
+    # the listener, keep the stats API it depends on.
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: WARN
+
 server:
   # Cloud Run injects $PORT and routes to whatever port the process listens on
   # (23-07, INFRA-04); ${PORT:9918} keeps 9918 as the local/VM-compose default
