@@ -3,6 +3,7 @@ package com.pranicdoc.cph.consent.model;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.time.Instant;
@@ -28,6 +29,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "reading_session")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

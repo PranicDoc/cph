@@ -6,6 +6,7 @@ import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 /**
@@ -14,6 +15,7 @@ import org.hibernate.envers.Audited;
  */
 @Entity
 @Table(name = "case_medical_snapshot")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

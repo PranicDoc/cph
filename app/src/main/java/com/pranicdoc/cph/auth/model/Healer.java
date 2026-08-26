@@ -5,6 +5,7 @@ import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.UUID;
@@ -16,6 +17,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "healer")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

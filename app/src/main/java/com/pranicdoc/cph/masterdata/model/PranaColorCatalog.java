@@ -3,6 +3,7 @@ package com.pranicdoc.cph.masterdata.model;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "prana_color_catalog")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor
