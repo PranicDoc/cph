@@ -1,5 +1,5 @@
 -- =============================================================================
--- V32__add_case_insensitive_role_name_index.sql
+-- V34__add_case_insensitive_role_name_index.sql
 -- Phase 36 (Role CRUD Backend + Enforcement Point) -- ROLE-10.
 --
 -- Case-insensitive uniqueness backstop for rbac_role.name (per D-04).
@@ -11,12 +11,12 @@
 -- clean 409 (same precedent as T-31-03).
 --
 -- NOTE (PD-36-03): this is a plain, non-partial index on LOWER(name),
--- consistent with V31's existing uq_rbac_role_name UNIQUE (name), which is
+-- consistent with V33's existing uq_rbac_role_name UNIQUE (name), which is
 -- also a full (non-partial) constraint. A soft-deleted role's name is
 -- already reserved by that pre-existing constraint regardless of what this
 -- index does, so a partial (is-deleted-aware) index here would only create
 -- an inconsistent pair without changing observable behavior. Un-reserving
--- a soft-deleted row's name would require dropping and rebuilding the V31
+-- a soft-deleted row's name would require dropping and rebuilding the V33
 -- constraint, which this repo's additive-only migration convention does
 -- not permit. Known, accepted consequence, flagged for a future revisit of
 -- delete-role UX.

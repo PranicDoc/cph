@@ -13,8 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Plain-JUnit (no Spring context) gate over
- * {@code V32__add_case_insensitive_role_name_index.sql}'s additive-only,
- * index-only shape (ROLE-10 / D-04).
+ * {@code V34__add_case_insensitive_role_name_index.sql}'s additive-only,
+ * index-only shape (ROLE-10 / D-04). Originally authored as V32 before a
+ * numbering collision with master's V30/V31 forced a renumber to V33/V34.
  * <p>
  * This class deliberately carries zero Spring or Mockito annotations and
  * runs in milliseconds. Booting a full Spring application context is
@@ -24,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * parse {@code TIMESTAMPTZ}. So this migration's correctness is proven by
  * reading the raw file off the classpath and asserting on its parsed
  * content, never by booting Spring or applying the migration -- the same
- * approach {@link RbacSchemaMigrationTest} already established for V31.
+ * approach {@link RbacSchemaMigrationTest} already established for V33.
  */
-class V32RoleNameIndexMigrationTest {
+class V34RoleNameIndexMigrationTest {
 
-    private static final String RESOURCE_PATH = "db/migration/V32__add_case_insensitive_role_name_index.sql";
+    private static final String RESOURCE_PATH = "db/migration/V34__add_case_insensitive_role_name_index.sql";
 
     /** The migration file verbatim, exactly as it ships. */
     private static String RAW;
@@ -45,7 +46,7 @@ class V32RoleNameIndexMigrationTest {
 
     @BeforeAll
     static void loadMigration() throws IOException {
-        try (InputStream in = V32RoleNameIndexMigrationTest.class.getClassLoader()
+        try (InputStream in = V34RoleNameIndexMigrationTest.class.getClassLoader()
                 .getResourceAsStream(RESOURCE_PATH)) {
             assertNotNull(in, "Migration resource not found on classpath: " + RESOURCE_PATH);
             RAW = new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -86,8 +87,8 @@ class V32RoleNameIndexMigrationTest {
     @Test
     void createsNoTablesAndSeedsNoRows() {
         String upper = SQL.toUpperCase();
-        assertFalse(upper.contains("CREATE TABLE"), "V32 is index-only -- must not create tables");
-        assertFalse(upper.contains("INSERT INTO"), "V32 is index-only -- must not seed rows");
+        assertFalse(upper.contains("CREATE TABLE"), "V34 is index-only -- must not create tables");
+        assertFalse(upper.contains("INSERT INTO"), "V34 is index-only -- must not seed rows");
     }
 
     // -------------------------------------------------------------------

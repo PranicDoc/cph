@@ -12,7 +12,7 @@ import java.util.List;
  * <p>
  * {@code description} is deliberately OPTIONAL (PD-36-01) -- length-limited
  * only, with no non-blank requirement -- matching {@code rbac_role.description
- * VARCHAR(500)}, which is nullable in V31. {@code grants} must be non-empty
+ * VARCHAR(500)}, which is nullable in V33. {@code grants} must be non-empty
  * (PD-36-02): a role with zero grants is a
  * "declared but toothless" role, exactly the failure class PITFALLS.md
  * warns this milestone exists to prevent. Deleting a role is the supported

@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Plain-JUnit (no Spring context) gate over {@code V31__create_rbac_schema.sql}'s
+ * Plain-JUnit (no Spring context) gate over {@code V33__create_rbac_schema.sql}'s
  * additive-only / tenant-free schema shape.
  * <p>
  * This class deliberately carries zero Spring or Mockito annotations and
@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RbacSchemaMigrationTest {
 
-    private static final String RESOURCE_PATH = "db/migration/V31__create_rbac_schema.sql";
+    private static final String RESOURCE_PATH = "db/migration/V33__create_rbac_schema.sql";
 
     /** The migration file verbatim, exactly as it ships. */
     private static String RAW;

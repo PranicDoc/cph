@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Plain-JUnit (no Spring context) two-way drift gate between the three
  * {@code com.pranicdoc.cph.rbac.model} entities and
- * {@code db/migration/V31__create_rbac_schema.sql}. Resource and Operation
+ * {@code db/migration/V33__create_rbac_schema.sql}. Resource and Operation
  * are static Java enums, not DB-seeded tables, so they carry no
  * migration-alignment gate of their own — RolePermission's resource/operation
  * columns are plain VARCHAR (enum name), covered by the same field-to-column
@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RbacEntityMigrationAlignmentTest {
 
-    private static final String RESOURCE_PATH = "db/migration/V31__create_rbac_schema.sql";
+    private static final String RESOURCE_PATH = "db/migration/V33__create_rbac_schema.sql";
 
     private static final Map<Class<?>, String> ENTITY_TABLES = new LinkedHashMap<>();
 

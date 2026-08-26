@@ -1,5 +1,5 @@
 -- =============================================================================
--- V31__create_rbac_schema.sql
+-- V33__create_rbac_schema.sql
 -- Phase 35 (RBAC Schema) — RBAC-01.
 --
 -- Strictly additive: creates three new tables (rbac_role, role_permission,
@@ -14,8 +14,14 @@
 -- the allow-list check moves into Java: Permission's constructor calls
 -- Resource.supports(Operation) at write time, before a grant is ever
 -- persisted. Neither V30 nor this migration ran in any environment before
--- the switch, so this ships as a renumbered V31 rather than an edit to V30
+-- the switch, so this shipped as a renumbered V31 rather than an edit to V30
 -- in place.
+--
+-- Renumbered a second time, V31 -> V33 (36-05 live-verification setup):
+-- master independently added its own V30__add_audit_log_status_and_message.sql
+-- and V31__add_new_case_status_continued.sql after this branch forked, and
+-- both landed on the shared local dev DB. Neither this migration nor V32
+-- (now V34) had run in any environment before this renumber either.
 --
 -- Planner decisions (locked, see 35-01-PLAN.md <planner_decisions>):
 --
