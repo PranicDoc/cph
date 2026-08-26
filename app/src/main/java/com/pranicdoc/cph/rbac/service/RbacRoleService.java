@@ -119,8 +119,20 @@ public class RbacRoleService {
         // occupies its unique (role, resource, operation) slot, and would
         // collide the moment the same pair is re-granted on this same role.
         // History of the outgoing rows is retained by the Envers shadow table.
+        //
+        // The explicit flush() is load-bearing, not defensive boilerplate:
+        // Hibernate's default action-queue order executes queued INSERTs
+        // before queued DELETEs within a single flush, regardless of the
+        // order these repository calls were made in. Without forcing the
+        // DELETE to hit the DB first, re-granting any (resource, operation)
+        // pair that was already active on this role — the common case where
+        // an edit adds one permission while keeping the rest unchanged —
+        // throws a DataIntegrityViolationException on uq_role_permission
+        // (confirmed 2026-08-26 during the 36-05 live-verification re-run:
+        // every edit that preserved an existing grant failed with a 409).
         List<RolePermission> outgoing = rolePermissionRepository.findAllByRoleId(id);
         rolePermissionRepository.deleteAll(outgoing);
+        rolePermissionRepository.flush();
 
         List<RolePermission> incoming = permissions.stream()
                 .map(permission -> RolePermission.builder()

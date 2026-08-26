@@ -15,6 +15,7 @@ import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -213,6 +215,49 @@ class RbacRoleServiceTest {
         assertEquals(1, saved.size());
         assertEquals(Resource.ROLES, saved.get(0).getResource());
         assertEquals(Operation.UPDATE, saved.get(0).getOperation());
+    }
+
+    /**
+     * Regression test for the 2026-08-26 finding during 36-05's live-verification
+     * re-run: every real HTTP PUT that kept an already-active (resource, operation)
+     * pair on the same role failed with a 409 (uq_role_permission violation).
+     * Hibernate's default flush action-queue order runs queued INSERTs before
+     * queued DELETEs within a single flush, regardless of the order these
+     * repository calls happen in Java — so without an explicit flush() between
+     * deleteAll(outgoing) and saveAll(incoming), the new grant row's INSERT hits
+     * the DB before the old row's DELETE does, colliding on the unique
+     * (role_id, resource, operation) constraint.
+     * <p>
+     * Mockito alone can't observe real Hibernate flush timing — a mocked
+     * repository has no action queue to reorder — so this test only proves the
+     * call *order* (deleteAll -> flush -> saveAll), which is what the fix
+     * actually depends on. The real regression was caught live against Postgres,
+     * not by a unit test; see PHASE-36-LIVE-VERIFICATION-RESULTS.md.
+     */
+    @Test
+    void update_flushesDeleteBeforeSavingIncomingGrants() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+
+        RolePermission existingRead = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.READ).build();
+        when(rolePermissionRepository.findAllByRoleId(role.getId()))
+                .thenReturn(List.of(existingRead));
+
+        // Same (resource, operation) pair as the existing grant -- the exact
+        // shape that triggered the real 409.
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        rbacRoleService.update(request, role.getId());
+
+        InOrder order = inOrder(rolePermissionRepository);
+        order.verify(rolePermissionRepository).deleteAll(any());
+        order.verify(rolePermissionRepository).flush();
+        order.verify(rolePermissionRepository).saveAll(any());
     }
 
     @Test
