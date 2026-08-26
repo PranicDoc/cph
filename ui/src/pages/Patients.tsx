@@ -176,12 +176,20 @@ export default function Patients() {
     selectPatient(patient.id);
   };
 
+  // Case status -> badge color, using the shared design-system tokens
+  // (see @theme in index.css) so every status stays visually distinct:
+  // DRAFT = neutral, ACTIVE = success, CLOSED = primary, CONTINUED = warning.
+  const STATUS_PILL_STYLES: Record<string, string> = {
+    DRAFT: "bg-muted text-text-light",
+    ACTIVE: "bg-success/10 text-success",
+    CLOSED: "bg-primary/10 text-primary",
+    CONTINUED: "bg-warning/10 text-warning",
+  };
+
   const renderStatusPill = (status?: string) => (
     <span
       className={`px-2 py-1 rounded-md text-xs font-semibold ${
-        status === "ACTIVE"
-          ? "bg-success/10 text-success"
-          : "bg-text-light/10 text-text-light"
+        STATUS_PILL_STYLES[status ?? ""] ?? "bg-muted text-text-light"
       }`}
     >
       {status || "—"}
@@ -198,6 +206,7 @@ export default function Patients() {
     const isDraft = patient.status === "DRAFT";
     const isActive = patient.status === "ACTIVE";
     const isCompleted = patient.status === "CLOSED";
+    const isHealingContinued = patient.status === "CONTINUED";
     const isCard = variant === "card";
     const buttonSize = isCard
       ? "flex-1 justify-center min-w-[100px] px-3 py-2"
@@ -205,7 +214,7 @@ export default function Patients() {
 
     const handleClosureButtonClick = (patient: Patient) => {
       if (isActive) setClosurePatient(patient);
-      if (isCompleted) generatePdfMutation.mutate(patient.healingCaseId);
+      if (isCompleted || isHealingContinued) generatePdfMutation.mutate(patient.healingCaseId);
     };
 
     return (
@@ -236,7 +245,7 @@ export default function Patients() {
           }
           className={`inline-flex items-center gap-1.5 rounded-lg
             ${
-              isActive || isCompleted
+              isActive || isCompleted || isHealingContinued
                 ? generatePdfMutation.isPending
                   ? "bg-border pointer-events-none"
                   : "bg-primary hover:bg-primary-dark cursor-pointer"
@@ -244,7 +253,7 @@ export default function Patients() {
             }
             ${buttonSize} text-white text-xs font-medium transition-colors`}
         >
-          {isCompleted ? (
+          {isCompleted || isHealingContinued ? (
             <>
               <BookText className="w-3.5 h-3.5" />
               Generate PDF
@@ -417,6 +426,7 @@ export default function Patients() {
                     <SelectItem value="DRAFT">Draft</SelectItem>
                     <SelectItem value="ACTIVE">Active</SelectItem>
                     <SelectItem value="CLOSED">Closed</SelectItem>
+                    <SelectItem value="CONTINUED">Continued</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

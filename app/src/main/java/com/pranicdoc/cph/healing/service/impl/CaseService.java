@@ -58,6 +58,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.function.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -259,18 +260,23 @@ public class CaseService {
                 .map(instant -> instant.atZone(ZoneId.systemDefault()).toLocalDate())
                 .max(LocalDate::compareTo)
                 .orElse(null);
-        CaseClosure closure = CaseClosure.builder()
-                .healingCase(healingCase)
-                .closureDate(LocalDate.now())
-                .additionalComments(request.additionalComments())
-                .healingCount(healingCount)
-                .isHealingContinued(request.isHealingContinued())
-                .lastFeedbackDate(lastFeedbackDate)
-                .healerSignature(healerName)
-                .closedBy(currentHealerId)
-                .build();
-        healingCase.setClosure(closure);
-        healingCase.setStatus(CaseStatus.CLOSED);
+        // A case previously closed with isHealingContinued=true already has a CaseClosure
+        // row (uq_case_closure_case is one-per-case) -- reuse and update it instead of
+        // building a fresh entity, which would violate that unique constraint on re-close.
+        CaseClosure closure = healingCase.getClosure();
+        if (closure == null) {
+            closure = CaseClosure.builder().healingCase(healingCase).build();
+            healingCase.setClosure(closure);
+        }
+        closure.setClosureDate(LocalDate.now());
+        closure.setAdditionalComments(request.additionalComments());
+        closure.setHealingCount(healingCount);
+        closure.setIsHealingContinued(request.isHealingContinued());
+        closure.setLastFeedbackDate(lastFeedbackDate);
+        closure.setHealerSignature(healerName);
+        closure.setClosedBy(currentHealerId);
+        if(request.isHealingContinued()) healingCase.setStatus(CaseStatus.CONTINUED);
+        else healingCase.setStatus(CaseStatus.CLOSED);
         caseRepository.save(healingCase);
         if(!request.isHealingContinued()) {
             notificationService.sendFinalFeedbackNotification(lastSession);
