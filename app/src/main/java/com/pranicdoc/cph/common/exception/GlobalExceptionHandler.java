@@ -118,6 +118,27 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    /**
+     * PD-37-01 (RBAC-05): a role/assignment mutation that would leave nobody able to
+     * manage roles is refused. 409 CONFLICT rather than 400 BAD_REQUEST because the
+     * request is well-formed and its literals are valid — what fails is a required
+     * system invariant that persisting it would violate, the same category as
+     * handleFeedbackAlreadySubmitted and handleOptimisticLockingFailure. A blanket
+     * IllegalStateException handler is deliberately NOT added: it would silently
+     * reclassify unrelated pre-existing IllegalStateException throw sites (e.g.
+     * SecurityContextUtil's tenant-context checks) from 500 to 409. Using
+     * ex.getMessage() is safe here because the message is a fixed compile-time
+     * constant in this codebase, not driver-generated text.
+     */
+    @ExceptionHandler(SelfLockoutException.class)
+    public ProblemDetail handleSelfLockout(SelfLockoutException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Role Management Lockout Prevented");
+        pd.setType(URI.create("https://pranicdoc.com/errors/self-lockout"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(InsufficientCreditsException.class)
     public ProblemDetail handleInsufficientCredits(InsufficientCreditsException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
