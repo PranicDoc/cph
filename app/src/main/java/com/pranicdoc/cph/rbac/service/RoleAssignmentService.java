@@ -80,9 +80,39 @@ public class RoleAssignmentService {
         return toResponse(saved);
     }
 
+    /**
+     * Detaches one role from one account.
+     * <p>
+     * The row is removed physically, not soft-deleted. The assignment table
+     * carries a real uniqueness constraint over the principal-type /
+     * principal / role triple, and the framework-level filter that hides
+     * soft-deleted rows from queries does not release the underlying slot: a
+     * soft-deleted assignment would make re-attaching that same role to that
+     * same account fail permanently at the database level, which the
+     * phase-closing verification exercises directly. History is not lost —
+     * the entity is audit-shadowed, so the removal is written as a delete
+     * revision. This mirrors the reasoning the role service already applies
+     * to replacing a role's grant rows.
+     * <p>
+     * The removal is refused outright when it would leave nobody able to
+     * manage roles (RBAC-05, D-01), and that refusal happens before the row
+     * is touched. Whether the detached role confers the manage-roles
+     * capability is asked through the guard, never re-derived here; detaching
+     * one assignment removes exactly one (role, assigned-account) pair.
+     */
     @Auditable(action = "UNASSIGN_ROLE")
     public RoleAssignmentResponse unassign(RoleAssignmentRequest request) {
-        throw new UnsupportedOperationException("not implemented");
+        UserRole existing = userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId(
+                        PRINCIPAL_TYPE_HEALER, request.principalId(), request.roleId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No role assignment exists for that user and role."));
+
+        roleManagerGuard.assertActionPreservesRoleManagement(
+                roleManagerGuard.roleGrantsRoleManagement(request.roleId()), 1);
+
+        RoleAssignmentResponse response = toResponse(existing);
+        userRoleRepository.delete(existing);
+        return response;
     }
 
     private RoleAssignmentResponse toResponse(UserRole userRole) {
