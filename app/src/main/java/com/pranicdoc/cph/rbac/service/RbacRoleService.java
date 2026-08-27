@@ -51,6 +51,7 @@ public class RbacRoleService {
     private final RbacRoleRepository rbacRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RoleManagerGuard roleManagerGuard;
 
     private static final String DUPLICATE_NAME_MESSAGE =
             "A role with that name already exists. Please choose a different name.";
@@ -99,6 +100,17 @@ public class RbacRoleService {
      * that resolution scans every argument for a UUID rather than assuming
      * position, so it stays correct regardless of where the id sits in the
      * parameter list.
+     * <p>
+     * SELF-LOCKOUT GUARD (RBAC-05, D-01) — this method refuses an edit that
+     * would remove the manage-roles capability from its last remaining
+     * holders. The check runs before any repository write, so a refused edit
+     * persists nothing: the role row and every grant row are left
+     * byte-identical. The definition of what "manage roles" means and the
+     * rule for counting who still holds it both live in
+     * {@link RoleManagerGuard}, not here — this method only asks whether this
+     * particular edit drops the capability and, if so, how many
+     * (role, assigned-user) pairs it is about to remove. An edit that keeps
+     * the capability never consults the count at all.
      */
     @Auditable(action = "UPDATE_ROLE")
     public RoleResponse update(RoleUpdateRequest request, UUID id) {
@@ -109,6 +121,16 @@ public class RbacRoleService {
         boolean isRename = !request.name().equalsIgnoreCase(role.getName());
         if (isRename && rbacRoleRepository.existsByNameIgnoreCase(request.name())) {
             throw new IllegalArgumentException(DUPLICATE_NAME_MESSAGE);
+        }
+
+        // Only a grant set that actually drops the manage-roles capability is
+        // guarded (PD-37-11). A capability-preserving edit — renaming, adding
+        // grants, changing unrelated verbs — must never be able to fail on the
+        // count, even when this role happens to be the last manager.
+        boolean losesRoleManagement = roleManagerGuard.roleGrantsRoleManagement(id)
+                && !roleManagerGuard.grantSetIncludesRoleManagement(permissions);
+        if (losesRoleManagement) {
+            roleManagerGuard.assertActionPreservesRoleManagement(true, userRoleRepository.countByRoleId(id));
         }
 
         role.setName(request.name());

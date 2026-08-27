@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.rbac.service;
 
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.exception.SelfLockoutException;
 import com.pranicdoc.cph.rbac.dto.ResourceGrantDto;
 import com.pranicdoc.cph.rbac.dto.RoleCreateRequest;
 import com.pranicdoc.cph.rbac.dto.RoleResponse;
@@ -28,7 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -41,6 +46,7 @@ class RbacRoleServiceTest {
     @Mock private RbacRoleRepository rbacRoleRepository;
     @Mock private RolePermissionRepository rolePermissionRepository;
     @Mock private UserRoleRepository userRoleRepository;
+    @Mock private RoleManagerGuard roleManagerGuard;
 
     @InjectMocks private RbacRoleService rbacRoleService;
 
@@ -308,6 +314,144 @@ class RbacRoleServiceTest {
 
         assertThrows(ResourceNotFoundException.class,
                 () -> rbacRoleService.update(request, unknownId));
+    }
+
+    // --- update: self-lockout guard (RBAC-05, D-01) ---
+
+    /**
+     * A role that currently grants manage-roles, edited to a grant set that no
+     * longer includes it, while it is the last holder: the guard throws and
+     * NOTHING is written — save, deleteAll and saveAll are each never called,
+     * proving a blocked edit leaves the role and its grant rows byte-identical.
+     */
+    @Test
+    void update_strippingLastManageRolesGrant_throwsSelfLockoutAndNeverWrites() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(roleManagerGuard.grantSetIncludesRoleManagement(any())).thenReturn(false);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(1L);
+        doThrow(new SelfLockoutException())
+                .when(roleManagerGuard).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Role Admins", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        assertThrows(SelfLockoutException.class, () -> rbacRoleService.update(request, role.getId()));
+
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).deleteAll(any());
+        verify(rolePermissionRepository, never()).saveAll(any());
+    }
+
+    /**
+     * Same scenario, but a survivor remains so the guard returns normally: the
+     * update completes and the grant set is replaced exactly as it would be
+     * without the guard.
+     */
+    @Test
+    void update_strippingManageRolesGrantWithSurvivorRemaining_completesNormally() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(roleManagerGuard.grantSetIncludesRoleManagement(any())).thenReturn(false);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(1L);
+
+        RolePermission existingUpdate = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.UPDATE).build();
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(existingUpdate));
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Role Admins", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.forClass(List.class);
+
+        rbacRoleService.update(request, role.getId());
+
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(true, 1L);
+        verify(rolePermissionRepository).saveAll(saveCaptor.capture());
+        List<RolePermission> saved = saveCaptor.getValue();
+        assertEquals(1, saved.size());
+        assertEquals(Operation.READ, saved.get(0).getOperation());
+    }
+
+    /**
+     * A role that grants manage-roles, edited with a grant set that STILL
+     * includes it: the count is never consulted (PD-37-11).
+     */
+    @Test
+    void update_keepingManageRolesGrant_neverConsultsGuardCount() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(roleManagerGuard.grantSetIncludesRoleManagement(any())).thenReturn(true);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Role Admins", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("UPDATE"))));
+
+        rbacRoleService.update(request, role.getId());
+
+        verify(roleManagerGuard, never()).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+        verify(userRoleRepository, never()).countByRoleId(any());
+    }
+
+    /**
+     * A role that does NOT currently grant manage-roles, edited to any grant
+     * set: the guard's count is never consulted.
+     */
+    @Test
+    void update_roleWithoutManageRolesGrant_neverConsultsGuardCount() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(false);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Billing Ops", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        rbacRoleService.update(request, role.getId());
+
+        verify(roleManagerGuard, never()).grantSetIncludesRoleManagement(any());
+        verify(roleManagerGuard, never()).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+        verify(userRoleRepository, never()).countByRoleId(any());
+    }
+
+    /**
+     * When the guard IS consulted, the pairs-about-to-be-removed argument it
+     * receives is exactly {@code userRoleRepository.countByRoleId(id)} for the
+     * role being edited.
+     */
+    @Test
+    void update_whenGuarded_passesCountByRoleIdForThisRoleAsPairsToRemove() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubGrantSaveAllReturnsInput();
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(roleManagerGuard.grantSetIncludesRoleManagement(any())).thenReturn(false);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(4L);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+
+        RoleUpdateRequest request = new RoleUpdateRequest(
+                "Role Admins", "desc",
+                List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
+
+        rbacRoleService.update(request, role.getId());
+
+        ArgumentCaptor<Long> pairsCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(eq(true), pairsCaptor.capture());
+        assertEquals(4L, pairsCaptor.getValue());
     }
 
     // --- delete ---
