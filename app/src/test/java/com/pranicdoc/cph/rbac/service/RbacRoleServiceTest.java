@@ -484,6 +484,111 @@ class RbacRoleServiceTest {
         verify(rbacRoleRepository, never()).deleteById(any());
     }
 
+    // --- delete: self-lockout guard (RBAC-05, D-01) ---
+
+    /**
+     * Deleting a role that grants manage-roles and holds the last assignment
+     * pairs: the guard throws and nothing is soft-deleted — neither
+     * rolePermissionRepository.saveAll nor rbacRoleRepository.save is called.
+     */
+    @Test
+    void delete_lastManageRolesRole_throwsSelfLockoutAndSoftDeletesNothing() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(1L);
+        doThrow(new SelfLockoutException())
+                .when(roleManagerGuard).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+
+        assertThrows(SelfLockoutException.class, () -> rbacRoleService.delete(role.getId()));
+
+        verify(rolePermissionRepository, never()).saveAll(any());
+        verify(rbacRoleRepository, never()).save(any());
+        verify(rolePermissionRepository, never()).findAllByRoleId(any());
+    }
+
+    /**
+     * Same delete with a survivor remaining (guard returns normally): the role
+     * and its grants are soft-deleted exactly as the pre-existing behavioural
+     * test asserts.
+     */
+    @Test
+    void delete_manageRolesRoleWithSurvivorRemaining_softDeletesRoleAndGrants() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(rolePermissionRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(2L);
+
+        RolePermission grant = RolePermission.builder()
+                .roleId(role.getId()).resource(Resource.ROLES).operation(Operation.UPDATE).build();
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(grant));
+
+        rbacRoleService.delete(role.getId());
+
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(true, 2L);
+        verify(rbacRoleRepository).save(role);
+        assertTrue(role.isDeleted());
+        assertTrue(grant.isDeleted());
+    }
+
+    /**
+     * Deleting a role that does NOT grant manage-roles: the guard is still
+     * called (unconditionally, PD-37-12) but with {@code false} as its first
+     * argument, and the delete completes.
+     */
+    @Test
+    void delete_roleWithoutManageRolesGrant_callsGuardWithFalseAndCompletes() {
+        RbacRole role = existingRole("Billing Ops");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(rolePermissionRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(false);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(3L);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+
+        rbacRoleService.delete(role.getId());
+
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(false, 3L);
+        assertTrue(role.isDeleted());
+    }
+
+    /**
+     * The pairs-about-to-be-removed argument equals
+     * {@code userRoleRepository.countByRoleId(id)} for the role being deleted.
+     */
+    @Test
+    void delete_passesCountByRoleIdForThisRoleAsPairsToRemove() {
+        RbacRole role = existingRole("Role Admins");
+        when(rbacRoleRepository.findById(role.getId())).thenReturn(Optional.of(role));
+        when(rbacRoleRepository.save(any(RbacRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(rolePermissionRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(roleManagerGuard.roleGrantsRoleManagement(role.getId())).thenReturn(true);
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(7L);
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+
+        rbacRoleService.delete(role.getId());
+
+        ArgumentCaptor<Long> pairsCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(eq(true), pairsCaptor.capture());
+        assertEquals(7L, pairsCaptor.getValue());
+    }
+
+    /**
+     * Deleting an unknown id still throws ResourceNotFoundException before the
+     * guard is consulted at all.
+     */
+    @Test
+    void delete_unknownId_throwsResourceNotFoundBeforeGuard() {
+        UUID unknownId = UUID.randomUUID();
+        when(rbacRoleRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> rbacRoleService.delete(unknownId));
+
+        verify(roleManagerGuard, never()).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+    }
+
     // --- getById ---
 
     @Test

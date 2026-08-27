@@ -174,12 +174,26 @@ public class RbacRoleService {
      * role id and never consults the role row itself, so a role that was
      * soft-deleted without also retiring its grants would keep granting
      * access through any surviving assignment — a real, durable privilege
-     * retention bug. This phase does not block deleting a role that still
-     * has assigned users; that warning belongs to a later phase.
+     * retention bug.
+     * <p>
+     * SELF-LOCKOUT GUARD (RBAC-05, D-01) — deletion is refused when this
+     * role's assignment pairs are the last ones granting the manage-roles
+     * capability. The check runs before any soft-delete, so a refused
+     * deletion retires nothing. This closes the "does not block deleting a
+     * role that still has assigned users" caveat that used to sit in this
+     * Javadoc, but only for the hard last-manager block: a later phase's
+     * warning about deleting a role that has <em>any</em> assigned user
+     * remains a separate, softer concern. Deleting a role always removes
+     * every one of its assignment pairs, so the guard is consulted
+     * unconditionally (PD-37-12) — its own early return covers a role that
+     * grants no manage-roles capability or has no assigned users.
      */
     @Auditable(action = "DELETE_ROLE")
     public void delete(UUID id) {
         RbacRole role = loadRole(id);
+
+        roleManagerGuard.assertActionPreservesRoleManagement(
+                roleManagerGuard.roleGrantsRoleManagement(id), userRoleRepository.countByRoleId(id));
 
         List<RolePermission> grants = rolePermissionRepository.findAllByRoleId(id);
         grants.forEach(RolePermission::softDelete);
