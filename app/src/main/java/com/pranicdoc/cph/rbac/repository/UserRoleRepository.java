@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,4 +19,10 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
 
     /** Backs Phase 39's delete-role assigned-user warning. */
     long countByRoleId(UUID roleId);
+
+    /** Phase 37's RoleManagerGuard — how many (role, assigned-user) pairs the given roles hold in total. */
+    long countByRoleIdIn(List<UUID> roleIds);
+
+    /** Phase 37's RoleAssignmentService — the single assignment row for one principal/role pair, if it exists. */
+    Optional<UserRole> findByPrincipalTypeAndPrincipalIdAndRoleId(String principalType, UUID principalId, UUID roleId);
 }
