@@ -8,7 +8,6 @@ import com.pranicdoc.cph.rbac.dto.RoleAssignmentRequest;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentResponse;
 import com.pranicdoc.cph.rbac.model.UserRole;
 import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
-import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
 import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,7 +43,6 @@ public class RoleAssignmentService {
     private static final String DUPLICATE_ASSIGNMENT_MESSAGE = "This user is already assigned this role.";
 
     private final UserRoleRepository userRoleRepository;
-    private final RolePermissionRepository rolePermissionRepository;
     private final RbacRoleRepository rbacRoleRepository;
     private final HealerRepository healerRepository;
     private final RoleManagerGuard roleManagerGuard;
@@ -80,6 +78,11 @@ public class RoleAssignmentService {
                 .assignedBy(securityContextUtil.getCurrentHealerIdOrNull())
                 .build());
         return toResponse(saved);
+    }
+
+    @Auditable(action = "UNASSIGN_ROLE")
+    public RoleAssignmentResponse unassign(RoleAssignmentRequest request) {
+        throw new UnsupportedOperationException("not implemented");
     }
 
     private RoleAssignmentResponse toResponse(UserRole userRole) {

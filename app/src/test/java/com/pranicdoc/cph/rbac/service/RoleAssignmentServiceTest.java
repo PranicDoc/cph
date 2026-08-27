@@ -2,12 +2,12 @@ package com.pranicdoc.cph.rbac.service;
 
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.exception.SelfLockoutException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentRequest;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentResponse;
 import com.pranicdoc.cph.rbac.model.UserRole;
 import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
-import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
 import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,7 +37,6 @@ import static org.mockito.Mockito.when;
 class RoleAssignmentServiceTest {
 
     @Mock private UserRoleRepository userRoleRepository;
-    @Mock private RolePermissionRepository rolePermissionRepository;
     @Mock private RbacRoleRepository rbacRoleRepository;
     @Mock private HealerRepository healerRepository;
     @Mock private RoleManagerGuard roleManagerGuard;
@@ -174,5 +177,143 @@ class RoleAssignmentServiceTest {
         ArgumentCaptor<UserRole> captor = ArgumentCaptor.forClass(UserRole.class);
         verify(userRoleRepository).save(captor.capture());
         assertNull(captor.getValue().getAssignedBy());
+    }
+
+    // --- unassign ---
+
+    private UserRole existingAssignment(UUID principalId, UUID roleId) {
+        UserRole ur = UserRole.builder()
+                .principalType("HEALER")
+                .principalId(principalId)
+                .roleId(roleId)
+                .assignedAt(Instant.now())
+                .assignedBy(UUID.randomUUID())
+                .build();
+        ur.setId(UUID.randomUUID());
+        return ur;
+    }
+
+    @Test
+    void unassign_existingNonManagerAssignment_deletesThatRowAndReturnsMirror() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(false);
+
+        RoleAssignmentResponse response = roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        verify(userRoleRepository).delete(existing);
+        assertEquals(existing.getId(), response.id());
+        assertEquals(principalId, response.principalId());
+        assertEquals(roleId, response.roleId());
+        assertEquals(existing.getAssignedAt(), response.assignedAt());
+    }
+
+    @Test
+    void unassign_lastManagerAssignment_throwsSelfLockoutAndNeverDeletes() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(true);
+        doThrow(new SelfLockoutException())
+                .when(roleManagerGuard).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+
+        assertThrows(SelfLockoutException.class,
+                () -> roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId)));
+
+        verify(userRoleRepository, never()).delete(any());
+    }
+
+    @Test
+    void unassign_managerAssignmentWithSurvivorRemaining_deletesAndReturnsNormally() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(true);
+
+        roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        verify(userRoleRepository).delete(existing);
+    }
+
+    @Test
+    void unassign_managerRole_callsGuardWithTrueAndExactlyOnePairToRemove() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(true);
+
+        roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(true, 1L);
+    }
+
+    @Test
+    void unassign_nonManagerRole_callsGuardWithFalseAndExactlyOnePairToRemove() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(false);
+
+        roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        verify(roleManagerGuard).assertActionPreservesRoleManagement(false, 1L);
+    }
+
+    @Test
+    void unassign_unknownAssignment_throwsResourceNotFoundAndNeverConsultsGuard() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId)));
+
+        verify(roleManagerGuard, never()).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+        verify(roleManagerGuard, never()).roleGrantsRoleManagement(any());
+        verify(userRoleRepository, never()).delete(any());
+    }
+
+    @Test
+    void unassign_successfulRemoval_isPhysicalDeleteNotSoftDeleteThenSave() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(false);
+
+        roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        verify(userRoleRepository).delete(existing);
+        verify(userRoleRepository, never()).save(any());
+    }
+
+    @Test
+    void unassign_returnsResponsePopulatedFromRowValuesEvenThoughRowIsRemoved() {
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UserRole existing = existingAssignment(principalId, roleId);
+        when(userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId("HEALER", principalId, roleId))
+                .thenReturn(Optional.of(existing));
+        when(roleManagerGuard.roleGrantsRoleManagement(roleId)).thenReturn(false);
+
+        RoleAssignmentResponse response = roleAssignmentService.unassign(new RoleAssignmentRequest(principalId, roleId));
+
+        assertEquals(existing.getId(), response.id());
+        assertEquals(existing.getPrincipalId(), response.principalId());
+        assertEquals(existing.getRoleId(), response.roleId());
+        assertEquals(existing.getAssignedAt(), response.assignedAt());
     }
 }
