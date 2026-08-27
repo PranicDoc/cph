@@ -50,9 +50,36 @@ public class RoleAssignmentService {
     private final RoleManagerGuard roleManagerGuard;
     private final SecurityContextUtil securityContextUtil;
 
+    /**
+     * Attaches one role to one account. Validates, in order, that the role
+     * exists, that the target account exists, and that the pair is not
+     * already assigned — every check runs before the write, so a rejected
+     * request persists nothing. The account-existence check is done here
+     * because the principal column carries no foreign key (D-08): without it
+     * a mistyped identifier would create a permanently orphaned grant row
+     * that still counts toward the self-lockout total. The whole request is
+     * the sole argument so the audit payload records both identifiers.
+     */
     @Auditable(action = "ASSIGN_ROLE")
     public RoleAssignmentResponse assign(RoleAssignmentRequest request) {
-        throw new UnsupportedOperationException("not implemented");
+        if (!rbacRoleRepository.existsById(request.roleId())) {
+            throw new ResourceNotFoundException("RbacRole", request.roleId());
+        }
+        if (!healerRepository.existsById(request.principalId())) {
+            throw new ResourceNotFoundException("Healer", request.principalId());
+        }
+        if (userRoleRepository.findByPrincipalTypeAndPrincipalIdAndRoleId(
+                PRINCIPAL_TYPE_HEALER, request.principalId(), request.roleId()).isPresent()) {
+            throw new IllegalArgumentException(DUPLICATE_ASSIGNMENT_MESSAGE);
+        }
+        UserRole saved = userRoleRepository.save(UserRole.builder()
+                .principalType(PRINCIPAL_TYPE_HEALER)
+                .principalId(request.principalId())
+                .roleId(request.roleId())
+                .assignedAt(Instant.now())
+                .assignedBy(securityContextUtil.getCurrentHealerIdOrNull())
+                .build());
+        return toResponse(saved);
     }
 
     private RoleAssignmentResponse toResponse(UserRole userRole) {
