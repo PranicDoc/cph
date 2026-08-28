@@ -410,3 +410,126 @@ describe("RoleFormPage — save flow, toast, inline 400 / 409", () => {
     expect(router.state.location.pathname).toBe("/admin/roles/new");
   });
 });
+
+describe("RoleFormPage — discard-unsaved-changes guard (ROLE-08)", () => {
+  it("navigates away immediately when the form is untouched", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    const { router } = renderForm("/admin/roles/new");
+    await screen.findByLabelText("Name");
+
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(
+      screen.queryByText("Discard unsaved changes?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("prompts before leaving once the Name field has been edited", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+
+    expect(
+      await screen.findByText("Discard unsaved changes?"),
+    ).toBeInTheDocument();
+  });
+
+  it("completes the navigation on Discard changes", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+    await screen.findByText("Discard unsaved changes?");
+
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+  });
+
+  it("stays put and preserves the typed value on Keep editing", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+    await screen.findByText("Discard unsaved changes?");
+
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Discard unsaved changes?"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(router.state.location.pathname).toBe("/admin/roles/new");
+    expect(screen.getByLabelText("Name")).toHaveValue("Auditors");
+  });
+
+  it("treats a reverted edit as clean — no prompt on navigation", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    const { router } = renderForm("/admin/roles/new");
+    const nameInput = await screen.findByLabelText("Name");
+    await user.type(nameInput, "abc");
+    await user.clear(nameInput);
+
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(
+      screen.queryByText("Discard unsaved changes?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("never prompts during a successful save-and-redirect", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPost.mockResolvedValue({ data: { id: "r9" } });
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await addResources(user, ["Legal documents"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(
+      screen.queryByText("Discard unsaved changes?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("returns to clean when a verb is toggled on then off in edit mode", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    const { router } = renderForm("/admin/roles/r1/edit");
+    const box = await screen.findByRole("checkbox", { name: "Create on Roles" });
+
+    await user.click(box);
+    await user.click(box);
+
+    await user.click(screen.getByRole("button", { name: "Back to roles" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(
+      screen.queryByText("Discard unsaved changes?"),
+    ).not.toBeInTheDocument();
+  });
+});

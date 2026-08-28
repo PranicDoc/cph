@@ -13,6 +13,8 @@ import {
   type GrantMap,
 } from "@/components/admin/roles/PermissionToggleGrid";
 import { ResourcePickerDialog } from "@/components/admin/roles/ResourcePickerDialog";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useRbacCatalog } from "@/hooks/admin/useRbacCatalog";
 import {
   useRoleDetail,
@@ -101,6 +103,20 @@ export default function RoleFormPage() {
   // intercepted (38-RESEARCH Pitfall 8).
   const [saved, setSaved] = useState(false);
 
+  // -- Discard-unsaved-changes guard (ROLE-08) -----------------------------
+  // Normalized comparison so re-checking then un-checking a box, or reverting
+  // a typed value, returns the form to clean. `saved` short-circuits it so the
+  // post-save redirect below is never intercepted (38-RESEARCH Pitfall 8).
+  const isDirty =
+    !saved &&
+    seeded &&
+    normalizeSnapshot(name, description, grants) !== baselineRef.current;
+  const blocker = useUnsavedChangesPrompt(isDirty);
+
+  // Declared AFTER the guard hook so the blocker sees the cleared dirty state
+  // (isDirty === false once `saved` flips) before this effect fires navigate —
+  // otherwise react-router still holds the stale "dirty" predicate and blocks
+  // our own post-save redirect.
   useEffect(() => {
     if (saved) navigate("/admin/roles");
   }, [saved, navigate]);
@@ -429,6 +445,22 @@ export default function RoleFormPage() {
         alreadyAdded={Object.keys(grants)}
         onConfirm={handlePickerConfirm}
       />
+
+      {blocker.state === "blocked" && (
+        <ConfirmDialog
+          open
+          onOpenChange={(next) => {
+            // Esc / overlay / Keep editing all behave like Keep editing.
+            if (!next) blocker.reset?.();
+          }}
+          title="Discard unsaved changes?"
+          description="You've changed this role but haven't saved. Leaving now loses those changes."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          destructive
+          onConfirm={() => blocker.proceed?.()}
+        />
+      )}
     </div>
   );
 }
