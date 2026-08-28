@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  RouterProvider,
+  Route,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 import Layout from "./components/Layout";
 import PublicShell from "./components/PublicShell";
@@ -37,67 +42,77 @@ import AcceptInvite from "./pages/AcceptInvite";
 import Signup from "./pages/Signup";
 import LegalCenter from "./pages/LegalCenter";
 
+// react-router v7 data router. The route tree below is the exact same JSX
+// tree that previously lived inside the declarative router element pair — it
+// is only wrapped in createRoutesFromElements + createBrowserRouter so that
+// data APIs (notably useBlocker, used by the discard-unsaved-changes guard on
+// the role create/edit form) are available. No loaders/actions/errorElement/
+// lazy routes are introduced: this is a mechanical API swap only.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
+      <Route path="/login" element={<Login />} />
+      <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="/forbidden" element={<Forbidden />} />
+      <Route path="/oauth2/success" element={<OAuth2Success />} />
+
+      {/* Public pages — minimal branded shell, no nav */}
+      <Route element={<PublicShell />}>
+        <Route path="/self-register" element={<Registration />} />
+        <Route
+          path="/self-register/:healerId/:uuid"
+          element={<Registration />}
+        />
+        <Route path="/feedback" element={<PatientFeedback />} />
+        <Route path="/patient-health/:caseId" element={<PatientHealthForm />} />
+        <Route path="/accept-invite" element={<AcceptInvite />} />
+        <Route path="/signup" element={<Signup />} />
+      </Route>
+
+      {/* Protected healer routes */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="patients" element={<Patients />} />
+          <Route path="registration" element={<Registration />} />
+          <Route path="pdf-list" element={<PdfList />} />
+          <Route path="session/:healingCaseId" element={<Session />} />
+          <Route path="cases/:healingCaseId/summary" element={<CaseSummary />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+        {/* Sibling of the Layout route, not nested inside it: /legal-center
+            must stay behind ProtectedRoute's gate check but must not render
+            Layout's nav/sidebar chrome (UI-SPEC item 1). */}
+        <Route path="/legal-center" element={<LegalCenter />} />
+      </Route>
+
+      {/* Admin routes — ADMIN + SUPADM only */}
+      <Route element={<AdminRoute />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AccountsPage />} />
+          <Route path="accounts" element={<AccountsPage />} />
+          <Route
+            path="accounts/:ownerType/:ownerId/transactions"
+            element={<TransactionsPage />}
+          />
+          <Route path="global-config" element={<GlobalConfigPage />} />
+          <Route path="packages" element={<PackagesPage />} />
+          <Route path="master-data" element={<MasterDataPage />} />
+          <Route path="healer-registration" element={<HealerRegistrationPage />} />
+          <Route path="legal-documents" element={<LegalDocumentsPage />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </>
+  )
+);
+
 export default function App() {
   return (
     <AuthProvider>
       <PatientProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="/forbidden" element={<Forbidden />} />
-            <Route path="/oauth2/success" element={<OAuth2Success />} />
-
-            {/* Public pages — minimal branded shell, no nav */}
-            <Route element={<PublicShell />}>
-              <Route path="/self-register" element={<Registration />} />
-              <Route
-                path="/self-register/:healerId/:uuid"
-                element={<Registration />}
-              />
-              <Route path="/feedback" element={<PatientFeedback />} />
-              <Route path="/patient-health/:caseId" element={<PatientHealthForm />} />
-              <Route path="/accept-invite" element={<AcceptInvite />} />
-              <Route path="/signup" element={<Signup />} />
-            </Route>
-
-            {/* Protected healer routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="patients" element={<Patients />} />
-                <Route path="registration" element={<Registration />} />
-                <Route path="pdf-list" element={<PdfList />} />
-                <Route path="session/:healingCaseId" element={<Session />} />
-                <Route path="cases/:healingCaseId/summary" element={<CaseSummary />} />
-                <Route path="profile" element={<Profile />} />
-              </Route>
-              {/* Sibling of the Layout route, not nested inside it: /legal-center
-                  must stay behind ProtectedRoute's gate check but must not render
-                  Layout's nav/sidebar chrome (UI-SPEC item 1). */}
-              <Route path="/legal-center" element={<LegalCenter />} />
-            </Route>
-
-            {/* Admin routes — ADMIN + SUPADM only */}
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AccountsPage />} />
-                <Route path="accounts" element={<AccountsPage />} />
-                <Route
-                  path="accounts/:ownerType/:ownerId/transactions"
-                  element={<TransactionsPage />}
-                />
-                <Route path="global-config" element={<GlobalConfigPage />} />
-                <Route path="packages" element={<PackagesPage />} />
-                <Route path="master-data" element={<MasterDataPage />} />
-                <Route path="healer-registration" element={<HealerRegistrationPage />} />
-                <Route path="legal-documents" element={<LegalDocumentsPage />} />
-              </Route>
-            </Route>
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <RouterProvider router={router} />
         <Toaster position="top-right" richColors duration={3000} closeButton />
       </PatientProvider>
     </AuthProvider>
