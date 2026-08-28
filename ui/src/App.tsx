@@ -30,7 +30,6 @@ import MasterDataPage from "./pages/admin/MasterDataPage";
 import LegalDocumentsPage from "./pages/admin/LegalDocumentsPage";
 import RolesPage from "./pages/admin/RolesPage";
 import RoleFormPage from "./pages/admin/RoleFormPage";
-import RoleAssignmentPage from "./pages/admin/RoleAssignmentPage";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
@@ -106,7 +105,6 @@ const router = createBrowserRouter(
           <Route path="roles" element={<RolesPage />} />
           <Route path="roles/new" element={<RoleFormPage />} />
           <Route path="roles/:id/edit" element={<RoleFormPage />} />
-          <Route path="roles/:id/users" element={<RoleAssignmentPage />} />
         </Route>
       </Route>
 

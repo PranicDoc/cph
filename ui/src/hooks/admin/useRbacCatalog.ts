@@ -6,6 +6,14 @@ import api from "../../lib/axios";
 export interface CatalogVerb {
   value: string;
   label: string;
+  /** One-line description rendered under the verb label in the edit grid. */
+  description: string;
+  /**
+   * Structurally required verb — the grid shows it always-on and
+   * non-removable (currently only ROLES:UPDATE). Server-side RoleManagerGuard
+   * is the real self-lockout enforcement.
+   */
+  locked: boolean;
 }
 
 export interface RbacCatalogResource {

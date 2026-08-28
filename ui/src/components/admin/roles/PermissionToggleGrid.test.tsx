@@ -9,6 +9,13 @@ import {
 } from "./PermissionToggleGrid";
 import type { RbacCatalogResource } from "@/hooks/admin/useRbacCatalog";
 
+const vb = (value: string, label: string, locked = false) => ({
+  value,
+  label,
+  description: `${label} action`,
+  locked,
+});
+
 // One resource supports 4 verbs, the other supports 2. Labels deliberately
 // share no substring with their raw enum tokens so a "no raw token in the DOM"
 // assertion is meaningful.
@@ -16,20 +23,12 @@ const CATALOG: RbacCatalogResource[] = [
   {
     resource: "ROLES",
     label: "Access management",
-    verbs: [
-      { value: "READ", label: "View" },
-      { value: "CREATE", label: "Add" },
-      { value: "UPDATE", label: "Edit" },
-      { value: "DELETE", label: "Remove" },
-    ],
+    verbs: [vb("READ", "View"), vb("CREATE", "Add"), vb("UPDATE", "Edit"), vb("DELETE", "Remove")],
   },
   {
     resource: "LEGAL_DOCUMENTS",
     label: "Legal library",
-    verbs: [
-      { value: "READ", label: "View" },
-      { value: "EXPORT", label: "Download" },
-    ],
+    verbs: [vb("READ", "View"), vb("EXPORT", "Download")],
   },
 ];
 
@@ -59,6 +58,7 @@ function Grid({
           return copy;
         });
       }}
+      onAddResource={() => {}}
     />
   );
 }
@@ -123,11 +123,12 @@ describe("PermissionToggleGrid", () => {
     render(
       <PermissionToggleGrid
         catalog={[
-          { resource: "ROLES", label: "Access management", verbs: [{ value: "READ", label: "View" }] },
+          { resource: "ROLES", label: "Access management", verbs: [vb("READ", "View")] },
         ]}
         value={{ ROLES: [] }}
         onChange={vi.fn()}
         onRemoveResource={vi.fn()}
+        onAddResource={vi.fn()}
       />
     );
 
@@ -190,6 +191,7 @@ describe("PermissionToggleGrid", () => {
         value={{ ROLES: [] }}
         onChange={vi.fn()}
         onRemoveResource={vi.fn()}
+        onAddResource={vi.fn()}
         disabled
       />
     );

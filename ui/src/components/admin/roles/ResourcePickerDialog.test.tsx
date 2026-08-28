@@ -15,17 +15,17 @@ const CATALOG: RbacCatalogResource[] = [
     resource: "ROLES",
     label: "Access management",
     verbs: [
-      { value: "READ", label: "View" },
-      { value: "CREATE", label: "Add" },
-      { value: "UPDATE", label: "Edit" },
-      { value: "DELETE", label: "Remove" },
+      { value: "READ", label: "View", description: "View", locked: false },
+      { value: "CREATE", label: "Add", description: "Add", locked: false },
+      { value: "UPDATE", label: "Edit", description: "Edit", locked: false },
+      { value: "DELETE", label: "Remove", description: "Remove", locked: false },
     ],
   },
   { resource: "GLOBAL_CONFIG", label: "System settings", verbs: [] },
   {
     resource: "PATIENTS",
     label: "Patient records",
-    verbs: [{ value: "READ", label: "View" }],
+    verbs: [{ value: "READ", label: "View", description: "View", locked: false }],
   },
 ];
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,6 +21,8 @@ export interface UserPickerDialogProps {
   alreadyAssigned: string[];
   /** Fires with the selected healer ids only. */
   onConfirm: (userIds: string[]) => void;
+  /** Role name, shown in the dialog title. */
+  roleName?: string;
   loading?: boolean;
 }
 
@@ -43,6 +46,7 @@ export function UserPickerDialog({
   healers,
   alreadyAssigned,
   onConfirm,
+  roleName,
   loading,
 }: UserPickerDialogProps) {
   const [selected, setSelected] = useState<AdminHealer[]>([]);
@@ -67,7 +71,13 @@ export function UserPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add users</DialogTitle>
+          <DialogTitle>
+            {roleName ? `Assign users to "${roleName}"` : "Assign users"}
+          </DialogTitle>
+          <DialogDescription>
+            Search your organization's people and grant them this role's
+            permissions.
+          </DialogDescription>
         </DialogHeader>
 
         <MultiSelectList<AdminHealer>
@@ -96,13 +106,17 @@ export function UserPickerDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Keep current users
+            Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={selected.length === 0 || loading}
           >
-            Assign users
+            {selected.length === 0
+              ? "Assign users"
+              : `Assign ${selected.length} user${
+                  selected.length === 1 ? "" : "s"
+                }`}
           </Button>
         </DialogFooter>
       </DialogContent>

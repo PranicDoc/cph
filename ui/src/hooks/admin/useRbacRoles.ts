@@ -15,6 +15,8 @@ export interface RoleSummary {
   description: string | null;
   resourceCount: number;
   userCount: number;
+  /** BaseEntity last-modified timestamp (ISO). Rendered as a relative "Updated" column. */
+  updatedAt: string;
 }
 
 /** D-04: grants travel resource-grouped, one entry per resource. */

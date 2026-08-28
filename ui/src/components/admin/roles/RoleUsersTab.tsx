@@ -1,20 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { ChevronLeft, Trash2, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 import {
   useRoleAssignments,
   useAssignUser,
   useUnassignUser,
-} from "../../hooks/admin/useRoleAssignments";
-import type { RoleAssignedUser } from "../../hooks/admin/useRoleAssignments";
-import { useRoleDetail } from "../../hooks/admin/useRbacRoles";
-import { useAdminHealers } from "../../hooks/admin/useAdminHealers";
-import { extractDetail } from "../../lib/utils";
-import { useIsMobile } from "../../hooks/use-mobile";
+} from "@/hooks/admin/useRoleAssignments";
+import type { RoleAssignedUser } from "@/hooks/admin/useRoleAssignments";
+import { useAdminHealers } from "@/hooks/admin/useAdminHealers";
+import { extractDetail } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -23,33 +22,23 @@ import { UserPickerDialog } from "@/components/admin/roles/UserPickerDialog";
 const SELF_LOCKOUT_FALLBACK =
   "This change would leave nobody able to manage roles, so it was blocked.";
 
-function displayNameOf(user: {
-  name: string | null;
-  email: string | null;
-}): string {
+function displayNameOf(user: { name: string | null; email: string | null }) {
   return user.name || user.email || "this user";
 }
 
+export interface RoleUsersTabProps {
+  roleId: string;
+  roleName: string;
+}
+
 /**
- * UI-SPEC Screen E — the role -> user assignment page at
- * `/admin/roles/:id/users`. Lists assigned users with their assigned date,
- * adds users one request at a time through {@link UserPickerDialog}, and
- * removes an assignment behind a confirmation that surfaces a 409 self-lockout
- * inline (D-09) without touching the assignment.
- *
- * This page has NO dirty form state and is deliberately not discard-guarded
- * (UI-SPEC Screen D exclusion) — it wires up no unsaved-changes navigation
- * blocker. Route registration is plan 38-10's job; the page is testable in
- * isolation via `renderWithDataRouter`.
+ * "Users assigned" tab of the Edit-role screen (mockup Screen 10). Lists the
+ * users holding this role, adds users one request at a time via
+ * {@link UserPickerDialog}, and removes an assignment behind a confirm that
+ * surfaces a 409 self-lockout inline (D-09). No dirty state — its mutations
+ * are immediate, so nothing here is discard-guarded.
  */
-export default function RoleAssignmentPage() {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const roleId = id ?? "";
-
-  const roleDetail = useRoleDetail(roleId);
-  const roleName = roleDetail.data?.name ?? "Role";
-
+export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
   const { data, isLoading, isError, refetch } = useRoleAssignments(roleId);
   const healersQuery = useAdminHealers();
   const healers = useMemo(() => healersQuery.data ?? [], [healersQuery.data]);
@@ -60,12 +49,6 @@ export default function RoleAssignmentPage() {
     [assigned],
   );
 
-  // -- Add flow --------------------------------------------------------------
-  // The endpoint is deliberately single-user (no batch API), so a confirmed
-  // picker fires one useAssignUser mutation per selected id. The dialog closes
-  // immediately; each result reports independently so a single failure is
-  // never silently dropped. There is no pre-settle cache write anywhere — the
-  // list only changes after a 2xx via the hook's invalidation.
   const [pickerOpen, setPickerOpen] = useState(false);
   const assignUser = useAssignUser(roleId);
 
@@ -75,22 +58,13 @@ export default function RoleAssignmentPage() {
       const healer = healers.find((h) => h.id === userId);
       const label = healer ? healer.fullName || healer.email : "User";
       assignUser.mutate(userId, {
-        onSuccess: () => {
-          toast.success(`${label} assigned to "${roleName}".`);
-        },
-        onError: (error) => {
-          toast.error(extractDetail(error) || "Failed to assign user");
-        },
+        onSuccess: () => toast.success(`${label} assigned to "${roleName}".`),
+        onError: (error) =>
+          toast.error(extractDetail(error) || "Failed to assign user"),
       });
     });
   };
 
-  // -- Remove flow ---------------------------------------------------------
-  // The hook carries NO onError (D-09), so this component owns the branching:
-  //   409  -> keep the dialog open, render the server detail verbatim inline in
-  //           a role="alert" block, leave the row present, no success toast, no
-  //           navigation, no optimistic removal.
-  //   else -> close the dialog and toast.error.
   const unassignUser = useUnassignUser(roleId);
   const [removeTarget, setRemoveTarget] = useState<RoleAssignedUser | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -136,7 +110,7 @@ export default function RoleAssignmentPage() {
         accessorKey: "name",
         header: "Name",
         cell: (info) => (
-          <span className="font-medium text-text">
+          <span className="font-semibold text-text">
             {info.row.original.name || info.row.original.email}
           </span>
         ),
@@ -145,7 +119,7 @@ export default function RoleAssignmentPage() {
         accessorKey: "email",
         header: "Email",
         cell: (info) => (
-          <span className="block max-w-[280px] truncate text-xs text-text-light">
+          <span className="block max-w-[280px] truncate text-text-light">
             {info.row.original.email}
           </span>
         ),
@@ -155,25 +129,26 @@ export default function RoleAssignmentPage() {
         header: "Assigned",
         cell: (info) => (
           <span className="text-xs text-text-light">
-            {new Date(info.row.original.assignedAt).toLocaleDateString()}
+            {formatDistanceToNow(new Date(info.row.original.assignedAt), {
+              addSuffix: true,
+            })}
           </span>
         ),
       },
       {
         id: "actions",
-        header: () => <div className="text-right">Actions</div>,
+        header: () => <div className="text-right" />,
         cell: (info) => {
           const user = info.row.original;
           return (
-            <div className="flex items-center justify-end">
+            <div className="flex justify-end">
               <Button
                 variant="ghost"
-                size="icon-sm"
-                className="text-destructive"
+                size="sm"
                 aria-label={`Remove ${displayNameOf(user)}`}
                 onClick={() => openRemove(user)}
               >
-                <Trash2 className="h-4 w-4" />
+                Remove
               </Button>
             </div>
           );
@@ -203,12 +178,12 @@ export default function RoleAssignmentPage() {
         <UserPlus className="h-10 w-10 text-text-light" />
         <h2 className="text-sm font-medium text-text">No users assigned</h2>
         <p className="max-w-md text-sm text-text-light">
-          Assign a user to give them everything this role grants. Use Add users
+          Assign a user to give them everything this role grants. Use Assign user
           to search by name or email.
         </p>
         <Button onClick={() => setPickerOpen(true)}>
           <UserPlus className="h-4 w-4" />
-          Add users
+          Assign user
         </Button>
       </div>
     );
@@ -223,17 +198,19 @@ export default function RoleAssignmentPage() {
               </span>
               <Button
                 variant="ghost"
-                size="icon-sm"
-                className="text-destructive"
+                size="sm"
                 aria-label={`Remove ${displayNameOf(user)}`}
                 onClick={() => openRemove(user)}
               >
-                <Trash2 className="h-4 w-4" />
+                Remove
               </Button>
             </div>
             <p className="truncate text-xs text-text-light">{user.email}</p>
             <p className="mt-1 text-xs text-text-light">
-              Assigned {new Date(user.assignedAt).toLocaleDateString()}
+              Assigned{" "}
+              {formatDistanceToNow(new Date(user.assignedAt), {
+                addSuffix: true,
+              })}
             </p>
           </div>
         ))}
@@ -252,25 +229,18 @@ export default function RoleAssignmentPage() {
     );
   }
 
+  const count = assigned.length;
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Back to roles"
-            onClick={() => navigate("/admin/roles")}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="truncate text-xl font-bold text-text md:text-2xl">
-            {roleName} — assigned users
-          </h1>
+      <div className="mb-3.5 flex items-center justify-between">
+        <div className="text-sm text-text-light">
+          {count} user{count === 1 ? "" : "s"} {count === 1 ? "has" : "have"} this
+          role
         </div>
-        <Button onClick={() => setPickerOpen(true)}>
+        <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
           <UserPlus className="h-4 w-4" />
-          Add users
+          Assign user
         </Button>
       </div>
 
@@ -282,6 +252,7 @@ export default function RoleAssignmentPage() {
         healers={healers}
         alreadyAssigned={alreadyAssigned}
         onConfirm={handleAssign}
+        roleName={roleName}
         loading={assignUser.isPending}
       />
 

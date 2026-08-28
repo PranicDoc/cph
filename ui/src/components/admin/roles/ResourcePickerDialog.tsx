@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -60,6 +61,10 @@ export function ResourcePickerDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add resources</DialogTitle>
+          <DialogDescription>
+            Choose which resources this role should access. You'll configure the
+            permissions for each after adding.
+          </DialogDescription>
         </DialogHeader>
 
         <MultiSelectList<RbacCatalogResource>
@@ -68,16 +73,29 @@ export function ResourcePickerDialog({
           onChange={(next) => setSelected(next)}
           getOptionKey={(entry) => entry.resource}
           getOptionLabel={(entry) => entry.label}
+          renderOption={(entry) => (
+            <div className="flex flex-col">
+              <span>{entry.label}</span>
+              <span className="text-xs text-text-light">
+                {entry.verbs.length} permission
+                {entry.verbs.length === 1 ? "" : "s"} available
+              </span>
+            </div>
+          )}
           searchPlaceholder="Search resources"
           emptyText="No resources left to add."
         />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Keep current resources
+            Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={selected.length === 0}>
-            Add selected
+            {selected.length === 0
+              ? "Add resources"
+              : `Add ${selected.length} resource${
+                  selected.length === 1 ? "" : "s"
+                }`}
           </Button>
         </DialogFooter>
       </DialogContent>

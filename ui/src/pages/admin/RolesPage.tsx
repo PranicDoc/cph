@@ -3,18 +3,17 @@ import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 import {
   ArrowDown,
   ArrowUp,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
-  Pencil,
   Plus,
   Search,
   ShieldCheck,
   Trash2,
-  Users,
 } from "lucide-react";
 
 import { useRbacRoles, useDeleteRole } from "../../hooks/admin/useRbacRoles";
@@ -40,12 +39,18 @@ const SORT_ASC = "name,asc";
 const SORT_DESC = "name,desc";
 const SEARCH_DEBOUNCE_MS = 300;
 
+function relative(iso: string): string {
+  try {
+    return formatDistanceToNow(new Date(iso), { addSuffix: true });
+  } catch {
+    return "—";
+  }
+}
+
 export default function RolesPage() {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
 
-  // The URL — NOT useState — owns page / size / sort. (This is where
-  // AccountsPage diverges: it keeps `page` in local state.)
   const search = sp.get("search") ?? "";
   const page = Number(sp.get("page") ?? 0);
   const size = Number(sp.get("size") ?? DEFAULT_SIZE);
@@ -58,13 +63,7 @@ export default function RolesPage() {
     sort,
   });
 
-  // -- Debounced search ------------------------------------------------------
-  // Local input state so keystrokes never hit the network; a 300ms timer
-  // writes it into the URL. Every write of `search` also resets `page` to 0
-  // (38-RESEARCH Pitfall 6) so a narrowed result set never lands on an empty
-  // page.
   const [inputValue, setInputValue] = useState(search);
-
   useEffect(() => {
     setInputValue(search);
   }, [search]);
@@ -83,9 +82,6 @@ export default function RolesPage() {
     return () => clearTimeout(timer);
   }, [inputValue, search, setSp]);
 
-  // -- Sort (Name header only) --------------------------------------------
-  // DataTable runs with enableSorting={false}; this drives ?sort manually and
-  // also resets page to 0.
   const sortDescending = sort === SORT_DESC;
   const toggleSort = useCallback(() => {
     setSp((prev) => {
@@ -104,14 +100,6 @@ export default function RolesPage() {
     });
   };
 
-  // -- Delete flow -------------------------------------------------------
-  // The hook carries NO onError (D-09), so this component owns the branching:
-  //   409 -> keep the dialog open, render the server detail verbatim inline in
-  //          a role="alert" block, leave the row present, no success toast, no
-  //          navigation, Delete button stays enabled for a retry.
-  //   else -> close the dialog and toast.error.
-  // No optimistic cache write and no local filtering of the query data anywhere
-  // — the list only changes after a 2xx via the hook's invalidateQueries.
   const deleteRole = useDeleteRole();
   const [deleteTarget, setDeleteTarget] = useState<RoleSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -157,113 +145,104 @@ export default function RolesPage() {
     (id: string) => navigate(`/admin/roles/${id}/edit`),
     [navigate],
   );
-  const goUsers = useCallback(
-    (id: string) => navigate(`/admin/roles/${id}/users`),
-    [navigate],
-  );
   const goNew = () => navigate("/admin/roles/new");
 
   const isMobile = useIsMobile();
   const rows = data?.content ?? [];
 
-  // Memoised so the header/cell renderer identities stay stable across the
-  // re-render when the query resolves — otherwise TanStack rebuilds every
-  // header cell (new inline component type) and a click landing mid-resolve
-  // is dropped on the remounted node.
   const columns = useMemo<ColumnDef<RoleSummary, unknown>[]>(
     () => [
-    {
-      accessorKey: "name",
-      header: () => (
-        <button
-          type="button"
-          onClick={toggleSort}
-          aria-sort={sortDescending ? "descending" : "ascending"}
-          className="inline-flex items-center gap-1 uppercase tracking-wide"
-        >
-          Name
-          {sortDescending ? (
-            <ArrowDown className="h-3 w-3" />
-          ) : (
-            <ArrowUp className="h-3 w-3" />
-          )}
-        </button>
-      ),
-      cell: (info) => (
-        <span className="font-medium text-text">{info.row.original.name}</span>
-      ),
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      cell: (info) => {
-        const description = info.row.original.description;
-        return (
-          <span className="block max-w-[280px] truncate text-text-light">
-            {description && description.trim() ? description : "—"}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "resourceCount",
-      header: () => <div className="text-right">Resources</div>,
-      cell: (info) => (
-        <div className="text-right">
-          <Badge variant="default">{info.row.original.resourceCount}</Badge>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "userCount",
-      header: () => <div className="text-right">Users</div>,
-      cell: (info) => (
-        <div className="text-right">
-          <Badge variant="neutral">{info.row.original.userCount}</Badge>
-        </div>
-      ),
-    },
-    {
-      id: "actions",
-      header: () => <div className="text-right">Actions</div>,
-      cell: (info) => {
-        const role = info.row.original;
-        return (
-          <div
-            className="flex items-center justify-end gap-1"
-            onClick={(event) => event.stopPropagation()}
+      {
+        accessorKey: "name",
+        header: () => (
+          <button
+            type="button"
+            onClick={toggleSort}
+            aria-sort={sortDescending ? "descending" : "ascending"}
+            className="inline-flex items-center gap-1 uppercase tracking-wide"
           >
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Edit ${role.name}`}
-              onClick={() => goEdit(role.id)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Assigned users for ${role.name}`}
-              onClick={() => goUsers(role.id)}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-destructive"
-              aria-label={`Delete ${role.name}`}
-              onClick={() => openDelete(role)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        );
+            Role
+            {sortDescending ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUp className="h-3 w-3" />
+            )}
+          </button>
+        ),
+        cell: (info) => {
+          const r = info.row.original;
+          return (
+            <div>
+              <div className="text-[13.5px] font-semibold text-text">
+                {r.name}
+              </div>
+              {r.description && r.description.trim() ? (
+                <div className="text-xs text-text-light">{r.description}</div>
+              ) : null}
+            </div>
+          );
+        },
       },
-    },
+      {
+        accessorKey: "resourceCount",
+        header: () => <div className="text-right">Resources</div>,
+        cell: (info) => (
+          <div className="text-right">
+            <Badge variant="default">{info.row.original.resourceCount}</Badge>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "userCount",
+        header: () => <div className="text-right">Users</div>,
+        cell: (info) => (
+          <div className="text-right">
+            <Badge variant="neutral">{info.row.original.userCount}</Badge>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Updated",
+        cell: (info) => (
+          <span className="text-xs text-text-light">
+            {relative(info.row.original.updatedAt)}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right" />,
+        cell: (info) => {
+          const role = info.row.original;
+          return (
+            <div
+              className="flex items-center justify-end gap-1"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Edit ${role.name}`}
+                onClick={() => goEdit(role.id)}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive"
+                aria-label={`Delete ${role.name}`}
+                onClick={() => openDelete(role)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
     ],
-    [sortDescending, toggleSort, goEdit, goUsers, openDelete],
+    [sortDescending, toggleSort, goEdit, openDelete],
   );
 
   const totalPages = data ? data.totalPages || 1 : 1;
@@ -335,7 +314,7 @@ export default function RolesPage() {
         </p>
         <Button onClick={goNew}>
           <Plus className="h-4 w-4" />
-          Create role
+          New role
         </Button>
       </div>
     );
@@ -368,9 +347,6 @@ export default function RolesPage() {
                       <DropdownMenuItem onClick={() => goEdit(role.id)}>
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => goUsers(role.id)}>
-                        Assigned users
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => openDelete(role)}
@@ -398,6 +374,9 @@ export default function RolesPage() {
                   <div className="font-semibold text-text">{role.userCount}</div>
                 </div>
               </div>
+              <p className="mt-2 text-[11px] text-text-light">
+                Updated {relative(role.updatedAt)}
+              </p>
             </div>
           ))}
         </div>
@@ -423,22 +402,32 @@ export default function RolesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-text md:text-2xl">Roles</h1>
+      <div className="mb-1.5 text-xs text-text-light">Admin</div>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-text md:text-2xl">
+          Roles &amp; Permissions
+        </h1>
         <Button onClick={goNew}>
           <Plus className="h-4 w-4" />
-          Create role
+          New role
         </Button>
       </div>
 
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-light" />
-        <Input
-          className="pl-9"
-          placeholder="Search roles"
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-        />
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-light" />
+          <Input
+            className="pl-9"
+            placeholder="Search roles"
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+          />
+        </div>
+        {data && (
+          <span className="text-xs text-text-light">
+            {data.totalElements} role{data.totalElements === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
       {content}
@@ -449,10 +438,14 @@ export default function RolesPage() {
           onOpenChange={(next) => {
             if (!next) closeDelete();
           }}
-          title="Delete this role?"
+          title={`Delete "${deleteTarget.name}"?`}
           description={
             <>
-              {`"${deleteTarget.name}" will be permanently deleted and any user assigned to it loses the access it granted. This can't be undone.`}
+              {deleteTarget.userCount > 0
+                ? `This role is assigned to ${deleteTarget.userCount} user${
+                    deleteTarget.userCount === 1 ? "" : "s"
+                  }. Deleting it will immediately remove their access to every resource it grants. This can't be undone.`
+                : `"${deleteTarget.name}" will be permanently deleted. This can't be undone.`}
               {deleteError ? (
                 <span
                   role="alert"
@@ -464,7 +457,7 @@ export default function RolesPage() {
             </>
           }
           confirmLabel="Delete role"
-          cancelLabel="Keep role"
+          cancelLabel="Cancel"
           destructive
           loading={deleteRole.isPending}
           onConfirm={confirmDelete}
