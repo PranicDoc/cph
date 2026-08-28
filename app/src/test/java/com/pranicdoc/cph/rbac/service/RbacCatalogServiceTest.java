@@ -45,6 +45,28 @@ class RbacCatalogServiceTest {
     }
 
     @Test
+    void everyOperationConstantHasANonBlankVerbDescription() {
+        for (Operation operation : Operation.values()) {
+            assertThat(RbacCatalogService.verbDescription(operation))
+                    .as("Operation %s must have a non-blank verb description", operation.name())
+                    .isNotNull()
+                    .isNotBlank();
+        }
+    }
+
+    @Test
+    void onlyRolesUpdateIsMarkedLocked() {
+        for (RbacCatalogResourceResponse entry : service.catalog()) {
+            for (VerbDto verb : entry.verbs()) {
+                boolean expectLocked = entry.resource().equals("ROLES") && verb.value().equals("UPDATE");
+                assertThat(verb.locked())
+                        .as("%s:%s locked flag", entry.resource(), verb.value())
+                        .isEqualTo(expectLocked);
+            }
+        }
+    }
+
+    @Test
     void catalogHasOneEntryPerResourceTodayAndNoEmptyVerbList() {
         List<RbacCatalogResourceResponse> catalog = service.catalog();
 

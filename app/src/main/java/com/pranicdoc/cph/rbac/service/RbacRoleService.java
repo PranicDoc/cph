@@ -228,7 +228,8 @@ public class RbacRoleService {
                             .count();
                     long userCount = userRoleRepository.countByRoleId(role.getId());
                     return new RoleSummaryResponse(
-                            role.getId(), role.getName(), role.getDescription(), resourceCount, userCount);
+                            role.getId(), role.getName(), role.getDescription(),
+                            resourceCount, userCount, role.getUpdatedAt());
                 });
         return PageResponse.from(page);
     }

@@ -61,6 +61,7 @@ class RbacRoleServiceTest {
     private RbacRole existingRole(String name) {
         RbacRole role = RbacRole.builder().name(name).description("desc").build();
         role.setId(UUID.randomUUID());
+        role.setUpdatedAt(java.time.Instant.parse("2026-08-01T12:00:00Z"));
         return role;
     }
 
@@ -632,6 +633,7 @@ class RbacRoleServiceTest {
         assertEquals("Billing Ops", row.name());
         assertEquals(1, row.resourceCount());   // two grants, one distinct resource
         assertEquals(3L, row.userCount());
+        assertEquals(java.time.Instant.parse("2026-08-01T12:00:00Z"), row.updatedAt());
         assertEquals(0, result.page());
         assertEquals(20, result.size());
         assertEquals(1L, result.totalElements());

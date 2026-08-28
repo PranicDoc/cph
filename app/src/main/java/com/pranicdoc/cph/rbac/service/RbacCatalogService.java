@@ -62,6 +62,22 @@ public class RbacCatalogService {
     );
 
     /**
+     * One-line, resource-agnostic descriptions the edit grid renders under each
+     * verb label (38 mockup Screens 6/9). Backend-owned per D-03 so the
+     * frontend never hardcodes copy.
+     */
+    private static final Map<Operation, String> VERB_DESCRIPTIONS = Map.of(
+            Operation.READ, "View records",
+            Operation.CREATE, "Add new records",
+            Operation.UPDATE, "Edit existing records",
+            Operation.DELETE, "Remove records",
+            Operation.EXPORT, "Export records to a file",
+            Operation.SHARE, "Share records externally",
+            Operation.WRITE, "Create and edit records",
+            Operation.ADMIN, "Full administrative control"
+    );
+
+    /**
      * @return one entry per grantable {@link Resource}, each with its
      * human-readable label and its allow-listed verbs (verbs sorted by enum
      * name, entries sorted by label); resources with no grantable verb are
@@ -78,9 +94,25 @@ public class RbacCatalogService {
     private static RbacCatalogResourceResponse toCatalogEntry(Resource resource) {
         List<VerbDto> verbs = resource.getSupportedOperations().stream()
                 .sorted(Comparator.comparing(Enum::name))
-                .map(operation -> new VerbDto(operation.name(), verbLabel(operation)))
+                .map(operation -> new VerbDto(
+                        operation.name(),
+                        verbLabel(operation),
+                        verbDescription(operation),
+                        isLocked(resource, operation)))
                 .toList();
         return new RbacCatalogResourceResponse(resource.name(), resourceLabel(resource), verbs);
+    }
+
+    /**
+     * A structurally required verb the edit grid shows always-on and
+     * non-removable. Today that is only {@code ROLES:UPDATE} — the manage-roles
+     * capability (37-CONTEXT D-06). Removing it is what the server-side
+     * {@link com.pranicdoc.cph.rbac.RoleManagerGuard self-lockout guard}
+     * actually blocks; {@code locked} just surfaces that in the UI ahead of the
+     * attempt.
+     */
+    static boolean isLocked(Resource resource, Operation operation) {
+        return resource == Resource.ROLES && operation == Operation.UPDATE;
     }
 
     /** Package-private for the label-completeness gate in {@code RbacCatalogServiceTest}. */
@@ -91,5 +123,10 @@ public class RbacCatalogService {
     /** Package-private for the label-completeness gate in {@code RbacCatalogServiceTest}. */
     static String verbLabel(Operation operation) {
         return VERB_LABELS.get(operation);
+    }
+
+    /** Package-private for the description-completeness gate in {@code RbacCatalogServiceTest}. */
+    static String verbDescription(Operation operation) {
+        return VERB_DESCRIPTIONS.get(operation);
     }
 }

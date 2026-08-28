@@ -20,8 +20,13 @@ public record RbacCatalogResourceResponse(String resource, String label, List<Ve
 
     /**
      * A single grantable verb: the raw
-     * {@link com.pranicdoc.cph.rbac.model.Operation} name plus its
-     * human-readable label. Response record, never bound from a request body.
+     * {@link com.pranicdoc.cph.rbac.model.Operation} name, its human-readable
+     * label, a one-line description the edit grid renders under the label, and
+     * {@code locked} — true for a structurally required verb the UI shows
+     * always-on and non-removable (currently only {@code ROLES:UPDATE}, the
+     * manage-roles capability; the real self-lockout enforcement stays
+     * server-side in {@code RoleManagerGuard}). Response record, never bound
+     * from a request body.
      */
-    public record VerbDto(String value, String label) {}
+    public record VerbDto(String value, String label, String description, boolean locked) {}
 }

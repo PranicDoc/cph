@@ -118,7 +118,9 @@ class RbacCatalogControllerAuthorizationContractTest {
     void catalog_returns200AndDelegatesToServiceExactlyOnce() throws Exception {
         RbacCatalogResourceResponse stub = new RbacCatalogResourceResponse(
                 "ROLES", "Roles",
-                List.of(new VerbDto("READ", "Read"), new VerbDto("UPDATE", "Update")));
+                List.of(
+                        new VerbDto("READ", "Read", "View records", false),
+                        new VerbDto("UPDATE", "Update", "Edit existing records", true)));
         when(rbacCatalogService.catalog()).thenReturn(List.of(stub));
 
         mockMvc.perform(get("/api/admin/roles/catalog"))
