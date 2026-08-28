@@ -458,15 +458,17 @@ export default function RoleFormPage() {
                 {addedCount} of {catalog.length} resources added
               </div>
             </div>
-            <PermissionToggleGrid
-              catalog={catalog}
-              value={grants}
-              onChange={applyGrants}
-              onRemoveResource={handleRemoveResource}
-              onAddResource={() => setPickerOpen(true)}
-              baseline={isEdit ? baselineGrants : undefined}
-              disabled={activeMutation.isPending}
-            />
+            <div className="flex flex-1 p-3 sm:p-4">
+              <PermissionToggleGrid
+                catalog={catalog}
+                value={grants}
+                onChange={applyGrants}
+                onRemoveResource={handleRemoveResource}
+                onAddResource={() => setPickerOpen(true)}
+                baseline={isEdit ? baselineGrants : undefined}
+                disabled={activeMutation.isPending}
+              />
+            </div>
           </div>
 
           {resourceError && (
