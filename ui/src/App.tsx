@@ -28,6 +28,9 @@ import GlobalConfigPage from "./pages/admin/GlobalConfigPage";
 import PackagesPage from "./pages/admin/PackagesPage";
 import MasterDataPage from "./pages/admin/MasterDataPage";
 import LegalDocumentsPage from "./pages/admin/LegalDocumentsPage";
+import RolesPage from "./pages/admin/RolesPage";
+import RoleFormPage from "./pages/admin/RoleFormPage";
+import RoleAssignmentPage from "./pages/admin/RoleAssignmentPage";
 import { PatientProvider } from "./context/PatientContext";
 import { PdfList } from "./pages/PdfList";
 import CaseSummary from "./pages/CaseSummary";
@@ -100,6 +103,10 @@ const router = createBrowserRouter(
           <Route path="master-data" element={<MasterDataPage />} />
           <Route path="healer-registration" element={<HealerRegistrationPage />} />
           <Route path="legal-documents" element={<LegalDocumentsPage />} />
+          <Route path="roles" element={<RolesPage />} />
+          <Route path="roles/new" element={<RoleFormPage />} />
+          <Route path="roles/:id/edit" element={<RoleFormPage />} />
+          <Route path="roles/:id/users" element={<RoleAssignmentPage />} />
         </Route>
       </Route>
 

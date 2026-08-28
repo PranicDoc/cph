@@ -1,4 +1,4 @@
-import { Users, Package, Sliders, Database, UserPlus, FileText } from "lucide-react";
+import { Users, Package, Sliders, Database, UserPlus, FileText, ShieldCheck } from "lucide-react";
 import type { SidebarNavItem } from "../components/Sidebar";
 
 export interface AdminNavItem extends SidebarNavItem {
@@ -12,4 +12,5 @@ export const adminNavItems: AdminNavItem[] = [
   { label: "Master Data",   path: "/admin/master-data",         icon: Database,   roles: ["ADMIN", "SUPADM"] },
   { label: "Healer Reg.",  path: "/admin/healer-registration", icon: UserPlus,   roles: ["ADMIN", "SUPADM"] },
   { label: "Legal Documents", path: "/admin/legal-documents", icon: FileText, roles: ["ADMIN", "SUPADM"] },
+  { label: "Roles", path: "/admin/roles", icon: ShieldCheck, roles: ["SUPADM"] },
 ];
