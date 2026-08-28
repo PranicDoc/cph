@@ -86,7 +86,8 @@ class RbacRoleControllerAuthorizationContractTest {
 
     @Test
     void list_isAnnotatedWithCombinedReadPermissionGate() throws Exception {
-        Method method = RbacRoleController.class.getMethod("list");
+        Method method = RbacRoleController.class.getMethod(
+                "list", String.class, org.springframework.data.domain.Pageable.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();

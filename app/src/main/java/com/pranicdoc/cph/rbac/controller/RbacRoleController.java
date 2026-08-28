@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.rbac.controller;
 
+import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.rbac.dto.RoleCreateRequest;
 import com.pranicdoc.cph.rbac.dto.RoleResponse;
 import com.pranicdoc.cph.rbac.dto.RoleSummaryResponse;
@@ -7,6 +8,8 @@ import com.pranicdoc.cph.rbac.dto.RoleUpdateRequest;
 import com.pranicdoc.cph.rbac.service.RbacRoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,9 +20,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -55,8 +58,10 @@ public class RbacRoleController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','READ')")
-    public ResponseEntity<List<RoleSummaryResponse>> list() {
-        return ResponseEntity.ok(rbacRoleService.list());
+    public ResponseEntity<PageResponse<RoleSummaryResponse>> list(
+            @RequestParam(required = false, defaultValue = "") String search,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(rbacRoleService.list(search, pageable));
     }
 
     @GetMapping("/{id}")

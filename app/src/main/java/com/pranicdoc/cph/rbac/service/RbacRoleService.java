@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.rbac.service;
 
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.rbac.dto.ResourceGrantDto;
 import com.pranicdoc.cph.rbac.dto.RoleCreateRequest;
@@ -16,6 +17,8 @@ import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
 import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
 import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -204,15 +207,19 @@ public class RbacRoleService {
     }
 
     /**
-     * Role list rows. Per-role grant/user-count reads are an accepted N+1 at
-     * this phase's scale (single-digit to low-tens of roles) — a searchable,
-     * paginated, UI-facing list is a later phase's deliverable; this method
-     * exists in this phase only to give the enforcement point something
-     * real to demonstrate against.
+     * Role list rows, server-side searched + sorted + paginated (D-08,
+     * Phase 38 ROLE-01). {@code search} is a case-insensitive substring match
+     * on role name; an empty string matches every non-soft-deleted role.
+     * Sort and page size come from the controller's {@code @PageableDefault}
+     * (name ascending, size 20) unless the caller overrides them.
+     * <p>
+     * The per-row grant/user-count reads remain an accepted N+1 — now bounded
+     * to a single page's worth of roles rather than the whole table.
      */
     @Transactional(readOnly = true)
-    public List<RoleSummaryResponse> list() {
-        return rbacRoleRepository.findAll().stream()
+    public PageResponse<RoleSummaryResponse> list(String search, Pageable pageable) {
+        Page<RoleSummaryResponse> page = rbacRoleRepository
+                .findByNameContainingIgnoreCase(search, pageable)
                 .map(role -> {
                     List<RolePermission> grants = rolePermissionRepository.findAllByRoleId(role.getId());
                     int resourceCount = (int) grants.stream()
@@ -222,8 +229,8 @@ public class RbacRoleService {
                     long userCount = userRoleRepository.countByRoleId(role.getId());
                     return new RoleSummaryResponse(
                             role.getId(), role.getName(), role.getDescription(), resourceCount, userCount);
-                })
-                .toList();
+                });
+        return PageResponse.from(page);
     }
 
     /** Public role detail read. */

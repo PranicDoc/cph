@@ -1,10 +1,12 @@
 package com.pranicdoc.cph.rbac.service;
 
+import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.SelfLockoutException;
 import com.pranicdoc.cph.rbac.dto.ResourceGrantDto;
 import com.pranicdoc.cph.rbac.dto.RoleCreateRequest;
 import com.pranicdoc.cph.rbac.dto.RoleResponse;
+import com.pranicdoc.cph.rbac.dto.RoleSummaryResponse;
 import com.pranicdoc.cph.rbac.dto.RoleUpdateRequest;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.RbacRole;
@@ -20,12 +22,16 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -587,6 +593,70 @@ class RbacRoleServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> rbacRoleService.delete(unknownId));
 
         verify(roleManagerGuard, never()).assertActionPreservesRoleManagement(anyBoolean(), anyLong());
+    }
+
+    // --- list (server-side searched + paged, D-08) ---
+
+    /**
+     * The service forwards the caller's search string and Pageable verbatim to
+     * the derived paged finder (never findAll()), preserves the per-row
+     * resourceCount/userCount derivation inside the page map, and wraps the
+     * result in a PageResponse whose totalElements comes from the repository
+     * page — not recomputed from content.size().
+     */
+    @Test
+    void list_delegatesSearchAndPageableToDerivedFinderAndPreservesPerRowCounts() {
+        RbacRole role = existingRole("Billing Ops");
+        Pageable pageable = PageRequest.of(0, 20);
+        when(rbacRoleRepository.findByNameContainingIgnoreCase("bill", pageable))
+                .thenReturn(new PageImpl<>(List.of(role), pageable, 1));
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(
+                RolePermission.builder().roleId(role.getId())
+                        .resource(Resource.ROLES).operation(Operation.READ).build(),
+                RolePermission.builder().roleId(role.getId())
+                        .resource(Resource.ROLES).operation(Operation.UPDATE).build()));
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(3L);
+
+        ArgumentCaptor<String> searchCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        PageResponse<RoleSummaryResponse> result = rbacRoleService.list("bill", pageable);
+
+        verify(rbacRoleRepository).findByNameContainingIgnoreCase(searchCaptor.capture(), pageableCaptor.capture());
+        assertEquals("bill", searchCaptor.getValue());
+        assertEquals(pageable, pageableCaptor.getValue());
+        verify(rbacRoleRepository, never()).findAll();
+
+        assertEquals(1, result.content().size());
+        RoleSummaryResponse row = result.content().get(0);
+        assertEquals("Billing Ops", row.name());
+        assertEquals(1, row.resourceCount());   // two grants, one distinct resource
+        assertEquals(3L, row.userCount());
+        assertEquals(0, result.page());
+        assertEquals(20, result.size());
+        assertEquals(1L, result.totalElements());
+        assertTrue(result.last());
+    }
+
+    /**
+     * totalElements/totalPages/last reflect the repository page's own totals,
+     * not the size of the single page slice returned in content.
+     */
+    @Test
+    void list_pageMetadataComesFromRepositoryPageNotContentSize() {
+        RbacRole role = existingRole("Billing Ops");
+        Pageable pageable = PageRequest.of(0, 20);
+        when(rbacRoleRepository.findByNameContainingIgnoreCase("", pageable))
+                .thenReturn(new PageImpl<>(List.of(role), pageable, 57));
+        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
+        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(0L);
+
+        PageResponse<RoleSummaryResponse> result = rbacRoleService.list("", pageable);
+
+        assertEquals(1, result.content().size());
+        assertEquals(57L, result.totalElements());
+        assertEquals(3, result.totalPages());
+        assertFalse(result.last());
     }
 
     // --- getById ---
