@@ -1,6 +1,8 @@
 package com.pranicdoc.cph.rbac.repository;
 
 import com.pranicdoc.cph.rbac.model.RbacRole;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -29,4 +31,19 @@ public interface RbacRoleRepository extends JpaRepository<RbacRole, UUID> {
      * instead of this method's friendly 400).
      */
     boolean existsByNameIgnoreCase(String name);
+
+    /**
+     * D-08 (Phase 38, ROLE-01) — server-side, case-insensitive substring
+     * search on role name, one page at a time. Backs the paginated
+     * {@code GET /api/admin/roles} list the admin Roles screen consumes.
+     * <p>
+     * An empty {@code name} argument matches every role ({@code LIKE '%%'}),
+     * which is exactly the "no search term" behaviour the endpoint's
+     * {@code defaultValue = ""} relies on. Because {@code BaseEntity} carries
+     * {@code @SQLRestriction("is_deleted = false")}, soft-deleted roles are
+     * never returned — same documented consequence noted on
+     * {@link #existsByNameIgnoreCase}. Derived query only: no {@code @Query}
+     * in this module (enforced by {@code RbacRepositoryQueryDerivationTest}).
+     */
+    Page<RbacRole> findByNameContainingIgnoreCase(String name, Pageable pageable);
 }

@@ -5,6 +5,8 @@ import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
 import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
 import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -118,6 +120,35 @@ class RbacRepositoryQueryDerivationTest {
             assertEquals(UUID.class, idType,
                     repoInterface.getSimpleName() + " must be JpaRepository<Entity, UUID> like every other repository in this codebase");
         }
+    }
+
+    /**
+     * D-08 (Phase 38, ROLE-01) explicit coverage for the paged, case-insensitive
+     * name search that backs the server-paginated {@code GET /api/admin/roles}.
+     * The generic sweep above already resolves its {@code Name} subject, but this
+     * pins the exact shape the controller + service depend on: the method exists
+     * with {@code (String, Pageable)}, returns a Spring Data {@code Page} (never a
+     * bare {@code List}, so the endpoint can actually paginate), its derived
+     * subject resolves to a real {@code RbacRole} property, and it carries no
+     * {@code @Query}/{@code @Modifying} (this module is derived-queries-only).
+     */
+    @Test
+    void rbacRoleRepositoryDeclaresPagedCaseInsensitiveNameSearch() throws Exception {
+        Method method = RbacRoleRepository.class.getDeclaredMethod(
+                "findByNameContainingIgnoreCase", String.class, Pageable.class);
+
+        assertEquals(Page.class, method.getReturnType(),
+                "findByNameContainingIgnoreCase must return Page<RbacRole> so GET /api/admin/roles can paginate server-side");
+
+        Class<?> entityClass = resolveEntityType(RbacRoleRepository.class);
+        Set<String> properties = declaredPropertyNames(entityClass);
+        assertTrue(properties.contains("name"),
+                "findByNameContainingIgnoreCase — subject 'Name' (after stripping Containing/IgnoreCase) must resolve to an RbacRole property");
+
+        assertFalse(method.isAnnotationPresent(Query.class),
+                "findByNameContainingIgnoreCase must stay a derived query — no @Query in the rbac module");
+        assertFalse(method.isAnnotationPresent(Modifying.class),
+                "findByNameContainingIgnoreCase must stay a derived query — no @Modifying in the rbac module");
     }
 
     @Test
