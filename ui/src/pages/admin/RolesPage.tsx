@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -19,6 +19,7 @@ import {
 
 import { useRbacRoles, useDeleteRole } from "../../hooks/admin/useRbacRoles";
 import type { RoleSummary } from "../../hooks/admin/useRbacRoles";
+import { extractDetail } from "../../lib/utils";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -86,14 +87,14 @@ export default function RolesPage() {
   // DataTable runs with enableSorting={false}; this drives ?sort manually and
   // also resets page to 0.
   const sortDescending = sort === SORT_DESC;
-  const toggleSort = () => {
+  const toggleSort = useCallback(() => {
     setSp((prev) => {
       const next = new URLSearchParams(prev);
       next.set("sort", sortDescending ? SORT_ASC : SORT_DESC);
       next.set("page", "0");
       return next;
     });
-  };
+  }, [setSp, sortDescending]);
 
   const goToPage = (target: number) => {
     setSp((prev) => {
@@ -104,36 +105,73 @@ export default function RolesPage() {
   };
 
   // -- Delete flow -------------------------------------------------------
+  // The hook carries NO onError (D-09), so this component owns the branching:
+  //   409 -> keep the dialog open, render the server detail verbatim inline in
+  //          a role="alert" block, leave the row present, no success toast, no
+  //          navigation, Delete button stays enabled for a retry.
+  //   else -> close the dialog and toast.error.
+  // No optimistic cache write and no local filtering of the query data anywhere
+  // — the list only changes after a 2xx via the hook's invalidateQueries.
   const deleteRole = useDeleteRole();
   const [deleteTarget, setDeleteTarget] = useState<RoleSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const openDelete = (role: RoleSummary) => {
+  const openDelete = useCallback((role: RoleSummary) => {
+    setDeleteError(null);
     setDeleteTarget(role);
-  };
+  }, []);
 
   const closeDelete = () => {
     setDeleteTarget(null);
+    setDeleteError(null);
   };
 
   const confirmDelete = () => {
     if (!deleteTarget) return;
     const name = deleteTarget.name;
+    setDeleteError(null);
     deleteRole.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success(`Role "${name}" deleted.`);
         setDeleteTarget(null);
+        setDeleteError(null);
+      },
+      onError: (error: unknown) => {
+        const status = (error as { response?: { status?: number } })?.response
+          ?.status;
+        if (status === 409) {
+          setDeleteError(
+            extractDetail(error) ??
+              "This change would leave nobody able to manage roles, so it was blocked.",
+          );
+          return;
+        }
+        setDeleteTarget(null);
+        setDeleteError(null);
+        toast.error(extractDetail(error) || "Failed to delete role");
       },
     });
   };
 
-  const goEdit = (id: string) => navigate(`/admin/roles/${id}/edit`);
-  const goUsers = (id: string) => navigate(`/admin/roles/${id}/users`);
+  const goEdit = useCallback(
+    (id: string) => navigate(`/admin/roles/${id}/edit`),
+    [navigate],
+  );
+  const goUsers = useCallback(
+    (id: string) => navigate(`/admin/roles/${id}/users`),
+    [navigate],
+  );
   const goNew = () => navigate("/admin/roles/new");
 
   const isMobile = useIsMobile();
   const rows = data?.content ?? [];
 
-  const columns: ColumnDef<RoleSummary, unknown>[] = [
+  // Memoised so the header/cell renderer identities stay stable across the
+  // re-render when the query resolves — otherwise TanStack rebuilds every
+  // header cell (new inline component type) and a click landing mid-resolve
+  // is dropped on the remounted node.
+  const columns = useMemo<ColumnDef<RoleSummary, unknown>[]>(
+    () => [
     {
       accessorKey: "name",
       header: () => (
@@ -224,7 +262,9 @@ export default function RolesPage() {
         );
       },
     },
-  ];
+    ],
+    [sortDescending, toggleSort, goEdit, goUsers, openDelete],
+  );
 
   const totalPages = data ? data.totalPages || 1 : 1;
 
@@ -410,7 +450,19 @@ export default function RolesPage() {
             if (!next) closeDelete();
           }}
           title="Delete this role?"
-          description={`"${deleteTarget.name}" will be permanently deleted and any user assigned to it loses the access it granted. This can't be undone.`}
+          description={
+            <>
+              {`"${deleteTarget.name}" will be permanently deleted and any user assigned to it loses the access it granted. This can't be undone.`}
+              {deleteError ? (
+                <span
+                  role="alert"
+                  className="mt-3 block rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive"
+                >
+                  {deleteError}
+                </span>
+              ) : null}
+            </>
+          }
           confirmLabel="Delete role"
           cancelLabel="Keep role"
           destructive
