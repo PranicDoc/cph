@@ -94,7 +94,7 @@ describe("UserPickerDialog", () => {
     await user.click(screen.getByText("Bob Builder"));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Assign users" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Assign/ })).toBeEnabled();
   });
 
   it("confirm calls onConfirm with an array of healer ids, then closes", async () => {
@@ -107,7 +107,7 @@ describe("UserPickerDialog", () => {
 
     await user.click(screen.getByText("Bob Builder"));
     await user.click(screen.getByText("zoe@corp.com"));
-    await user.click(screen.getByRole("button", { name: "Assign users" }));
+    await user.click(screen.getByRole("button", { name: /^Assign/ }));
 
     expect(onConfirmSpy).toHaveBeenCalledTimes(1);
     const [ids] = onConfirmSpy.mock.calls[0];
@@ -122,17 +122,17 @@ describe("UserPickerDialog", () => {
     render(<Harness onConfirmSpy={onConfirmSpy} />);
 
     await user.click(screen.getByText("Bob Builder"));
-    expect(screen.getByRole("button", { name: "Assign users" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Assign/ })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Keep current users" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onConfirmSpy).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "reopen" }));
-    expect(screen.getByRole("button", { name: "Assign users" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Assign/ })).toBeDisabled();
   });
 
   it("confirm is disabled with nothing selected", () => {
     render(<Harness onConfirmSpy={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Assign users" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Assign/ })).toBeDisabled();
   });
 });

@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import {
-  PermissionToggleGrid,
-  type GrantMap,
-} from "./PermissionToggleGrid";
+import { PermissionToggleGrid, type GrantMap } from "./PermissionToggleGrid";
 import type { RbacCatalogResource } from "@/hooks/admin/useRbacCatalog";
 
 const vb = (value: string, label: string, locked = false) => ({
@@ -16,14 +13,19 @@ const vb = (value: string, label: string, locked = false) => ({
   locked,
 });
 
-// One resource supports 4 verbs, the other supports 2. Labels deliberately
-// share no substring with their raw enum tokens so a "no raw token in the DOM"
-// assertion is meaningful.
+// "Access management" sorts before "Legal library", so ROLES is the resource
+// the grid selects by default. ROLES:UPDATE is locked. Labels share no
+// substring with their raw enum tokens.
 const CATALOG: RbacCatalogResource[] = [
   {
     resource: "ROLES",
     label: "Access management",
-    verbs: [vb("READ", "View"), vb("CREATE", "Add"), vb("UPDATE", "Edit"), vb("DELETE", "Remove")],
+    verbs: [
+      vb("READ", "View"),
+      vb("CREATE", "Add"),
+      vb("UPDATE", "Edit", true),
+      vb("DELETE", "Remove"),
+    ],
   },
   {
     resource: "LEGAL_DOCUMENTS",
@@ -34,18 +36,26 @@ const CATALOG: RbacCatalogResource[] = [
 
 function Grid({
   initial = { ROLES: [], LEGAL_DOCUMENTS: [] },
+  baseline,
   onChangeSpy,
   onRemoveSpy,
+  onAddSpy,
+  disabled,
 }: {
   initial?: GrantMap;
+  baseline?: GrantMap;
   onChangeSpy?: (next: GrantMap, prev: GrantMap) => void;
   onRemoveSpy?: (resource: string) => void;
+  onAddSpy?: () => void;
+  disabled?: boolean;
 }) {
   const [value, setValue] = useState<GrantMap>(initial);
   return (
     <PermissionToggleGrid
       catalog={CATALOG}
       value={value}
+      baseline={baseline}
+      disabled={disabled}
       onChange={(next) => {
         onChangeSpy?.(next, value);
         setValue(next);
@@ -58,117 +68,111 @@ function Grid({
           return copy;
         });
       }}
-      onAddResource={() => {}}
+      onAddResource={() => onAddSpy?.()}
     />
   );
 }
 
 describe("PermissionToggleGrid", () => {
-  it("renders exactly the catalog-allow-listed verbs per resource (D-02)", () => {
+  it("shows only the selected resource's verbs, as switches named '{verb} on {resource}'", () => {
     render(<Grid />);
 
-    // 4 verbs for ROLES + 2 for LEGAL_DOCUMENTS.
-    expect(screen.getAllByRole("checkbox")).toHaveLength(6);
-
-    // The 2-verb resource renders exactly its 2 checkboxes...
+    // Default selection is ROLES ("Access management") — its 4 verbs.
+    expect(screen.getAllByRole("switch")).toHaveLength(4);
     expect(
-      screen.getByRole("checkbox", { name: "View on Legal library" })
+      screen.getByRole("switch", { name: "Edit on Access management" }),
     ).toBeInTheDocument();
+    // A verb from the *unselected* resource is not in the DOM yet.
     expect(
-      screen.getByRole("checkbox", { name: "Download on Legal library" })
-    ).toBeInTheDocument();
+      screen.queryByRole("switch", { name: "Download on Legal library" }),
+    ).toBeNull();
+  });
 
-    // ...and no checkbox for a verb it does not support.
+  it("selecting a resource in the left panel swaps the right panel to its verbs", async () => {
+    const user = userEvent.setup();
+    render(<Grid />);
+
+    await user.click(screen.getByRole("button", { name: /^Legal library/ }));
+
+    expect(screen.getAllByRole("switch")).toHaveLength(2);
     expect(
-      screen.queryByRole("checkbox", { name: "Remove on Legal library" })
-    ).toBeNull();
-    expect(
-      screen.queryByRole("checkbox", { name: "Edit on Legal library" })
-    ).toBeNull();
+      screen.getByRole("switch", { name: "Download on Legal library" }),
+    ).toBeInTheDocument();
+  });
+
+  it("lists every added resource with a '{granted}/{total} granted' subtitle", () => {
+    render(<Grid initial={{ ROLES: ["READ"], LEGAL_DOCUMENTS: [] }} />);
+
+    // ROLES: READ granted + UPDATE always-on (locked) = 2 of 4.
+    expect(screen.getByText("2/4 granted")).toBeInTheDocument();
+    expect(screen.getByText("0/2 granted")).toBeInTheDocument();
   });
 
   it("never renders a raw enum token as visible text (D-03)", () => {
     const { container } = render(<Grid />);
-
     expect(container).not.toHaveTextContent("LEGAL_DOCUMENTS");
     expect(container).not.toHaveTextContent("ROLES");
     expect(screen.getAllByText("Access management").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Legal library").length).toBeGreaterThan(0);
   });
 
-  it("a newly added resource (empty verb array) renders all checkboxes unchecked", () => {
-    render(<Grid initial={{ LEGAL_DOCUMENTS: [] }} />);
-
-    const boxes = screen.getAllByRole("checkbox");
-    expect(boxes).toHaveLength(2);
-    for (const box of boxes) {
-      expect(box).toHaveAttribute("data-state", "unchecked");
-    }
-  });
-
-  it("every checkbox is reachable by its accessible name '{verb} on {resource}'", () => {
-    render(<Grid />);
-
-    // Every checkbox's accessible name is of the form "{verb} on {resource}".
-    expect(screen.getAllByRole("checkbox", { name: /on / })).toHaveLength(6);
-    expect(
-      screen.getByRole("checkbox", { name: "Edit on Access management" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Download on Legal library" })
-    ).toBeInTheDocument();
-  });
-
-  it("exposes a single checkbox by its '{verb} on {resource}' name for a one-verb resource", () => {
-    render(
-      <PermissionToggleGrid
-        catalog={[
-          { resource: "ROLES", label: "Access management", verbs: [vb("READ", "View")] },
-        ]}
-        value={{ ROLES: [] }}
-        onChange={vi.fn()}
-        onRemoveResource={vi.fn()}
-        onAddResource={vi.fn()}
-      />
-    );
-
-    expect(
-      screen.getByRole("checkbox", { name: /on / })
-    ).toHaveAccessibleName("View on Access management");
-  });
-
-  it("toggling a verb calls onChange once with a NEW object (not the prev value)", async () => {
+  it("toggling a verb calls onChange once with a NEW object and NEW array", async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn<(next: GrantMap, prev: GrantMap) => void>();
     render(<Grid onChangeSpy={onChangeSpy} />);
 
     await user.click(
-      screen.getByRole("checkbox", { name: "Add on Access management" })
+      screen.getByRole("switch", { name: "Add on Access management" }),
     );
 
     expect(onChangeSpy).toHaveBeenCalledTimes(1);
     const [next, prev] = onChangeSpy.mock.calls[0];
-    expect(next).not.toBe(prev); // new object (T-38-20)
-    expect(next.ROLES).not.toBe(prev.ROLES); // new array for the affected resource
+    expect(next).not.toBe(prev);
+    expect(next.ROLES).not.toBe(prev.ROLES);
     expect(next.ROLES).toContain("CREATE");
   });
 
-  it("unchecking removes only that verb and leaves the others intact", async () => {
+  it("unchecking removes only that verb", async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn<(next: GrantMap, prev: GrantMap) => void>();
     render(
       <Grid
-        initial={{ ROLES: ["READ", "UPDATE"], LEGAL_DOCUMENTS: [] }}
+        initial={{ ROLES: ["READ", "DELETE"], LEGAL_DOCUMENTS: [] }}
         onChangeSpy={onChangeSpy}
-      />
+      />,
     );
 
     await user.click(
-      screen.getByRole("checkbox", { name: "View on Access management" })
+      screen.getByRole("switch", { name: "View on Access management" }),
     );
 
     const [next] = onChangeSpy.mock.calls[0];
-    expect(next.ROLES).toEqual(["UPDATE"]);
+    expect(next.ROLES).toEqual(["DELETE"]);
+  });
+
+  it("a locked verb renders on + disabled and cannot be toggled", async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    render(<Grid onChangeSpy={onChangeSpy} />);
+
+    const locked = screen.getByRole("switch", { name: "Edit on Access management" });
+    expect(locked).toBeDisabled();
+    expect(locked).toHaveAttribute("data-state", "checked");
+
+    await user.click(locked);
+    expect(onChangeSpy).not.toHaveBeenCalled();
+  });
+
+  it("baseline drives a CHANGED badge on verbs whose state differs from the saved role", () => {
+    // Saved: ROLES had READ. Current: READ removed, CREATE added.
+    render(
+      <Grid
+        initial={{ ROLES: ["CREATE"], LEGAL_DOCUMENTS: [] }}
+        baseline={{ ROLES: ["READ"], LEGAL_DOCUMENTS: [] }}
+      />,
+    );
+
+    // Two verbs changed → two CHANGED badges on the selected resource.
+    expect(screen.getAllByText("Changed")).toHaveLength(2);
   });
 
   it("the remove control fires onRemoveResource and opens no dialog", async () => {
@@ -177,30 +181,43 @@ describe("PermissionToggleGrid", () => {
     render(<Grid onRemoveSpy={onRemoveSpy} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Remove Legal library" })
+      screen.getByRole("button", { name: "Remove Legal library" }),
     );
 
     expect(onRemoveSpy).toHaveBeenCalledWith("LEGAL_DOCUMENTS");
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
-  it("disabled turns off every checkbox and remove control", () => {
-    render(
-      <PermissionToggleGrid
-        catalog={CATALOG}
-        value={{ ROLES: [] }}
-        onChange={vi.fn()}
-        onRemoveResource={vi.fn()}
-        onAddResource={vi.fn()}
-        disabled
-      />
-    );
+  it("the '+ Add resource' control fires onAddResource", async () => {
+    const user = userEvent.setup();
+    const onAddSpy = vi.fn();
+    render(<Grid onAddSpy={onAddSpy} />);
 
-    for (const box of screen.getAllByRole("checkbox")) {
-      expect(box).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /Add resource/ }));
+    expect(onAddSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("the empty state offers 'Add resource' and renders no switches", () => {
+    render(<Grid initial={{}} onAddSpy={vi.fn()} />);
+
+    expect(screen.getByText("No resources added yet")).toBeInTheDocument();
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
+    expect(
+      screen.getByRole("button", { name: /Add resource/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("disabled turns off every switch, the remove control and the add control", () => {
+    render(<Grid disabled />);
+
+    for (const sw of screen.getAllByRole("switch")) {
+      expect(sw).toBeDisabled();
     }
     expect(
-      screen.getByRole("button", { name: "Remove Access management" })
+      screen.getByRole("button", { name: "Remove Access management" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Add resource/ }),
     ).toBeDisabled();
   });
 });

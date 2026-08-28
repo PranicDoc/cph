@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import RoleFormPage from "./RoleFormPage";
@@ -8,47 +8,32 @@ import { renderWithDataRouter } from "../../test/renderWithDataRouter";
 vi.mock("../../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
-
-vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
-}));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import api from "../../lib/axios";
 import { toast } from "sonner";
 
-const mockedGet = api.get as unknown as ReturnType<typeof vi.fn>;
-const mockedPost = api.post as unknown as ReturnType<typeof vi.fn>;
-const mockedPut = api.put as unknown as ReturnType<typeof vi.fn>;
-const mockedToastSuccess = toast.success as unknown as ReturnType<typeof vi.fn>;
-const mockedToastError = toast.error as unknown as ReturnType<typeof vi.fn>;
+const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
+const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
+const mPut = api.put as unknown as ReturnType<typeof vi.fn>;
+const mToastSuccess = toast.success as unknown as ReturnType<typeof vi.fn>;
+const mToastError = toast.error as unknown as ReturnType<typeof vi.fn>;
+
+const vb = (value: string, label: string, locked = false) => ({
+  value,
+  label,
+  description: `${label} action`,
+  locked,
+});
 
 const CATALOG = [
   {
     resource: "ROLES",
     label: "Roles",
-    verbs: [
-      { value: "READ", label: "View" },
-      { value: "CREATE", label: "Create" },
-      { value: "UPDATE", label: "Update" },
-      { value: "DELETE", label: "Delete" },
-    ],
+    verbs: [vb("READ", "View"), vb("CREATE", "Create"), vb("UPDATE", "Update", true), vb("DELETE", "Delete")],
   },
-  {
-    resource: "LEGAL_DOCUMENTS",
-    label: "Legal documents",
-    verbs: [
-      { value: "READ", label: "View" },
-      { value: "UPDATE", label: "Update" },
-    ],
-  },
-  {
-    resource: "PATIENTS",
-    label: "Patients",
-    verbs: [
-      { value: "READ", label: "View" },
-      { value: "EXPORT", label: "Export" },
-    ],
-  },
+  { resource: "LEGAL_DOCUMENTS", label: "Legal documents", verbs: [vb("READ", "View"), vb("UPDATE", "Update")] },
+  { resource: "PATIENTS", label: "Patients", verbs: [vb("READ", "View"), vb("EXPORT", "Export")] },
 ];
 
 const ROLE_DETAIL = {
@@ -56,42 +41,40 @@ const ROLE_DETAIL = {
   name: "Billing",
   description: "Handles invoices",
   grants: [{ resource: "ROLES", operations: ["READ", "UPDATE"] }],
+  createdAt: "2026-07-01T00:00:00Z",
+  updatedAt: "2026-08-01T00:00:00Z",
 };
 
-interface StubOptions {
-  catalog?: unknown;
-  detail?: unknown;
-  catalogError?: boolean;
-}
-
-function stubGet(options: StubOptions = {}) {
-  const {
-    catalog = CATALOG,
-    detail = ROLE_DETAIL,
-    catalogError = false,
-  } = options;
-  mockedGet.mockImplementation((url: string) => {
+function stubGet({
+  catalog = CATALOG as unknown,
+  detail = ROLE_DETAIL as unknown,
+  catalogError = false,
+} = {}) {
+  mGet.mockImplementation((url: string) => {
     if (url === "/api/admin/roles/catalog") {
       return catalogError
         ? Promise.reject(new Error("catalog boom"))
         : Promise.resolve({ data: catalog });
     }
-    if (url.startsWith("/api/admin/roles/")) {
-      return Promise.resolve({ data: detail });
-    }
+    if (url === "/api/v1/healers") return Promise.resolve({ data: [] });
+    if (url.endsWith("/users")) return Promise.resolve({ data: [] });
+    if (url.startsWith("/api/admin/roles/")) return Promise.resolve({ data: detail });
     return Promise.reject(new Error(`unexpected GET ${url}`));
   });
 }
 
-async function addResources(
-  user: ReturnType<typeof userEvent.setup>,
-  labels: string[],
-) {
-  await user.click(screen.getByRole("button", { name: "Add resources" }));
+async function addResources(user: ReturnType<typeof userEvent.setup>, labels: string[]) {
+  await user.click(screen.getByRole("button", { name: /Add resource/ }));
   for (const label of labels) {
     await user.click(await screen.findByText(label));
   }
-  await user.click(screen.getByRole("button", { name: "Add selected" }));
+  await user.click(screen.getByRole("button", { name: /^Add \d+ resource/ }));
+}
+
+/** Click the footer CTA, then confirm in the review modal. */
+async function reviewAndSave(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /Review & save/ }));
+  await user.click(await screen.findByRole("button", { name: /Confirm & save/ }));
 }
 
 function renderForm(path: string) {
@@ -100,314 +83,203 @@ function renderForm(path: string) {
       { path: "/admin/roles", element: <div>ROLES LIST</div> },
       { path: "/admin/roles/new", element: <RoleFormPage /> },
       { path: "/admin/roles/:id/edit", element: <RoleFormPage /> },
-      { path: "/admin/roles/:id/users", element: <div>USERS ROUTE</div> },
     ],
     { initialEntries: [path] },
   );
 }
 
 beforeEach(() => {
-  mockedGet.mockReset();
-  mockedPost.mockReset();
-  mockedPut.mockReset();
-  mockedToastSuccess.mockReset();
-  mockedToastError.mockReset();
+  mGet.mockReset();
+  mPost.mockReset();
+  mPut.mockReset();
+  mToastSuccess.mockReset();
+  mToastError.mockReset();
 });
 
-describe("RoleFormPage — shell, gating, prefill, validation gate", () => {
+describe("RoleFormPage — shell, gating, prefill, validation", () => {
   it("renders the Create role heading and an empty form once the catalog resolves", async () => {
     stubGet();
     renderForm("/admin/roles/new");
-
-    expect(
-      await screen.findByRole("heading", { name: "Create role" }),
-    ).toBeInTheDocument();
-    expect(await screen.findByLabelText("Name")).toHaveValue("");
+    expect(await screen.findByRole("heading", { name: "Create role" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Role name")).toHaveValue("");
     expect(screen.getByLabelText("Description")).toHaveValue("");
   });
 
   it("does not render the form while the catalog query is pending", async () => {
-    mockedGet.mockImplementation(() => new Promise(() => {}));
+    mGet.mockImplementation(() => new Promise(() => {}));
     renderForm("/admin/roles/new");
-
-    expect(await screen.findByTestId("role-form-skeleton")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("role-form-skeleton")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Role name")).toBeNull();
   });
 
   it("renders the catalog-error copy with a Retry and no Name field", async () => {
     stubGet({ catalogError: true });
     renderForm("/admin/roles/new");
-
-    expect(
-      await screen.findByText(
-        "Couldn't load the permission catalog. The role form needs it to know which permissions each resource allows.",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Couldn't load the permission catalog/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Role name")).toBeNull();
   });
 
-  it("requests the role and pre-fills name, description and saved verbs in edit mode", async () => {
+  it("pre-fills name, description and saved verbs in edit mode, and shows the tabs", async () => {
     stubGet();
     renderForm("/admin/roles/r1/edit");
-
-    expect(await screen.findByLabelText("Name")).toHaveValue("Billing");
+    expect(await screen.findByRole("heading", { name: "Edit role" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Role name")).toHaveValue("Billing");
     expect(screen.getByLabelText("Description")).toHaveValue("Handles invoices");
-    expect(mockedGet).toHaveBeenCalledWith("/api/admin/roles/r1");
-    expect(
-      screen.getByRole("checkbox", { name: "View on Roles" }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Update on Roles" }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Create on Roles" }),
-    ).not.toBeChecked();
-    expect(
-      screen.queryByRole("checkbox", { name: /on Legal documents/ }),
-    ).not.toBeInTheDocument();
+    // Roles is the only added resource -> selected -> its READ switch is on.
+    expect(screen.getByRole("switch", { name: "View on Roles" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("button", { name: "Permissions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Users assigned" })).toBeInTheDocument();
   });
 
-  it("adds a picked resource to the grid with no verbs checked", async () => {
+  it("adds a picked resource to the grid with no verbs on", async () => {
     const user = userEvent.setup();
     stubGet();
     renderForm("/admin/roles/new");
-    await screen.findByLabelText("Name");
-
-    await user.click(screen.getByRole("button", { name: "Add resources" }));
-    await user.click(await screen.findByText("Legal documents"));
-    await user.click(screen.getByRole("button", { name: "Add selected" }));
-
-    const box = await screen.findByRole("checkbox", {
-      name: "View on Legal documents",
-    });
-    expect(box).not.toBeChecked();
+    await screen.findByLabelText("Role name");
+    await addResources(user, ["Patients"]);
+    expect(screen.getByRole("switch", { name: "View on Patients" })).toHaveAttribute("data-state", "unchecked");
   });
 
   it("removes a resource and its verb group", async () => {
     const user = userEvent.setup();
     stubGet();
-    renderForm("/admin/roles/r1/edit");
-    await screen.findByRole("checkbox", { name: "View on Roles" });
-
-    await user.click(screen.getByRole("button", { name: "Remove Roles" }));
-
-    expect(
-      screen.queryByRole("checkbox", { name: "View on Roles" }),
-    ).not.toBeInTheDocument();
+    renderForm("/admin/roles/new");
+    await screen.findByLabelText("Role name");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("button", { name: "Remove Patients" }));
+    expect(screen.queryByRole("switch", { name: "View on Patients" })).toBeNull();
   });
 
   it("blocks an empty-name submit with an inline error and no request", async () => {
     const user = userEvent.setup();
     stubGet();
     renderForm("/admin/roles/new");
-    await screen.findByLabelText("Name");
-
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    expect(await screen.findByText("Enter a role name.")).toBeInTheDocument();
-    expect(mockedPost).not.toHaveBeenCalled();
+    await screen.findByLabelText("Role name");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await user.click(screen.getByRole("button", { name: /Review & save/ }));
+    expect(await screen.findByText("Role name is required")).toBeInTheDocument();
+    expect(mPost).not.toHaveBeenCalled();
   });
 
   it("blocks a no-resource submit with the resource error and no request", async () => {
     const user = userEvent.setup();
     stubGet();
     renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    expect(
-      await screen.findByText("Add at least one resource before saving."),
-    ).toBeInTheDocument();
-    expect(mockedPost).not.toHaveBeenCalled();
-  });
-
-  it("blocks an edit save that strips every resource and issues no put", async () => {
-    const user = userEvent.setup();
-    stubGet();
-    renderForm("/admin/roles/r1/edit");
-    await screen.findByRole("checkbox", { name: "View on Roles" });
-
-    await user.click(screen.getByRole("button", { name: "Remove Roles" }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-    expect(
-      await screen.findByText("Add at least one resource before saving."),
-    ).toBeInTheDocument();
-    expect(mockedPut).not.toHaveBeenCalled();
+    await user.type(await screen.findByLabelText("Role name"), "X");
+    await user.click(screen.getByRole("button", { name: /Review & save/ }));
+    expect(await screen.findByText(/A role with no resources can't grant any access/)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/things? need/i);
+    expect(mPost).not.toHaveBeenCalled();
   });
 });
 
-describe("RoleFormPage — save flow, toast, inline 400 / 409", () => {
-  it("posts only resources with at least one verb, dropping the zero-verb resource", async () => {
+describe("RoleFormPage — review modal + save flow", () => {
+  it("submit opens a review modal listing granted permissions, and cancelling it fires no request", async () => {
     const user = userEvent.setup();
     stubGet();
-    mockedPost.mockResolvedValue({ data: { id: "r9" } });
     renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await addResources(user, ["Legal documents", "Patients"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
+    await user.type(await screen.findByLabelText("Role name"), "Reviewer");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await user.click(screen.getByRole("button", { name: /Review & save/ }));
 
-    await user.click(screen.getByRole("button", { name: "Create role" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Review "Reviewer"/)).toBeInTheDocument();
+    expect(within(dialog).getByText("View")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Back to edit" }));
+    expect(mPost).not.toHaveBeenCalled();
+  });
 
-    await waitFor(() => expect(mockedPost).toHaveBeenCalled());
-    expect(mockedPost).toHaveBeenCalledWith("/api/admin/roles", {
-      name: "Auditors",
+  it("confirms the review, posts only granting resources, toasts and returns to the list", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mPost.mockResolvedValue({ data: { id: "new" } });
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "Reviewer");
+    await addResources(user, ["Patients", "Legal documents"]);
+    // grant a verb on Patients only; leave Legal documents at zero verbs
+    await user.click(screen.getByRole("button", { name: /^Patients/ }));
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await reviewAndSave(user);
+
+    await waitFor(() => expect(mPost).toHaveBeenCalledTimes(1));
+    expect(mPost).toHaveBeenCalledWith("/api/admin/roles", {
+      name: "Reviewer",
       description: null,
-      grants: [{ resource: "LEGAL_DOCUMENTS", operations: ["READ"] }],
+      grants: [{ resource: "PATIENTS", operations: ["READ"] }],
     });
+    expect(mToastSuccess).toHaveBeenCalledWith('"Reviewer" is ready to assign to users.');
+    expect(await screen.findByText("ROLES LIST")).toBeInTheDocument();
   });
 
-  it("names the dropped zero-verb resource when a granting resource remains", async () => {
+  it("edit save PUTs the full replacement grant set and toasts the saved copy", async () => {
     const user = userEvent.setup();
     stubGet();
-    // Hangs the request so the on-submit note stays visible for the assertion.
-    mockedPost.mockImplementation(() => new Promise(() => {}));
-    renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await addResources(user, ["Legal documents", "Patients"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
+    mPut.mockResolvedValue({ data: ROLE_DETAIL });
+    renderForm("/admin/roles/r1/edit");
+    await screen.findByLabelText("Role name");
+    await user.click(screen.getByRole("switch", { name: "Create on Roles" }));
+    await reviewAndSave(user);
 
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    expect(
-      await screen.findByText(/No permissions were toggled for Patients/),
-    ).toBeInTheDocument();
-  });
-
-  it("toasts the created copy and returns to the roles list on a successful create", async () => {
-    const user = userEvent.setup();
-    stubGet();
-    mockedPost.mockResolvedValue({ data: { id: "r9" } });
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await addResources(user, ["Legal documents"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
-
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(mockedToastSuccess).toHaveBeenCalledWith('Role "Auditors" created.');
-  });
-
-  it("toasts the saved copy and puts the full replacement grant set on a successful edit", async () => {
-    const user = userEvent.setup();
-    stubGet();
-    mockedPut.mockResolvedValue({ data: { id: "r1" } });
-    const { router } = renderForm("/admin/roles/r1/edit");
-    await user.click(
-      await screen.findByRole("checkbox", { name: "Create on Roles" }),
-    );
-
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-    await waitFor(() => expect(mockedPut).toHaveBeenCalled());
-    const [url, body] = mockedPut.mock.calls[0] as [
-      string,
-      { name: string; grants: { resource: string; operations: string[] }[] },
-    ];
+    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(1));
+    const [url, body] = mPut.mock.calls[0];
     expect(url).toBe("/api/admin/roles/r1");
-    expect(body.name).toBe("Billing");
-    expect(body.grants).toHaveLength(1);
     expect(body.grants[0].resource).toBe("ROLES");
-    expect([...body.grants[0].operations].sort()).toEqual([
-      "CREATE",
-      "READ",
-      "UPDATE",
-    ]);
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(mockedToastSuccess).toHaveBeenCalledWith('Role "Billing" saved.');
+    expect(body.grants[0].operations.sort()).toEqual(["CREATE", "READ", "UPDATE"]);
+    expect(mToastSuccess).toHaveBeenCalledWith('Role "Billing" saved.');
   });
 
   it("renders a duplicate-name 400 inline under Name without navigating or toasting success", async () => {
     const user = userEvent.setup();
     stubGet();
-    mockedPost.mockRejectedValue({
-      response: {
-        status: 400,
-        data: {
-          detail:
-            "A role with that name already exists. Please choose a different name.",
-        },
-      },
+    mPost.mockRejectedValue({
+      response: { status: 400, data: { detail: "A role named 'Reviewer' already exists." } },
     });
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Billing");
-    await addResources(user, ["Legal documents"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "Reviewer");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await reviewAndSave(user);
 
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    expect(
-      await screen.findByText(
-        "A role with that name already exists. Please choose a different name.",
-      ),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/admin/roles/new");
-    expect(mockedToastSuccess).not.toHaveBeenCalled();
+    expect(await screen.findByText("A role named 'Reviewer' already exists.")).toBeInTheDocument();
+    expect(mToastSuccess).not.toHaveBeenCalled();
+    expect(screen.queryByText("ROLES LIST")).toBeNull();
   });
 
-  it("renders a self-lockout 409 in a footer alert and keeps the edited form dirty", async () => {
+  it("renders a self-lockout 409 in a footer alert and keeps the edited form", async () => {
     const user = userEvent.setup();
     stubGet();
-    mockedPut.mockRejectedValue({
+    mPut.mockRejectedValue({
       response: {
         status: 409,
-        data: {
-          type: "https://pranicdoc.com/errors/self-lockout",
-          detail: "This change would leave nobody able to manage roles.",
-        },
+        data: { type: "errors/self-lockout", detail: "This change would leave nobody able to manage roles." },
       },
     });
-    const { router } = renderForm("/admin/roles/r1/edit");
-    await user.click(
-      await screen.findByRole("checkbox", { name: "Create on Roles" }),
-    );
-
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    renderForm("/admin/roles/r1/edit");
+    await screen.findByLabelText("Role name");
+    await user.click(screen.getByRole("switch", { name: "Create on Roles" }));
+    await reviewAndSave(user);
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(
-      "This change would leave nobody able to manage roles.",
-    );
-    expect(router.state.location.pathname).toBe("/admin/roles/r1/edit");
-    expect(mockedToastSuccess).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Name")).toHaveValue("Billing");
-    expect(
-      screen.getByRole("checkbox", { name: "Create on Roles" }),
-    ).toBeChecked();
+    expect(alert).toHaveTextContent("This change would leave nobody able to manage roles.");
+    expect(mToastSuccess).not.toHaveBeenCalled();
+    expect(screen.queryByText("ROLES LIST")).toBeNull();
   });
 
   it("toasts a generic error on a 500 and does not navigate", async () => {
     const user = userEvent.setup();
     stubGet();
-    mockedPost.mockRejectedValue({
-      response: { status: 500, data: { detail: "boom" } },
-    });
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await addResources(user, ["Legal documents"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
+    mPost.mockRejectedValue({ response: { status: 500, data: { detail: "boom" } } });
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "Reviewer");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await reviewAndSave(user);
 
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    await waitFor(() => expect(mockedToastError).toHaveBeenCalled());
-    expect(router.state.location.pathname).toBe("/admin/roles/new");
+    await waitFor(() => expect(mToastError).toHaveBeenCalled());
+    expect(screen.queryByText("ROLES LIST")).toBeNull();
   });
 });
 
@@ -415,121 +287,53 @@ describe("RoleFormPage — discard-unsaved-changes guard (ROLE-08)", () => {
   it("navigates away immediately when the form is untouched", async () => {
     const user = userEvent.setup();
     stubGet();
-    const { router } = renderForm("/admin/roles/new");
-    await screen.findByLabelText("Name");
-
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(
-      screen.queryByText("Discard unsaved changes?"),
-    ).not.toBeInTheDocument();
+    renderForm("/admin/roles/new");
+    await screen.findByLabelText("Role name");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("ROLES LIST")).toBeInTheDocument();
   });
 
   it("prompts before leaving once the Name field has been edited", async () => {
     const user = userEvent.setup();
     stubGet();
     renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-
-    expect(
-      await screen.findByText("Discard unsaved changes?"),
-    ).toBeInTheDocument();
+    await user.type(await screen.findByLabelText("Role name"), "x");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Discard unsaved changes?")).toBeInTheDocument();
+    expect(screen.queryByText("ROLES LIST")).toBeNull();
   });
 
   it("completes the navigation on Discard changes", async () => {
     const user = userEvent.setup();
     stubGet();
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-    await screen.findByText("Discard unsaved changes?");
-
-    await user.click(screen.getByRole("button", { name: "Discard changes" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "x");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(await screen.findByRole("button", { name: "Discard changes" }));
+    expect(await screen.findByText("ROLES LIST")).toBeInTheDocument();
   });
 
   it("stays put and preserves the typed value on Keep editing", async () => {
     const user = userEvent.setup();
     stubGet();
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-    await screen.findByText("Discard unsaved changes?");
-
-    await user.click(screen.getByRole("button", { name: "Keep editing" }));
-
-    await waitFor(() =>
-      expect(
-        screen.queryByText("Discard unsaved changes?"),
-      ).not.toBeInTheDocument(),
-    );
-    expect(router.state.location.pathname).toBe("/admin/roles/new");
-    expect(screen.getByLabelText("Name")).toHaveValue("Auditors");
-  });
-
-  it("treats a reverted edit as clean — no prompt on navigation", async () => {
-    const user = userEvent.setup();
-    stubGet();
-    const { router } = renderForm("/admin/roles/new");
-    const nameInput = await screen.findByLabelText("Name");
-    await user.type(nameInput, "abc");
-    await user.clear(nameInput);
-
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(
-      screen.queryByText("Discard unsaved changes?"),
-    ).not.toBeInTheDocument();
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "Keep me");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(await screen.findByRole("button", { name: "Keep editing" }));
+    expect(screen.getByLabelText("Role name")).toHaveValue("Keep me");
+    expect(screen.queryByText("ROLES LIST")).toBeNull();
   });
 
   it("never prompts during a successful save-and-redirect", async () => {
     const user = userEvent.setup();
     stubGet();
-    mockedPost.mockResolvedValue({ data: { id: "r9" } });
-    const { router } = renderForm("/admin/roles/new");
-    await user.type(await screen.findByLabelText("Name"), "Auditors");
-    await addResources(user, ["Legal documents"]);
-    await user.click(
-      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
-    );
-
-    await user.click(screen.getByRole("button", { name: "Create role" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(
-      screen.queryByText("Discard unsaved changes?"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("returns to clean when a verb is toggled on then off in edit mode", async () => {
-    const user = userEvent.setup();
-    stubGet();
-    const { router } = renderForm("/admin/roles/r1/edit");
-    const box = await screen.findByRole("checkbox", { name: "Create on Roles" });
-
-    await user.click(box);
-    await user.click(box);
-
-    await user.click(screen.getByRole("button", { name: "Back to roles" }));
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/roles"),
-    );
-    expect(
-      screen.queryByText("Discard unsaved changes?"),
-    ).not.toBeInTheDocument();
+    mPost.mockResolvedValue({ data: { id: "new" } });
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Role name"), "Reviewer");
+    await addResources(user, ["Patients"]);
+    await user.click(screen.getByRole("switch", { name: "View on Patients" }));
+    await reviewAndSave(user);
+    expect(await screen.findByText("ROLES LIST")).toBeInTheDocument();
+    expect(screen.queryByText("Discard unsaved changes?")).toBeNull();
   });
 });

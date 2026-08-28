@@ -36,7 +36,14 @@ function createWrapper() {
 
 const PAGE_STUB = {
   content: [
-    { id: "r1", name: "Billing", description: null, resourceCount: 2, userCount: 3 },
+    {
+      id: "r1",
+      name: "Billing",
+      description: null,
+      resourceCount: 2,
+      userCount: 3,
+      updatedAt: "2026-08-01T12:00:00Z",
+    },
   ],
   page: 2,
   size: 20,
@@ -88,6 +95,9 @@ describe("useRbacRoles data layer", () => {
 
     expect(result.current.data?.page).toBe(2);
     expect(result.current.data).not.toHaveProperty("number");
+    expect(result.current.data?.content[0].updatedAt).toBe(
+      "2026-08-01T12:00:00Z",
+    );
   });
 
   it("re-fetches when any of the four params change (distinct query keys)", async () => {

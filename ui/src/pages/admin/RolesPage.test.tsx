@@ -28,6 +28,7 @@ type PageStub = {
     description: string | null;
     resourceCount: number;
     userCount: number;
+    updatedAt: string;
   }>;
   page: number;
   size: number;
@@ -45,6 +46,7 @@ function pageStub(overrides: Partial<PageStub> = {}): PageStub {
         description: "Handles invoices",
         resourceCount: 2,
         userCount: 3,
+        updatedAt: "2026-08-01T12:00:00Z",
       },
       {
         id: "r2",
@@ -52,6 +54,7 @@ function pageStub(overrides: Partial<PageStub> = {}): PageStub {
         description: null,
         resourceCount: 1,
         userCount: 0,
+        updatedAt: "2026-07-01T09:00:00Z",
       },
     ],
     page: 0,
@@ -158,12 +161,12 @@ describe("RolesPage — server-paged searchable roles list", () => {
     renderPage("/admin/roles?page=2");
     await screen.findByText("Billing");
 
-    await user.click(screen.getByRole("button", { name: "Name" }));
+    await user.click(screen.getByRole("button", { name: /Role/ }));
     await waitFor(() =>
       expect(lastGetParams()).toMatchObject({ sort: "name,desc", page: 0 }),
     );
 
-    await user.click(screen.getByRole("button", { name: "Name" }));
+    await user.click(screen.getByRole("button", { name: /Role/ }));
     await waitFor(() =>
       expect(lastGetParams()).toMatchObject({ sort: "name,asc", page: 0 }),
     );
@@ -189,7 +192,7 @@ describe("RolesPage — server-paged searchable roles list", () => {
     renderPage();
     await screen.findByText("Billing");
 
-    expect(screen.getByText("57 roles")).toBeInTheDocument();
+    expect(screen.getAllByText("57 roles").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Next page" }),
@@ -256,7 +259,7 @@ describe("RolesPage — server-paged searchable roles list", () => {
     await screen.findByText("Billing");
 
     await user.click(screen.getByRole("button", { name: "Delete Billing" }));
-    expect(await screen.findByText("Delete this role?")).toBeInTheDocument();
+    expect(await screen.findByText('Delete "Billing"?')).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Delete role" }));
 
@@ -265,7 +268,7 @@ describe("RolesPage — server-paged searchable roles list", () => {
       "This change would leave nobody able to manage roles.",
     );
     // Dialog still open, row still present, no success toast.
-    expect(screen.getByText("Delete this role?")).toBeInTheDocument();
+    expect(screen.getByText('Delete "Billing"?')).toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
     expect(mockedToastSuccess).not.toHaveBeenCalled();
   });
@@ -285,6 +288,6 @@ describe("RolesPage — server-paged searchable roles list", () => {
     );
 
     await waitFor(() => expect(mockedToastError).toHaveBeenCalled());
-    expect(screen.queryByText("Delete this role?")).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete "Billing"?')).not.toBeInTheDocument();
   });
 });

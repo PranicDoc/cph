@@ -90,7 +90,7 @@ describe("ResourcePickerDialog", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add selected" })
+      screen.getByRole("button", { name: /^Add/ })
     ).toBeEnabled();
   });
 
@@ -103,7 +103,7 @@ describe("ResourcePickerDialog", () => {
     );
 
     await user.click(screen.getByText("Access management"));
-    await user.click(screen.getByRole("button", { name: "Add selected" }));
+    await user.click(screen.getByRole("button", { name: /^Add/ }));
 
     expect(onConfirmSpy).toHaveBeenCalledTimes(1);
     expect(onConfirmSpy).toHaveBeenCalledWith(["ROLES"]);
@@ -120,7 +120,7 @@ describe("ResourcePickerDialog", () => {
 
     await user.click(screen.getByText("Access management"));
     await user.click(
-      screen.getByRole("button", { name: "Keep current resources" })
+      screen.getByRole("button", { name: "Cancel" })
     );
 
     expect(onOpenChangeSpy).toHaveBeenLastCalledWith(false);
@@ -130,7 +130,7 @@ describe("ResourcePickerDialog", () => {
   it("confirm is disabled with nothing selected", () => {
     render(<Harness onConfirmSpy={vi.fn()} />);
     expect(
-      screen.getByRole("button", { name: "Add selected" })
+      screen.getByRole("button", { name: /^Add/ })
     ).toBeDisabled();
   });
 
@@ -140,16 +140,16 @@ describe("ResourcePickerDialog", () => {
 
     await user.click(screen.getByText("Access management"));
     expect(
-      screen.getByRole("button", { name: "Add selected" })
+      screen.getByRole("button", { name: /^Add/ })
     ).toBeEnabled();
 
     await user.click(
-      screen.getByRole("button", { name: "Keep current resources" })
+      screen.getByRole("button", { name: "Cancel" })
     );
     await user.click(screen.getByRole("button", { name: "reopen" }));
 
     expect(
-      screen.getByRole("button", { name: "Add selected" })
+      screen.getByRole("button", { name: /^Add/ })
     ).toBeDisabled();
   });
 });

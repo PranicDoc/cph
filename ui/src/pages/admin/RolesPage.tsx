@@ -176,9 +176,9 @@ export default function RolesPage() {
               <div className="text-[13.5px] font-semibold text-text">
                 {r.name}
               </div>
-              {r.description && r.description.trim() ? (
-                <div className="text-xs text-text-light">{r.description}</div>
-              ) : null}
+              <div className="text-xs text-text-light">
+                {r.description && r.description.trim() ? r.description : "—"}
+              </div>
             </div>
           );
         },

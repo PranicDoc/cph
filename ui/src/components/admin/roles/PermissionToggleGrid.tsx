@@ -229,39 +229,36 @@ export function PermissionToggleGrid({
           {addedResources.map((entry) => {
             const active = entry.resource === selected.resource;
             return (
-              <li key={entry.resource}>
-                <div
-                  className={cn(
-                    "flex cursor-pointer items-center justify-between gap-1.5 border-l-[3px] border-l-transparent px-3.5 py-2.5",
-                    active && "border-l-primary bg-primary/10",
-                  )}
+              <li
+                key={entry.resource}
+                className={cn(
+                  "flex items-center gap-1.5 border-l-[3px] border-l-transparent pr-2.5",
+                  active && "border-l-primary bg-primary/10",
+                )}
+              >
+                <button
+                  type="button"
                   onClick={() => setActiveResource(entry.resource)}
+                  className="flex min-w-0 flex-1 flex-col items-start overflow-hidden px-3.5 py-2.5 text-left"
                 >
-                  <div className="min-w-0 overflow-hidden">
-                    <div className="truncate text-[12.5px] font-semibold text-text">
-                      {entry.label}
-                    </div>
-                    <div className="truncate text-[11px] text-text-light">
-                      {grantedCount(entry)}/{entry.verbs.length} granted
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={disabled}
-                      aria-label={`Remove ${entry.label}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveResource(entry.resource);
-                      }}
-                    >
-                      <Trash2 />
-                    </Button>
-                    <ChevronRight className="h-3.5 w-3.5 text-text-light" />
-                  </div>
-                </div>
+                  <span className="w-full truncate text-[12.5px] font-semibold text-text">
+                    {entry.label}
+                  </span>
+                  <span className="w-full truncate text-[11px] text-text-light">
+                    {grantedCount(entry)}/{entry.verbs.length} granted
+                  </span>
+                </button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={disabled}
+                  aria-label={`Remove ${entry.label}`}
+                  onClick={() => onRemoveResource(entry.resource)}
+                >
+                  <Trash2 />
+                </Button>
+                <ChevronRight className="h-3.5 w-3.5 flex-none text-text-light" />
               </li>
             );
           })}

@@ -54,7 +54,6 @@ const roleRoutes: RouteObject[] = [
       { path: "roles", element: <ScreenStub name="list" /> },
       { path: "roles/new", element: <ScreenStub name="create" /> },
       { path: "roles/:id/edit", element: <ScreenStub name="edit" /> },
-      { path: "roles/:id/users", element: <ScreenStub name="assign" /> },
     ],
   },
 ];
@@ -80,13 +79,6 @@ describe("role route resolution", () => {
     expect(screen.getByText("id:abc-123")).toBeInTheDocument();
   });
 
-  it("/admin/roles/:id/users resolves to the assignment screen and exposes id", () => {
-    renderWithDataRouter(roleRoutes, {
-      initialEntries: ["/admin/roles/abc-123/users"],
-    });
-    expect(screen.getByText("screen:assign")).toBeInTheDocument();
-    expect(screen.getByText("id:abc-123")).toBeInTheDocument();
-  });
 });
 
 // --- (2) nav gating + ordering --------------------------------------------
@@ -102,7 +94,7 @@ describe("adminNavItems — Roles entry", () => {
       (item) => item.path === "/admin/roles"
     );
     expect(rolesEntries).toHaveLength(1);
-    expect(rolesEntries[0].label).toBe("Roles");
+    expect(rolesEntries[0].label).toBe("Roles & Permissions");
     expect(rolesEntries[0].roles).toEqual(["SUPADM"]);
   });
 
@@ -132,23 +124,19 @@ describe("adminNavItems — Roles entry", () => {
 describe("App.tsx route registration", () => {
   const src = readFileSync("src/App.tsx", "utf8");
 
-  it("imports the three role pages from ./pages/admin/", () => {
+  it("imports the two role pages from ./pages/admin/", () => {
     expect(src).toContain('import RolesPage from "./pages/admin/RolesPage"');
     expect(src).toContain(
       'import RoleFormPage from "./pages/admin/RoleFormPage"'
     );
-    expect(src).toContain(
-      'import RoleAssignmentPage from "./pages/admin/RoleAssignmentPage"'
-    );
+    expect(src).not.toContain("RoleAssignmentPage");
   });
 
-  it("registers all four role routes with the intended elements", () => {
+  it("registers the three role routes with the intended elements", () => {
     expect(src).toMatch(/path="roles"\s+element=\{<RolesPage/);
     expect(src).toMatch(/path="roles\/new"\s+element=\{<RoleFormPage/);
     expect(src).toMatch(/path="roles\/:id\/edit"\s+element=\{<RoleFormPage/);
-    expect(src).toMatch(
-      /path="roles\/:id\/users"\s+element=\{<RoleAssignmentPage/
-    );
+    expect(src).not.toMatch(/path="roles\/:id\/users"/);
   });
 
   it("places the role routes after legal-documents (inside the /admin AdminLayout block)", () => {
