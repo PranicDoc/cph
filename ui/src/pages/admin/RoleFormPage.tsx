@@ -311,7 +311,7 @@ export default function RoleFormPage() {
     return (
       <div>
         {heading}
-        <div className="flex max-w-3xl flex-col items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-6">
+        <div className="flex w-full flex-col items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-6">
           <p className="text-sm text-destructive">
             Couldn't load the permission catalog. The role form needs it to know
             which permissions each resource allows.
@@ -329,7 +329,7 @@ export default function RoleFormPage() {
       <div>
         {heading}
         <div
-          className="max-w-3xl space-y-4"
+          className="w-full space-y-4"
           data-testid="role-form-skeleton"
           aria-busy="true"
         >
@@ -369,7 +369,7 @@ export default function RoleFormPage() {
       {tab === "users" && id ? (
         <RoleUsersTab roleId={id} roleName={roleQuery.data?.name ?? "Role"} />
       ) : (
-        <form onSubmit={handleReviewClick} className="max-w-3xl space-y-4">
+        <form onSubmit={handleReviewClick} className="w-full space-y-4">
           {bannerErrors.length > 0 && (
             <div
               role="alert"
@@ -482,15 +482,20 @@ export default function RoleFormPage() {
           )}
 
           {/* Footer actions */}
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => navigate("/admin/roles")}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={activeMutation.isPending}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={activeMutation.isPending}
+            >
               {activeMutation.isPending
                 ? isEdit
                   ? "Saving…"
@@ -513,7 +518,7 @@ export default function RoleFormPage() {
 
       {/* Review-before-save modal (Screen 7) */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               Review "{name.trim() || "this role"}"

@@ -148,8 +148,8 @@ export function PermissionToggleGrid({
         key={verb.value}
         className="flex items-center justify-between gap-3 border-t border-muted py-2.5 first:border-t-0"
       >
-        <div className="flex items-center gap-2">
-          <div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className="min-w-0">
             <div className="text-[12.5px] font-semibold text-text">
               {verb.label}
             </div>
@@ -165,7 +165,7 @@ export function PermissionToggleGrid({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-none items-center gap-1.5">
           {verb.locked && <Lock className="h-3 w-3 text-primary" />}
           <Switch
             checked={on}
@@ -222,9 +222,9 @@ export function PermissionToggleGrid({
     addedResources[0];
 
   return (
-    <div className="flex min-h-[280px] flex-1">
+    <div className="flex min-h-[280px] flex-1 overflow-hidden">
       {/* Left panel — added-resource list */}
-      <div className="flex w-[250px] flex-none flex-col border-r border-border">
+      <div className="flex w-[200px] flex-none flex-col border-r border-border lg:w-[250px]">
         <ul className="flex-1 overflow-auto">
           {addedResources.map((entry) => {
             const active = entry.resource === selected.resource;
@@ -270,7 +270,7 @@ export function PermissionToggleGrid({
       </div>
 
       {/* Right panel — permissions for the selected resource */}
-      <div className="flex-1 overflow-auto px-5 py-4">
+      <div className="min-w-0 flex-1 overflow-auto px-5 py-4">
         <div className="text-sm font-semibold text-text">{selected.label}</div>
         <div className="mb-2.5 text-xs text-text-light">
           Configure what this role can do with {selected.label.toLowerCase()}.
