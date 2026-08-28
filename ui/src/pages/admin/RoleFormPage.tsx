@@ -458,7 +458,7 @@ export default function RoleFormPage() {
                 {addedCount} of {catalog.length} resources added
               </div>
             </div>
-            <div className="flex flex-1 p-3 sm:p-4">
+            <div className="flex flex-1 px-4 py-4 sm:px-5">
               <PermissionToggleGrid
                 catalog={catalog}
                 value={grants}

@@ -270,7 +270,7 @@ export function PermissionToggleGrid({
       </div>
 
       {/* Right panel — permissions for the selected resource */}
-      <div className="min-w-0 flex-1 overflow-auto px-4 py-1 sm:px-5">
+      <div className="min-w-0 flex-1 overflow-auto px-4 py-1">
         <div className="text-sm font-semibold text-text">{selected.label}</div>
         <div className="mb-2.5 text-xs text-text-light">
           Configure what this role can do with {selected.label.toLowerCase()}.
