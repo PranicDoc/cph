@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,28 @@ import {
 } from "@/components/admin/roles/PermissionToggleGrid";
 import { ResourcePickerDialog } from "@/components/admin/roles/ResourcePickerDialog";
 import { useRbacCatalog } from "@/hooks/admin/useRbacCatalog";
-import { useRoleDetail } from "@/hooks/admin/useRbacRoles";
+import {
+  useRoleDetail,
+  useCreateRole,
+  useUpdateRole,
+} from "@/hooks/admin/useRbacRoles";
+import { extractDetail } from "@/lib/utils";
+
+/**
+ * Distinguishes the self-lockout 409 (RoleManagerGuard — footer error slot,
+ * form stays dirty and unsaved) from a generic data-integrity 409 on create
+ * (treated as the duplicate-name path — inline under Name; 38-RESEARCH Open Q2).
+ */
+function isSelfLockout(error: unknown): boolean {
+  const data = (
+    error as { response?: { data?: { type?: string; detail?: string } } }
+  )?.response?.data;
+  const type = data?.type ?? "";
+  const detail = data?.detail ?? "";
+  return (
+    type.includes("self-lockout") || /nobody able to manage roles/i.test(detail)
+  );
+}
 
 // A stable, order-independent string form of the editable state. Trims strings,
 // treats a null/"" description alike, and sorts each resource's verb array so
@@ -57,6 +79,10 @@ export default function RoleFormPage() {
   const roleQuery = useRoleDetail(id);
   const catalog = catalogQuery.data;
 
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const activeMutation = isEdit ? updateRole : createRole;
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [grants, setGrants] = useState<GrantMap>({});
@@ -66,8 +92,18 @@ export default function RoleFormPage() {
 
   const [nameError, setNameError] = useState<string | null>(null);
   const [resourceError, setResourceError] = useState<string | null>(null);
+  const [lockoutError, setLockoutError] = useState<string | null>(null);
   const [droppedNote, setDroppedNote] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Flips true in the mutation success handler. Consumed by the isDirty
+  // computation (Task 3) so the guard sees a clean form BEFORE the redirect
+  // effect below runs — the app's own post-save navigation is never
+  // intercepted (38-RESEARCH Pitfall 8).
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (saved) navigate("/admin/roles");
+  }, [saved, navigate]);
 
   // -- Edit prefill: seed name / description / grants once the role resolves --
   useEffect(() => {
@@ -161,11 +197,65 @@ export default function RoleFormPage() {
     };
   };
 
+  // Success: confirmation toast with the locked UI-SPEC copy, then clear the
+  // dirty state (setSaved) — the redirect effect above navigates once the
+  // clean re-render has flushed.
+  const handleSuccess = (savedName: string) => {
+    toast.success(
+      isEdit ? `Role "${savedName}" saved.` : `Role "${savedName}" created.`,
+    );
+    setSaved(true);
+  };
+
+  // Error branching is owned entirely by this component — the mutation hooks
+  // carry no onError (D-09 / 38-RESEARCH Pitfall 5).
+  const handleError = (error: unknown) => {
+    const status = (error as { response?: { status?: number } })?.response
+      ?.status;
+    if (status === 400) {
+      setNameError(
+        extractDetail(error) ?? "A role with that name already exists.",
+      );
+      return;
+    }
+    if (status === 409) {
+      if (isEdit && isSelfLockout(error)) {
+        setLockoutError(
+          extractDetail(error) ??
+            "This change would leave nobody able to manage roles, so it was blocked.",
+        );
+        return;
+      }
+      // A 409 on create (generic DataIntegrityViolationException) is the
+      // duplicate-name path — inline under Name (Open Q2).
+      setNameError(
+        extractDetail(error) ?? "A role with that name already exists.",
+      );
+      return;
+    }
+    toast.error(extractDetail(error) || "Failed to save role");
+  };
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    buildPayloadOrErrors();
-    // The save flow (request, success toast, server-error branching) is wired
-    // in Task 2.
+    setLockoutError(null);
+    const payload = buildPayloadOrErrors();
+    if (!payload) return;
+
+    if (isEdit && id) {
+      updateRole.mutate(
+        { id, body: payload },
+        {
+          onSuccess: () => handleSuccess(payload.name),
+          onError: handleError,
+        },
+      );
+    } else {
+      createRole.mutate(payload, {
+        onSuccess: () => handleSuccess(payload.name),
+        onError: handleError,
+      });
+    }
   };
 
   const header = (
@@ -237,7 +327,11 @@ export default function RoleFormPage() {
     <div>
       {header}
 
-      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6 pb-24">
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-3xl space-y-6 pb-24"
+        aria-busy={activeMutation.isPending || undefined}
+      >
         <div>
           <div className="flex items-center gap-1">
             <Label htmlFor="role-name">Name</Label>
@@ -300,6 +394,14 @@ export default function RoleFormPage() {
             {droppedNote && (
               <p className="text-xs text-text-light">{droppedNote}</p>
             )}
+            {lockoutError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive"
+              >
+                {lockoutError}
+              </p>
+            )}
           </div>
           <Button
             type="button"
@@ -308,8 +410,14 @@ export default function RoleFormPage() {
           >
             Discard and go back
           </Button>
-          <Button type="submit">
-            {isEdit ? "Save changes" : "Create role"}
+          <Button type="submit" disabled={activeMutation.isPending}>
+            {activeMutation.isPending
+              ? isEdit
+                ? "Saving…"
+                : "Creating…"
+              : isEdit
+                ? "Save changes"
+                : "Create role"}
           </Button>
         </div>
       </form>

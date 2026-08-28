@@ -83,6 +83,17 @@ function stubGet(options: StubOptions = {}) {
   });
 }
 
+async function addResources(
+  user: ReturnType<typeof userEvent.setup>,
+  labels: string[],
+) {
+  await user.click(screen.getByRole("button", { name: "Add resources" }));
+  for (const label of labels) {
+    await user.click(await screen.findByText(label));
+  }
+  await user.click(screen.getByRole("button", { name: "Add selected" }));
+}
+
 function renderForm(path: string) {
   return renderWithDataRouter(
     [
@@ -225,5 +236,177 @@ describe("RoleFormPage — shell, gating, prefill, validation gate", () => {
       await screen.findByText("Add at least one resource before saving."),
     ).toBeInTheDocument();
     expect(mockedPut).not.toHaveBeenCalled();
+  });
+});
+
+describe("RoleFormPage — save flow, toast, inline 400 / 409", () => {
+  it("posts only resources with at least one verb, dropping the zero-verb resource", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPost.mockResolvedValue({ data: { id: "r9" } });
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await addResources(user, ["Legal documents", "Patients"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() => expect(mockedPost).toHaveBeenCalled());
+    expect(mockedPost).toHaveBeenCalledWith("/api/admin/roles", {
+      name: "Auditors",
+      description: null,
+      grants: [{ resource: "LEGAL_DOCUMENTS", operations: ["READ"] }],
+    });
+  });
+
+  it("names the dropped zero-verb resource when a granting resource remains", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    // Hangs the request so the on-submit note stays visible for the assertion.
+    mockedPost.mockImplementation(() => new Promise(() => {}));
+    renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await addResources(user, ["Legal documents", "Patients"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    expect(
+      await screen.findByText(/No permissions were toggled for Patients/),
+    ).toBeInTheDocument();
+  });
+
+  it("toasts the created copy and returns to the roles list on a successful create", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPost.mockResolvedValue({ data: { id: "r9" } });
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await addResources(user, ["Legal documents"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(mockedToastSuccess).toHaveBeenCalledWith('Role "Auditors" created.');
+  });
+
+  it("toasts the saved copy and puts the full replacement grant set on a successful edit", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPut.mockResolvedValue({ data: { id: "r1" } });
+    const { router } = renderForm("/admin/roles/r1/edit");
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Create on Roles" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(mockedPut).toHaveBeenCalled());
+    const [url, body] = mockedPut.mock.calls[0] as [
+      string,
+      { name: string; grants: { resource: string; operations: string[] }[] },
+    ];
+    expect(url).toBe("/api/admin/roles/r1");
+    expect(body.name).toBe("Billing");
+    expect(body.grants).toHaveLength(1);
+    expect(body.grants[0].resource).toBe("ROLES");
+    expect([...body.grants[0].operations].sort()).toEqual([
+      "CREATE",
+      "READ",
+      "UPDATE",
+    ]);
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/admin/roles"),
+    );
+    expect(mockedToastSuccess).toHaveBeenCalledWith('Role "Billing" saved.');
+  });
+
+  it("renders a duplicate-name 400 inline under Name without navigating or toasting success", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPost.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          detail:
+            "A role with that name already exists. Please choose a different name.",
+        },
+      },
+    });
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Billing");
+    await addResources(user, ["Legal documents"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    expect(
+      await screen.findByText(
+        "A role with that name already exists. Please choose a different name.",
+      ),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin/roles/new");
+    expect(mockedToastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("renders a self-lockout 409 in a footer alert and keeps the edited form dirty", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPut.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          type: "https://pranicdoc.com/errors/self-lockout",
+          detail: "This change would leave nobody able to manage roles.",
+        },
+      },
+    });
+    const { router } = renderForm("/admin/roles/r1/edit");
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Create on Roles" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "This change would leave nobody able to manage roles.",
+    );
+    expect(router.state.location.pathname).toBe("/admin/roles/r1/edit");
+    expect(mockedToastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Name")).toHaveValue("Billing");
+    expect(
+      screen.getByRole("checkbox", { name: "Create on Roles" }),
+    ).toBeChecked();
+  });
+
+  it("toasts a generic error on a 500 and does not navigate", async () => {
+    const user = userEvent.setup();
+    stubGet();
+    mockedPost.mockRejectedValue({
+      response: { status: 500, data: { detail: "boom" } },
+    });
+    const { router } = renderForm("/admin/roles/new");
+    await user.type(await screen.findByLabelText("Name"), "Auditors");
+    await addResources(user, ["Legal documents"]);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "View on Legal documents" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() => expect(mockedToastError).toHaveBeenCalled());
+    expect(router.state.location.pathname).toBe("/admin/roles/new");
   });
 });
