@@ -80,7 +80,7 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setStatus(SessionStatus.COMPLETED);
         session.setHealingCase(healingCase);
-        activateCaseIfDraft(healingCase);
+        activateCaseIfDraftOrContinued(healingCase);
         HealingSession saved = sessionRepository.save(session);
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
@@ -91,8 +91,9 @@ public class SessionService {
      * cases otherwise only leave DRAFT via the separate case-details PATCH,
      * which a healer may never call before finishing the first session.
      */
-    private void activateCaseIfDraft(HealingCase healingCase) {
-        if (healingCase.getStatus() == CaseStatus.DRAFT) {
+    private void activateCaseIfDraftOrContinued(HealingCase healingCase) {
+        if (healingCase.getStatus() == CaseStatus.DRAFT
+                || healingCase.getStatus() == CaseStatus.CONTINUED) {
             healingCase.setStatus(CaseStatus.ACTIVE);
         }
     }
@@ -149,7 +150,7 @@ public class SessionService {
         validatePrePostAndProtocolExists(session);
         session.setEndTime(LocalTime.now());
         session.setStatus(SessionStatus.COMPLETED);
-        activateCaseIfDraft(session.getHealingCase());
+        activateCaseIfDraftOrContinued(session.getHealingCase());
         HealingSession saved = sessionRepository.save(session);
         return toResponse(saved);
     }
