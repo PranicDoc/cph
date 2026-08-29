@@ -278,7 +278,7 @@ class ConsentControllerTest {
         PreAuthorize preAuthorize = publishMethod.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','CREATE')");
     }
 
     private static ConsentResponse sampleConsentResponse() {

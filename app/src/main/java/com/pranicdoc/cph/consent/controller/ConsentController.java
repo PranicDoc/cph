@@ -24,8 +24,11 @@ import java.util.UUID;
  * Authentication itself is already enforced globally by SecurityConfig's
  * {@code .anyRequest().authenticated()} gate; these paths are never added to
  * a permitAll list (T-30-08). The one deliberate exception is {@code publish}
- * below, which carries {@code @PreAuthorize} as the sole admin-only write path
- * (D-02) — a future reader should not "fix" this inconsistency.
+ * below, which carries a bare dynamic {@code LEGAL_DOCUMENTS:CREATE} permission
+ * gate (D-01/D-02) as the sole admin-only write path — the other five endpoints
+ * are intentionally open, and a future reader should not "fix" this
+ * inconsistency by gating them (doing so breaks self-service consent and the
+ * Phase 34 registration legal gate for every healer).
  */
 @RestController
 @RequestMapping("/api/v1/consents")
@@ -55,8 +58,10 @@ public class ConsentController {
         return ResponseEntity.ok(consentService.activePolicyVersions());
     }
 
+    // PD-40-06 / 40-RESEARCH A5: publishing a new policy VERSION row creates a
+    // legal document, so CREATE is the correct verb over UPDATE (both allow-listed).
     @PostMapping(value = "/policy-versions", consumes = "multipart/form-data")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','CREATE')")
     public ResponseEntity<PolicyVersionResponse> publish(
             // Unknown-key rejection moved from Spring's enum converter to the service-layer
             // registry check landing in 31.1-02 (T-31.1-02).
