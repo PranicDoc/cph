@@ -25,9 +25,17 @@ import java.util.stream.Collectors;
  * (cross-healer, unscoped) vs. an ordinary healer (own healerId only). There
  * is no clinic-scoped ADMIN tier — that concept no longer exists.
  *
- * RBAC layers:
- *   @PreAuthorize("hasRole('SUPADM')")        — packages + global config (SUPADM only)
- *   @PreAuthorize("hasAnyRole('ADMIN','SUPADM')") — accounts, transactions
+ * RBAC layers (Phase 40 cutover, D-01/D-02):
+ *   Every endpoint carries a bare dynamic gate — a {@code @PreAuthorize} whose
+ *   sole expression is {@code @rbacAuthz.hasPermission('RESOURCE','VERB')} with
+ *   no {@code hasRole} / {@code hasAnyRole} prefix and no boolean AND. SUPADM
+ *   passes every gate via the single {@code "SUPADM".equals(...)} short-circuit
+ *   inside {@link com.pranicdoc.cph.rbac.RbacAuthz}; every other caller passes
+ *   only if granted the named (resource, verb) pair. No {@code ADMIN} role
+ *   literal remains in this file — the packages/config gates map to
+ *   {@code PACKAGES} / {@code GLOBAL_CONFIG}, the account gates to
+ *   {@code CREDIT_ACCOUNTS} / {@code CREDIT_ACCOUNT_TRANSACTIONS}. Authentication
+ *   is still enforced by {@code SecurityConfig}'s {@code .anyRequest().authenticated()}.
  *
  * ABAC:
  *   AdminAuthz.assertHealerAccess(healerId)   — an ordinary healer can only touch their own account
@@ -51,7 +59,7 @@ public class AdminCreditController {
     // ─── Packages (SUPADM only) ───────────────────────────────────────────────
 
     @GetMapping("/packages")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('PACKAGES','READ')")
     public ResponseEntity<String> listAllPackages() {
         String body = creditServiceRestClient.get()
                 .uri("/credits/admin/packages")
@@ -61,7 +69,7 @@ public class AdminCreditController {
     }
 
     @PostMapping("/packages")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('PACKAGES','CREATE')")
     public ResponseEntity<String> createPackage(@RequestBody String body) {
         return ResponseEntity.ok(creditServiceRestClient.post()
                 .uri("/credits/admin/packages")
@@ -71,7 +79,7 @@ public class AdminCreditController {
     }
 
     @PutMapping("/packages/{id}")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('PACKAGES','UPDATE')")
     public ResponseEntity<String> updatePackage(@PathVariable UUID id, @RequestBody String body) {
         return ResponseEntity.ok(creditServiceRestClient.put()
                 .uri("/credits/admin/packages/{id}", id)
@@ -80,8 +88,10 @@ public class AdminCreditController {
                 .body(String.class));
     }
 
+    // deactivatePackage is a soft deactivate, not a hard row delete; DELETE is
+    // still the correct verb — it is the removal-adjacent capability on PACKAGES.
     @DeleteMapping("/packages/{id}")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('PACKAGES','DELETE')")
     public ResponseEntity<String> deactivatePackage(@PathVariable UUID id) {
         return ResponseEntity.ok(creditServiceRestClient.delete()
                 .uri("/credits/admin/packages/{id}", id)
@@ -92,7 +102,7 @@ public class AdminCreditController {
     // ─── Global config (SUPADM only) ─────────────────────────────────────────
 
     @GetMapping("/config")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('GLOBAL_CONFIG','READ')")
     public ResponseEntity<String> listConfig() {
         return ResponseEntity.ok(creditServiceRestClient.get()
                 .uri("/credits/admin/config")
@@ -100,8 +110,9 @@ public class AdminCreditController {
                 .body(String.class));
     }
 
+    // updateConfig uses UPDATE, not WRITE — GLOBAL_CONFIG does not support WRITE.
     @PutMapping("/config/{key}")
-    @PreAuthorize("hasRole('SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('GLOBAL_CONFIG','UPDATE')")
     public ResponseEntity<String> updateConfig(@PathVariable String key, @RequestBody String body) {
         return ResponseEntity.ok(creditServiceRestClient.put()
                 .uri("/credits/admin/config/{key}", key)
@@ -117,7 +128,7 @@ public class AdminCreditController {
      * SUPADM sees all (no ownerType/ownerId filter injected).
      */
     @GetMapping("/accounts")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','READ')")
     public ResponseEntity<String> listAccounts(
             @RequestParam(required = false) String ownerType,
             @RequestParam(defaultValue = "0") int page,
@@ -187,7 +198,7 @@ public class AdminCreditController {
     // ─── Transactions (ADMIN + SUPADM, ABAC scoped) ──────────────────────────
 
     @GetMapping("/accounts/{ownerType}/{ownerId}/transactions")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')")
     public ResponseEntity<String> getTransactions(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,
@@ -203,8 +214,9 @@ public class AdminCreditController {
 
     // ─── Manual adjustment (ADMIN + SUPADM, ABAC scoped) ─────────────────────
 
+    // manual credit adjustment = a transaction write
     @PostMapping("/accounts/{ownerType}/{ownerId}/adjust")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
     public ResponseEntity<String> adjust(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,
@@ -219,8 +231,14 @@ public class AdminCreditController {
 
     // ─── PAYG toggle (ADMIN + SUPADM, ABAC scoped) ───────────────────────────
 
+    // PD-40-02: PAYG is conceptually an account setting, but CREDIT_ACCOUNTS supports
+    // READ only, so CREDIT_ACCOUNTS:UPDATE would be an un-allow-listed pair that can
+    // never be granted. CREDIT_ACCOUNT_TRANSACTIONS:WRITE is the only writable
+    // credit-domain verb and already gates adjust, the sibling money-moving handler;
+    // reusing it here avoids a Resource.java enum change (a Phase-35 catalog change
+    // with catalog-service, catalog-test and frontend implications).
     @PutMapping("/accounts/{ownerType}/{ownerId}/payg")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
     public ResponseEntity<String> togglePayg(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,
