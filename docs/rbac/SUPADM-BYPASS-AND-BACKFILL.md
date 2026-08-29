@@ -133,6 +133,44 @@ obligation lives.
 
 ## ADMIN-Tier Backfill Migration Plan
 
+> ## ⚠️ STATUS: NOT EXECUTED — historical rationale only
+>
+> **Phase 40 deliberately did not run this plan, and it is permanently mooted.**
+> Everything below Steps 1–5, the `Legacy Administrator` role, and the grant
+> table is retained as design history, not as an executable specification.
+>
+> **Why (40-CONTEXT D-05 / D-06):** production holds **zero**
+> `healer.role='ADMIN'` accounts, so there is nothing to backfill. D-06
+> discharges `MIGRATE-03` by an operator-run count audit
+> (`SELECT count(*) FROM healer WHERE role='ADMIN';` → expected `0`) recorded in
+> the Phase 40 verification doc instead, following the `MIGRATE-05` precedent
+> (which confirmed the same for `SENIOR_HEALER`/`RECEPTIONIST`).
+>
+> **What this means concretely:** Phase 40 shipped **no Flyway migration, no
+> `Legacy Administrator` role, no `rbac_role` seed, and no `user_role` INSERT.**
+> The next Flyway version remains unconsumed by this phase. Phase 40 is a
+> code-only change on `feature/rbac-schema`; rollback = code revert (D-11).
+>
+> **Accuracy warning — the grant table below is stale on both resource keys and
+> verbs.** Do not copy any `(resource, verb)` pair from it:
+> - `TRANSACTIONS` is not a `Resource` enum constant — the real constant is
+>   `CREDIT_ACCOUNT_TRANSACTIONS`.
+> - `MASTER_DATA` is not a `Resource` enum constant — the real constants are
+>   `MASTER_DATA_CHAKRAS`, `MASTER_DATA_COLORS` and `MASTER_DATA_PROTOCOLS`.
+> - `HEALER_REGISTRATION` is not a `Resource` enum constant — the real constant
+>   is `HEALER_REG`.
+> - The `revoke → DELETE` mapping (row `HEALER_REGISTRATION`) is invalid:
+>   `HEALER_REG` allow-lists only `READ, CREATE, UPDATE` — it has **no `DELETE`
+>   verb**. Phase 40 mapped invite `revoke` to `HEALER_REG:UPDATE` (PD-40-07).
+>
+> Anyone reviving this plan must re-derive **every** pair against
+> `app/src/main/java/com/pranicdoc/cph/rbac/model/Resource.java`, which is the
+> sole allow-list (`Permission`'s constructor enforces `Resource.supports(...)`;
+> there is no `resource_permission` table).
+>
+> **Authoritative record of what Phase 40 actually did:**
+> `.planning/phases/40-legacy-endpoint-cutover-admin-backfill/40-VERIFICATION-EVIDENCE.md`.
+
 ### Goal restated
 
 Every account with `healer.role = 'ADMIN'` at the moment of Phase 40's
