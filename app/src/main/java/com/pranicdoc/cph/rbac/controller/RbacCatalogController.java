@@ -21,11 +21,18 @@ import java.util.List;
  * and never renders a raw enum token like {@code LEGAL_DOCUMENTS}.
  * <p>
  * The catalog is only meaningful while reading or building a role, so the
- * handler carries the byte-identical combined {@code ROLES:READ} gate used by
- * {@link RbacRoleController}'s read endpoints -- a coarse
- * {@code hasAnyRole('ADMIN','SUPADM')} check ANDed with the live, DB-backed
- * {@code @rbacAuthz.hasPermission('ROLES','READ')} check. Both halves must
- * pass; the coarse role gate alone is never sufficient here.
+ * handler carries the byte-identical bare {@code ROLES:READ} gate used by
+ * {@link RbacRoleController}'s read endpoints:
+ * {@code @rbacAuthz.hasPermission('ROLES','READ')}. Phase 40 D-02/D-03
+ * replaced the original combined expression — a coarse {@code ADMIN}/{@code
+ * SUPADM} role check ANDed with the permission call (36-CONTEXT D-05) — with
+ * this bare form so the whole admin surface uses one idiom and the
+ * {@code SUPADM} literal survives only inside {@code RbacAuthz.hasPermission}'s
+ * short-circuit. No coarse role literal remains in the {@code rbac} package.
+ * SUPADM still passes via that short-circuit; an unauthenticated caller is
+ * still rejected by {@code SecurityConfig.anyRequest().authenticated()} before
+ * method security, and {@code RbacAuthz} fails closed on a broken security
+ * context.
  * <p>
  * This controller owns no business logic -- the single handler delegates
  * directly to {@link RbacCatalogService}. Enforcement is entirely the
@@ -39,7 +46,7 @@ public class RbacCatalogController {
     private final RbacCatalogService rbacCatalogService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('ROLES','READ')")
     public ResponseEntity<List<RbacCatalogResourceResponse>> catalog() {
         return ResponseEntity.ok(rbacCatalogService.catalog());
     }

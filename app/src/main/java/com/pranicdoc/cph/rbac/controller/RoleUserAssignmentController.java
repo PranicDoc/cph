@@ -43,6 +43,19 @@ import java.util.UUID;
  * role changes that role's reach — it is managing the role. All three
  * authorization literals are byte-identical to {@code RbacRoleController}'s.
  * <p>
+ * Each gate is the bare dynamic expression
+ * {@code @rbacAuthz.hasPermission('ROLES', verb)}. Phase 40 D-02/D-03
+ * replaced this surface's original combined expression — a coarse
+ * {@code ADMIN}/{@code SUPADM} role check ANDed with the permission call
+ * (36-CONTEXT D-05) — with the bare form so the whole admin surface shares one
+ * idiom and the {@code SUPADM} literal lives only inside
+ * {@code RbacAuthz.hasPermission}'s short-circuit. No coarse role literal
+ * remains in the {@code rbac} package. SUPADM still passes via that
+ * short-circuit; an unauthenticated caller is still rejected by
+ * {@code SecurityConfig.anyRequest().authenticated()} before method security,
+ * and {@code RbacAuthz} fails closed on a broken security context, so dropping
+ * the coarse half opens no anonymous path.
+ * <p>
  * Each mutation hands {@link RoleAssignmentService} a whole
  * {@link RoleAssignmentRequest} record, never two loose UUIDs: the audit
  * trail serialises only {@code args[0]}, so splitting the identifiers would
@@ -59,13 +72,13 @@ public class RoleUserAssignmentController {
     private final RoleAssignmentQueryService roleAssignmentQueryService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('ROLES','READ')")
     public ResponseEntity<List<RoleAssignedUserResponse>> list(@PathVariable UUID id) {
         return ResponseEntity.ok(roleAssignmentQueryService.listAssignedUsers(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','UPDATE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('ROLES','UPDATE')")
     public ResponseEntity<RoleAssignmentResponse> assign(
             @PathVariable UUID id, @Valid @RequestBody RoleUserAssignmentBody body) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -73,7 +86,7 @@ public class RoleUserAssignmentController {
     }
 
     @DeleteMapping("/{userId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','UPDATE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('ROLES','UPDATE')")
     public ResponseEntity<Void> unassign(@PathVariable UUID id, @PathVariable UUID userId) {
         roleAssignmentService.unassign(new RoleAssignmentRequest(userId, id));
         return ResponseEntity.noContent().build();
