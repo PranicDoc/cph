@@ -5,6 +5,8 @@ import com.pranicdoc.cph.rbac.dto.RoleAssignedUserResponse;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentRequest;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentResponse;
 import com.pranicdoc.cph.rbac.dto.RoleUserAssignmentBody;
+import com.pranicdoc.cph.rbac.model.Operation;
+import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RoleAssignmentQueryService;
 import com.pranicdoc.cph.rbac.service.RoleAssignmentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,8 @@ import java.lang.reflect.Modifier;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,18 +53,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * annotations are never evaluated at request time in this file — that is
  * exactly why the reflection contract tests in Section A/B exist, and why the
  * real allow/deny logic is proven separately in {@code RbacAuthzTest} (unit)
- * and only end-to-end in the phase's live filter-chain walkthrough. No test
- * in this file asserts a 403/401 for an under-permissioned caller — such an
- * assertion would pass here for the wrong reason (there is no filter chain to
- * deny anything) and would create false confidence in a gate that was never
+ * and, at request time through the real filter chain, in
+ * {@code RbacMethodSecuritySliceContractTest} (plan 40-01). No test in this
+ * file asserts a 403/401 for an under-permissioned caller — such an assertion
+ * would pass here for the wrong reason (there is no filter chain to deny
+ * anything) and would create false confidence in a gate that was never
  * actually exercised (36-RESEARCH Pitfall 2 / 38-RESEARCH Pitfall 4).
+ *
+ * <p>Phase 40 D-02/D-03 harmonized this sub-resource to the bare
+ * {@code @rbacAuthz.hasPermission('ROLES','<VERB>')} form: the coarse
+ * {@code ADMIN}/{@code SUPADM} role prefix was removed, so Section A pins the
+ * bare literals, Section B's sweep asserts exact bare-form equality rather
+ * than a {@code startsWith} on the removed prefix, and Section D asserts every
+ * pinned pair is allow-listed and that {@code ROLES} has no {@code ADMIN} verb.
  */
 class RoleUserAssignmentControllerAuthorizationContractTest {
 
     private static final String READ_LITERAL =
-            "hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','READ')";
+            "@rbacAuthz.hasPermission('ROLES','READ')";
     private static final String UPDATE_LITERAL =
-            "hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','UPDATE')";
+            "@rbacAuthz.hasPermission('ROLES','UPDATE')";
 
     private MockMvc mockMvc;
     private RoleAssignmentService roleAssignmentService;
@@ -81,7 +93,7 @@ class RoleUserAssignmentControllerAuthorizationContractTest {
     // ─── Section A — reflection contract tests, one per handler ──
 
     @Test
-    void list_isAnnotatedWithCombinedReadPermissionGate() throws Exception {
+    void list_isAnnotatedWithBareReadPermissionGate() throws Exception {
         Method method = RoleUserAssignmentController.class.getMethod("list", UUID.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
@@ -90,7 +102,7 @@ class RoleUserAssignmentControllerAuthorizationContractTest {
     }
 
     @Test
-    void assign_isAnnotatedWithCombinedUpdatePermissionGate() throws Exception {
+    void assign_isAnnotatedWithBareUpdatePermissionGate() throws Exception {
         Method method = RoleUserAssignmentController.class.getMethod(
                 "assign", UUID.class, RoleUserAssignmentBody.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
@@ -100,7 +112,7 @@ class RoleUserAssignmentControllerAuthorizationContractTest {
     }
 
     @Test
-    void unassign_isAnnotatedWithCombinedUpdatePermissionGate() throws Exception {
+    void unassign_isAnnotatedWithBareUpdatePermissionGate() throws Exception {
         Method method = RoleUserAssignmentController.class.getMethod(
                 "unassign", UUID.class, UUID.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
@@ -115,8 +127,18 @@ class RoleUserAssignmentControllerAuthorizationContractTest {
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
             DeleteMapping.class, RequestMapping.class);
 
+    /**
+     * Anchored bare-form matcher: the whole {@code @PreAuthorize} value must be
+     * exactly {@code @rbacAuthz.hasPermission('<RESOURCE>','<VERB>')}. A
+     * re-introduced {@code hasAnyRole(...) and ...} prefix, or any wider
+     * expression, fails {@code matches(...)} — unlike the old {@code contains(...)}
+     * check, which such a prefix would still pass.
+     */
+    private static final Pattern BARE_GATE =
+            Pattern.compile("^@rbacAuthz\\.hasPermission\\('([A-Z_]+)','([A-Z]+)'\\)$");
+
     @Test
-    void everyRequestMappedMethodCarriesTheCombinedPermissionGate() {
+    void everyRequestMappedMethodCarriesABareDynamicGate() {
         int inspected = 0;
 
         for (Method method : RoleUserAssignmentController.class.getDeclaredMethods()) {
@@ -135,17 +157,50 @@ class RoleUserAssignmentControllerAuthorizationContractTest {
             assertThat(preAuthorize)
                     .as("method %s must carry @PreAuthorize", method.getName())
                     .isNotNull();
-            assertThat(preAuthorize.value())
-                    .as("method %s's @PreAuthorize must start with the coarse role gate", method.getName())
-                    .startsWith("hasAnyRole('ADMIN','SUPADM') and ");
-            assertThat(preAuthorize.value())
-                    .as("method %s's @PreAuthorize must reference the ROLES resource dynamic gate", method.getName())
-                    .contains("@rbacAuthz.hasPermission('ROLES',");
+
+            String value = preAuthorize.value();
+            assertThat(value)
+                    .as("method %s's @PreAuthorize must be exactly a bare "
+                            + "@rbacAuthz.hasPermission('ROLES','<VERB>') expression (D-02/D-03)",
+                            method.getName())
+                    .matches("^@rbacAuthz\\.hasPermission\\('ROLES','[A-Z]+'\\)$");
+            assertThat(value)
+                    .as("method %s's @PreAuthorize must not re-introduce a coarse role gate", method.getName())
+                    .doesNotContain("hasRole")
+                    .doesNotContain("hasAnyRole");
         }
 
         assertThat(inspected)
                 .as("the sweep must inspect exactly the three declared assignment sub-resource endpoints")
                 .isEqualTo(3);
+    }
+
+    // ─── Section D — allow-list validity for every pinned (resource, verb) pair ──
+
+    @Test
+    void everyGateNamesAnAllowListedResourceVerbPair() {
+        List<String> expressions = List.of(READ_LITERAL, UPDATE_LITERAL, UPDATE_LITERAL);
+
+        for (String expression : expressions) {
+            Matcher matcher = BARE_GATE.matcher(expression);
+            assertThat(matcher.matches())
+                    .as("%s must be a bare @rbacAuthz.hasPermission('R','V') expression", expression)
+                    .isTrue();
+
+            // An unknown literal must fail the test here, not be silently skipped.
+            Resource resource = Resource.valueOf(matcher.group(1));
+            Operation operation = Operation.valueOf(matcher.group(2));
+
+            assertThat(resource.supports(operation))
+                    .as("%s:%s is not an allow-listed (resource, verb) pair (D-10) — RbacAuthz would "
+                            + "resolve it to false for every non-SUPADM caller, permanently", resource, operation)
+                    .isTrue();
+        }
+
+        assertThat(Resource.ROLES.supports(Operation.ADMIN))
+                .as("ROLES has no ADMIN verb — the coarse ADMIN/SUPADM gate the D-02/D-03 harmonization "
+                        + "removed is not re-expressible as a dynamic ROLES:ADMIN grant")
+                .isFalse();
     }
 
     // ─── Section C — standalone MockMvc request/response coverage ──
