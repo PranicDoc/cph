@@ -2,7 +2,6 @@ package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.ProtocolType;
-import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
@@ -14,6 +13,7 @@ import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
 import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import com.pranicdoc.cph.rbac.RbacAuthz;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,8 +46,8 @@ import java.util.UUID;
  *
  * <p><b>D-04 / PD-40-04:</b> the seven mutating handlers still pass a
  * system-row override boolean to {@link MasterDataService}. Its source moved
- * from {@code "SUPADM".equals(getCurrentRole())} to
- * {@code rbacAuthz.hasPermission("MASTER_DATA_*", "ADMIN")}; see the comment
+ * from a hardcoded top-level-role string comparison to
+ * {@code rbacAuthz.hasPermission(MASTER_DATA_*, ADMIN)}; see the comment
  * block on {@link #updateChakra} for why that pair is intentionally
  * SUPADM-only and non-grantable.
  */
@@ -58,7 +58,7 @@ public class MasterDataController {
 
     private final MasterDataService masterDataService;
     private final ProtocolImportService protocolImportService;
-    private final SecurityContextUtil securityContextUtil;
+    private final RbacAuthz rbacAuthz;
 
     @GetMapping("/chakras")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','READ')")
@@ -89,14 +89,29 @@ public class MasterDataController {
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','UPDATE')")
     public ResponseEntity<ApiResponse<ChakraCatalog>> updateChakra(
             @PathVariable UUID id, @Valid @RequestBody ChakraRequest req) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04 (shared with the six other master-data mutating handlers): the system-row
+        // override below is intentionally SUPADM-only and NON-GRANTABLE. The three MASTER_DATA_*
+        // resources deliberately do not allow-list the ADMIN verb in Resource.java, so
+        // RolePermissionLookupService can never resolve a MASTER_DATA_*+ADMIN grant to true
+        // (Permission's constructor rejects that pair at role-creation time). Net effect:
+        // SUPADM -> true via the RbacAuthz short-circuit; every other caller -> false, forever.
+        // That is exactly the pre-cutover behaviour, which is what D-04 requires ("unchanged").
+        // Contrast LEGAL_DOCUMENTS:ADMIN (plan 40-04), which IS allow-listed and therefore a
+        // genuinely grantable permission. Resolving 40-RESEARCH OQ4 / A7, this plan chose
+        // accept-and-document over adding Operation.ADMIN to the three constants (a Phase-35
+        // catalog change with RbacCatalogService / catalog-test / Phase-38 UI fallout for zero
+        // behavioural gain this phase). Note: the SC1 sweep and the allow-list validity check
+        // apply to @PreAuthorize gate literals, not to this in-body capability call, so this
+        // pair is not an unflagged D-10 violation.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_CHAKRAS", "ADMIN");
         return ResponseEntity.ok(new ApiResponse<>(true, "Chakra updated", masterDataService.updateChakra(id, req, isSuperAdmin)));
     }
 
     @DeleteMapping("/chakras/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteChakra(@PathVariable UUID id) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_CHAKRAS", "ADMIN");
         masterDataService.deleteChakra(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Chakra deleted", null));
     }
@@ -130,14 +145,16 @@ public class MasterDataController {
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_COLORS','UPDATE')")
     public ResponseEntity<ApiResponse<PranaColorCatalog>> updateColor(
             @PathVariable UUID id, @Valid @RequestBody PranaColorRequest req) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_COLORS", "ADMIN");
         return ResponseEntity.ok(new ApiResponse<>(true, "Color updated", masterDataService.updateColor(id, req, isSuperAdmin)));
     }
 
     @DeleteMapping("/colors/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_COLORS','DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteColor(@PathVariable UUID id) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_COLORS", "ADMIN");
         masterDataService.deleteColor(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Color deleted", null));
     }
@@ -164,7 +181,9 @@ public class MasterDataController {
     @DeleteMapping("/protocol-mappings/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteMapping(@PathVariable UUID id) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        // Uses MASTER_DATA_PROTOCOLS to stay consistent with the PD-40-03 resource choice.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         masterDataService.deleteMapping(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Mapping deleted", null));
     }
@@ -193,14 +212,16 @@ public class MasterDataController {
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')")
     public ResponseEntity<ApiResponse<ProtocolCatalog>> updateProtocol(
             @PathVariable UUID id, @Valid @RequestBody ProtocolRequest req) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol updated", masterDataService.updateProtocol(id, req, isSuperAdmin)));
     }
 
     @DeleteMapping("/protocols/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteProtocol(@PathVariable UUID id) {
-        boolean isSuperAdmin = "SUPADM".equals(securityContextUtil.getCurrentRole());
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         masterDataService.deleteProtocol(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
     }
