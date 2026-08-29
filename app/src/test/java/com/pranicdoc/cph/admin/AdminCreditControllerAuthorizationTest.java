@@ -1,9 +1,34 @@
 package com.pranicdoc.cph.admin;
 
+import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.auth.service.HealerCacheService;
+import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
+import com.pranicdoc.cph.common.security.JwtService;
+import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
+import com.pranicdoc.cph.common.security.SecurityConfig;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.common.tenant.TenantInterceptor;
+import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
+import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -15,11 +40,25 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Authorization contract for {@link AdminCreditController} after the Phase 40
@@ -235,5 +274,187 @@ class AdminCreditControllerAuthorizationTest {
                             methodName, resource, operation)
                     .isTrue();
         }
+    }
+}
+
+/**
+ * SC2 contribution — the real-Spring-Security-filter-chain authorization trio
+ * for {@link AdminCreditController}, built on the PROVEN
+ * {@code @WebMvcTest(controller) + @Import(SecurityConfig)} harness from
+ * {@code 40-HARNESS-DECISION.md} (spike: {@code RbacMethodSecuritySliceContractTest},
+ * {@code 9174e6e}).
+ *
+ * <p>Kept as a sibling top-level class (not {@code @Nested}) in the same file so
+ * the annotation-contract sections above stay context-free while this class
+ * carries its own slice context. Both class names end with
+ * {@code AdminCreditControllerAuthorizationTest}, so
+ * {@code --tests "*AdminCreditControllerAuthorizationTest"} runs both.
+ *
+ * <p>Assertions are BEHAVIOR only (HTTP status + mock interaction); no
+ * {@code @PreAuthorize} literal is pinned here (that is Section A's job), so a
+ * future harmonization pass leaves this class green.
+ *
+ * <p>AdminCreditController's gates were converted to the bare form in this
+ * plan's Task 1, so the granted / ungranted / cross-resource callers
+ * authenticate as {@code HEALER} — there is no {@code hasAnyRole} coarse prefix
+ * left to confound the result. The mocked {@code creditServiceRestClient}
+ * returns {@code null} from its fluent chain, so an authorized request fails
+ * downstream (500) rather than returning 2xx; every assertion here is therefore
+ * "{@code != 403}" / "{@code isForbidden()}", exactly what SC2 requires.
+ */
+@WebMvcTest(AdminCreditController.class)
+@Import({SecurityConfig.class, GlobalExceptionHandler.class,
+        FilterChainAdminCreditControllerAuthorizationTest.RbacAuthzSliceConfig.class})
+@ActiveProfiles("test")
+class FilterChainAdminCreditControllerAuthorizationTest {
+
+    @TestConfiguration
+    static class RbacAuthzSliceConfig {
+        @Bean
+        RbacAuthz rbacAuthz(SecurityContextUtil securityContextUtil,
+                            RolePermissionLookupService lookupService) {
+            return new RbacAuthz(securityContextUtil, lookupService);
+        }
+    }
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    // ─── per-controller collaborators ──────────────────────────────────────
+    @MockBean(name = "creditServiceRestClient")
+    private org.springframework.web.client.RestClient creditServiceRestClient;
+    @MockBean
+    private AdminAuthz adminAuthz;
+    @MockBean
+    private HealerRepository healerRepository;
+    // NOTE: ObjectMapper is deliberately NOT @MockBean'd. A Mockito mock returns
+    // null from reader()/writer(), which breaks WebMvcAutoConfiguration's
+    // handlerExceptionResolver at context-load time (NPE in
+    // ObjectMapper.reader()). The controller injects the real autoconfigured
+    // Jackson ObjectMapper, which is inert for these authorization-only tests.
+
+    // ─── consumed by RbacAuthz ─────────────────────────────────────────────
+    @MockBean
+    private SecurityContextUtil securityContextUtil;
+    @MockBean
+    private RolePermissionLookupService lookupService;
+
+    // ─── always required by the SecurityConfig slice context ──────────────
+    @MockBean
+    private JwtService jwtService;
+    @MockBean
+    private TenantInterceptor tenantInterceptor;
+    @MockBean
+    private HealerCacheService healerCacheService;
+    @MockBean
+    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+    private static final UUID HEALER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID ROW_ID = UUID.fromString("00000000-0000-0000-0000-0000000000ff");
+    private static final String ACCESS_TOKEN = "test-access-token";
+
+    private void authenticateAs(String role) {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(HEALER_ID.toString());
+        when(claims.get("role", String.class)).thenReturn(role);
+        when(jwtService.isTokenValid(ACCESS_TOKEN)).thenReturn(true);
+        when(jwtService.extractTokenType(ACCESS_TOKEN)).thenReturn("ACCESS");
+        when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
+        when(healerCacheService.isActive(any())).thenReturn(true);
+        try {
+            when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        } catch (Exception impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    private static Cookie accessCookie() {
+        return new Cookie("accessToken", ACCESS_TOKEN);
+    }
+
+    private static MockHttpServletRequestBuilder request(String method, String path) {
+        MockHttpServletRequestBuilder b = switch (method) {
+            case "GET" -> get(path);
+            case "POST" -> post(path);
+            case "PUT" -> put(path);
+            case "DELETE" -> delete(path);
+            default -> throw new IllegalArgumentException("unsupported method " + method);
+        };
+        return b.cookie(accessCookie()).contentType(MediaType.APPLICATION_JSON).content("{}");
+    }
+
+    // ─── (a) SUPADM reaches every one of the 10 endpoints ──────────────────
+
+    static Stream<Arguments> allTenEndpoints() {
+        String p = "/api/admin/credit";
+        return Stream.of(
+                Arguments.of("GET", p + "/packages"),
+                Arguments.of("POST", p + "/packages"),
+                Arguments.of("PUT", p + "/packages/" + ROW_ID),
+                Arguments.of("DELETE", p + "/packages/" + ROW_ID),
+                Arguments.of("GET", p + "/config"),
+                Arguments.of("PUT", p + "/config/somekey"),
+                Arguments.of("GET", p + "/accounts"),
+                Arguments.of("GET", p + "/accounts/HEALER/" + ROW_ID + "/transactions"),
+                Arguments.of("POST", p + "/accounts/HEALER/" + ROW_ID + "/adjust"),
+                Arguments.of("PUT", p + "/accounts/HEALER/" + ROW_ID + "/payg"));
+    }
+
+    @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
+    @MethodSource("allTenEndpoints")
+    void supadm_reachesEveryEndpoint_withoutAnyGrantLookup(String method, String path) throws Exception {
+        authenticateAs("SUPADM");
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        mockMvc.perform(request(method, path))
+                .andExpect(status().is(not(403)));
+
+        // RBAC-04: the SUPADM short-circuit fires before any grant lookup.
+        verifyNoInteractions(lookupService);
+    }
+
+    // ─── (b)/(c) granted vs ungranted — differ ONLY in the lookup boolean ──
+
+    @Test
+    void grantedCaller_reachesListAccounts() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+                .thenReturn(true);
+
+        mockMvc.perform(get("/api/admin/credit/accounts").cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
+
+    @Test
+    void ungrantedCaller_isForbiddenFromListAccounts() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+                .thenReturn(false);
+
+        mockMvc.perform(get("/api/admin/credit/accounts").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        // Direct proof the @rbacAuthz bean method executed.
+        verify(lookupService).hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ));
+    }
+
+    // ─── (d) cross-resource isolation ─────────────────────────────────────
+
+    @Test
+    void grantOnCreditAccounts_doesNotUnlockPackages() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+                .thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PACKAGES), eq(Operation.READ)))
+                .thenReturn(false);
+
+        mockMvc.perform(get("/api/admin/credit/packages").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
     }
 }
