@@ -28,12 +28,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,7 +39,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -89,10 +86,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * and asserts {@code HEALER_REG} has no {@code DELETE} verb — the reason
  * {@code revoke} maps to {@code UPDATE} (PD-40-07).
  *
- * <p><b>Section D</b> is a source-level guard: it asserts the out-of-scope
- * invite-escalation check ({@code request.role() == Role.SUPADM}) was not swept
- * away by Task 1. Phase 41 owns that guard; plan 40-08's {@code "SUPADM"} sweep
- * deliberately allow-lists this one occurrence.
+ * <p><b>Section D</b> is a source-level guard: Phase 41 retired the invite-escalation
+ * check from {@code create()} and replaced it with a broader HEALER-only invariant in
+ * {@code InviteService} that covers every persist branch (D-06). It asserts the
+ * controller no longer reads {@code request.role()} AND that the service now carries
+ * {@code Role.HEALER} plus the {@code IllegalStateException} throw — the control was
+ * strengthened, not removed.
  *
  * <p>The sibling {@link FilterChainAdminInviteControllerAuthorizationTest}
  * covers the request-level gate through the real Spring Security filter chain
@@ -244,35 +243,48 @@ class AdminInviteControllerAuthorizationTest {
                 .isFalse();
     }
 
-    // ─── Section D — the out-of-scope invite-escalation guard survives ────
+    // ─── Section D — the invite-escalation guard is retired in favour of the service invariant ────
 
-    @Test
-    @DisplayName("Task 1's sweep did not remove the invite-escalation guard (Phase 41 owns it; "
-            + "plan 40-08 allow-lists this one \"SUPADM\" occurrence)")
-    void inviteEscalationGuardIsStillPresent() {
-        Path controllerSource = Paths.get(
-                "src", "main", "java", "com", "pranicdoc", "cph", "auth", "controller",
-                "AdminInviteController.java");
-        assertThat(Files.isRegularFile(controllerSource))
-                .as("expected AdminInviteController source at " + controllerSource.toAbsolutePath())
+    /**
+     * Reads a {@code src/main/java} source file and strips comments with the same two
+     * regexes as {@code RbacAuthzTest.supadmBypassExistsInExactlyOnePlace}, so a match
+     * that survives only inside a comment does not count.
+     */
+    private static String readStrippedMainSource(String... moduleRelative) {
+        Path source = Paths.get("src", "main", "java", moduleRelative[0]);
+        for (int i = 1; i < moduleRelative.length; i++) {
+            source = source.resolve(moduleRelative[i]);
+        }
+        assertThat(Files.isRegularFile(source))
+                .as("expected source file at " + source.toAbsolutePath())
                 .isTrue();
-
-        String source;
         try {
-            source = Files.readString(controllerSource);
+            return Files.readString(source)
+                    .replaceAll("(?s)/\\*.*?\\*/", "")
+                    .replaceAll("//.*", "");
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        // Same comment-stripping regexes as RbacAuthzTest.supadmBypassExistsInExactlyOnePlace,
-        // so a guard that survives only inside a comment does not count.
-        String stripped = source
-                .replaceAll("(?s)/\\*.*?\\*/", "")
-                .replaceAll("//.*", "");
+    }
 
-        assertThat(stripped)
-                .as("the line-41 invite-escalation guard must remain in executable source — "
-                        + "an ADMIN must not be able to mint a SUPADM (Phase 41 folds this into RBAC)")
-                .contains("request.role() == Role.SUPADM");
+    @Test
+    @DisplayName("Phase 41 retired the invite-escalation guard; the InviteService HEALER-only "
+            + "invariant replaced it and covers every persist branch (D-06)")
+    void inviteEscalationGuardIsRetiredInFavourOfTheServiceInvariant() {
+        String strippedController = readStrippedMainSource(
+                "com", "pranicdoc", "cph", "auth", "controller", "AdminInviteController.java");
+        assertThat(strippedController)
+                .as("Phase 41 removed the invite-escalation guard — AdminInviteController must no "
+                        + "longer read request.role() in executable source")
+                .doesNotContain("request.role()");
+
+        String strippedService = readStrippedMainSource(
+                "com", "pranicdoc", "cph", "auth", "service", "impl", "InviteService.java");
+        assertThat(strippedService)
+                .as("the guard was replaced by a broader HEALER-only invariant in InviteService "
+                        + "covering every persist branch (D-06)")
+                .contains("Role.HEALER")
+                .contains("IllegalStateException");
     }
 }
 
@@ -341,8 +353,7 @@ class FilterChainAdminInviteControllerAuthorizationTest {
     private static final UUID INVITE_ID = UUID.fromString("00000000-0000-0000-0000-0000000000ff");
     private static final String ACCESS_TOKEN = "test-access-token";
     private static final String BASE = "/api/admin/invites";
-    private static final String HEALER_INVITE_BODY = "{\"email\":\"invitee@example.com\",\"role\":\"HEALER\"}";
-    private static final String SUPADM_INVITE_BODY = "{\"email\":\"invitee@example.com\",\"role\":\"SUPADM\"}";
+    private static final String HEALER_INVITE_BODY = "{\"email\":\"invitee@example.com\"}";
 
     private void authenticateAs(String role) {
         Claims claims = mock(Claims.class);
@@ -400,7 +411,7 @@ class FilterChainAdminInviteControllerAuthorizationTest {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(inviteService.createInvite(any(), any(), any())).thenReturn(sampleResponse());
+        when(inviteService.createInvite(any(), any())).thenReturn(sampleResponse());
         when(inviteService.list(any())).thenReturn(Page.empty());
         when(inviteService.resend(any())).thenReturn(sampleResponse());
         when(inviteService.revoke(any())).thenReturn(sampleResponse());
@@ -441,47 +452,9 @@ class FilterChainAdminInviteControllerAuthorizationTest {
         verify(lookupService).hasPermission(any(), eq(Resource.HEALER_REG), eq(Operation.UPDATE));
     }
 
-    // ─── (d) layered guard — HEALER_REG:CREATE does not confer invite-escalation ──
-
-    /**
-     * T-40-15: the two guards are independent — a caller who genuinely holds
-     * {@code HEALER_REG:CREATE} (so {@code @PreAuthorize} passes) still cannot mint a
-     * SUPADM, because the {@code create()} invite-escalation guard throws
-     * {@code ResponseStatusException(FORBIDDEN)} before {@code inviteService} is touched.
-     *
-     * <p>This asserts the <b>resolved exception</b>, not the rendered HTTP status:
-     * {@code GlobalExceptionHandler} carries a catch-all
-     * {@code @ExceptionHandler(Exception.class)} that runs ahead of Spring's
-     * {@code ResponseStatusExceptionResolver}, so a controller-thrown
-     * {@code ResponseStatusException(403)} is currently rendered as 500. That masking
-     * is a pre-existing defect outside plan 40-03's {@code @PreAuthorize}-cutover scope
-     * (logged to {@code deferred-items.md}); it does not weaken this proof — the guard
-     * demonstrably fires with a FORBIDDEN status and the invite is never created.
-     */
-    @Test
-    void healerRegCreateGrant_stillCannotMintASupadm() throws Exception {
-        authenticateAs("HEALER");
-        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        // @PreAuthorize passes: the caller genuinely holds HEALER_REG:CREATE.
-        when(lookupService.hasPermission(any(), eq(Resource.HEALER_REG), eq(Operation.CREATE)))
-                .thenReturn(true);
-
-        // ...but the create() guard still denies a non-SUPADM inviting a SUPADM.
-        MvcResult result = mockMvc.perform(post(BASE)
-                        .cookie(accessCookie())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(SUPADM_INVITE_BODY))
-                .andReturn();
-
-        assertThat(result.getResolvedException())
-                .as("the invite-escalation guard must reject a non-SUPADM inviting a SUPADM")
-                .isInstanceOf(ResponseStatusException.class);
-        assertThat(((ResponseStatusException) result.getResolvedException()).getStatusCode())
-                .as("the guard denies with FORBIDDEN")
-                .isEqualTo(HttpStatus.FORBIDDEN);
-
-        // The invite is never created — granting HEALER_REG:CREATE did not confer escalation.
-        verifyNoInteractions(inviteService);
-    }
+    // Phase 41 deleted the former layered-guard test here: the request body can no longer
+    // carry a role, so a "non-SUPADM mints a SUPADM through the DTO" scenario is
+    // unconstructible. The HEALER-only rule now lives as an InviteService invariant covering
+    // every persist branch (D-06), asserted at the source level in Section D and behaviourally
+    // in InviteServiceTest.
 }

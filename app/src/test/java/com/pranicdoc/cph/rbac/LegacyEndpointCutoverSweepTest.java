@@ -67,9 +67,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>Test 4 — no {@code hasRole(} / {@code hasAnyRole(} survives in the
  *       comment-stripped source of any of the 9 controllers.</li>
  *   <li>Test 5 — the deliberately retained {@code "SUPADM"} control sites
- *       ({@code AdminAuthz} x2, {@code HealerServiceImpl}, {@code AdminInviteController}
- *       invite guard, {@code RbacAuthz} bypass) are asserted to STILL exist with
- *       exact counts, and the five converted controllers carry zero.</li>
+ *       ({@code AdminAuthz} x2, {@code HealerServiceImpl}, {@code RbacAuthz} bypass)
+ *       are asserted to STILL exist with exact counts. {@code AdminInviteController}
+ *       is pinned at ZERO — Phase 41 retired its invite-escalation guard for the
+ *       {@code InviteService} HEALER-only invariant — and the five converted
+ *       controllers carry zero.</li>
  *   <li>Test 6 — {@code BootstrapController.assignRole} remains deliberately
  *       {@code hasRole('SUPADM')}-gated (PD-40-05), pinned rather than silently
  *       excluded.</li>
@@ -330,19 +332,21 @@ class LegacyEndpointCutoverSweepTest {
         Map<String, Integer> expectedCounts = new LinkedHashMap<>();
         expectedCounts.put("com/pranicdoc/cph/admin/AdminAuthz.java", 2);
         expectedCounts.put("com/pranicdoc/cph/auth/service/impl/HealerServiceImpl.java", 1);
-        expectedCounts.put("com/pranicdoc/cph/auth/controller/AdminInviteController.java", 1);
+        expectedCounts.put("com/pranicdoc/cph/auth/controller/AdminInviteController.java", 0);
         expectedCounts.put("com/pranicdoc/cph/rbac/RbacAuthz.java", 1);
 
         String rationale =
-                "These four sites are authorization controls the cutover must PRESERVE, not "
+                "These sites are authorization controls the cutover must PRESERVE, not "
                         + "leftovers to sweep: AdminAuthz holds two ABAC row-scoping checks that decide "
                         + "whether a permitted admin may act on ANOTHER healer's row (healerScopeFilter "
                         + "+ assertHealerAccess); HealerServiceImpl has the self-vs-other scoping in "
-                        + "setActiveStatus; AdminInviteController.create() has the guard preventing an "
-                        + "ADMIN from minting a SUPADM (Phase 41 owns it); RbacAuthz holds the single "
-                        + "sanctioned SUPADM bypass the whole model depends on. Deleting any of them "
-                        + "would make this sweep greener and the system less safe — so each count is "
-                        + "pinned exactly, and a drop turns the build red rather than green.";
+                        + "setActiveStatus; RbacAuthz holds the single sanctioned SUPADM bypass the whole "
+                        + "model depends on. AdminInviteController.create() is now pinned at ZERO: Phase 41 "
+                        + "retired its invite-escalation guard in favour of the InviteService HEALER-only "
+                        + "invariant, so no \"SUPADM\" literal may reappear in its executable source. "
+                        + "Deleting any of the preserved checks would make this sweep greener and the "
+                        + "system less safe — so each count is pinned exactly, and a change turns the "
+                        + "build red rather than green.";
 
         for (Map.Entry<String, Integer> entry : expectedCounts.entrySet()) {
             Path source = Paths.get("src", "main", "java").resolve(entry.getKey());

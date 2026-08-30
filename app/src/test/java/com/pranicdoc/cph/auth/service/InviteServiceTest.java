@@ -98,7 +98,7 @@ class InviteServiceTest {
         ArgumentCaptor<HealerInviteLink> captor = ArgumentCaptor.forClass(HealerInviteLink.class);
         when(inviteRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         HealerInviteLink saved = captor.getValue();
         assertEquals(email, saved.getEmail());
@@ -129,7 +129,7 @@ class InviteServiceTest {
                 .thenReturn(Optional.of(existing));
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         // Only ONE save call — the existing row is mutated and re-saved, no second row inserted.
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
@@ -144,7 +144,7 @@ class InviteServiceTest {
         when(healerRepository.existsByEmail(email)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class,
-                () -> inviteService.createInvite(email, Role.HEALER, invitedByHealerId));
+                () -> inviteService.createInvite(email, invitedByHealerId));
 
         verify(inviteRepository, never()).save(any());
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
@@ -159,7 +159,7 @@ class InviteServiceTest {
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         assertEquals(email, response.email());
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));

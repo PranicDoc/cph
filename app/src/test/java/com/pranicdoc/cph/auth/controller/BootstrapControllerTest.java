@@ -268,7 +268,7 @@ class BootstrapControllerTest {
 
         String body = """
                 {"fullName":"First Admin","email":"admin@example.com",
-                 "password":"secret123","role":"SUPADM"}
+                 "password":"secret123"}
                 """;
 
         mockMvc.perform(post("/api/v1/bootstrap")
