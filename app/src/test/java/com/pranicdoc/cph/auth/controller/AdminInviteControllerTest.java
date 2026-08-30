@@ -49,7 +49,12 @@ class AdminInviteControllerTest {
     // ─── create() ────────────────────────────────────────────────
 
     @Test
-    void create_asAdmin_createsClinicFreeInvite() {
+    void create_delegatesEmailAndCallerId_returns201() {
+        // WR-03: this replaces the byte-identical create_asAdmin_* / create_asSupadm_* pair.
+        // This is a plain Mockito test with no Spring Security, so the caller's role is
+        // invisible to the controller method — "as X" naming implied coverage that never
+        // existed. Genuine caller-role differentiation lives in the filter-chain sibling
+        // FilterChainAdminInviteControllerAuthorizationTest.
         InviteCreateRequest request = new InviteCreateRequest("healer@example.com");
 
         when(securityContextUtil.getCurrentHealerId()).thenReturn(CALLER_HEALER_ID);
@@ -64,26 +69,9 @@ class AdminInviteControllerTest {
         verify(inviteService).createInvite("healer@example.com", CALLER_HEALER_ID);
     }
 
-    @Test
-    void create_asSupadm_createsClinicFreeInvite() {
-        InviteCreateRequest request = new InviteCreateRequest("healer@example.com");
-
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(CALLER_HEALER_ID);
-        InviteResponse expected = sampleResponse();
-        when(inviteService.createInvite(eq("healer@example.com"), eq(CALLER_HEALER_ID)))
-                .thenReturn(expected);
-
-        ResponseEntity<InviteResponse> response = controller.create(request);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody()).isEqualTo(expected);
-        verify(inviteService).createInvite("healer@example.com", CALLER_HEALER_ID);
-    }
-
-    // Phase 41 deleted the SUPADM-escalation-guard tests (adminCannotInviteSupadm /
-    // supadmCanInviteSupadm): the request contract no longer carries a role, the guard
-    // is gone from AdminInviteController, and the HEALER-only rule now lives as an
-    // InviteService invariant covered by InviteServiceTest.
+    // Phase 41 deleted the escalation-guard tests: the request contract no longer carries a
+    // role, the guard is gone from AdminInviteController, and the HEALER-only rule now lives
+    // as an InviteService invariant covered by InviteServiceTest.
 
     // ─── list() ──────────────────────────────────────────────────
 
