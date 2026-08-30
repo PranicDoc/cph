@@ -104,14 +104,6 @@ class RoleEnumRetirementSweepTest {
                 .replaceAll("//.*", "");
     }
 
-    private static int countOccurrences(String haystack, String needle) {
-        int count = 0;
-        for (int i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + needle.length())) {
-            count++;
-        }
-        return count;
-    }
-
     private static final String ADMIN_INVITE_CONTROLLER =
             "com/pranicdoc/cph/auth/controller/AdminInviteController.java";
     private static final String INVITE_SERVICE =
@@ -226,22 +218,20 @@ class RoleEnumRetirementSweepTest {
      * build-time proof (T-41-14). The comment-stripped service source must therefore still
      * throw {@code IllegalStateException} at least twice and reference {@code Role.HEALER}.
      *
-     * <p>The message-fragment anchors are load-bearing: {@code InviteService} also throws
-     * {@code IllegalStateException} twice in {@code validateMailConfig()} (unrelated startup
-     * config checks), so a bare count of two is not specific to the retirement invariant —
-     * pinning the two invariant messages keeps this gate meaningful and lets mutation m6
-     * (deleting one invariant throw) actually turn it red.
+     * <p>Phase 41 code review WR-01 consolidated the three per-persist-branch throws into a
+     * single {@code assertInviteMintsHealer(Role)} helper with one message, so this gate now
+     * pins that one message fragment plus the {@code Role.HEALER} reference. WR-04 removed
+     * the former {@code >= 2 IllegalStateException} count assertion: it was vacuous —
+     * {@code InviteService.validateMailConfig()} alone throws {@code IllegalStateException}
+     * twice — so it added no signal over the message-fragment anchor, which is what makes
+     * deleting the invariant demonstrably turn the gate red.
      */
     @Test
     void inviteServiceCarriesTheHealerOnlyInvariant() {
         String stripped = readStrippedSource(resolve(INVITE_SERVICE));
-        assertThat(countOccurrences(stripped, "IllegalStateException"))
-                .as("InviteService must still declare the HEALER-only invariant (>=2 IllegalStateException throws)")
-                .isGreaterThanOrEqualTo(2);
         assertThat(stripped)
-                .as("InviteService's retirement invariant must reference the survivor tier and both persist-branch messages")
+                .as("InviteService must still carry the single-sourced HEALER-only retirement invariant")
                 .contains("Role.HEALER")
-                .contains("Invite role must be HEALER")
-                .contains("Accepted invite would create a non-HEALER account");
+                .contains("Invite must mint a plain HEALER");
     }
 }

@@ -257,6 +257,46 @@ class InviteServiceTest {
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
     }
 
+    /**
+     * Negative branch of the {@code requestSelfSignup} HEALER-only invariant (Phase 41
+     * code review WR-01). The rotate-existing-PENDING-row branch never touches {@code role},
+     * so a self-signup row persisted before the retirement carrying {@link Role#SUPADM} —
+     * the only non-HEALER value left after the enum shrink — is the realistic way a
+     * non-HEALER role could still reach the {@code save(...)}. The single-sourced
+     * {@code assertInviteMintsHealer} guard must throw {@link IllegalStateException} before
+     * any row is persisted or any email is sent. Mirrors
+     * {@code acceptInvite_staleInviteWithSupadmRole_throws}.
+     */
+    @Test
+    void requestSelfSignup_staleSelfSignupRowWithSupadmRole_throws() {
+        String email = "stale-self-signup-elevated@example.com";
+        HealerInviteLink existing = HealerInviteLink.builder()
+                .id(UUID.randomUUID())
+                .token("old-self-signup-token")
+                .email(email)
+                .role(Role.SUPADM)
+                .source(HealerInviteLink.Source.SELF_SIGNUP)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING))
+                .thenReturn(false);
+        when(inviteRepository.findByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.SELF_SIGNUP, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.of(existing));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> inviteService.requestSelfSignup(email));
+        assertTrue(ex.getMessage().contains("HEALER"),
+                "invariant message must name the survivor tier HEALER — got: " + ex.getMessage());
+
+        verify(inviteRepository, never()).save(any());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
     // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
 
     @Test
