@@ -6,6 +6,7 @@ import com.pranicdoc.cph.auth.dto.BootstrapAssignRoleRequest;
 import com.pranicdoc.cph.auth.dto.BootstrapRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
@@ -259,6 +260,36 @@ class BootstrapControllerTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
+        verifyNoInteractions(roleAssignmentService);
+    }
+
+    @Test
+    void bootstrap_emptySystem_creates201_withSupadmRole() throws Exception {
+        // IN-04: the only other non-assignRole bootstrap test is the 409 self-lock path.
+        // The BootstrapRequest DTO dropped its `role` field (D-02); this proves the first
+        // healer is still seeded active with Role.SUPADM via the 4-field request.
+        when(healerRepository.count()).thenReturn(0L);
+        ArgumentCaptor<Healer> healerCaptor = ArgumentCaptor.forClass(Healer.class);
+        when(healerRepository.save(healerCaptor.capture())).thenAnswer(invocation -> {
+            Healer h = invocation.getArgument(0);
+            h.setId(UUID.randomUUID());
+            return h;
+        });
+
+        String body = """
+                {"fullName":"First Admin","email":"admin@example.com",
+                 "password":"secret123","phone":"555-0100"}
+                """;
+
+        mockMvc.perform(post("/api/v1/bootstrap")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("SUPADM"));
+
+        Healer saved = healerCaptor.getValue();
+        assertThat(saved.getRole()).isEqualTo(Role.SUPADM);
+        assertThat(saved.isActive()).isTrue();
         verifyNoInteractions(roleAssignmentService);
     }
 
