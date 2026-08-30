@@ -3,7 +3,6 @@ package com.pranicdoc.cph.auth.controller;
 import com.pranicdoc.cph.auth.dto.InviteCreateRequest;
 import com.pranicdoc.cph.auth.dto.InviteResponse;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
-import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -24,11 +22,12 @@ import java.util.UUID;
  * the local InviteService directly instead of proxying to a remote service.
  *
  * Solo-healer world (CUTOVER-05/D-26-02): invite visibility is no longer clinic-scoped.
- * Access to each endpoint is now decided by a {@code HEALER_REG} grant resolved through
+ * Access to each endpoint is decided purely by a {@code HEALER_REG} grant resolved through
  * {@link com.pranicdoc.cph.rbac.RbacAuthz}; a SUPADM caller passes via that bean's single
- * short-circuit without needing any grant. The one remaining static authorization
- * distinction is the invite-escalation guard inside {@link #create} (a non-SUPADM caller
- * cannot mint a SUPADM), which Phase 41 will fold into the permission model.
+ * short-circuit without needing any grant. There is no static role check on any endpoint:
+ * Phase 41 removed the invite-escalation guard from {@link #create} and replaced it with a
+ * HEALER-only invariant in {@link com.pranicdoc.cph.auth.service.impl.InviteService} that
+ * covers every persist path, so an invite can only ever mint a plain healer.
  */
 @RestController
 @RequestMapping("/api/admin/invites")
@@ -41,12 +40,8 @@ public class AdminInviteController {
     @PostMapping
     @PreAuthorize("@rbacAuthz.hasPermission('HEALER_REG','CREATE')")
     public ResponseEntity<InviteResponse> create(@Valid @RequestBody InviteCreateRequest request) {
-        if (request.role() == Role.SUPADM && !"SUPADM".equals(securityContextUtil.getCurrentRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a SUPADM can invite a SUPADM");
-        }
-
         InviteResponse created = inviteService.createInvite(
-                request.email(), request.role(), securityContextUtil.getCurrentHealerId());
+                request.email(), securityContextUtil.getCurrentHealerId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
