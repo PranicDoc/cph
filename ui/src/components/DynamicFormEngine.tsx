@@ -121,33 +121,35 @@ export function DynamicField({
 
   if (!display) return null;
 
+  // Run for BOTH onChange and onSubmit so a required field the user never
+  // touched still fails validation when the form is submitted (onChange-only
+  // validators skip untouched fields, letting an empty form through).
+  const runFieldValidation = ({ value }: any) => {
+    if (required && !value) {
+      return "Required";
+    }
+    // Contact number validation
+    if (name === "contact" && value) {
+      const normalized = value.replace(/\s+/g, "");
+
+      const phoneRegex = /^\+?\d{10,15}$/;
+
+      if (!phoneRegex.test(normalized)) {
+        return "Invalid contact number";
+      }
+    }
+    if (fieldConfig.validate) {
+      return fieldConfig.validate(value, form.state.values, fieldConfig.name);
+    }
+    return undefined;
+  };
+
   return (
     <form.Field
       name={name}
       validators={{
-        onChange: ({ value }: any) => {
-          if (required && !value) {
-            return "Required";
-          }
-          // Contact number validation
-          if (name === "contact" && value) {
-            const normalized = value.replace(/\s+/g, "");
-
-            const phoneRegex = /^\+?\d{10,15}$/;
-
-            if (!phoneRegex.test(normalized)) {
-              return "Invalid contact number";
-            }
-          }
-          if (fieldConfig.validate) {
-            return fieldConfig.validate(
-              value,
-              form.state.values,
-              fieldConfig.name
-            );
-          }
-          return undefined;
-        },
+        onChange: runFieldValidation,
+        onSubmit: runFieldValidation,
       }}
       children={(field: any) => {
         if (type === "checkbox") {
@@ -232,6 +234,7 @@ export function DynamicField({
                 placeholder={fieldConfig.multiSelectPlaceholder ?? placeholder}
                 disabled={fieldConfig.readOnly}
               />
+              <FieldError errors={field.state.meta.errors} />
             </div>
           );
         }

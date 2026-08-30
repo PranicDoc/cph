@@ -1,6 +1,12 @@
 // src/schemas/sessionSchema.ts
 import { FormSchema } from "../../components/DynamicFormEngine";
 import type { Protocol } from "../../hooks/admin/useMasterData";
+import {
+  hasChiefComplaint,
+  hasProtocol,
+  CHIEF_COMPLAINT_REQUIRED,
+  PROTOCOL_REQUIRED,
+} from "./sessionValidation";
 
 export const COMMON_SYMPTOMS = [
   "Headache",
@@ -22,6 +28,8 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         type: "textarea",
         placeholder: "E.g. Stomachache for 4 days or Neck pain for 5 days...",
         required: true,
+        validate: (_value, formValues) =>
+          hasChiefComplaint(formValues) ? undefined : CHIEF_COMPLAINT_REQUIRED,
       },
       {
         name: "labFindings",
@@ -89,6 +97,10 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         name: "healingDetails.selectedProtocols",
         label: "Protocols",
         type: "multiselect",
+        // Not `required: true` (that path returns a generic "Required" for an
+        // empty array) — this cross-field check also accepts free-text protocol.
+        validate: (_value, formValues) =>
+          hasProtocol(formValues) ? undefined : PROTOCOL_REQUIRED,
         wrapperClassName: "col-span-1",
         multiSelectPlaceholder: "Select protocols...",
         multiSelectOptions: protocols,

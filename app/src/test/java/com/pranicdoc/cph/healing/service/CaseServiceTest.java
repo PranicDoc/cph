@@ -287,11 +287,16 @@ class CaseServiceTest {
     }
 
     private CaseUpdateRequest buildUpdateRequest(UUID caseId, List<MedicationRequest> medications, List<String> labFindings) {
+        return buildUpdateRequest(caseId, "Test condition", medications, labFindings);
+    }
+
+    private CaseUpdateRequest buildUpdateRequest(UUID caseId, String medicalCondition,
+                                                 List<MedicationRequest> medications, List<String> labFindings) {
         HealingDetailsRequest healingDetailsRequest =
                 new HealingDetailsRequest("Test Protocol", "Test Book", "", null);
         return new CaseUpdateRequest(
                 caseId,
-                "Test condition",
+                medicalCondition,
                 null,
                 healingDetailsRequest,
                 "Test Protocol",
@@ -437,6 +442,23 @@ class CaseServiceTest {
         assertEquals(1, entity.getMedications().size(),
                 "medications() absent (null) must leave existing medications untouched");
         assertEquals("Aspirin", entity.getMedications().get(0).getMedicationName());
+    }
+
+    @Test
+    void updateCaseDetails_blankMedicalCondition_isRejectedBeforeAnyMutation() {
+        UUID caseId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("Healer");
+
+        // Chief complaint left blank (whitespace only) — the case would otherwise be
+        // persisted empty and render as a blank View page.
+        CaseUpdateRequest request = buildUpdateRequest(caseId, "   ", null, null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> caseService.updateCaseDetails(request, null));
+        assertTrue(ex.getMessage().toLowerCase().contains("chief complaint"),
+                "blank chief complaint must be rejected with a clear message, was: " + ex.getMessage());
+        verify(caseRepository, never()).findById(any());
+        verify(healingCaseMapper, never()).toEntity(any(), any());
     }
 
     // --- closeCase (V31: CaseStatus.CONTINUED) ---
