@@ -14,10 +14,9 @@ import org.hibernate.envers.Audited;
  *
  * NAMING-COLLISION RESOLUTION — named {@code RbacRole} rather than bare
  * {@code Role} because {@code com.pranicdoc.cph.common.enums.Role} is the
- * unrelated static login-tier enum ({@code HEALER}/{@code SENIOR_HEALER}/
- * {@code RECEPTIONIST}/{@code ADMIN}/{@code SUPADM}). That enum stays
- * untouched through Phase 40 and shrinks to {@code HEALER}/{@code SUPADM}
- * only in Phase 41 (D-01) — it is never migrated into this table.
+ * unrelated static login-tier enum ({@code HEALER}/{@code SUPADM}). That
+ * enum was shrunk to its two surviving values in Phase 41 (D-01) — it is
+ * never migrated into this table.
  * {@code SUPADM} in particular is never represented as a row in
  * {@code rbac_role}: it is an unconditional hardcoded bypass (D-02), not a
  * grantable dynamic role.

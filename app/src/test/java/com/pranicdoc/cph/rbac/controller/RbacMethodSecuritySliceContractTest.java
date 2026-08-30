@@ -89,13 +89,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * whenever no token cookie is present, which wipes any test-injected principal
  * before authorization runs (observed: 401 on all three cases).
  *
- * <p>The target endpoint currently carries the COMBINED expression
- * {@code hasAnyRole('ADMIN','SUPADM') and @rbacAuthz.hasPermission('ROLES','READ')}.
- * A {@code role = "HEALER"} caller would be denied by the {@code hasAnyRole}
- * half alone, proving nothing about method security reaching the bean, so the
- * deny/allow pair authenticates as {@code ADMIN} — the coarse half always
- * passes and only the bean call can decide the outcome. No test in this file
- * uses {@code role = "HEALER"}.
+ * <p>The target endpoint carries the bare expression
+ * {@code @rbacAuthz.hasPermission('ROLES','READ')} (plan 40-06 harmonization).
+ * No coarse role half remains, so the deny/allow pair authenticates as a
+ * non-SUPADM {@code HEALER}: the {@code @rbacAuthz} bean call is the only thing
+ * that can decide the outcome, and a 403-vs-200 flip on the identical request
+ * isolates method security reaching the bean. Phase 41 retired the former
+ * non-SUPADM sentinel these tests used; {@code "HEALER"} now expresses "some
+ * authenticated non-SUPADM caller" exactly.
  *
  * <p>This class asserts BEHAVIOR only (HTTP status + mock interaction). It never
  * pins a {@code @PreAuthorize} annotation literal, so plan 40-06's harmonization
@@ -187,8 +188,8 @@ class RbacMethodSecuritySliceContractTest {
 
     @Test
     void sliceEvaluatesPreAuthorize_grantAbsent_returns403() throws Exception {
-        authenticateAs("ADMIN");
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
         when(lookupService.hasPermission(any(), eq(Resource.ROLES), eq(Operation.READ)))
                 .thenReturn(false);
@@ -203,8 +204,8 @@ class RbacMethodSecuritySliceContractTest {
 
     @Test
     void sliceEvaluatesPreAuthorize_grantPresent_isNotForbidden() throws Exception {
-        authenticateAs("ADMIN");
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
         when(lookupService.hasPermission(any(), eq(Resource.ROLES), eq(Operation.READ)))
                 .thenReturn(true);

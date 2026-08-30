@@ -70,7 +70,7 @@ class RbacAuthzTest {
     @Test
     void nonSupadmWithGrantIsPermitted() {
         UUID healerId = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         when(lookupService.hasPermission(eq(healerId), eq(Resource.ROLES), eq(Operation.CREATE)))
                 .thenReturn(true);
@@ -83,7 +83,7 @@ class RbacAuthzTest {
     @Test
     void nonSupadmWithoutGrantIsDenied() {
         UUID healerId = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         when(lookupService.hasPermission(eq(healerId), eq(Resource.ROLES), eq(Operation.CREATE)))
                 .thenReturn(false);
@@ -93,7 +93,7 @@ class RbacAuthzTest {
 
     @Test
     void unknownResourceLiteralFailsClosed() {
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
 
         assertFalse(rbacAuthz.hasPermission("NOT_A_RESOURCE", "READ"));
 
@@ -115,7 +115,7 @@ class RbacAuthzTest {
 
         // Re-stub with doReturn: the prior stub already throws on invocation,
         // so a plain when(...) here would itself trigger that throw.
-        org.mockito.Mockito.doReturn("ADMIN").when(securityContextUtil).getCurrentRole();
+        org.mockito.Mockito.doReturn("HEALER").when(securityContextUtil).getCurrentRole();
         when(securityContextUtil.getCurrentHealerId())
                 .thenThrow(new IllegalStateException("No tenant context found in SecurityContext, is the user authenticated?"));
 

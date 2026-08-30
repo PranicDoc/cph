@@ -17,7 +17,7 @@ import java.util.UUID;
  *
  * Token claims (ACCESS/REFRESH, post-26-09 CONTRACT step):
  *   sub       = healerId (UUID)
- *   role      = healer role (HEALER, SENIOR_HEALER, ADMIN, etc.)
+ *   role      = healer role (HEALER, SUPADM)
  *   type      = "ACCESS" or "REFRESH"
  *
  * Token claims (SELF_REG/PATIENT_CASE, post-26-11 D-26-04):
