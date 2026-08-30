@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { buildSessionSchema } from "./schemas/sessionSchema";
+import { sessionStep0Errors } from "./schemas/sessionValidation";
 import { SessionHeader } from "./SessionHeader";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { useProtocols, type Protocol } from "../hooks/admin/useMasterData";
@@ -472,12 +473,21 @@ export default function Session() {
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          const step0Errors = sessionStep0Errors(sessionForm.state.values);
           try {
+            // Always run handleSubmit — on an incomplete form it surfaces the
+            // per-field "required" errors instead of persisting an empty case.
             await sessionForm.handleSubmit();
-            goToNextStep();
           } catch {
             // error already logged in onSubmit
           }
+          if (Object.keys(step0Errors).length > 0) {
+            document
+              .querySelector('[aria-invalid="true"], .text-danger')
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+          }
+          goToNextStep();
         }}
         className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
       >
@@ -516,14 +526,31 @@ export default function Session() {
             )}
           </div>
 
-          <Button
-            type={isEdit ? "submit" : "button"}
-            onClick={isEdit ? undefined : goToNextStep}
-            disabled={isSubmitting}
-            className="flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2"
-          >
-            {getNextButtonLabel()}
-          </Button>
+          <sessionForm.Subscribe
+            selector={(state: any) => state.values}
+            children={(values: any) => {
+              const incomplete =
+                isEdit && Object.keys(sessionStep0Errors(values)).length > 0;
+              return (
+                <Button
+                  type={isEdit ? "submit" : "button"}
+                  onClick={isEdit ? undefined : goToNextStep}
+                  disabled={isSubmitting}
+                  aria-disabled={incomplete || undefined}
+                  title={
+                    incomplete
+                      ? "Fill all required fields to continue"
+                      : undefined
+                  }
+                  className={`flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2 ${
+                    incomplete ? "opacity-50" : ""
+                  }`}
+                >
+                  {getNextButtonLabel()}
+                </Button>
+              );
+            }}
+          />
         </div>
       </form>
     </div>

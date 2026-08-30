@@ -362,6 +362,11 @@ public class CaseService {
                 && caseUpdateRequest.healingDetails().detailedProtocol().isBlank() &&
                 caseUpdateRequest.healingDetails().protocolName().isBlank()
         ) throw new IllegalArgumentException("No valid protocol found");
+        // A case saved with no chief complaint renders as a blank View page later — reject
+        // it here so an empty session can never be persisted, regardless of client.
+        if (caseUpdateRequest.medicalCondition() == null || caseUpdateRequest.medicalCondition().isBlank()) {
+            throw new IllegalArgumentException("Chief complaint is required");
+        }
         HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
         String role = securityContextUtil.getCurrentRole();

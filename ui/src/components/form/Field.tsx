@@ -32,7 +32,11 @@ export type TanstackField = {
 
 export function FieldError({ errors }: { errors: any[] | undefined }) {
   if (!errors || errors.length === 0) return null
-  return <p className="text-danger text-xs mt-1">{errors.join(", ")}</p>
+  // TanStack Form collects errors per cause (onChange + onSubmit), so the same
+  // message can appear twice — show each distinct message once.
+  const unique = [...new Set(errors.filter(Boolean).map(String))]
+  if (unique.length === 0) return null
+  return <p className="text-danger text-xs mt-1">{unique.join(", ")}</p>
 }
 
 export function FieldWrapper({
