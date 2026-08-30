@@ -104,6 +104,19 @@ class RoleEnumRetirementSweepTest {
                 .replaceAll("//.*", "");
     }
 
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        for (int i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + needle.length())) {
+            count++;
+        }
+        return count;
+    }
+
+    private static final String ADMIN_INVITE_CONTROLLER =
+            "com/pranicdoc/cph/auth/controller/AdminInviteController.java";
+    private static final String INVITE_SERVICE =
+            "com/pranicdoc/cph/auth/service/impl/InviteService.java";
+
     // ─── Test 1 — the enum itself, by reflection ────────────────────────
 
     @Test
@@ -177,5 +190,58 @@ class RoleEnumRetirementSweepTest {
                         + "Operation.ADMIN is an unrelated RBAC verb elsewhere. Offenders: %s",
                         offenders)
                 .isEmpty();
+    }
+
+    // ─── Test 5 — the invite-escalation guard stays retired (Phase 41 / D-06) ───
+
+    /**
+     * The static SUPADM-escalation guard that lived in {@code AdminInviteController.create()}
+     * (a {@code request.role() == Role.SUPADM} check that threw {@code ResponseStatusException})
+     * was retired in Phase 41 (D-06) and replaced by the {@code InviteService} HEALER-only
+     * invariant. Reintroducing a role-bearing branch on this controller would re-widen invite
+     * privilege, so its comment-stripped source must contain neither token.
+     *
+     * <p>This half of the proof is owned here as a permanent MIGRATE-01 / SC1 build gate;
+     * {@code AdminInviteControllerAuthorizationTest} Section D asserts the same guard-absence
+     * fact from the filter-chain-authorization angle. The overlap is deliberate (T-41-14):
+     * one class frames it as enum retirement, the other as an authz contract.
+     */
+    @Test
+    void inviteEscalationGuardIsGoneFromAdminInviteController() {
+        String stripped = readStrippedSource(resolve(ADMIN_INVITE_CONTROLLER));
+        assertThat(stripped)
+                .as("AdminInviteController.create() must carry no role-bearing branch: the "
+                        + "escalation guard was retired in Phase 41 (D-06) for the InviteService "
+                        + "HEALER-only invariant")
+                .doesNotContain("request.role()")
+                .doesNotContain("ResponseStatusException");
+    }
+
+    // ─── Test 6 — the replacement invariant is still present (anti-vacuous counterpart) ───
+
+    /**
+     * The {@code InviteService} HEALER-only invariant is the replacement control for the
+     * deleted guard (Test 5). Without this assertion, a future PR could satisfy Test 5 by
+     * deleting BOTH the guard and its replacement, leaving invite-role enforcement with no
+     * build-time proof (T-41-14). The comment-stripped service source must therefore still
+     * throw {@code IllegalStateException} at least twice and reference {@code Role.HEALER}.
+     *
+     * <p>The message-fragment anchors are load-bearing: {@code InviteService} also throws
+     * {@code IllegalStateException} twice in {@code validateMailConfig()} (unrelated startup
+     * config checks), so a bare count of two is not specific to the retirement invariant —
+     * pinning the two invariant messages keeps this gate meaningful and lets mutation m6
+     * (deleting one invariant throw) actually turn it red.
+     */
+    @Test
+    void inviteServiceCarriesTheHealerOnlyInvariant() {
+        String stripped = readStrippedSource(resolve(INVITE_SERVICE));
+        assertThat(countOccurrences(stripped, "IllegalStateException"))
+                .as("InviteService must still declare the HEALER-only invariant (>=2 IllegalStateException throws)")
+                .isGreaterThanOrEqualTo(2);
+        assertThat(stripped)
+                .as("InviteService's retirement invariant must reference the survivor tier and both persist-branch messages")
+                .contains("Role.HEALER")
+                .contains("Invite role must be HEALER")
+                .contains("Accepted invite would create a non-HEALER account");
     }
 }
