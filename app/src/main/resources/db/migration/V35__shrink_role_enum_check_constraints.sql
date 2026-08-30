@@ -15,12 +15,33 @@
 -- cannot land a retired role value.
 --
 -- D-03 PRE-FLIGHT — operator-run, read-only, recorded verbatim in the phase
--- verification evidence. Expected result: 0. A non-zero count is a HARD STOP
--- (D-04): this migration must NOT ship, and a data-cleanup follow-up plan is
--- required first — because ADD CONSTRAINT validates every existing row
--- immediately and Postgres aborts with SQLSTATE 23514 if any live row violates
--- the new CHECK.
+-- verification evidence. Expected result: 0 for BOTH scans below. A non-zero
+-- count is a HARD STOP (D-04): this migration must NOT ship, and a data-cleanup
+-- follow-up plan is required first — because ADD CONSTRAINT validates every
+-- existing row immediately and Postgres aborts with SQLSTATE 23514 if any live
+-- row violates the new CHECK.
 --   SELECT count(*) FROM healer WHERE role IN ('ADMIN','SENIOR_HEALER','RECEPTIONIST');
+--
+-- SECOND SCAN — the invite table (added post-close as CR-01 remediation):
+--   SELECT count(*) FROM healer_invite_links
+--    WHERE role IN ('ADMIN','SENIOR_HEALER','RECEPTIONIST');
+-- healer_invite_links (created by V13, which runs AFTER V7) has NO role CHECK
+-- constraint, so V35 correctly does not touch it. But healer_invite_links.role
+-- is @Enumerated(STRING): a stranded retired-tier row throws on Hibernate
+-- hydration once the enum shrinks, which 500s GET /api/admin/invites and
+-- acceptInvite. V35 must be (re-)gated on BOTH scans returning 0 immediately
+-- before apply — this is a documented gate, NOT an in-migration
+-- ADD CONSTRAINT ... NOT VALID two-step (that would conflict with PD-41-04 and
+-- the D-04 hard-stop design). V36 cleans up any healer_invite_links hits
+-- idempotently, so on an already-audited environment the extended preflight is
+-- purely defensive.
+--
+-- OUTAGE CONSEQUENCE OF A MIS-SCOPED OR STALE PREFLIGHT (WR-02): the
+-- ADD CONSTRAINT ck_healer_role below validates every existing healer row at
+-- apply time. A single violating row fails the statement with SQLSTATE 23514,
+-- Flyway marks V35 failed, and the application will not boot. The only
+-- mitigation is the mandatory re-run of BOTH preflight scans immediately before
+-- apply.
 --
 -- healer_aud: ck_healer_aud_role is DROPPED with NO replacement (D-01). The
 -- _aud table is an Envers append-only audit shadow — machine-written, never
