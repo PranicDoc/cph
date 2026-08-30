@@ -4,6 +4,7 @@ import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.HealerService;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +63,21 @@ public class HealerServiceImpl implements HealerService {
     public void removeHealer(UUID healerId) {
         Healer healer = healerRepository.findById(healerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
+
+        // Guard 1 (all roles, incl. SUPADM): a caller may never soft-delete their own account —
+        // it is always an avoidable, UI-unrecoverable self-lockout. Cheap check, no query, runs first.
+        if (healerId.equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Cannot remove your own healer account");
+        }
+
+        // Guard 2 (last-SUPADM): never soft-delete a SUPADM when doing so would strand the tenant
+        // with zero non-deleted SUPADM accounts. countByRole respects @SQLRestriction (live rows
+        // only) and the target is not soft-deleted yet, so <= 1 means "this is the only one left".
+        if (healer.getRole() == Role.SUPADM && healerRepository.countByRole(Role.SUPADM) <= 1) {
+            throw new AccessDeniedException("Cannot remove the last SUPADM account");
+        }
+
+        // Both guards above precede the mutation, so a rejected call is a no-op.
         // Soft-delete only (BaseEntity.is_deleted) — never a hard delete. @SQLRestriction on
         // Healer then hides them from every default query app-wide (findById, findByEmail,
         // findAll), while their patients/cases/PDFs/credit account are untouched and the
