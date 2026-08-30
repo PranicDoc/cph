@@ -89,7 +89,7 @@ public class AuditAspect {
             // payload: serialize all method args as JSON, capped at 4000 chars.
             // Captured on both outcomes so a failed call's incoming request is
             // still visible in the trail, not just successful ones.
-            if (args.length > 0 && !"LOGIN".equalsIgnoreCase(auditable.action())) {
+            if (auditable.auditPayload() && args.length > 0) {
                 try {
                     String json = objectMapper.writeValueAsString(args[0]);
                     auditLog.setPayload(truncate(json, PAYLOAD_MAX_LENGTH));

@@ -2,6 +2,7 @@ package com.pranicdoc.cph.patient.dto;
 
 import com.pranicdoc.cph.common.enums.Gender;
 import com.pranicdoc.cph.common.enums.MaritalStatus;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
@@ -11,7 +12,7 @@ public record PatientCreateRequest(
         String firstName,
         @NotBlank @Size(max = 50) String lastName,
         @Past LocalDate dob,
-        Gender gender,
+        @Nullable Gender gender,
         MaritalStatus maritalStatus,
         @Email String email,
         @NotBlank @Pattern(regexp = "^\\+?[0-9]{10,15}$") String contact,

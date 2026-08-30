@@ -16,11 +16,12 @@ export const patientDemographicsSchema: FormSchema = [
         required: true,
         placeholder: "Enter last name",
       },
-      { name: "dob", label: "Date of Birth", type: "date" },
+      { name: "dob", label: "Date of Birth", type: "date", required: true },
       {
         name: "gender",
         label: "Gender",
         type: "select",
+        required: true,
         placeholder: "Select gender...",
         options: [
           { label: "Male", value: "M" },
@@ -94,6 +95,7 @@ export const patientMedicalHistorySchema: FormSchema = [
         name: "generalHealth",
         label: "General Health",
         type: "select",
+        required: true,
         options: [
           { label: "Excellent", value: "EXCELLENT" },
           { label: "Good", value: "GOOD" },
@@ -104,6 +106,7 @@ export const patientMedicalHistorySchema: FormSchema = [
       {
         name: "diet",
         label: "Diet",
+        required: true,
         type: "select",
         options: [
           { label: "Vegetarian", value: "VEGETARIAN" },
@@ -116,6 +119,7 @@ export const patientMedicalHistorySchema: FormSchema = [
         name: "exercise",
         label: "Exercise Type",
         type: "select",
+        required: true,
         placeholder: "Select exercise type...",
         options: [
           { label: "None", value: "NONE" },
@@ -129,6 +133,7 @@ export const patientMedicalHistorySchema: FormSchema = [
         name: "exerciseFrequency",
         label: "Exercise Frequency",
         type: "select",
+        required: true,
         options: [
           { label: "Daily", value: "DAILY" },
           { label: "Weekly", value: "WEEKLY" },

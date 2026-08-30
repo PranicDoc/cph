@@ -88,6 +88,7 @@ public class HealingCase extends TenantEntity {
     @OneToMany(mappedBy = "healingCase", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @JsonManagedReference
+    @Setter(AccessLevel.NONE)
     private List<CaseMedication> medications = new ArrayList<>();
 
     @OneToOne(mappedBy = "healingCase", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

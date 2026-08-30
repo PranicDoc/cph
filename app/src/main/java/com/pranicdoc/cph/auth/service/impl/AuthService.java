@@ -54,7 +54,7 @@ public class AuthService {
 
     // ─── Login ──────────────────────────────────────────────────
 
-    @Auditable(action = "LOGIN")
+    @Auditable(action = "LOGIN", auditPayload = false)
     public HealerResponse login(LoginRequest request, HttpServletResponse response) {
         Healer healer = healerRepository.findByEmail(request.email())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
@@ -158,7 +158,7 @@ public class AuthService {
 
     // ─── Change current healer password ─────────────────────────
 
-    @Auditable(action = "CHANGE_PASSWORD")
+    @Auditable(action = "CHANGE_PASSWORD", auditPayload = false)
     public void changePassword(ChangePasswordRequest request) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
@@ -190,7 +190,7 @@ public class AuthService {
 
     // ─── Link / unlink Google account ───────────────────────────
 
-    @Auditable(action = "LINK_GOOGLE")
+    @Auditable(action = "LINK_GOOGLE", auditPayload = false)
     public void linkGoogleAccount(LinkGoogleRequest request) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
@@ -215,7 +215,7 @@ public class AuthService {
         }
     }
 
-    @Auditable(action = "UNLINK_GOOGLE")
+    @Auditable(action = "UNLINK_GOOGLE", auditPayload = false)
     public void unlinkGoogleAccount() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);

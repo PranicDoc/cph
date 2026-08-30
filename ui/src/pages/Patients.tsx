@@ -73,11 +73,13 @@ export default function Patients() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [userDefaultSort, setUserDefaultSort] = useState<PatientSortOption>(
-    getStoredDefaultSort
-  );
+  const [userDefaultSort, setUserDefaultSort] =
+    useState<PatientSortOption>(getStoredDefaultSort);
   const [sort, setSort] = useState<PatientSortOption>(userDefaultSort);
   const { selectPatient } = usePatient();
+  const [generatingCaseIds, setGeneratingCaseIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const listFilters = useMemo<PatientListFilters>(
     () => ({
@@ -213,9 +215,30 @@ export default function Patients() {
       : "px-3 py-1.5";
 
     const handleClosureButtonClick = (patient: Patient) => {
-      if (isActive) setClosurePatient(patient);
-      if (isCompleted || isHealingContinued) generatePdfMutation.mutate(patient.healingCaseId);
+      if (isActive) {
+        setClosurePatient(patient);
+      }
+
+      if (isCompleted || isHealingContinued) {
+        setGeneratingCaseIds((prev) => {
+          const next = new Set(prev);
+          next.add(patient.healingCaseId);
+          return next;
+        });
+
+        generatePdfMutation.mutate(patient.healingCaseId, {
+          onSettled: () => {
+            setGeneratingCaseIds((prev) => {
+              const next = new Set(prev);
+              next.delete(patient.healingCaseId);
+              return next;
+            });
+          },
+        });
+      }
     };
+
+    const isGenerating = generatingCaseIds.has(patient.healingCaseId);
 
     return (
       <div
@@ -241,12 +264,12 @@ export default function Patients() {
         </Link>
         <div
           onClick={() =>
-            !generatePdfMutation.isPending && handleClosureButtonClick(patient)
+            !isGenerating && handleClosureButtonClick(patient)
           }
           className={`inline-flex items-center gap-1.5 rounded-lg
             ${
               isActive || isCompleted || isHealingContinued
-                ? generatePdfMutation.isPending
+                ? isGenerating
                   ? "bg-border pointer-events-none"
                   : "bg-primary hover:bg-primary-dark cursor-pointer"
                 : "bg-border pointer-events-none"

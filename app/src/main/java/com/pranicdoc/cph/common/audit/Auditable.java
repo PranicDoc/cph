@@ -17,4 +17,9 @@ public @interface Auditable {
      * Description of the action being performed, e.g. "CREATE_PATIENT", "UPDATE_CASE".
      */
     String action();
+
+    /**
+     * Boolean for deciding should the payload be logged as well, by default it is true
+     */
+    boolean auditPayload() default true;
 }
