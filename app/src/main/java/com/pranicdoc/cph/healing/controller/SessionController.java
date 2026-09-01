@@ -22,26 +22,34 @@ public class SessionController {
 
     private final SessionService sessionService;
 
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','CREATE')")
     @PostMapping("/case")
     public ResponseEntity<SessionResponse> create(@Valid @RequestBody CreateSessionRequest sessionRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(sessionRequest));
     }
 
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','READ')")
     @GetMapping("/{id}")
     public ResponseEntity<SessionResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(sessionService.getById(id));
     }
 
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','READ')")
     @GetMapping("/case/{caseId}")
     public ResponseEntity<List<SessionResponse>> getByCaseId(@PathVariable UUID caseId) {
         return ResponseEntity.ok(sessionService.getByCaseId(caseId));
     }
 
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','UPDATE')")
     @PatchMapping("/{id}/complete")
     public ResponseEntity<SessionResponse> complete(@PathVariable UUID id) {
         return ResponseEntity.ok(sessionService.complete(id));
     }
 
+    // D-03: returns the Set<String> of chakra names scanned within a session — it hangs off
+    // the /sessions/{id}/* aggregate and returns session-detail, so it READS THE SESSION.
+    // Deliberately NOT SCAN:READ — which is precisely why Resource.SCAN allow-lists CREATE only.
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','READ')")
     @GetMapping("/{id}/chakras")
     public ResponseEntity<ApiResponse<Set<String>>> getAllScannedChakras(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.of(sessionService.getAllScannedChakra(id)));
