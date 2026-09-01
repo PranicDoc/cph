@@ -46,7 +46,8 @@ public enum Resource {
     ),
 
     CREDIT_ACCOUNTS(
-            Operation.READ
+            Operation.READ,
+            Operation.CREATE
     ),
 
     CREDIT_ACCOUNT_TRANSACTIONS(
@@ -113,7 +114,45 @@ public enum Resource {
             Operation.READ,
             Operation.UPDATE,
             Operation.DELETE
-    );
+    ),
+
+    /**
+     * Per-session chakra scan submission. Enforced by
+     * {@code ScanController.saveScan} (POST {@code /api/v1/sessions/{sessionId}/scans}).
+     * CREATE only (D-01/D-03): the sole scan-read path,
+     * {@code SessionController.getAllScannedChakras}
+     * (GET {@code /api/v1/sessions/{sessionId}/chakras}), returns session-detail and
+     * gates as {@code SESSION:READ}, so SCAN has no read endpoint this phase. Do not
+     * add UPDATE/DELETE — there is no enforcing endpoint (D-01/D-02).
+     */
+    SCAN(Operation.CREATE),
+
+    /**
+     * Per-session healer protocol submission. Enforced by
+     * {@code ProtocolController.saveProtocol}
+     * (POST {@code /api/v1/sessions/{sessionId}/protocol}).
+     * Deliberately DISTINCT from {@link #MASTER_DATA_PROTOCOLS}, which is the admin
+     * protocol catalog (SC2, D-06): a healer-session protocol grant can never be
+     * satisfied by an admin master-data grant. {@code CaseController}'s
+     * protocol-understanding pair is {@code CASE:*}, not {@code SESSION_PROTOCOL:*}
+     * (D-06). CREATE only — {@code ProtocolController} has one POST and nothing else.
+     */
+    SESSION_PROTOCOL(Operation.CREATE),
+
+    /**
+     * Patient feedback cycle. Enforced SOLELY by
+     * {@code CaseController.resendFeedback}
+     * (POST {@code /api/v1/cases/{id}/resend-feedback}) — healer-only.
+     * CREATE only, per D-19 which amends D-01's {@code {READ, CREATE}}: the only
+     * candidate read endpoint, {@code CaseController.getSymptomsForFeedback}, is
+     * reachable only via a {@code PATIENT}-role token where
+     * {@code @rbacAuthz.hasPermission} returns {@code false} for every real caller, so
+     * a {@code FEEDBACK:READ} gate would 403 the patient feedback form. Do NOT add
+     * {@code Operation.READ}. The two {@code FeedbackController} POSTs stay ungated
+     * (also PATIENT-token — D-19); {@code getSymptomsForFeedback} stays ungated
+     * (asserted in plan 42-10).
+     */
+    FEEDBACK(Operation.CREATE);
 
     private final Set<Operation> supportedOperations;
 
