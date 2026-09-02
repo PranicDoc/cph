@@ -1,12 +1,23 @@
 package com.pranicdoc.cph.rbac;
 
 import com.pranicdoc.cph.admin.AdminCreditController;
+import com.pranicdoc.cph.analytics.controller.DashboardController;
 import com.pranicdoc.cph.auth.controller.AdminInviteController;
+import com.pranicdoc.cph.auth.controller.AuthController;
 import com.pranicdoc.cph.auth.controller.BootstrapController;
 import com.pranicdoc.cph.auth.controller.HealerController;
 import com.pranicdoc.cph.consent.controller.ConsentController;
 import com.pranicdoc.cph.consent.controller.ConsentTypeController;
+import com.pranicdoc.cph.consent.controller.ReadingSessionController;
+import com.pranicdoc.cph.healing.controller.CaseController;
+import com.pranicdoc.cph.healing.controller.FeedbackController;
+import com.pranicdoc.cph.healing.controller.ProtocolController;
+import com.pranicdoc.cph.healing.controller.ScanController;
+import com.pranicdoc.cph.healing.controller.SessionController;
 import com.pranicdoc.cph.masterdata.controller.MasterDataController;
+import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
+import com.pranicdoc.cph.patient.controller.PatientController;
+import com.pranicdoc.cph.payments.CreditProxyController;
 import com.pranicdoc.cph.rbac.controller.RbacCatalogController;
 import com.pranicdoc.cph.rbac.controller.RbacRoleController;
 import com.pranicdoc.cph.rbac.controller.RoleUserAssignmentController;
@@ -36,6 +47,8 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -90,6 +103,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  * in-body D-04 {@code isSuperAdmin} capability flags (those are pinned by the
  * per-controller contract tests), nor anything under {@code rbac/} beyond the three
  * harmonized controllers ({@code RbacAuthzTest} owns the rbac-package SUPADM sweep).
+ *
+ * <p><b>Phase 42 additive coverage (Tests 7-8).</b> Test 7 asserts the seven
+ * Phase-42 healer controllers are swept by {@link HealerControllerGateSweepTest}
+ * and are disjoint from this class's Phase-40 {@link #CONTROLLERS} list — their
+ * per-controller mapped/gated counts live in that class, not here. Test 8 walks
+ * {@code src/main/java} for every {@code @RestController} and asserts each one is
+ * claimed by exactly one sweep (Phase-40 here, Phase-42 in
+ * {@code HealerControllerGateSweepTest}) or listed in {@link #DELIBERATELY_UNSWEPT}
+ * with a reason — discharging D-18 / research assumption A3. Neither test touches
+ * {@link #CONTROLLERS}, {@link #EXPECTED_TOTAL_MAPPED}, {@link #EXPECTED_TOTAL_GATED}
+ * or Tests 1-6; the frozen Phase-40 counts stay frozen (D-15 Option B).
  */
 class LegacyEndpointCutoverSweepTest {
 
@@ -116,6 +140,52 @@ class LegacyEndpointCutoverSweepTest {
 
     private static final int EXPECTED_TOTAL_MAPPED = 58;
     private static final int EXPECTED_TOTAL_GATED = 53;
+
+    /**
+     * The seven Phase-42 healer controllers. Their per-controller mapped/gated
+     * counts are pinned in {@link HealerControllerGateSweepTest}, NOT here — this
+     * list exists only so Tests 7-8 can assert none of the seven is forgotten by
+     * both sweeps at once (D-15 Option B / D-21).
+     */
+    private static final List<Class<?>> PHASE_42_HEALER_CONTROLLERS = List.of(
+            PatientController.class, SessionController.class, CaseController.class,
+            ScanController.class, ProtocolController.class, FeedbackController.class,
+            CreditProxyController.class);
+
+    /**
+     * {@code @RestController} classes deliberately covered by NEITHER sweep, keyed
+     * by fully-qualified name with a one-line reason. Test 8's repo-wide census
+     * asserts every {@code @RestController} in {@code src/main/java} is either in a
+     * sweep list or here.
+     */
+    private static final Map<String, String> DELIBERATELY_UNSWEPT = deliberatelyUnswept();
+
+    private static Map<String, String> deliberatelyUnswept() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put(DashboardController.class.getName(),
+                "permission model is a separate discussion (ROADMAP §Phase 42 'Explicitly out "
+                        + "of scope'); carries zero @PreAuthorize and must continue to — asserted "
+                        + "directly in Test 8");
+        m.put(AuthController.class.getName(),
+                "asserted fully open by HealerControllerGateSweepTest.authControllerRemainsFullyUngated "
+                        + "— 7 pre-auth permitAll routes + 7 authenticated self-service routes, no "
+                        + "capability grant reachable");
+        m.put(ReadingSessionController.class.getName(),
+                "asserted open by HealerControllerGateSweepTest.readingSessionControllerRemainsUngated "
+                        + "— ConsentController self-service precedent (D-22): a grantless freshly-"
+                        + "onboarded healer must open/close a reading session for mandatory legal docs");
+        m.put(WhatsappWebhookController.class.getName(),
+                "asserted open by HealerControllerGateSweepTest.whatsappWebhookControllerRemainsUngated "
+                        + "— Meta calls it with no JWT; it runs its own verify-token + HMAC "
+                        + "X-Hub-Signature-256 checks, so a capability gate would reject every real "
+                        + "delivery");
+        m.put(BootstrapController.class.getName(),
+                "asserted open by HealerControllerGateSweepTest.bootstrapControllerBootstrapIsUngated"
+                        + "AndAssignRoleStaysCoarseGated — bootstrap is permitAll and self-locks; "
+                        + "assignRole deliberately carries hasRole('SUPADM') (PD-40-05), pinned by "
+                        + "this class's Test 6");
+        return m;
+    }
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -152,6 +222,11 @@ class LegacyEndpointCutoverSweepTest {
     /** Module-relative path to a class's .java source, e.g. src/main/java/com/pranicdoc/.../Foo.java */
     private static Path sourcePathFor(Class<?> type) {
         return Paths.get("src", "main", "java").resolve(type.getName().replace('.', '/') + ".java");
+    }
+
+    /** Module-relative path to a class's .java TEST source, e.g. src/test/java/com/pranicdoc/.../FooTest.java */
+    private static Path testSourcePathFor(Class<?> type) {
+        return Paths.get("src", "test", "java").resolve(type.getName().replace('.', '/') + ".java");
     }
 
     private static String readStrippedSource(Path source) {
@@ -400,5 +475,92 @@ class LegacyEndpointCutoverSweepTest {
                         + "BootstrapControllerTest.ASSIGN_ROLE_LITERAL pins the same string and must "
                         + "stay green.")
                 .isEqualTo("hasRole('SUPADM')");
+    }
+
+    // ─── Test 7 — the 7 Phase-42 healer controllers are swept elsewhere, not here ──
+
+    @Test
+    void healerSurfaceControllersAreSweptByThePhase42Class() {
+        List<String> phase40 = CONTROLLERS.stream()
+                .map(c -> c.type().getName())
+                .collect(Collectors.toList());
+
+        for (Class<?> healer : PHASE_42_HEALER_CONTROLLERS) {
+            assertThat(phase40)
+                    .as("%s is a Phase-42 healer controller and must NOT appear in this class's "
+                            + "Phase-40 CONTROLLERS list — the two sweeps cover disjoint sets, which "
+                            + "is what keeps them independently blamable (D-15 Option B / D-21)",
+                            healer.getSimpleName())
+                    .doesNotContain(healer.getName());
+
+            assertThat(requestMappedMethods(healer))
+                    .as("%s has no request-mapped method — a renamed or gutted healer controller "
+                            + "must redden the build", healer.getSimpleName())
+                    .isNotEmpty();
+        }
+
+        String sweepSource = readStrippedSource(testSourcePathFor(HealerControllerGateSweepTest.class));
+        for (Class<?> healer : PHASE_42_HEALER_CONTROLLERS) {
+            assertThat(sweepSource)
+                    .as("SC1 requires the cross-controller cutover sweep to be extended to include "
+                            + "the 7 healer controllers (D-15 Option B / D-21). Their per-controller "
+                            + "counts live in HealerControllerGateSweepTest; this assertion only "
+                            + "guarantees none of them is forgotten by both sweeps at once. Missing "
+                            + "from the Phase-42 sweep source: %s", healer.getSimpleName())
+                    .contains(healer.getSimpleName());
+        }
+    }
+
+    // ─── Test 8 — repo-wide @RestController census: everything is claimed (D-18 / A3) ──
+
+    @Test
+    void everyRestControllerIsClaimedByExactlyOneSweepOrAnExplicitExclusion() {
+        Path root = Paths.get("src", "main", "java");
+        Pattern restControllerAnnotation = Pattern.compile("@RestController\\b");
+
+        TreeSet<String> found = new TreeSet<>();
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".java"))
+                    .forEach(p -> {
+                        if (restControllerAnnotation.matcher(readStrippedSource(p)).find()) {
+                            String rel = root.relativize(p).toString().replace('\\', '/');
+                            found.add(rel.substring(0, rel.length() - ".java".length()).replace('/', '.'));
+                        }
+                    });
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        TreeSet<String> claimed = new TreeSet<>();
+        CONTROLLERS.forEach(c -> claimed.add(c.type().getName()));
+        PHASE_42_HEALER_CONTROLLERS.forEach(c -> claimed.add(c.getName()));
+        claimed.addAll(DELIBERATELY_UNSWEPT.keySet());
+
+        String exclusions = DELIBERATELY_UNSWEPT.entrySet().stream()
+                .map(e -> "  - " + e.getKey() + " — " + e.getValue())
+                .collect(Collectors.joining("\n"));
+
+        assertThat(found)
+                .as("every @RestController in src/main/java must be claimed by exactly one sweep or "
+                        + "an explicit exclusion (D-18 / research assumption A3 — automating the "
+                        + "Phase 40 repo-wide comment-blind grep). The 9 Phase-40 cutover "
+                        + "controllers are swept by THIS class; the 7 Phase-42 healer controllers by "
+                        + "HealerControllerGateSweepTest; everything else must be in "
+                        + "DELIBERATELY_UNSWEPT with a reason:\n%s\n"
+                        + "A newly-added @RestController failing here must be classified: sweep it "
+                        + "in HealerControllerGateSweepTest, or record why it carries no capability "
+                        + "gate. If it is healer-facing and healerId-scoped it is an unplanned "
+                        + "gating surface — do NOT paper over it with an exclusion entry.", exclusions)
+                .containsExactlyInAnyOrderElementsOf(claimed);
+
+        // ROADMAP out-of-scope boundary, asserted rather than assumed.
+        assertThat(countOccurrences(
+                readStrippedSource(sourcePathFor(DashboardController.class)), "PreAuthorize"))
+                .as("DashboardController.java comment-stripped source must contain zero occurrences "
+                        + "of PreAuthorize — its permission model is explicitly out of scope for "
+                        + "Phase 42 (ROADMAP §Phase 42 'Explicitly out of scope'), so it must carry "
+                        + "no capability gate until that separate discussion happens")
+                .isEqualTo(0);
     }
 }
