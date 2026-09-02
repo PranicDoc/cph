@@ -128,24 +128,27 @@ class HealerControllerGateSweepTest {
      * {@code (expectedMapped, expectedGated)} counts. These were DERIVED, not
      * pasted: each triple is the value recorded in the Wave-2 summaries
      * (42-02 {@code PatientController} 11/9/2, 42-04 {@code SessionController}
-     * 5/5/0, 42-03 {@code CaseController} 18/14/4, 42-05 {@code ScanController}
-     * 1/1/0 + {@code ProtocolController} 1/1/0 + {@code FeedbackController} 2/0/2,
+     * 5/5/0, <b>42-13</b> {@code CaseController} 21/17/4 — superseding 42-03's
+     * 18/14/4 after the CR-01 route split added three ungated
+     * {@code /api/v1/cases/self-service} patient twins and gated their three
+     * healer-path siblings, 42-05 {@code ScanController} 1/1/0 +
+     * {@code ProtocolController} 1/1/0 + {@code FeedbackController} 2/0/2,
      * 42-06 {@code CreditProxyController} 3/3/0) and was re-confirmed against the
-     * controller source at branch tip. {@code CaseController} is 18, not CONTEXT's
-     * 19 — the 19th {@code @RequestMapping} is the class-level {@code /api/v1/cases}
-     * mapping (Pitfall 6 / D-18, recorded in 42-03).
+     * controller source at branch tip. {@code CaseController}'s class-level
+     * {@code /api/v1/cases} {@code @RequestMapping} is still not counted — the
+     * 21 are handler methods only (Pitfall 6 / D-18, recorded in 42-03).
      */
     private static final List<SweptController> CONTROLLERS = List.of(
             new SweptController(PatientController.class, 11, 9),
             new SweptController(SessionController.class, 5, 5),
-            new SweptController(CaseController.class, 18, 14),
+            new SweptController(CaseController.class, 21, 17),
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 41;
-    private static final int EXPECTED_TOTAL_GATED = 33;
+    private static final int EXPECTED_TOTAL_MAPPED = 44;
+    private static final int EXPECTED_TOTAL_GATED = 36;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
@@ -167,15 +170,37 @@ class HealerControllerGateSweepTest {
         m.put("com.pranicdoc.cph.healing.controller.CaseController#create",
                 "reached by a PATIENT-role token (patient self-registration flow); a gate would 403 "
                         + "every real caller (D-19)");
-        m.put("com.pranicdoc.cph.healing.controller.CaseController#getById",
-                "reached by a PATIENT-role token (patient health form); also healer-reachable, so the "
-                        + "exclusion is a deliberate 'both callers' decision (D-19)");
-        m.put("com.pranicdoc.cph.healing.controller.CaseController#updateCaseDetails",
-                "reached by a PATIENT-role token (patient health-form submit); also healer-reachable "
-                        + "(D-19)");
-        m.put("com.pranicdoc.cph.healing.controller.CaseController#getSymptomsForFeedback",
-                "reached only by a PATIENT-role token (feedback form build); this is why FEEDBACK:READ "
-                        + "was dropped from the catalog (D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#updateCaseDetailsSelfService",
+                "reached only by a ROLE_PATIENT principal (SELF_REG / PATIENT_CASE token) whose "
+                        + "TenantDetails.healerId is the OWNING healer's, so @rbacAuthz would resolve "
+                        + "the patient's request against the wrong principal's grants; open at the "
+                        + "capability layer only — the caller-class restriction is SecurityConfig's "
+                        + "requestMatchers(\"/api/v1/cases/self-service\", "
+                        + "\"/api/v1/cases/self-service/**\").hasRole(\"PATIENT\") rule, proven at "
+                        + "request time by CaseControllerAuthorizationTest; created by the CR-01 route "
+                        + "split (2026-09-02 ruling / D-19a). Its healer-path sibling updateCaseDetails "
+                        + "is now gated CASE:UPDATE.");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#getByIdSelfService",
+                "reached only by a ROLE_PATIENT principal (SELF_REG / PATIENT_CASE token) whose "
+                        + "TenantDetails.healerId is the OWNING healer's, so @rbacAuthz would resolve "
+                        + "the patient's request against the wrong principal's grants; open at the "
+                        + "capability layer only — the caller-class restriction is SecurityConfig's "
+                        + "requestMatchers(\"/api/v1/cases/self-service\", "
+                        + "\"/api/v1/cases/self-service/**\").hasRole(\"PATIENT\") rule, proven at "
+                        + "request time by CaseControllerAuthorizationTest; created by the CR-01 route "
+                        + "split (2026-09-02 ruling / D-19a). Its healer-path sibling getById is now "
+                        + "gated CASE:READ.");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#getSymptomsForFeedbackSelfService",
+                "reached only by a ROLE_PATIENT principal (SELF_REG / PATIENT_CASE token) whose "
+                        + "TenantDetails.healerId is the OWNING healer's, so @rbacAuthz would resolve "
+                        + "the patient's request against the wrong principal's grants; open at the "
+                        + "capability layer only — the caller-class restriction is SecurityConfig's "
+                        + "requestMatchers(\"/api/v1/cases/self-service\", "
+                        + "\"/api/v1/cases/self-service/**\").hasRole(\"PATIENT\") rule, proven at "
+                        + "request time by CaseControllerAuthorizationTest; created by the CR-01 route "
+                        + "split (2026-09-02 ruling / D-19a). Its healer-path sibling "
+                        + "getSymptomsForFeedback is now gated CASE:READ — deliberately not "
+                        + "FEEDBACK:READ, which D-19 dropped from the catalog.");
         m.put("com.pranicdoc.cph.healing.controller.FeedbackController#saveSymptomFeedback",
                 "patient feedback submission, PATIENT-role token only (D-19)");
         m.put("com.pranicdoc.cph.healing.controller.FeedbackController#saveQualitativeFeedback",
@@ -560,8 +585,15 @@ class HealerControllerGateSweepTest {
                         + "reading: every method except the named deliberately-open allow-list; the "
                         + "hasSize(8) is the anti-vacuous guard). A NINTH entry appearing is an "
                         + "unguarded healerId-scoped write or read — a privilege-escalation hole. An "
-                        + "entry DISAPPEARING means someone gated a PATIENT-token endpoint and just "
-                        + "403'd a live patient flow. The eight, each with its own reason:\n%s\n"
+                        + "entry DISAPPEARING means someone gated one of the "
+                        + "CaseController#{updateCaseDetailsSelfService, getByIdSelfService, "
+                        + "getSymptomsForFeedbackSelfService} patient twins and just 403'd a live "
+                        + "patient self-service flow. Note: the three former dual-caller entries "
+                        + "CaseController#{updateCaseDetails, getById, getSymptomsForFeedback} were "
+                        + "REMOVED from this list by the CR-01 route-split ruling (2026-09-02 / "
+                        + "D-19a), not lost — their healer paths are now gated CASE:UPDATE / "
+                        + "CASE:READ / CASE:READ and the patient callers moved to the three "
+                        + "*SelfService twins above. The eight, each with its own reason:\n%s\n"
                         + "Found: %s", reasons, ungated)
                 .hasSize(8)
                 .containsExactlyInAnyOrderElementsOf(DELIBERATELY_OPEN.keySet());
@@ -595,7 +627,14 @@ class HealerControllerGateSweepTest {
                         + "LegacyEndpointCutoverSweepTest Test 6 and this class's "
                         + "bootstrapControllerBootstrapIsUngatedAndAssignRoleStaysCoarseGated. A "
                         + "wider sweep would fail against that pin and create pressure to delete a "
-                        + "real authorization control to stay green. Offenders: %s", offenders)
+                        + "real authorization control to stay green. It must also NEVER be widened "
+                        + "to SecurityConfig, which since the CR-01 route split deliberately carries "
+                        + "requestMatchers(\"/api/v1/cases/self-service\", "
+                        + "\"/api/v1/cases/self-service/**\").hasRole(\"PATIENT\") — the framework-"
+                        + "native caller-class layer for the patient self-service twins; widening "
+                        + "this sweep onto SecurityConfig would create the same pressure to delete a "
+                        + "real authorization control as it would for BootstrapController.assignRole's "
+                        + "hasRole('SUPADM') pin. Offenders: %s", offenders)
                 .isEmpty();
     }
 
