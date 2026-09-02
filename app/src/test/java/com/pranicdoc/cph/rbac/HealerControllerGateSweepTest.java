@@ -3,7 +3,16 @@ package com.pranicdoc.cph.rbac;
 import com.pranicdoc.cph.auth.controller.AuthController;
 import com.pranicdoc.cph.auth.controller.BootstrapController;
 import com.pranicdoc.cph.consent.controller.ReadingSessionController;
+import com.pranicdoc.cph.healing.controller.CaseController;
+import com.pranicdoc.cph.healing.controller.FeedbackController;
+import com.pranicdoc.cph.healing.controller.ProtocolController;
+import com.pranicdoc.cph.healing.controller.ScanController;
+import com.pranicdoc.cph.healing.controller.SessionController;
 import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
+import com.pranicdoc.cph.patient.controller.PatientController;
+import com.pranicdoc.cph.payments.CreditProxyController;
+import com.pranicdoc.cph.rbac.model.Operation;
+import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,9 +31,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,6 +109,40 @@ class HealerControllerGateSweepTest {
     private static final Set<String> AUTH_SELF_SERVICE_ROUTES = Set.of(
             "getCurrentUser", "getCurrentHealer", "updateProfile", "changePassword",
             "linkGoogle", "unlinkGoogle", "clearPatientSession");
+
+    // ─── Phase 42 seven-controller healer surface (added by plan 42-11) ──────
+
+    /**
+     * One row per Phase-42 healer controller. Named {@code SweptController} so it
+     * does not collide with the production
+     * {@code com.pranicdoc.cph.auth.controller.HealerController} class.
+     */
+    private record SweptController(Class<?> type, int expectedMapped, int expectedGated) {
+    }
+
+    /**
+     * The seven Phase-42 healer controllers with hardcoded per-controller
+     * {@code (expectedMapped, expectedGated)} counts. These were DERIVED, not
+     * pasted: each triple is the value recorded in the Wave-2 summaries
+     * (42-02 {@code PatientController} 11/9/2, 42-04 {@code SessionController}
+     * 5/5/0, 42-03 {@code CaseController} 18/14/4, 42-05 {@code ScanController}
+     * 1/1/0 + {@code ProtocolController} 1/1/0 + {@code FeedbackController} 2/0/2,
+     * 42-06 {@code CreditProxyController} 3/3/0) and was re-confirmed against the
+     * controller source at branch tip. {@code CaseController} is 18, not CONTEXT's
+     * 19 — the 19th {@code @RequestMapping} is the class-level {@code /api/v1/cases}
+     * mapping (Pitfall 6 / D-18, recorded in 42-03).
+     */
+    private static final List<SweptController> CONTROLLERS = List.of(
+            new SweptController(PatientController.class, 11, 9),
+            new SweptController(SessionController.class, 5, 5),
+            new SweptController(CaseController.class, 18, 14),
+            new SweptController(ScanController.class, 1, 1),
+            new SweptController(ProtocolController.class, 1, 1),
+            new SweptController(FeedbackController.class, 2, 0),
+            new SweptController(CreditProxyController.class, 3, 3));
+
+    private static final int EXPECTED_TOTAL_MAPPED = 41;
+    private static final int EXPECTED_TOTAL_GATED = 33;
 
     // ─── shared reflection / source helpers (plan 42-11 reuses these) ───
 
@@ -328,4 +373,125 @@ class HealerControllerGateSweepTest {
                         + "(42-RESEARCH Pitfall 7 / T-42-Tamper-O1).")
                 .isEqualTo("hasRole('SUPADM')");
     }
+
+    // ─── SC1 Test 1 — per-controller + grand-total mapped/gated count sweep ──
+
+    @Test
+    void everyGatedEndpointOnTheHealerSurfaceUsesTheBareDynamicForm() {
+        assertThat(CONTROLLERS)
+                .as("the Phase-42 healer surface is exactly the seven controllers plans "
+                        + "42-02..42-06 gated")
+                .hasSize(7);
+        assertThat(CONTROLLERS.stream().mapToInt(SweptController::expectedMapped).sum())
+                .as("EXPECTED_TOTAL_MAPPED must equal the sum of the per-controller expectedMapped "
+                        + "rows — a constant adjusted away from the row sum hides a real drift "
+                        + "(T-42-Assurance-SW2)")
+                .isEqualTo(EXPECTED_TOTAL_MAPPED);
+        assertThat(CONTROLLERS.stream().mapToInt(SweptController::expectedGated).sum())
+                .as("EXPECTED_TOTAL_GATED must equal the sum of the per-controller expectedGated rows")
+                .isEqualTo(EXPECTED_TOTAL_GATED);
+
+        int totalMapped = 0;
+        int totalGated = 0;
+
+        for (SweptController controller : CONTROLLERS) {
+            int mapped = 0;
+            int gated = 0;
+
+            for (Method method : requestMappedMethods(controller.type())) {
+                mapped++;
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                if (preAuthorize == null) {
+                    continue;
+                }
+                gated++;
+                assertThat(preAuthorize.value())
+                        .as("%s.%s: @PreAuthorize must be exactly a bare "
+                                + "@rbacAuthz.hasPermission('RESOURCE','VERB') expression (D-02/D-16) "
+                                + "— no hasRole/hasAnyRole prefix, no boolean AND",
+                                controller.type().getSimpleName(), method.getName())
+                        .matches(BARE_GATE)
+                        .doesNotContain("hasRole")
+                        .doesNotContain("hasAnyRole");
+            }
+
+            assertThat(mapped)
+                    .as("%s: expected %d request-mapped methods, found %d — the Phase-42 healer "
+                            + "surface inventory drifted: an endpoint was added, removed, or the "
+                            + "controller renamed out of the list since the Wave-2 cutover",
+                            controller.type().getSimpleName(), controller.expectedMapped(), mapped)
+                    .isEqualTo(controller.expectedMapped());
+            assertThat(gated)
+                    .as("%s: expected %d capability-gated methods, found %d — a gate was dropped or "
+                            + "added since plans 42-02..42-06 (SC1 / T-42-EoP-SW1)",
+                            controller.type().getSimpleName(), controller.expectedGated(), gated)
+                    .isEqualTo(controller.expectedGated());
+
+            totalMapped += mapped;
+            totalGated += gated;
+        }
+
+        assertThat(totalMapped)
+                .as("grand total of request-mapped methods across all 7 Phase-42 healer controllers")
+                .isEqualTo(EXPECTED_TOTAL_MAPPED);
+        assertThat(totalGated)
+                .as("grand total of bare-form capability gates across all 7 Phase-42 healer "
+                        + "controllers")
+                .isEqualTo(EXPECTED_TOTAL_GATED);
+    }
+
+    // ─── SC1 Test 3 — every gate literal names an allow-listed (resource, verb) pair ──
+
+    @Test
+    void everyHealerGateLiteralNamesAnAllowListedResourceVerbPair() {
+        List<String> literals = new ArrayList<>();
+        for (SweptController controller : CONTROLLERS) {
+            for (Method method : requestMappedMethods(controller.type())) {
+                PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+                if (preAuthorize != null) {
+                    literals.add(preAuthorize.value());
+                }
+            }
+        }
+
+        assertThat(literals)
+                .as("the allow-list resolution must run over all %d gates on the Phase-42 healer "
+                        + "surface — asserting the size FIRST means the loop below can never run "
+                        + "over an empty or shrunken set", EXPECTED_TOTAL_GATED)
+                .hasSize(EXPECTED_TOTAL_GATED);
+
+        Set<Resource> resolvedResources = new LinkedHashSet<>();
+        for (String literal : literals) {
+            Matcher matcher = BARE_GATE.matcher(literal);
+            assertThat(matcher.matches())
+                    .as("%s must be a bare @rbacAuthz.hasPermission('R','V') expression", literal)
+                    .isTrue();
+
+            // An unknown constant MUST throw here (IllegalArgumentException) rather
+            // than being silently skipped — a mistyped resource key or verb fails the build.
+            Resource resource = Resource.valueOf(matcher.group(1));
+            Operation operation = Operation.valueOf(matcher.group(2));
+            resolvedResources.add(resource);
+
+            assertThat(resource.supports(operation))
+                    .as("%s:%s is not an allow-listed (resource, verb) pair. RbacAuthz resolves an "
+                            + "un-allow-listed pair to false for every non-SUPADM caller, "
+                            + "permanently, with no build error (Pitfall 3 / T-42-Tamper-SW1) — so "
+                            + "a mistyped resource key or verb on the healer surface must fail HERE.",
+                            resource, operation)
+                    .isTrue();
+        }
+
+        assertThat(resolvedResources)
+                .as("the distinct resolved Resource set across the 7 pins the phase's exact "
+                        + "resource footprint. A valid-but-wrong gate — e.g. MASTER_DATA_PROTOCOLS "
+                        + "on ProtocolController instead of SESSION_PROTOCOL (the D-06 confusion) — "
+                        + "resolves cleanly and supports() accepts it, but it must fail HERE "
+                        + "(T-42-Tamper-SW2).")
+                .containsExactlyInAnyOrder(
+                        Resource.PATIENT, Resource.SESSION, Resource.CASE, Resource.PDF,
+                        Resource.SCAN, Resource.SESSION_PROTOCOL, Resource.FEEDBACK,
+                        Resource.CREDIT_ACCOUNTS, Resource.CREDIT_ACCOUNT_TRANSACTIONS);
+    }
+
 }
