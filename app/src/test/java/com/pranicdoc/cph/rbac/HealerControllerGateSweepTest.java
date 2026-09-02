@@ -31,12 +31,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -143,6 +146,42 @@ class HealerControllerGateSweepTest {
 
     private static final int EXPECTED_TOTAL_MAPPED = 41;
     private static final int EXPECTED_TOTAL_GATED = 33;
+
+    /**
+     * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
+     * keyed by {@code <fully-qualified-class>#<methodName>} with the reason each
+     * one stays open as the value. Test 2 builds its failure message from this map
+     * so every entry carries its own reason in the output, not one blanket comment.
+     */
+    private static final Map<String, String> DELIBERATELY_OPEN = deliberatelyOpen();
+
+    private static Map<String, String> deliberatelyOpen() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("com.pranicdoc.cph.patient.controller.PatientController#generateLink",
+                "emits a patient self-registration link scoped server-side to the calling healer; "
+                        + "there is no healer-scoped request input, and SC4/D-09 lock it open so link "
+                        + "generation is not blocked for a freshly-onboarded healer who holds no grants");
+        m.put("com.pranicdoc.cph.patient.controller.PatientController#selfRegister",
+                "runs on a SELF_REG / PATIENT-role token; @rbacAuthz returns false for every real "
+                        + "caller, so a gate would 403 all patient self-registration (D-08 / D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#create",
+                "reached by a PATIENT-role token (patient self-registration flow); a gate would 403 "
+                        + "every real caller (D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#getById",
+                "reached by a PATIENT-role token (patient health form); also healer-reachable, so the "
+                        + "exclusion is a deliberate 'both callers' decision (D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#updateCaseDetails",
+                "reached by a PATIENT-role token (patient health-form submit); also healer-reachable "
+                        + "(D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.CaseController#getSymptomsForFeedback",
+                "reached only by a PATIENT-role token (feedback form build); this is why FEEDBACK:READ "
+                        + "was dropped from the catalog (D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.FeedbackController#saveSymptomFeedback",
+                "patient feedback submission, PATIENT-role token only (D-19)");
+        m.put("com.pranicdoc.cph.healing.controller.FeedbackController#saveQualitativeFeedback",
+                "patient qualitative feedback submission, PATIENT-role token only (D-19)");
+        return m;
+    }
 
     // ─── shared reflection / source helpers (plan 42-11 reuses these) ───
 
@@ -492,6 +531,72 @@ class HealerControllerGateSweepTest {
                         Resource.PATIENT, Resource.SESSION, Resource.CASE, Resource.PDF,
                         Resource.SCAN, Resource.SESSION_PROTOCOL, Resource.FEEDBACK,
                         Resource.CREDIT_ACCOUNTS, Resource.CREDIT_ACCOUNT_TRANSACTIONS);
+    }
+
+    // ─── SC1/SC4 Test 2 — exactly the named 8 methods are deliberately ungated ──
+
+    @Test
+    void exactlyEightHealerSurfaceEndpointsAreDeliberatelyUngated() {
+        List<String> ungated = new ArrayList<>();
+        for (SweptController controller : CONTROLLERS) {
+            for (Method method : requestMappedMethods(controller.type())) {
+                if (method.getAnnotation(PreAuthorize.class) == null) {
+                    ungated.add(controller.type().getName() + "#" + method.getName());
+                }
+            }
+        }
+
+        assertThat(DELIBERATELY_OPEN)
+                .as("the deliberately-open allow-list must itself name exactly eight methods")
+                .hasSize(8);
+
+        String reasons = DELIBERATELY_OPEN.entrySet().stream()
+                .map(e -> "  - " + e.getKey() + " — " + e.getValue())
+                .collect(Collectors.joining("\n"));
+
+        assertThat(ungated)
+                .as("exactly eight request-mapped methods on the 7-controller Phase-42 healer "
+                        + "surface may be ungated, and they are exactly the named set (SC1 D-20 "
+                        + "reading: every method except the named deliberately-open allow-list; the "
+                        + "hasSize(8) is the anti-vacuous guard). A NINTH entry appearing is an "
+                        + "unguarded healerId-scoped write or read — a privilege-escalation hole. An "
+                        + "entry DISAPPEARING means someone gated a PATIENT-token endpoint and just "
+                        + "403'd a live patient flow. The eight, each with its own reason:\n%s\n"
+                        + "Found: %s", reasons, ungated)
+                .hasSize(8)
+                .containsExactlyInAnyOrderElementsOf(DELIBERATELY_OPEN.keySet());
+    }
+
+    // ─── SC4 Test 4 — no hardcoded role gate on the scoped healer surface ──
+
+    @Test
+    void noHardcodedRoleGateSurvivesOnTheHealerSurface() {
+        List<String> offenders = new ArrayList<>();
+        for (SweptController controller : CONTROLLERS) {
+            String stripped = readStrippedSource(sourcePathFor(controller.type()));
+            if (stripped.contains("hasRole(") || stripped.contains("hasAnyRole(")) {
+                offenders.add(controller.type().getSimpleName() + " (hasRole/hasAnyRole call)");
+            }
+            if (stripped.contains("\"SUPADM\"")) {
+                offenders.add(controller.type().getSimpleName() + " (\"SUPADM\" literal)");
+            }
+        }
+
+        assertThat(offenders)
+                .as("no Phase-42 healer controller may contain hasRole( / hasAnyRole( or a "
+                        + "\"SUPADM\" literal in comment-stripped source — every gate is the bare "
+                        + "@rbacAuthz.hasPermission form and SUPADM is handled solely by the single "
+                        + "RbacAuthz short-circuit (SC1 / SC4 / T-42-EoP-SW3). "
+                        + "SCOPING IS LOAD-BEARING (42-RESEARCH Pitfall 7 / T-42-Assurance-SW1): "
+                        + "this sweep iterates ONLY the seven-row CONTROLLERS list. It must never "
+                        + "become a repo-wide file walk and must never include BootstrapController "
+                        + "— BootstrapController.assignRole deliberately carries "
+                        + "@PreAuthorize(\"hasRole('SUPADM')\") (PD-40-05), pinned by "
+                        + "LegacyEndpointCutoverSweepTest Test 6 and this class's "
+                        + "bootstrapControllerBootstrapIsUngatedAndAssignRoleStaysCoarseGated. A "
+                        + "wider sweep would fail against that pin and create pressure to delete a "
+                        + "real authorization control to stay green. Offenders: %s", offenders)
+                .isEmpty();
     }
 
 }
