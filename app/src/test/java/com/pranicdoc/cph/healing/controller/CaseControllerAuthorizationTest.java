@@ -108,6 +108,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>This class asserts <b>behaviour only</b> (HTTP status + mock interaction). It pins no
  * {@code @PreAuthorize} literal — that belongs to {@code CaseControllerAuthorizationContractTest}
  * (42-03) — so a later annotation reformat cannot redden it.
+ *
+ * <p><b>Plan 42-13 (CR-01 ruling 2026-09-02):</b> {@code gatedEndpoints()} grew from 14 to
+ * 17 — {@code updateCaseDetails} / {@code getById} / {@code getSymptomsForFeedback} were
+ * gated on the healer path and their patient callers moved to sibling ungated
+ * {@code /api/v1/cases/self-service} mappings. This slice already {@code @Import}s
+ * {@code SecurityConfig}, so its {@code requestMatchers("/api/v1/cases/self-service",
+ * ".../**").hasRole("PATIENT")} rule is live here: the self-service assertions below
+ * (grant-less PATIENT reachable, HEALER-with-every-CASE-grant 403, SUPADM 403) are
+ * filter-chain proofs, not annotation reads.
  */
 @WebMvcTest(CaseController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class,
@@ -245,10 +254,23 @@ class CaseControllerAuthorizationTest {
     }
 
     /**
-     * Exactly the 14 gated CaseController methods, one schema-valid request each, per the
-     * plan's {@code <interfaces>} table. Consumed by all three trio sweeps (SUPADM / granted /
-     * ungranted) so coverage cannot drift between the three cases. Split: CASE 10, PDF 3,
-     * FEEDBACK 1 — asserted by {@link #gatedEndpointsSourceSuppliesExactlyThe14GatedMethods()}.
+     * The shared {@code "data"} multipart part — an {@code application/json} part named
+     * {@code data} carrying {@link #CASE_UPDATE_JSON}. Both the gated {@code updateCaseDetails}
+     * spec and the {@code /self-service} PATCH tests build an identical part from here so the
+     * two multipart requests differ only in their path.
+     */
+    private static MockMultipartFile caseUpdateDataPart() {
+        return new MockMultipartFile("data", "data", MediaType.APPLICATION_JSON_VALUE,
+                CASE_UPDATE_JSON.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Exactly the 17 gated CaseController methods, one schema-valid request each, per the
+     * plan's {@code <interfaces>} table (14 from plan 42-09 + the 3 dual-caller methods gated
+     * by plan 42-13's CR-01 ruling: {@code updateCaseDetails}, {@code getById},
+     * {@code getSymptomsForFeedback}). Consumed by all three trio sweeps (SUPADM / granted /
+     * ungranted) so coverage cannot drift between the three cases. Split: CASE 13, PDF 3,
+     * FEEDBACK 1 — asserted by {@link #gatedEndpointsSourceSuppliesExactlyThe17GatedMethods()}.
      */
     static Stream<Arguments> gatedEndpoints() {
         return Stream.of(
@@ -293,6 +315,15 @@ class CaseControllerAuthorizationTest {
                         get(BASE + "/" + ROW_ID + "/summary").cookie(accessCookie())),
                 spec("resendFeedback", Resource.FEEDBACK, Operation.CREATE,
                         post(BASE + "/" + ROW_ID + "/resend-feedback").param("isFinal", "false")
+                                .cookie(accessCookie())),
+                // ── plan 42-13 / CR-01: the 3 previously-open dual-caller methods, now gated ──
+                spec("updateCaseDetails", Resource.CASE, Operation.UPDATE,
+                        multipart(HttpMethod.PATCH, BASE).file(caseUpdateDataPart())
+                                .cookie(accessCookie())),
+                spec("getById", Resource.CASE, Operation.READ,
+                        get(BASE + "/" + ROW_ID).cookie(accessCookie())),
+                spec("getSymptomsForFeedback", Resource.CASE, Operation.READ,
+                        get(BASE + "/symptoms").param("caseId", ROW_ID.toString())
                                 .cookie(accessCookie())));
     }
 
@@ -302,10 +333,10 @@ class CaseControllerAuthorizationTest {
     // ═══════════════════════════════════════════════════════════════════════
 
     @Test
-    void gatedEndpointsSourceSuppliesExactlyThe14GatedMethods() {
+    void gatedEndpointsSourceSuppliesExactlyThe17GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 14 gated CaseController methods")
-                .isEqualTo(14L);
+                .as("the trio @MethodSource must supply exactly the 17 gated CaseController methods")
+                .isEqualTo(17L);
 
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
@@ -314,16 +345,17 @@ class CaseControllerAuthorizationTest {
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
                         "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding", "delete",
-                        "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback");
+                        "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
+                        "updateCaseDetails", "getById", "getSymptomsForFeedback");
 
         Map<Resource, Long> byResource = gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).resource())
                 .collect(Collectors.groupingBy(r -> r, Collectors.counting()));
         assertThat(byResource)
-                .as("CaseController's 14 gates must partition CASE 10 / PDF 3 / FEEDBACK 1 (plan 42-03) — a "
+                .as("CaseController's 17 gates must partition CASE 13 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
                         + "copy-paste that duplicates a CASE endpoint instead of covering getDownloadLink fails here")
                 .containsOnly(
-                        entry(Resource.CASE, 10L),
+                        entry(Resource.CASE, 13L),
                         entry(Resource.PDF, 3L),
                         entry(Resource.FEEDBACK, 1L));
     }
@@ -503,10 +535,12 @@ class CaseControllerAuthorizationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  SC4 — the 4 deliberately-ungated PATIENT-token endpoints stay reachable
+    //  SC4 — the deliberately-ungated PATIENT-token endpoints stay reachable
     //  at request time for a caller holding zero grants (D-19). Gating any of
     //  these would 403 every live patient self-registration / health-form /
-    //  feedback submission (T-42-DoS-C2).
+    //  feedback submission (T-42-DoS-C2). Post plan 42-13 the open set is
+    //  {create} + the 3 /self-service mappings; create is proven here, the 3
+    //  /self-service routes in the CR-01 matrix below.
     // ═══════════════════════════════════════════════════════════════════════
 
     private void authenticateGrantlessPatient() {
@@ -529,44 +563,79 @@ class CaseControllerAuthorizationTest {
                 .andExpect(status().is(not(403)));
     }
 
-    @Test
-    @DisplayName("SC4 / D-19: GET /api/v1/cases/{id} stays reachable for a grant-less PATIENT caller "
-            + "— the patient health-form load; a gate here would 403 every live health-form open")
-    void sc4_getById_grantlessPatient_isNotForbidden() throws Exception {
-        authenticateGrantlessPatient();
+    // ═══════════════════════════════════════════════════════════════════════
+    //  plan 42-13 / CR-01 — the /self-service allow-deny matrix. These routes
+    //  carry NO @PreAuthorize; the caller-class restriction is SecurityConfig's
+    //  requestMatchers("/api/v1/cases/self-service", ".../**").hasRole("PATIENT")
+    //  rule, which this slice @Imports, so every assertion here is a real
+    //  filter-chain proof, not an annotation read.
+    // ═══════════════════════════════════════════════════════════════════════
 
-        mockMvc.perform(get(BASE + "/" + ROW_ID).cookie(accessCookie()))
-                .andExpect(status().is(not(403)));
+    /**
+     * The three patient {@code /self-service} routes: multipart PATCH (health-form submit),
+     * GET with {@code ?caseId=} (health-form load) and GET {@code /symptoms?caseId=}
+     * (feedback form build). All built the same way the gated specs are — schema-valid,
+     * {@code accessToken} cookie attached.
+     */
+    static Stream<Arguments> selfServiceEndpoints() {
+        return Stream.of(
+                Arguments.of(multipart(HttpMethod.PATCH, BASE + "/self-service")
+                        .file(caseUpdateDataPart()).cookie(accessCookie())),
+                Arguments.of(get(BASE + "/self-service")
+                        .param("caseId", ROW_ID.toString()).cookie(accessCookie())),
+                Arguments.of(get(BASE + "/self-service/symptoms")
+                        .param("caseId", ROW_ID.toString()).cookie(accessCookie())));
     }
 
     @Test
-    @DisplayName("SC4 / D-19: multipart PATCH /api/v1/cases stays reachable for a grant-less PATIENT "
-            + "caller — the patient health-form submit; a gate here would 403 every live submission")
-    void sc4_updateCaseDetails_grantlessPatient_isNotForbidden() throws Exception {
-        authenticateGrantlessPatient();
-
-        MockMultipartFile dataPart = new MockMultipartFile(
-                "data", "data", MediaType.APPLICATION_JSON_VALUE,
-                CASE_UPDATE_JSON.getBytes(StandardCharsets.UTF_8));
-
-        mockMvc.perform(multipart(HttpMethod.PATCH, BASE).file(dataPart).cookie(accessCookie()))
-                .andExpect(status().is(not(403)));
+    void selfServiceEndpointsSourceSuppliesExactlyThe3PatientRoutes() {
+        assertThat(selfServiceEndpoints().count())
+                .as("the self-service @MethodSource must supply exactly the 3 patient /self-service routes "
+                        + "(PATCH submit, GET load, GET /symptoms) — a shrunk source would hide a broken proof")
+                .isEqualTo(3L);
     }
 
-    @Test
-    @DisplayName("SC4 / D-19: GET /api/v1/cases/symptoms stays reachable for a grant-less PATIENT "
-            + "caller — the patient feedback form build; and it consults NO grant at all, which also "
-            + "proves no class-level @PreAuthorize default crept onto the controller (D-16)")
-    void sc4_getSymptomsForFeedback_grantlessPatient_isNotForbiddenAndReadsNoGrant() throws Exception {
+    @ParameterizedTest(name = "grant-less ROLE_PATIENT reaches self-service route [{index}]")
+    @MethodSource("selfServiceEndpoints")
+    @DisplayName("SC4 / CR-01: the 3 /self-service routes stay reachable for a grant-less ROLE_PATIENT "
+            + "caller and consult NO grant — this IS the live patient health-form load/submit and feedback "
+            + "form build; a red here means the CR-01 route split 403'd a real patient")
+    void selfServiceRoutesStayReachableForAGrantlessPatientCaller(RequestBuilder request) throws Exception {
         // Deliberately does NOT stub lookupService — verifyNoInteractions below would fail if a
         // stubbing call had touched the mock.
         authenticateAs("PATIENT");
         when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
 
-        mockMvc.perform(get(BASE + "/symptoms").param("caseId", ROW_ID.toString()).cookie(accessCookie()))
+        mockMvc.perform(request)
                 .andExpect(status().is(not(403)));
 
         verifyNoInteractions(lookupService);
+    }
+
+    @ParameterizedTest(name = "HEALER with every CASE grant is 403 on self-service route [{index}]")
+    @MethodSource("selfServiceEndpoints")
+    @DisplayName("CR-01 is actually closed: a HEALER token holding every CASE grant is STILL 403 on all 3 "
+            + "/self-service routes — without SecurityConfig's hasRole(\"PATIENT\") rule the route split "
+            + "would merely relocate the ungated write")
+    void selfServiceRoutesAreForbiddenForAHealerTokenHoldingEveryCaseGrant(RequestBuilder request)
+            throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), any())).thenReturn(true);
+
+        mockMvc.perform(request)
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest(name = "SUPADM is 403 on self-service route [{index}]")
+    @MethodSource("selfServiceEndpoints")
+    @DisplayName("deliberate, not a bug: SUPADM is 403 on all 3 /self-service routes — the patient "
+            + "self-service surface is caller-class-restricted at the filter chain; SUPADM reaches the "
+            + "gated healer routes (updateCaseDetails / getById / getSymptomsForFeedback) instead")
+    void selfServiceRoutesAreForbiddenForSupadm(RequestBuilder request) throws Exception {
+        authenticateAs("SUPADM");
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        mockMvc.perform(request)
+                .andExpect(status().isForbidden());
     }
 }
