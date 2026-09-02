@@ -47,7 +47,10 @@ public class RbacCatalogService {
             Map.entry(Resource.HEALER_REG, "Healer Registration"),
             Map.entry(Resource.LEGAL_DOCUMENTS, "Legal Documents"),
             Map.entry(Resource.ROLES, "Roles"),
-            Map.entry(Resource.ACCOUNTS, "Healer Accounts")
+            Map.entry(Resource.ACCOUNTS, "Healer Accounts"),
+            Map.entry(Resource.SCAN, "Scans"),
+            Map.entry(Resource.SESSION_PROTOCOL, "Session Protocols"),
+            Map.entry(Resource.FEEDBACK, "Feedback")
     );
 
     private static final Map<Operation, String> VERB_LABELS = Map.of(
