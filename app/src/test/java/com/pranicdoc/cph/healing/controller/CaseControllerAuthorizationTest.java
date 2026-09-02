@@ -38,11 +38,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.ScrollPosition;
 import org.springframework.data.domain.Window;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +65,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -406,5 +410,163 @@ class CaseControllerAuthorizationTest {
         performAsHealerWithGrant(resendFeedback, false)
                 .andExpect(status().isForbidden());
         verify(lookupService).hasPermission(any(), eq(Resource.FEEDBACK), eq(Operation.CREATE));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Resource isolation — a grant on one of {CASE, PDF, FEEDBACK} does not
+    //  unlock an endpoint belonging to either of the other two
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private void authenticateHealer() {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+    }
+
+    @Test
+    @DisplayName("resource isolation: a full CASE grant is 403 on GET /download (a PDF:EXPORT endpoint)")
+    void resourceIsolation_caseGrantDoesNotUnlockPdfExport() throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), eq(Operation.READ))).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), eq(Operation.UPDATE))).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), eq(Operation.DELETE))).thenReturn(true);
+        // PDF / FEEDBACK grants unstubbed -> Mockito default false.
+
+        mockMvc.perform(get(BASE + "/download").param("fileUrl", "lab-findings/x/y.pdf").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        // T-42-Info-C2: getDownloadLink mints a presigned URL to a clinical PDF; a CASE grant
+        // must never confer it. The gate resolves to (PDF, EXPORT), not (PDF, READ).
+        verify(lookupService).hasPermission(any(), eq(Resource.PDF), eq(Operation.EXPORT));
+    }
+
+    @Test
+    @DisplayName("resource isolation: a full PDF grant is 403 on GET /{id}/summary (a CASE:READ endpoint)")
+    void resourceIsolation_pdfGrantDoesNotUnlockCaseRead() throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.PDF), eq(Operation.READ))).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PDF), eq(Operation.CREATE))).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PDF), eq(Operation.EXPORT))).thenReturn(true);
+        // CASE / FEEDBACK grants unstubbed -> false.
+
+        mockMvc.perform(get(BASE + "/" + ROW_ID + "/summary").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        verify(lookupService).hasPermission(any(), eq(Resource.CASE), eq(Operation.READ));
+    }
+
+    @Test
+    @DisplayName("resource isolation: CASE + PDF granted in full is 403 on POST /{id}/resend-feedback "
+            + "(FEEDBACK:CREATE) — the feedback re-trigger is a separately grantable capability")
+    void resourceIsolation_caseAndPdfGrantsDoNotUnlockFeedbackCreate() throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), any())).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PDF), any())).thenReturn(true);
+        // FEEDBACK grant unstubbed -> false.
+
+        mockMvc.perform(post(BASE + "/" + ROW_ID + "/resend-feedback").param("isFinal", "false")
+                        .cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        verify(lookupService).hasPermission(any(), eq(Resource.FEEDBACK), eq(Operation.CREATE));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Verb isolation — a CASE:READ grant does not unlock write verbs
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("verb isolation: a CASE:READ-only caller is 403 on DELETE /{id} (CASE:DELETE)")
+    void verbIsolation_caseReadGrantDoesNotUnlockDelete() throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), eq(Operation.READ))).thenReturn(true);
+        // CASE:DELETE unstubbed -> false.
+
+        mockMvc.perform(delete(BASE + "/" + ROW_ID).cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        verify(lookupService).hasPermission(any(), eq(Resource.CASE), eq(Operation.DELETE));
+    }
+
+    @Test
+    @DisplayName("verb isolation: a CASE:READ-only caller is 403 on POST /{id}/close (CASE:UPDATE)")
+    void verbIsolation_caseReadGrantDoesNotUnlockClose() throws Exception {
+        authenticateHealer();
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), eq(Operation.READ))).thenReturn(true);
+        // CASE:UPDATE unstubbed -> false.
+
+        mockMvc.perform(post(BASE + "/" + ROW_ID + "/close")
+                        .contentType(MediaType.APPLICATION_JSON).content(CLOSURE_JSON).cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        verify(lookupService).hasPermission(any(), eq(Resource.CASE), eq(Operation.UPDATE));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  SC4 — the 4 deliberately-ungated PATIENT-token endpoints stay reachable
+    //  at request time for a caller holding zero grants (D-19). Gating any of
+    //  these would 403 every live patient self-registration / health-form /
+    //  feedback submission (T-42-DoS-C2).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private void authenticateGrantlessPatient() {
+        authenticateAs("PATIENT");
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        // The production situation (42-RESEARCH §Token-Context Audit): @rbacAuthz returns
+        // false for every real caller of these endpoints.
+        when(lookupService.hasPermission(any(), any(), any())).thenReturn(false);
+    }
+
+    @Test
+    @DisplayName("SC4 / D-19: POST /api/v1/cases stays reachable for a grant-less PATIENT caller "
+            + "— the patient self-registration write; a gate here would 403 every live self-registration")
+    void sc4_create_grantlessPatient_isNotForbidden() throws Exception {
+        authenticateGrantlessPatient();
+
+        mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON).content(CASE_CREATE_JSON)
+                        .cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
+
+    @Test
+    @DisplayName("SC4 / D-19: GET /api/v1/cases/{id} stays reachable for a grant-less PATIENT caller "
+            + "— the patient health-form load; a gate here would 403 every live health-form open")
+    void sc4_getById_grantlessPatient_isNotForbidden() throws Exception {
+        authenticateGrantlessPatient();
+
+        mockMvc.perform(get(BASE + "/" + ROW_ID).cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
+
+    @Test
+    @DisplayName("SC4 / D-19: multipart PATCH /api/v1/cases stays reachable for a grant-less PATIENT "
+            + "caller — the patient health-form submit; a gate here would 403 every live submission")
+    void sc4_updateCaseDetails_grantlessPatient_isNotForbidden() throws Exception {
+        authenticateGrantlessPatient();
+
+        MockMultipartFile dataPart = new MockMultipartFile(
+                "data", "data", MediaType.APPLICATION_JSON_VALUE,
+                CASE_UPDATE_JSON.getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart(HttpMethod.PATCH, BASE).file(dataPart).cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
+
+    @Test
+    @DisplayName("SC4 / D-19: GET /api/v1/cases/symptoms stays reachable for a grant-less PATIENT "
+            + "caller — the patient feedback form build; and it consults NO grant at all, which also "
+            + "proves no class-level @PreAuthorize default crept onto the controller (D-16)")
+    void sc4_getSymptomsForFeedback_grantlessPatient_isNotForbiddenAndReadsNoGrant() throws Exception {
+        // Deliberately does NOT stub lookupService — verifyNoInteractions below would fail if a
+        // stubbing call had touched the mock.
+        authenticateAs("PATIENT");
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        mockMvc.perform(get(BASE + "/symptoms").param("caseId", ROW_ID.toString()).cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        verifyNoInteractions(lookupService);
     }
 }
