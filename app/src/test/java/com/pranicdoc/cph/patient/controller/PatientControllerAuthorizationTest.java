@@ -279,4 +279,43 @@ class PatientControllerAuthorizationTest {
         // lookup runs.
         verifyNoInteractions(lookupService);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  (b)/(c) granted + ungranted sweeps — one code path, one differing boolean
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * The single shared code path for cases (b) and (c): authenticates the same HEALER,
+     * stubs exactly the {@code (Resource.PATIENT, spec.operation())} grant to {@code granted}
+     * — never a three-way {@code any()} catch-all, so a gate naming a different verb falls
+     * through to Mockito's default {@code false} and fails the granted sweep loudly — and
+     * performs the spec's request. Both parameterized tests below call this and nothing else,
+     * so (b) and (c) differ only in the {@code granted} argument.
+     */
+    private ResultActions performAsHealerWithGrant(EndpointSpec spec, boolean granted) throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.PATIENT), eq(spec.operation())))
+                .thenReturn(granted);
+        return mockMvc.perform(spec.request());
+    }
+
+    @ParameterizedTest(name = "granted HEALER reaches {0}")
+    @MethodSource("gatedEndpoints")
+    void grantedHealerReachesEveryGatedEndpoint(EndpointSpec spec) throws Exception {
+        performAsHealerWithGrant(spec, true)
+                .andExpect(status().is(not(403)));
+    }
+
+    @ParameterizedTest(name = "ungranted HEALER is 403 on {0} and the @rbacAuthz bean ran")
+    @MethodSource("gatedEndpoints")
+    void ungrantedHealerIsForbiddenOnEveryGatedEndpoint(EndpointSpec spec) throws Exception {
+        performAsHealerWithGrant(spec, false)
+                .andExpect(status().isForbidden());
+
+        // Direct proof the @rbacAuthz bean method executed — a slice that ignored
+        // @PreAuthorize would never reach this call.
+        verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(spec.operation()));
+    }
 }
