@@ -16,7 +16,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,6 +48,10 @@ import static org.assertj.core.api.Assertions.fail;
  *   <li><b>Section C</b> — the 5 literals resolve through the allow-list into exactly
  *       {@code Resource.SESSION}; the D-03 negative pin asserts
  *       {@code Resource.SCAN.supports(Operation.READ)} is {@code false}.</li>
+ *   <li><b>WR-02 pin</b> — {@code sessionControllerCreateEnforcesSessionCreateOnly_wr02Acknowledged}
+ *       is the executable record that {@code SCAN:CREATE} / {@code SESSION_PROTOCOL:CREATE}
+ *       are acknowledged inert for the bundled {@code POST /sessions/case} write path
+ *       (WR-02 ruling 2026-09-02 / D-25 / deferred item {@code D-42-14-01}).</li>
  * </ul>
  */
 class SessionControllerAuthorizationContractTest {
@@ -222,5 +228,50 @@ class SessionControllerAuthorizationContractTest {
                         + "gate would be un-grantable and 403 forever. This also proves the positive "
                         + "Resource.SESSION assertions above are not vacuous.")
                 .isFalse();
+    }
+
+    // ─── WR-02 acknowledgement — executable record that SCAN / SESSION_PROTOCOL are inert here ──
+
+    @Test
+    @DisplayName("create is gated SESSION:CREATE only — SCAN:CREATE / SESSION_PROTOCOL:CREATE are "
+            + "acknowledged inert for the bundled POST /sessions/case write path (WR-02 ruling 2026-09-02)")
+    void sessionControllerCreateEnforcesSessionCreateOnly_wr02Acknowledged() {
+        assertThat(preAuthorizeValueOf("create"))
+                .as("POST /api/v1/sessions/case is the cph/ui wizard's real write path and bundles "
+                        + "scan + session-protocol sub-writes inside SessionService.create. Per the "
+                        + "WR-02 ruling (2026-09-02 / D-25) those sub-capabilities are acknowledged "
+                        + "rather than enforced — this endpoint carries the bare SESSION:CREATE gate "
+                        + "and nothing else. Reasons: enforcing in the service layer would move "
+                        + "enforcement off the annotation surface the whole phase contract is built "
+                        + "on, entangle a fix with the pre-existing red SessionServiceTest baseline "
+                        + "class, and 403 the primary wizard flow once a Practitioner role is seeded "
+                        + "(seeding is out of scope per ROADMAP Phase 42).")
+                .isEqualTo(SESSION_CREATE);
+
+        Set<Resource> resolved = new LinkedHashSet<>();
+        for (Method method : SessionController.class.getDeclaredMethods()) {
+            if (!Modifier.isPublic(method.getModifiers()) || method.isSynthetic() || !isRequestMapped(method)) {
+                continue;
+            }
+            PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+            if (preAuthorize == null) {
+                continue;
+            }
+            Matcher matcher = BARE_GATE.matcher(preAuthorize.value());
+            assertThat(matcher.matches())
+                    .as("%s must be a bare @rbacAuthz.hasPermission('R','V') expression", preAuthorize.value())
+                    .isTrue();
+            resolved.add(Resource.valueOf(matcher.group(1)));
+        }
+
+        assertThat(resolved)
+                .as("no SessionController gate literal may name Resource.SCAN or "
+                        + "Resource.SESSION_PROTOCOL — this test is the executable record that the "
+                        + "two resources are inert for the bundled write path. If a future change "
+                        + "starts enforcing them here, this test must be updated AND the "
+                        + "Resource.SCAN / Resource.SESSION_PROTOCOL / SessionController.create "
+                        + "javadocs AND deferred item D-42-14-01 must be revised in the same commit.")
+                .doesNotContain(Resource.SCAN, Resource.SESSION_PROTOCOL)
+                .containsExactly(Resource.SESSION);
     }
 }
