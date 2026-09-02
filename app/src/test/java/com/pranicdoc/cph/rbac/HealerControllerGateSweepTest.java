@@ -222,4 +222,110 @@ class HealerControllerGateSweepTest {
                         + "@PreAuthorize(\"permitAll()\") marker annotation may be introduced")
                 .isEqualTo(0);
     }
+
+    // ─── SC4 Test 2 — ReadingSessionController stays ungated (corrected D-22 reason) ──
+
+    @Test
+    void readingSessionControllerRemainsUngated() {
+        assertThat(requestMappedCount(ReadingSessionController.class))
+                .as("ReadingSessionController request-mapped method count — anti-vacuous guard "
+                        + "(T-42-Assurance-O1)")
+                .isEqualTo(2);
+
+        assertThat(ungatedMethodNames(ReadingSessionController.class))
+                .as("D-22: ReadingSessionController.open/close stay open on the ConsentController "
+                        + "SELF-SERVICE PRECEDENT — a freshly-onboarded healer with no grants must be "
+                        + "able to open and close a reading session for their mandatory legal "
+                        + "documents, or the Phase 34 registration legal gate breaks (T-42-DoS-O3). "
+                        + "This is explicitly NOT the 'no healerId' rationale from CONTEXT D-08: "
+                        + "research verified ReadingSessionService.open()/close() run on a healer "
+                        + "ACCESS token and call getCurrentHealerId() unconditionally, and "
+                        + "DocumentReader is rendered only under /legal-center, inside ProtectedRoute "
+                        + "— anyone re-deriving the reason from D-08's original wording would reach a "
+                        + "false conclusion. Note: 'close' is a single Java method mapped to both "
+                        + "PATCH and POST via @RequestMapping(method = {...}), so it counts once in "
+                        + "this reflection sweep — '2 methods' vs '3 HTTP routes' is not a discrepancy.")
+                .hasSize(2)
+                .containsExactlyInAnyOrder("open", "close");
+
+        assertThat(countOccurrences(
+                readStrippedSource(sourcePathFor(ReadingSessionController.class)), "PreAuthorize"))
+                .as("ReadingSessionController.java comment-stripped source must contain zero "
+                        + "occurrences of PreAuthorize — openness asserted by absence (D-07)")
+                .isEqualTo(0);
+    }
+
+    // ─── SC4 Test 3 — WhatsappWebhookController stays ungated (Meta, no JWT) ──
+
+    @Test
+    void whatsappWebhookControllerRemainsUngated() {
+        assertThat(requestMappedCount(WhatsappWebhookController.class))
+                .as("WhatsappWebhookController request-mapped method count — anti-vacuous guard "
+                        + "(T-42-Assurance-O1)")
+                .isEqualTo(2);
+
+        assertThat(ungatedMethodNames(WhatsappWebhookController.class))
+                .as("Meta calls both methods with no JWT (permitAll in SecurityConfig); they perform "
+                        + "their own verify-token and HMAC X-Hub-Signature-256 checks, so a capability "
+                        + "gate would reject every real webhook delivery while adding no security "
+                        + "(T-42-DoS-O4)")
+                .hasSize(2)
+                .containsExactlyInAnyOrder("verify", "handleEvent");
+
+        assertThat(countOccurrences(
+                readStrippedSource(sourcePathFor(WhatsappWebhookController.class)), "PreAuthorize"))
+                .as("WhatsappWebhookController.java comment-stripped source must contain zero "
+                        + "occurrences of PreAuthorize — openness asserted by absence (D-07)")
+                .isEqualTo(0);
+    }
+
+    // ─── SC4 Test 4 — BootstrapController: bootstrap open, assignRole coarse-gate reproduced ──
+
+    @Test
+    void bootstrapControllerBootstrapIsUngatedAndAssignRoleStaysCoarseGated() {
+        assertThat(requestMappedCount(BootstrapController.class))
+                .as("BootstrapController request-mapped method count — anti-vacuous guard "
+                        + "(T-42-Assurance-O1)")
+                .isEqualTo(2);
+
+        assertThat(ungatedMethodNames(BootstrapController.class))
+                .as("bootstrap is permitAll and self-locks once any healer exists; it is the "
+                        + "empty-system seeding path and cannot require a grant that does not yet "
+                        + "exist. assignRole is deliberately absent from this set — its coarse gate "
+                        + "is reproduced below")
+                .hasSize(1)
+                .containsExactly("bootstrap");
+
+        // Reproduce LegacyEndpointCutoverSweepTest Test 6's pin, with the same overload guard.
+        Method assignRole = null;
+        for (Method method : BootstrapController.class.getDeclaredMethods()) {
+            if (method.getName().equals("assignRole")) {
+                assertThat(assignRole)
+                        .as("assignRole is overloaded on BootstrapController — cannot pin its gate")
+                        .isNull();
+                assignRole = method;
+            }
+        }
+        assertThat(assignRole)
+                .as("BootstrapController must still declare the assignRole endpoint")
+                .isNotNull();
+
+        PreAuthorize preAuthorize = assignRole.getAnnotation(PreAuthorize.class);
+        assertThat(preAuthorize)
+                .as("BootstrapController.assignRole must still carry @PreAuthorize")
+                .isNotNull();
+        assertThat(preAuthorize.value())
+                .as("PD-40-05: BootstrapController.assignRole's hasRole('SUPADM') literal is "
+                        + "DELIBERATE and OUT OF SCOPE for Phase 42 — it is the circular "
+                        + "SUPADM-to-SUPADM role-seeding path by which the first grants come into "
+                        + "existence, so gating it on a grant would make the system unbootstrappable "
+                        + "(T-42-EoP-O1). It is already pinned by LegacyEndpointCutoverSweepTest "
+                        + "Test 6 and BootstrapControllerTest.ASSIGN_ROLE_LITERAL; Phase 42 "
+                        + "REPRODUCES the pin here rather than flagging it as a non-bare gate. "
+                        + "Forward constraint: plan 42-11's hasRole( source sweep MUST be scoped to "
+                        + "the 7 Phase-42 controllers only — a repo-wide or class-list-wide sweep "
+                        + "would collide with this pin and pressure its deletion to stay green "
+                        + "(42-RESEARCH Pitfall 7 / T-42-Tamper-O1).")
+                .isEqualTo("hasRole('SUPADM')");
+    }
 }
