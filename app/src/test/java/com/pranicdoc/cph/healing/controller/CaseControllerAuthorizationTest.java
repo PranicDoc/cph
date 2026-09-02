@@ -25,6 +25,7 @@ import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -54,7 +55,9 @@ import static org.assertj.core.api.Assertions.entry;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -337,5 +340,71 @@ class CaseControllerAuthorizationTest {
         // RBAC-04: the SUPADM short-circuit in RbacAuthz returns true before any grant
         // lookup runs.
         verifyNoInteractions(lookupService);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  (b)/(c) granted + ungranted sweeps — one code path, one differing boolean
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * The single shared code path for cases (b) and (c): authenticates the same HEALER,
+     * stubs exactly the {@code (spec.resource(), spec.operation())} grant to {@code granted}
+     * — never a three-way {@code any()} catch-all, so a gate naming a different {@code (resource,
+     * verb)} pair (say {@code getDownloadLink} written {@code PDF:READ} instead of
+     * {@code PDF:EXPORT}) falls through to Mockito's default {@code false} and fails the
+     * granted sweep loudly — and performs the spec's request. Both parameterized tests below
+     * call this and nothing else, so (b) and (c) are the same code path with a single
+     * differing boolean: the anti-vacuous identity SC3 depends on.
+     */
+    private org.springframework.test.web.servlet.ResultActions performAsHealerWithGrant(
+            EndpointSpec spec, boolean granted) throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(spec.resource()), eq(spec.operation())))
+                .thenReturn(granted);
+        return mockMvc.perform(spec.request());
+    }
+
+    @ParameterizedTest(name = "granted HEALER reaches {0}")
+    @MethodSource("gatedEndpoints")
+    void grantedHealerReachesEveryGatedEndpoint(EndpointSpec spec) throws Exception {
+        performAsHealerWithGrant(spec, true)
+                .andExpect(status().is(not(403)));
+    }
+
+    @ParameterizedTest(name = "ungranted HEALER is 403 on {0} and the @rbacAuthz bean ran")
+    @MethodSource("gatedEndpoints")
+    void ungrantedHealerIsForbiddenOnEveryGatedEndpoint(EndpointSpec spec) throws Exception {
+        performAsHealerWithGrant(spec, false)
+                .andExpect(status().isForbidden());
+
+        // Direct proof the @rbacAuthz bean method executed on the exact (resource, verb) the
+        // annotation names — a slice that ignored @PreAuthorize would never reach this call.
+        verify(lookupService).hasPermission(any(), eq(spec.resource()), eq(spec.operation()));
+    }
+
+    /**
+     * {@code resendFeedback} is the ONLY request-time exercise of {@code Resource.FEEDBACK}
+     * anywhere in the codebase: {@code FEEDBACK:CREATE} has exactly one enforcement site
+     * (D-19 / plan 42-03), so if the granted/ungranted trio above is wrong for this row the
+     * entire {@code FEEDBACK} resource is unverified. This test re-states the (c) assertion
+     * for that single row under a name that makes the coverage dependency explicit.
+     */
+    @Test
+    @DisplayName("resendFeedback is the sole request-time FEEDBACK:CREATE enforcement site — "
+            + "ungranted HEALER is 403 and @rbacAuthz consulted FEEDBACK:CREATE")
+    void resendFeedback_isTheSoleFeedbackEnforcementSite() throws Exception {
+        EndpointSpec resendFeedback = gatedEndpoints()
+                .map(a -> (EndpointSpec) a.get()[0])
+                .filter(s -> s.methodName().equals("resendFeedback"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(resendFeedback.resource()).isEqualTo(Resource.FEEDBACK);
+        assertThat(resendFeedback.operation()).isEqualTo(Operation.CREATE);
+
+        performAsHealerWithGrant(resendFeedback, false)
+                .andExpect(status().isForbidden());
+        verify(lookupService).hasPermission(any(), eq(Resource.FEEDBACK), eq(Operation.CREATE));
     }
 }
