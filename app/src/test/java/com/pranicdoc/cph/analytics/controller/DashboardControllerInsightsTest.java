@@ -5,25 +5,30 @@ import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.analytics.service.DateRangeResolver;
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import com.pranicdoc.cph.common.security.JwtService;
+import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,6 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(DashboardController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, DateRangeResolver.class})
+@ActiveProfiles("test")
 class DashboardControllerInsightsTest {
 
     @Autowired
@@ -57,32 +63,64 @@ class DashboardControllerInsightsTest {
     @MockBean
     private TenantInterceptor tenantInterceptor;
 
+    @MockBean
+    private HealerCacheService healerCacheService;
+
+    @MockBean
+    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
     private static final UUID HEALER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final String ACCESS_TOKEN = "test-access-token";
 
     @BeforeEach
     void setUp() {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
     }
 
+    /**
+     * Drives the real {@code JwtAuthFilter} to an authenticated principal.
+     * {@code @WithMockUser} does not survive the filter chain — it calls
+     * {@code SecurityContextHolder.clearContext()} when no {@code accessToken}
+     * cookie is present (40-HARNESS-DECISION.md assembly fact 3).
+     */
+    private void authenticateAs(String role) {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(HEALER_ID.toString());
+        when(claims.get("role", String.class)).thenReturn(role);
+        when(jwtService.isTokenValid(ACCESS_TOKEN)).thenReturn(true);
+        when(jwtService.extractTokenType(ACCESS_TOKEN)).thenReturn("ACCESS");
+        when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
+        when(healerCacheService.isActive(any())).thenReturn(true);
+        try {
+            when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        } catch (Exception impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    private static Cookie accessCookie() {
+        return new Cookie("accessToken", ACCESS_TOKEN);
+    }
+
     // Test 1: GET /api/v1/dashboard/top-symptoms with valid auth -> HTTP 200
     @Test
-    @WithMockUser
     void getTopSymptoms_authenticated_returns200() throws Exception {
+        authenticateAs("HEALER");
         when(dashboardService.getTopSymptoms(any(UUID.class), any(DateRangeFilter.class)))
                 .thenReturn(ApiResponse.of(List.of(new DashboardTopSymptom("Anxiety", 5L))));
 
-        mockMvc.perform(get("/api/v1/dashboard/top-symptoms").param("period", "30d"))
+        mockMvc.perform(get("/api/v1/dashboard/top-symptoms").param("period", "30d").cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
     // Test 2: GET /api/v1/dashboard/top-symptoms with valid auth, empty result -> HTTP 200
     @Test
-    @WithMockUser
     void getTopSymptoms_authenticated_emptyResult_returns200() throws Exception {
+        authenticateAs("HEALER");
         when(dashboardService.getTopSymptoms(any(UUID.class), any(DateRangeFilter.class)))
                 .thenReturn(ApiResponse.of(List.of()));
 
-        mockMvc.perform(get("/api/v1/dashboard/top-symptoms").param("period", "7d"))
+        mockMvc.perform(get("/api/v1/dashboard/top-symptoms").param("period", "7d").cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
@@ -95,23 +133,23 @@ class DashboardControllerInsightsTest {
 
     // Test 4: GET /api/v1/dashboard/top-protocols with valid auth -> HTTP 200
     @Test
-    @WithMockUser
     void getTopProtocols_authenticated_returns200() throws Exception {
+        authenticateAs("HEALER");
         when(dashboardService.getTopProtocols(any(UUID.class), any(DateRangeFilter.class)))
                 .thenReturn(ApiResponse.of(List.of(new DashboardTopProtocol("Basic Pranic Healing", 8L))));
 
-        mockMvc.perform(get("/api/v1/dashboard/top-protocols").param("period", "30d"))
+        mockMvc.perform(get("/api/v1/dashboard/top-protocols").param("period", "30d").cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
     // Test 5: GET /api/v1/dashboard/top-protocols with valid auth, empty result -> HTTP 200
     @Test
-    @WithMockUser
     void getTopProtocols_authenticated_emptyResult_returns200() throws Exception {
+        authenticateAs("HEALER");
         when(dashboardService.getTopProtocols(any(UUID.class), any(DateRangeFilter.class)))
                 .thenReturn(ApiResponse.of(List.of()));
 
-        mockMvc.perform(get("/api/v1/dashboard/top-protocols").param("period", "7d"))
+        mockMvc.perform(get("/api/v1/dashboard/top-protocols").param("period", "7d").cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
