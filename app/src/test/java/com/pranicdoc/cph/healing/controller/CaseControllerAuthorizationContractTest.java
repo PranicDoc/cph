@@ -31,23 +31,31 @@ import static org.assertj.core.api.Assertions.fail;
  * Wave-2 capability-gate cutover (plan 42-03, SC1 / SC4, D-05 / D-06 / D-16 / D-19).
  *
  * <p>{@code CaseController} is the largest and most concern-mixed surface in the phase —
- * 18 request-mapped methods spanning case CRUD, the PDF job pipeline and the patient
- * feedback cycle. A 14-site split by hand is exactly where a copy-paste
+ * 21 request-mapped methods spanning case CRUD, the PDF job pipeline and the patient
+ * feedback cycle. A 17-site split by hand is exactly where a copy-paste
  * {@code (resource, verb)} error hides, and where accidentally gating a patient-reachable
  * endpoint would 403 the live patient health-form and feedback flows. This test pins what
  * the annotations now say — pure reflection over {@code @PreAuthorize} plus
  * {@link Resource}/{@link Operation} enum validity. No Spring context, no
  * {@code @WebMvcTest}, no {@code MockMvc}: it cannot pass for filter-chain reasons and
  * runs in milliseconds. The request-time (real filter chain) allow/deny suite is plan
- * 42-09.
+ * 42-09 (extended by 42-13).
+ *
+ * <p>Plan 42-13 (CR-01 ruling 2026-09-02): the three previously-open dual-caller methods
+ * {@code updateCaseDetails} / {@code getById} / {@code getSymptomsForFeedback} were gated
+ * on the healer path, and their patient callers moved to the sibling ungated
+ * {@code /self-service} mappings ({@code updateCaseDetailsSelfService},
+ * {@code getByIdSelfService}, {@code getSymptomsForFeedbackSelfService}), which are
+ * caller-class-restricted to ROLE_PATIENT in {@code SecurityConfig}.
  *
  * <ul>
- *   <li><b>Section A</b> — 14 independent literal pins, one per gated method.</li>
- *   <li><b>Section B</b> — anti-vacuous over-reach guard: inspected == 18, gated == 14,
- *       ungated == {create, getById, updateCaseDetails, getSymptomsForFeedback}.</li>
- *   <li><b>Section C</b> — the 14 literals resolve through the {@link Resource}/
+ *   <li><b>Section A</b> — 17 independent literal pins, one per gated method.</li>
+ *   <li><b>Section B</b> — anti-vacuous over-reach guard: inspected == 21, gated == 17,
+ *       ungated == {create, updateCaseDetailsSelfService, getByIdSelfService,
+ *       getSymptomsForFeedbackSelfService}.</li>
+ *   <li><b>Section C</b> — the 17 literals resolve through the {@link Resource}/
  *       {@link Operation} allow-list into exactly the {CASE, PDF, FEEDBACK} partition in
- *       a 10/3/1 split; {@code FEEDBACK:READ} and {@code PDF:UPDATE} are proven
+ *       a 13/3/1 split; {@code FEEDBACK:READ} and {@code PDF:UPDATE} are proven
  *       non-allow-listed.</li>
  * </ul>
  */
@@ -63,25 +71,28 @@ class CaseControllerAuthorizationContractTest {
     private static final String PDF_EXPORT      = "@rbacAuthz.hasPermission('PDF','EXPORT')";
     private static final String FEEDBACK_CREATE = "@rbacAuthz.hasPermission('FEEDBACK','CREATE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 14 gated endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 17 gated endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getByPatientId",            CASE_READ},
             new String[]{"getProtocolUnderstanding",  CASE_READ},
             new String[]{"getCaseSummary",            CASE_READ},
+            new String[]{"getById",                   CASE_READ},
+            new String[]{"getSymptomsForFeedback",    CASE_READ},
             new String[]{"addSymptom",                CASE_UPDATE},
             new String[]{"resolveSymptom",            CASE_UPDATE},
             new String[]{"addMedication",             CASE_UPDATE},
             new String[]{"signDeclaration",           CASE_UPDATE},
             new String[]{"closeCase",                 CASE_UPDATE},
             new String[]{"saveProtocolUnderstanding", CASE_UPDATE},
+            new String[]{"updateCaseDetails",         CASE_UPDATE},
             new String[]{"delete",                    CASE_DELETE},
             new String[]{"generatePdf",               PDF_CREATE},
             new String[]{"getAllPdfs",                PDF_READ},
             new String[]{"getDownloadLink",           PDF_EXPORT},
             new String[]{"resendFeedback",            FEEDBACK_CREATE});
 
-    private static final int EXPECTED_MAPPED = 18;
-    private static final int EXPECTED_GATED = 14;
+    private static final int EXPECTED_MAPPED = 21;
+    private static final int EXPECTED_GATED = 17;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -177,6 +188,25 @@ class CaseControllerAuthorizationContractTest {
     @DisplayName("resendFeedback is gated FEEDBACK:CREATE — the SOLE FEEDBACK enforcement site in the codebase (D-05 / D-19)")
     void resendFeedback_isGatedByFeedbackCreate() { assertGate("resendFeedback", FEEDBACK_CREATE); }
 
+    @Test
+    @DisplayName("updateCaseDetails is gated CASE:UPDATE — the healer-facing multipart case write, gated "
+            + "CASE:UPDATE like every sibling write — CR-01 ruling 2026-09-02 / D-19a. The patient caller "
+            + "moved to the ungated /self-service PATCH mapping.")
+    void updateCaseDetails_isGatedByCaseUpdate() { assertGate("updateCaseDetails", CASE_UPDATE); }
+
+    @Test
+    @DisplayName("getById is gated CASE:READ — the healer-facing case read, gated like every sibling read "
+            + "(CR-01 ruling 2026-09-02 / D-19a). The patient health-form load moved to the ungated "
+            + "/self-service GET mapping.")
+    void getById_isGatedByCaseRead() { assertGate("getById", CASE_READ); }
+
+    @Test
+    @DisplayName("getSymptomsForFeedback is gated CASE:READ and NOT FEEDBACK:READ — D-19 dropped the "
+            + "FEEDBACK:READ verb, Resource.FEEDBACK is {CREATE} only; case symptoms are case data so this "
+            + "takes the sibling CASE:READ verb (CR-01 ruling 2026-09-02 / D-19a). The patient feedback "
+            + "form build moved to the ungated /self-service/symptoms GET mapping.")
+    void getSymptomsForFeedback_isGatedByCaseRead() { assertGate("getSymptomsForFeedback", CASE_READ); }
+
     // ─── Section B — anti-vacuous over-reach guard ───────────────────────
 
     @Test
@@ -208,27 +238,33 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 18 declared CaseController request-mapped methods — "
-                        + "CaseController spans case CRUD + the PDF job pipeline + the patient feedback cycle; "
-                        + "a method added or removed here must redden the build rather than silently pass")
+                .as("the sweep must inspect exactly the 21 declared CaseController request-mapped methods — "
+                        + "CaseController spans case CRUD + the PDF job pipeline + the patient feedback cycle + "
+                        + "the 3 patient /self-service mappings added by plan 42-13; a method added or removed "
+                        + "here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("exactly 14 of the 18 CaseController methods carry a bare capability gate (SC1); a dropped "
+                .as("exactly 17 of the 21 CaseController methods carry a bare capability gate (SC1); a dropped "
                         + "gate restores the implicit any-authenticated-healer path over clinical case records")
                 .isEqualTo(EXPECTED_GATED);
 
         TreeSet<String> ungatedSet = new TreeSet<>(ungated);
         assertThat(ungatedSet)
-                .as("the only CaseController methods that may stay ungated (SC4 / D-19) are: "
-                        + "create — patient self-registration writes a case on a PATIENT-role token (also healer-reachable); "
-                        + "getById — the patient health-form reads its case on a PATIENT-role token (also healer-reachable); "
-                        + "updateCaseDetails — the patient health-form submits labFindings on a PATIENT-role token (also healer-reachable); "
-                        + "getSymptomsForFeedback — the patient feedback form reads case symptoms on a PATIENT-role token. "
-                        + "@rbacAuthz.hasPermission(...) returns false for every real caller of these four, so a gate "
-                        + "would 403 the live patient self-registration / health-form / feedback flows. Any OTHER "
-                        + "ungated method here is an unguarded clinical endpoint. Found: %s", ungated)
+                .as("the only CaseController methods that may stay ungated (SC4 / D-19 / plan 42-13) are: "
+                        + "create — patient self-registration writes a case on a SELF_REG token, single caller "
+                        + "(ui/src/pages/Registration.tsx), a genuine D-08 carve-out; "
+                        + "updateCaseDetailsSelfService — the patient health-form submit; "
+                        + "getByIdSelfService — the patient health-form load; "
+                        + "getSymptomsForFeedbackSelfService — the patient feedback form build. "
+                        + "The three *SelfService methods are reached only by a ROLE_PATIENT principal and are "
+                        + "caller-class-restricted by SecurityConfig's /api/v1/cases/self-service ROLE_PATIENT "
+                        + "request-matcher rule, so they are open at the CAPABILITY layer only, never at the "
+                        + "authorization layer. A FIFTH entry here is an unguarded clinical endpoint; a "
+                        + "*SelfService entry DISAPPEARING means someone gated a patient route and 403'd a live "
+                        + "patient flow. Found: %s", ungated)
                 .hasSize(4)
-                .containsExactlyInAnyOrder("create", "getById", "updateCaseDetails", "getSymptomsForFeedback");
+                .containsExactlyInAnyOrder("create", "updateCaseDetailsSelfService", "getByIdSelfService",
+                        "getSymptomsForFeedbackSelfService");
     }
 
     // ─── Section C — allow-listed pair resolution + CASE/PDF/FEEDBACK partition ──
@@ -241,7 +277,7 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 14 CaseController gates, never an empty list")
+                .as("the allow-list check must run over all 17 CaseController gates, never an empty list")
                 .hasSize(EXPECTED_GATED);
 
         Map<Resource, Integer> perResource = new LinkedHashMap<>();
@@ -270,13 +306,13 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(perResource.keySet())
-                .as("CaseController's 14 gates must resolve to exactly the three-resource partition "
-                        + "{CASE, PDF, FEEDBACK} (D-05 / D-06)")
+                .as("CaseController's 17 gates must resolve to exactly the three-resource partition "
+                        + "{CASE, PDF, FEEDBACK} (D-05 / D-06 / plan 42-13)")
                 .containsExactlyInAnyOrder(Resource.CASE, Resource.PDF, Resource.FEEDBACK);
 
         assertThat(perResource.get(Resource.CASE))
-                .as("CASE literal count on CaseController must be 10 (3 READ + 6 UPDATE + 1 DELETE)")
-                .isEqualTo(10);
+                .as("CASE literal count on CaseController must be 13 (5 READ + 7 UPDATE + 1 DELETE)")
+                .isEqualTo(13);
         assertThat(perResource.get(Resource.PDF))
                 .as("PDF literal count on CaseController must be 3 (CREATE + READ + EXPORT — the D-05 triplet)")
                 .isEqualTo(3);
