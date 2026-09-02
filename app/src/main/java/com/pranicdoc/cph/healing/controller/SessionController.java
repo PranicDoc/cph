@@ -22,6 +22,28 @@ public class SessionController {
 
     private final SessionService sessionService;
 
+    /**
+     * Create a healing session for a case. This is the cph/ui wizard's real write path:
+     * it bundles scan and session-protocol sub-writes that {@code SessionService.create}
+     * performs inline. It is gated {@code SESSION:CREATE} <b>only</b> — a caller holding
+     * {@code SESSION:CREATE} without {@code SCAN:CREATE} / {@code SESSION_PROTOCOL:CREATE}
+     * still writes those sub-records through this endpoint.
+     *
+     * <p><b>Deliberate (WR-02 ruling, 2026-09-02).</b> Enforcing the two sub-capabilities
+     * in the service layer was rejected for three reasons: (1) it would move enforcement
+     * off the annotation surface the whole Phase-42 contract (SC1,
+     * {@code HealerControllerGateSweepTest}, every {@code *AuthorizationContractTest},
+     * RBAC-09) is built on; (2) it would entangle the change with the pre-existing red
+     * {@code SessionServiceTest} baseline class, putting SC5's zero-regression evidence
+     * at risk for a change with no live effect; (3) it would 403 the primary wizard flow
+     * the moment a baseline Practitioner role is seeded, and role seeding is explicitly
+     * out of scope per ROADMAP &sect;Phase 42. The standalone {@code ScanController.saveScan}
+     * and {@code ProtocolController.saveProtocol} gates give both resources a real
+     * enforcement site; only this bundled path is inert, and that is recorded here, on
+     * {@code Resource.SCAN} / {@code Resource.SESSION_PROTOCOL}, and as deferred item
+     * {@code D-42-14-01}. Do NOT add a second {@code @PreAuthorize} here and do NOT
+     * enforce sub-capabilities in {@code SessionService}.
+     */
     @PreAuthorize("@rbacAuthz.hasPermission('SESSION','CREATE')")
     @PostMapping("/case")
     public ResponseEntity<SessionResponse> create(@Valid @RequestBody CreateSessionRequest sessionRequest) {
