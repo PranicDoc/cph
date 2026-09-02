@@ -69,6 +69,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        // CR-01 (2026-09-02 ruling): the patient self-service case surface is
+                        // caller-class-restricted here, at the filter chain, because JwtAuthFilter
+                        // grants ROLE_PATIENT for both SELF_REG and PATIENT_CASE tokens (JwtService
+                        // lines 72 and 93) while every healer token carries a non-PATIENT role.
+                        // @rbacAuthz cannot express this: a SELF_REG token's healerId is the OWNING
+                        // healer's, so @rbacAuthz.hasPermission would resolve a patient request
+                        // against the wrong principal's grants. This is the control that stops the
+                        // CaseController route split from being a bypass of the new
+                        // CASE:UPDATE / CASE:READ gates.
+                        .requestMatchers("/api/v1/cases/self-service", "/api/v1/cases/self-service/**").hasRole("PATIENT")
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

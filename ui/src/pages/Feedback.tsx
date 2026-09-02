@@ -96,7 +96,7 @@ export default function PatientFeedback() {
       setIsLoading(true);
 
       try {
-        const res = await api.get("/api/v1/cases/symptoms", {
+        const res = await api.get("/api/v1/cases/self-service/symptoms", {
           params: {
             caseId,
             page: 0,

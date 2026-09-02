@@ -46,15 +46,34 @@ public class CaseController {
     }
 
     /**
-     * Deliberately UNGATED (SC4 / D-19). Reached by a PATIENT-role token — the dynamic
-     * permission check returns false for every real caller; gating would 403 the patient
-     * self-registration / health-form / feedback flow. Also healer-reachable, so the
-     * exclusion is a deliberate "both callers" decision, not an oversight. Named by plan
-     * 42-11's open-list test.
+     * Gated CASE:READ on the healer path per the 2026-09-02 CR-01 ruling (D-19a) — every
+     * sibling read of a clinical case record on this controller carries the same gate. The
+     * patient caller (the health-form load) is served by the sibling
+     * {@code GET /api/v1/cases/self-service} mapping ({@link #getByIdSelfService}), which is
+     * caller-class-restricted to ROLE_PATIENT in SecurityConfig, not by an annotation here.
+     * The {@code healer_id} row filter remains the record-level layer beneath this
+     * capability gate.
      */
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
     @GetMapping("/{id}")
     public ResponseEntity<CaseResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(caseService.getById(id));
+    }
+
+    /**
+     * Reached only by a ROLE_PATIENT principal (a SELF_REG or PATIENT_CASE token) — the
+     * patient health-form load. Deliberately carries no {@code @PreAuthorize}: a SELF_REG
+     * token's {@code TenantDetails.healerId} is the OWNING healer's id, so the dynamic
+     * capability check would resolve the patient's request against the wrong principal's
+     * grants. The caller-class restriction lives in SecurityConfig as a path-based
+     * ROLE_PATIENT request-matcher rule on {@code /api/v1/cases/self-service}, not here.
+     * Uses a query param, not a {@code /self-service/{id}} path template — a template at
+     * that depth would collide with the sibling {@code /{id}/summary} pattern and produce an
+     * ambiguous-handler 500. Named by plan 42-14's open-list test.
+     */
+    @GetMapping("/self-service")
+    public ResponseEntity<CaseResponse> getByIdSelfService(@RequestParam UUID caseId) {
+        return ResponseEntity.ok(caseService.getById(caseId));
     }
 
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
@@ -133,15 +152,37 @@ public class CaseController {
     }
 
     /**
-     * Deliberately UNGATED (SC4 / D-19). Reached by a PATIENT-role token — the dynamic
-     * permission check returns false for every real caller; gating would 403 the patient
-     * self-registration / health-form / feedback flow. Also healer-reachable, so the
-     * exclusion is a deliberate "both callers" decision, not an oversight. This handler is
-     * multipart and carries labFindings files, but those files attach to the CASE, not a PDF
-     * job — do not "fix" this to PDF:*. Named by plan 42-11's open-list test.
+     * Gated CASE:UPDATE on the healer path per the 2026-09-02 CR-01 ruling (D-19a) — every
+     * sibling write of a clinical case record on this controller carries the same gate. The
+     * patient caller (the health-form submit) is served by the sibling
+     * {@code PATCH /api/v1/cases/self-service} mapping ({@link #updateCaseDetailsSelfService}),
+     * which is caller-class-restricted to ROLE_PATIENT in SecurityConfig, not by an
+     * annotation here. This handler is multipart and carries labFindings files, but those
+     * files attach to the CASE, not a PDF job — do not "fix" this to PDF:*. The
+     * {@code healer_id} row filter remains the record-level layer beneath this capability
+     * gate.
      */
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','UPDATE')")
     @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CaseResponse> updateCaseDetails(
+            @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
+            @RequestPart(value = "labFindings", required = false) List<MultipartFile> labFindings) {
+        return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest, labFindings));
+    }
+
+    /**
+     * Reached only by a ROLE_PATIENT principal (a SELF_REG or PATIENT_CASE token) — the
+     * patient health-form submit. Deliberately carries no {@code @PreAuthorize}: a SELF_REG
+     * token's {@code TenantDetails.healerId} is the OWNING healer's id, so the dynamic
+     * capability check would resolve the patient's request against the wrong principal's
+     * grants. The caller-class restriction lives in SecurityConfig as a path-based
+     * ROLE_PATIENT request-matcher rule on {@code /api/v1/cases/self-service}, not here. The
+     * case is resolved from {@code CaseUpdateRequest.healingCaseId} in the body, beneath the
+     * untouched {@code healer_id} row filter — the labFindings files attach to the CASE, not
+     * a PDF job. Named by plan 42-14's open-list test.
+     */
+    @PatchMapping(path = "/self-service", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CaseResponse> updateCaseDetailsSelfService(
             @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
             @RequestPart(value = "labFindings", required = false) List<MultipartFile> labFindings) {
         return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest, labFindings));
@@ -194,13 +235,39 @@ public class CaseController {
     }
 
     /**
-     * Deliberately UNGATED (SC4 / D-19). Reached by a PATIENT-role token — the dynamic
-     * permission check returns false for every real caller; gating would 403 the patient
-     * feedback flow (this reads case symptoms to build the patient feedback form). Named by
-     * plan 42-11's open-list test.
+     * Gated CASE:READ on the healer path per the 2026-09-02 CR-01 ruling (D-19a). Case
+     * symptoms are case data, so this takes the sibling CASE:READ verb already used by
+     * {@link #getCaseSummary} and {@link #getProtocolUnderstanding} — deliberately NOT
+     * FEEDBACK:READ: D-19 dropped that verb, {@code Resource.FEEDBACK} is {@code {CREATE}}
+     * only, and the contract test's negative control pins
+     * {@code Resource.FEEDBACK.supports(READ) == false}. The patient caller (the feedback
+     * form build) is served by the sibling {@code GET /api/v1/cases/self-service/symptoms}
+     * mapping ({@link #getSymptomsForFeedbackSelfService}), which is caller-class-restricted
+     * to ROLE_PATIENT in SecurityConfig, not by an annotation here. The {@code healer_id}
+     * row filter remains the record-level layer beneath this capability gate.
      */
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
     @GetMapping("/symptoms")
     public ResponseEntity<PageResponse<SymptomFeedbackDTO>> getSymptomsForFeedback(
+            @RequestParam UUID caseId,
+            Pageable pageable) {
+
+        return ResponseEntity.ok(
+                caseService.getSymptomsForFeedback(caseId, pageable)
+        );
+    }
+
+    /**
+     * Reached only by a ROLE_PATIENT principal (a SELF_REG or PATIENT_CASE token) — the
+     * patient feedback form build. Deliberately carries no {@code @PreAuthorize}: a SELF_REG
+     * token's {@code TenantDetails.healerId} is the OWNING healer's id, so the dynamic
+     * capability check would resolve the patient's request against the wrong principal's
+     * grants. The caller-class restriction lives in SecurityConfig as a path-based
+     * ROLE_PATIENT request-matcher rule on {@code /api/v1/cases/self-service}, not here.
+     * Named by plan 42-14's open-list test.
+     */
+    @GetMapping("/self-service/symptoms")
+    public ResponseEntity<PageResponse<SymptomFeedbackDTO>> getSymptomsForFeedbackSelfService(
             @RequestParam UUID caseId,
             Pageable pageable) {
 
