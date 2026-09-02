@@ -318,4 +318,81 @@ class PatientControllerAuthorizationTest {
         // @PreAuthorize would never reach this call.
         verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(spec.operation()));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  verb isolation — a PATIENT:READ grant does not unlock write verbs
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void verbIsolation_patientReadGrantDoesNotUnlockDeleteOrUpdate() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.PATIENT), eq(Operation.READ)))
+                .thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PATIENT), eq(Operation.DELETE)))
+                .thenReturn(false);
+        when(lookupService.hasPermission(any(), eq(Resource.PATIENT), eq(Operation.UPDATE)))
+                .thenReturn(false);
+
+        mockMvc.perform(delete(BASE + "/" + ROW_ID).cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+        verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(Operation.DELETE));
+
+        mockMvc.perform(put(BASE + "/" + ROW_ID).contentType(MediaType.APPLICATION_JSON)
+                        .content(UPDATE_JSON).cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+        verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(Operation.UPDATE));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  resource isolation — a CASE grant does not leak PATIENT access
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void resourceIsolation_caseGrantDoesNotUnlockPatientReads() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CASE), any())).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.PATIENT), any())).thenReturn(false);
+
+        mockMvc.perform(get(BASE).cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  SC4 — the 2 deliberately-open endpoints stay reachable at request time
+    //  for a caller holding zero grants
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("SC4: generateLink stays reachable for a grant-less healer so a freshly-"
+            + "onboarded healer can still issue a patient self-registration link")
+    void generateLink_grantlessHealer_isNotForbiddenAndReadsNoGrant() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        mockMvc.perform(get(BASE + "/generate-link").cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        // An ungated endpoint must consult no grant at all — also proves no class-level
+        // @PreAuthorize default crept onto the controller (D-16 mandates per-method placement).
+        verifyNoInteractions(lookupService);
+    }
+
+    @Test
+    @DisplayName("SC4: selfRegister stays reachable for a grant-less caller — it runs on a "
+            + "SELF_REG / PATIENT-role token where @rbacAuthz returns false for every real caller")
+    void selfRegister_grantlessCaller_isNotForbidden() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), any(), any())).thenReturn(false);
+
+        mockMvc.perform(post(BASE + "/self-register").contentType(MediaType.APPLICATION_JSON)
+                        .content(PATIENT_JSON).cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
 }
