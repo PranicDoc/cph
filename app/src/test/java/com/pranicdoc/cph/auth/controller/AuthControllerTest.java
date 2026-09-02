@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.auth.controller;
 
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.security.JwtService;
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class AuthControllerTest {
 
     @Autowired
@@ -47,6 +50,9 @@ class AuthControllerTest {
 
     @MockBean
     private ClientRegistrationRepository clientRegistrationRepository;
+
+    @MockBean
+    private HealerCacheService healerCacheService;
 
     @Test
     void changePassword_unauthenticated_returns401() throws Exception {
