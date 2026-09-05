@@ -69,11 +69,15 @@ public class CaseController {
      * ROLE_PATIENT request-matcher rule on {@code /api/v1/cases/self-service}, not here.
      * Uses a query param, not a {@code /self-service/{id}} path template — a template at
      * that depth would collide with the sibling {@code /{id}/summary} pattern and produce an
-     * ambiguous-handler 500. Named by plan 42-14's open-list test.
+     * ambiguous-handler 500. Named by plan 42-14's open-list test. Beyond that caller-class
+     * restriction, the record-level control is {@link
+     * com.pranicdoc.cph.healing.service.impl.CaseService#getByIdForSelfService}'s
+     * patientId/caseId claim comparison against the loaded record — a patient token bound
+     * to another case gets 403 (42-15 / CR-01).
      */
     @GetMapping("/self-service")
     public ResponseEntity<CaseResponse> getByIdSelfService(@RequestParam UUID caseId) {
-        return ResponseEntity.ok(caseService.getById(caseId));
+        return ResponseEntity.ok(caseService.getByIdForSelfService(caseId));
     }
 
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
@@ -243,8 +247,13 @@ public class CaseController {
      * {@code Resource.FEEDBACK.supports(READ) == false}. The patient caller (the feedback
      * form build) is served by the sibling {@code GET /api/v1/cases/self-service/symptoms}
      * mapping ({@link #getSymptomsForFeedbackSelfService}), which is caller-class-restricted
-     * to ROLE_PATIENT in SecurityConfig, not by an annotation here. The {@code healer_id}
-     * row filter remains the record-level layer beneath this capability gate.
+     * to ROLE_PATIENT in SecurityConfig, not by an annotation here. The record-level layer
+     * for this method is {@link
+     * com.pranicdoc.cph.healing.service.impl.CaseService#getSymptomsForFeedback}'s {@code
+     * findOrThrow} plus explicit healer/case ownership comparison, NOT a {@code healer_id}
+     * row filter — the backing symptom query cannot carry the Hibernate tenant filter
+     * ({@code CaseSymptom} extends {@code BaseEntity}, not {@code TenantEntity}) (42-15 /
+     * CR-02).
      */
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
     @GetMapping("/symptoms")
@@ -264,7 +273,12 @@ public class CaseController {
      * capability check would resolve the patient's request against the wrong principal's
      * grants. The caller-class restriction lives in SecurityConfig as a path-based
      * ROLE_PATIENT request-matcher rule on {@code /api/v1/cases/self-service}, not here.
-     * Named by plan 42-14's open-list test.
+     * Named by plan 42-14's open-list test. The record-level control is {@link
+     * com.pranicdoc.cph.healing.service.impl.CaseService#getSymptomsForFeedback}'s caseId
+     * claim comparison — the feedback-session token minted by {@code
+     * AuthService.initSessionForFeedback} is case-bound to a single {@code
+     * FeedbackLink.caseId} (42-15 / CR-02, Task 1), so a patient token for another case
+     * gets 403.
      */
     @GetMapping("/self-service/symptoms")
     public ResponseEntity<PageResponse<SymptomFeedbackDTO>> getSymptomsForFeedbackSelfService(
