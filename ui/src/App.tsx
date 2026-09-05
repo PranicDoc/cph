@@ -113,6 +113,8 @@ const router = createBrowserRouter(
   )
 );
 
+export { router };
+
 export default function App() {
   return (
     <AuthProvider>
