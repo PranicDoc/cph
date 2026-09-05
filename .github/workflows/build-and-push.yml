@@ -153,3 +153,20 @@ jobs:
             docker compose pull cph
             docker compose up -d --no-deps cph
             docker image prune -f
+
+  # ── Required post-deploy step: baseline "Practitioner" role backfill ───────
+  # Runs AFTER the app is live (so Flyway V33–V36 have created the rbac_*
+  # tables and BaselineRoleSeeder has created the role) and BEFORE the release
+  # is considered done — if it fails, this run goes red. It reconciles the
+  # role's grant matrix to app/src/main/resources/rbac/baseline-role.json and
+  # assigns the role to every pre-existing healer that has none.
+  #
+  # Also runnable on its own from the Actions tab (workflow_dispatch) whenever
+  # the grant matrix changes. Needs DB_HOST / DB_PORT / DB_NAME / DB_USERNAME /
+  # DB_PASSWORD secrets — see backfill-practitioner-role.yml.
+  backfill-practitioner-role:
+    name: Backfill Practitioner role
+    needs: deploy
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/backfill-practitioner-role.yml
+    secrets: inherit

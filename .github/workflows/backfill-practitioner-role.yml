@@ -1,0 +1,77 @@
+name: Backfill — Practitioner Role
+
+# Provisions the baseline "Practitioner" rbac_role + its grant matrix and
+# assigns it to every existing HEALER that has no role yet.
+#
+# Two entry points:
+#   • workflow_dispatch — run it by hand from the Actions tab any time the
+#     grant matrix in app/src/main/resources/rbac/baseline-role.json changes,
+#     or to (re)assign the role after an import. Tick "dry_run" first to see
+#     the plan without writing.
+#   • workflow_call — build-and-push.yml calls this right after the app deploy
+#     so a release isn't considered done until the backfill is green.
+#
+# Requires these repo/environment secrets (same names as the Flyway block in
+# application-prod.yml). Add them under Settings → Secrets and variables →
+# Actions if they don't exist yet:
+#   DB_HOST       Aiven Postgres DIRECT host (not the PgBouncer host)
+#   DB_PORT       optional, defaults to 5432
+#   DB_NAME       optional, defaults to "pranic_doc"
+#   DB_USERNAME
+#   DB_PASSWORD
+# The GitHub-hosted runner connects straight to Postgres, so the Aiven IP
+# allow-list must permit GitHub Actions runners (or be open).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — print the plan, commit nothing"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+    secrets:
+      DB_HOST:
+        required: true
+      DB_PORT:
+        required: false
+      DB_NAME:
+        required: false
+      DB_USERNAME:
+        required: true
+      DB_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    name: Provision + assign Practitioner role
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install psycopg
+        run: pip install "psycopg[binary]==3.2.*"
+
+      - name: Run backfill
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SSLMODE: require
+        run: |
+          python scripts/backfill_practitioner_role.py ${{ inputs.dry_run && '--dry-run' || '' }}
