@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Send, CheckCircle2 } from "lucide-react";
+import {
+  persistIsFinalFlag,
+  readIsFinalFlag,
+} from "../lib/feedbackFlag";
 
 const EMOJI_SCALE = [
   { value: 1, emoji: "😠", label: "Terrible" },
@@ -32,8 +36,7 @@ export default function PatientFeedback() {
   const caseId =
     searchParams.get("caseId") ?? sessionStorage.getItem("feedbackCaseId");
 
-  const isFinal =
-    searchParams.get("isFinal") ?? sessionStorage.getItem("isFinalFeedback");
+  const isFinal = readIsFinalFlag(searchParams, sessionStorage);
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,12 +58,11 @@ export default function PatientFeedback() {
   useEffect(() => {
     const tokenFromUrl = searchParams.get("token");
     const caseIdFromUrl = searchParams.get("caseId");
-    const isFinal = searchParams.get("isFinal");
 
     if (tokenFromUrl && caseIdFromUrl) {
       sessionStorage.setItem("feedbackToken", tokenFromUrl);
       sessionStorage.setItem("feedbackCaseId", caseIdFromUrl);
-      sessionStorage.setItem("isFinalFeedback", isFinal);
+      persistIsFinalFlag(searchParams, sessionStorage);
 
       navigate("/feedback", {
         replace: true,
