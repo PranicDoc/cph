@@ -78,6 +78,30 @@ public class JwtService {
     }
 
     /**
+     * Generate a feedback-session token bound to a single {@code FeedbackLink.caseId}
+     * (42-15 / CR-02). Same SELF_REG shape as {@link #generateSelfRegToken(String)} —
+     * subject is the owning healerId, role PATIENT — but additionally carries a
+     * server-derived {@code caseId} claim so {@code CaseService} can perform a
+     * record-level ownership check on the patient feedback read. The caseId always
+     * comes from the persisted {@code FeedbackLink} row, never from a request
+     * parameter. Kept as type SELF_REG (not promoted to PATIENT_CASE) because this
+     * token still has no patientId claim; a PATIENT_CASE-shaped filter branch would
+     * assume one exists.
+     */
+    public String generateFeedbackSessionToken(String healerId, UUID caseId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(healerId)
+                .claim("type", "SELF_REG")
+                .claim("role", "PATIENT")
+                .claim("caseId", caseId.toString())
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + accessTokenExpirationMs))
+                .signWith(signingKey)
+                .compact();
+    }
+
+    /**
      * Generate a case-scoped token issued after case creation.
      * Replaces the broad SELF_REG token — bound to a single patientId + caseId.
      * Uses refresh-token expiry (7 days) so it survives browser close.
