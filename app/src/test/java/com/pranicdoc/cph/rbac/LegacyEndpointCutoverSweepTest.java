@@ -184,6 +184,13 @@ class LegacyEndpointCutoverSweepTest {
                         + "AndAssignRoleStaysCoarseGated — bootstrap is permitAll and self-locks; "
                         + "assignRole deliberately carries hasRole('SUPADM') (PD-40-05), pinned by "
                         + "this class's Test 6");
+        m.put("com.pranicdoc.cph.rbac.controller.BaselineRoleBackfillController",
+                "post-cutover deploy-ops endpoint (POST /api/admin/roles/practitioner/backfill), "
+                        + "added after the MIGRATE-02 surface was frozen and outside the Phase-42 "
+                        + "healer surface. Carries the bare gate @rbacAuthz.hasPermission('ROLES',"
+                        + "'UPDATE') — pinned in BaselineRoleBackfillControllerAuthorizationContract"
+                        + "Test — so it is not an ungated hole; it is simply owned by neither sweep's "
+                        + "pinned counts");
         return m;
     }
 

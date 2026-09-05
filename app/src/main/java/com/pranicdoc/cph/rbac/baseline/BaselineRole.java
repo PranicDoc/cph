@@ -1,13 +1,8 @@
 package com.pranicdoc.cph.rbac.baseline;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 
-import java.io.InputStream;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,13 +10,11 @@ import java.util.Set;
  * The default working role every healer gets on onboarding so the Phase-42
  * capability gates don't lock a freshly-created account out of the core app.
  *
- * <p><b>Definition is data, not code.</b> {@link #NAME}, {@link #DESCRIPTION}
- * and {@link #GRANTS} are loaded from the classpath resource
- * {@value #DEFINITION_RESOURCE} — the single source of truth shared with
- * {@code scripts/backfill_practitioner_role.py} (the pre/post-deploy backfill),
- * which reads the very same file from the repo. Edit the JSON; both the in-app
- * seeder and the backfill script pick the change up, so the two can never
- * drift.
+ * <p>Single source of truth for the grant matrix. Read by
+ * {@link BaselineRoleSeeder} (startup seed, all profiles) and
+ * {@link BaselineRoleGrantReconciler} (the {@code POST /api/admin/roles/
+ * practitioner/backfill} endpoint), so a matrix change here reaches both the
+ * in-app seed and the deploy-time backfill.
  *
  * <p>Grants cover the healer-facing surface only (patient / case / session /
  * pdf / scan / session-protocol / feedback / credit) plus read-only master
@@ -32,56 +25,28 @@ import java.util.Set;
  */
 public final class BaselineRole {
 
-    /** Classpath location of the shared role definition. */
-    public static final String DEFINITION_RESOURCE = "rbac/baseline-role.json";
-
-    public static final String NAME;
-    public static final String DESCRIPTION;
-
-    /** Resource -&gt; granted verbs, parsed from {@value #DEFINITION_RESOURCE}. */
-    public static final Map<Resource, Set<Operation>> GRANTS;
-
-    static {
-        try (InputStream in = BaselineRole.class.getResourceAsStream("/" + DEFINITION_RESOURCE)) {
-            if (in == null) {
-                throw new IllegalStateException(
-                        "Baseline role definition not on classpath: " + DEFINITION_RESOURCE);
-            }
-            JsonNode root = new ObjectMapper().readTree(in);
-            NAME = root.path("name").asText(null);
-            DESCRIPTION = root.path("description").asText(null);
-            if (NAME == null || NAME.isBlank() || DESCRIPTION == null || DESCRIPTION.isBlank()) {
-                throw new IllegalStateException(
-                        "Baseline role definition is missing 'name' or 'description'");
-            }
-
-            Map<Resource, Set<Operation>> grants = new LinkedHashMap<>();
-            JsonNode grantsNode = root.path("grants");
-            grantsNode.fieldNames().forEachRemaining(resourceName -> {
-                Set<Operation> ops = new LinkedHashSet<>();
-                grantsNode.get(resourceName).forEach(op -> {
-                    Operation operation = Operation.valueOf(op.asText());
-                    Resource resource = Resource.valueOf(resourceName);
-                    if (!resource.supports(operation)) {
-                        throw new IllegalStateException(
-                                "Baseline role grants " + resourceName + ":" + op.asText()
-                                        + " but Resource." + resourceName + " does not support it");
-                    }
-                    ops.add(operation);
-                });
-                grants.put(Resource.valueOf(resourceName), Set.copyOf(ops));
-            });
-            if (grants.isEmpty()) {
-                throw new IllegalStateException("Baseline role definition has no grants");
-            }
-            GRANTS = Map.copyOf(grants);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to load baseline role definition from classpath:/" + DEFINITION_RESOURCE, e);
-        }
-    }
-
     private BaselineRole() {}
+
+    public static final String NAME = "Practitioner";
+
+    public static final String DESCRIPTION =
+            "Default working role assigned to every healer on onboarding. "
+            + "Covers day-to-day patient, case, session, PDF, scan, protocol, "
+            + "feedback and credit operations plus read-only reference data.";
+
+    /** Resource -&gt; granted verbs. Every pair must satisfy {@code Resource.supports(Operation)}. */
+    public static final Map<Resource, Set<Operation>> GRANTS = Map.ofEntries(
+            Map.entry(Resource.PATIENT, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
+            Map.entry(Resource.CASE, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
+            Map.entry(Resource.SESSION, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
+            Map.entry(Resource.PDF, Set.of(Operation.CREATE, Operation.READ, Operation.EXPORT)),
+            Map.entry(Resource.SCAN, Set.of(Operation.CREATE)),
+            Map.entry(Resource.SESSION_PROTOCOL, Set.of(Operation.CREATE)),
+            Map.entry(Resource.FEEDBACK, Set.of(Operation.CREATE)),
+            Map.entry(Resource.CREDIT_ACCOUNTS, Set.of(Operation.READ, Operation.CREATE)),
+            Map.entry(Resource.CREDIT_ACCOUNT_TRANSACTIONS, Set.of(Operation.READ, Operation.WRITE)),
+            // Read-only reference data a healer needs to record scans / protocols.
+            Map.entry(Resource.MASTER_DATA_CHAKRAS, Set.of(Operation.READ)),
+            Map.entry(Resource.MASTER_DATA_COLORS, Set.of(Operation.READ)),
+            Map.entry(Resource.MASTER_DATA_PROTOCOLS, Set.of(Operation.READ)));
 }
