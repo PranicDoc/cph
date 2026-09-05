@@ -15,6 +15,7 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
+import com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class InviteService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final CreditService creditService;
+    private final BaselineRoleAssigner baselineRoleAssigner;
 
     @Value("${app.invite.url}")
     private String inviteUrl;
@@ -317,6 +319,11 @@ public class InviteService {
             log.warn("CREDIT_ACCOUNT_PROVISION_FAILED healerId={} reason={} (account activated; manual provisioning may be needed)",
                     saved.getId(), e.getMessage());
         }
+
+        // Give the new healer the baseline capability grants so the Phase-42 gates
+        // don't lock them out of the core app. Fail-soft (same posture as credit
+        // provisioning above) — the assigner swallows its own errors.
+        baselineRoleAssigner.assignTo(saved.getId());
 
         setAuthCookies(response, saved);
 

@@ -72,6 +72,9 @@ class InviteServiceTest {
     private CreditService creditService;
 
     @Mock
+    private com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner baselineRoleAssigner;
+
+    @Mock
     private HttpServletResponse httpServletResponse;
 
     private InviteService inviteService;
@@ -81,7 +84,8 @@ class InviteServiceTest {
     @BeforeEach
     void setUp() {
         inviteService = new InviteService(inviteRepository, healerRepository,
-                mailSender, passwordEncoder, jwtService, cookieUtil, creditService);
+                mailSender, passwordEncoder, jwtService, cookieUtil, creditService,
+                baselineRoleAssigner);
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
         ReflectionTestUtils.setField(inviteService, "inviteExpiryHours", 72);
     }
@@ -483,6 +487,7 @@ class InviteServiceTest {
         assertEquals(savedHealerId, response.id());
         assertEquals("invitee@example.com", response.email());
         verify(creditService).createAccount(OwnerType.HEALER, savedHealerId);
+        verify(baselineRoleAssigner).assignTo(savedHealerId);
         verify(cookieUtil).setAuthCookies(any(), any(), any());
         Healer savedHealer = healerCaptor.getValue();
         assertEquals("New Healer", savedHealer.getFullName());
