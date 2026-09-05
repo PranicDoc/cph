@@ -225,6 +225,7 @@ class CaseControllerAuthorizationTest {
     void stubHappyPath() {
         when(caseService.create(any(), any(), any())).thenReturn(CASE_RESPONSE);
         when(caseService.getById(any())).thenReturn(CASE_RESPONSE);
+        when(caseService.getByIdForSelfService(any())).thenReturn(CASE_RESPONSE);
         when(caseService.getByPatientId(any(), any())).thenReturn(CASE_PAGE);
         when(caseService.updateCaseDetails(any(), any())).thenReturn(CASE_RESPONSE);
         when(caseService.getSymptomsForFeedback(any(), any())).thenReturn(SYMPTOM_FEEDBACK_PAGE);
@@ -636,6 +637,44 @@ class CaseControllerAuthorizationTest {
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
 
         mockMvc.perform(request)
+                .andExpect(status().isForbidden());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  plan 42-15 / CR-01 + CR-02 — the ownership denial must survive the real
+    //  filter chain: a service-layer AccessDeniedException must surface as 403,
+    //  not leak a 200 with data.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("42-15 / CR-01: when CaseService.getByIdForSelfService denies ownership, "
+            + "GET /api/v1/cases/self-service returns 403, not a 200 with another patient's case")
+    void selfServiceCaseRead_whenTheServiceDeniesOwnership_is403NotDataDisclosure() throws Exception {
+        authenticateAs("PATIENT");
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+        when(caseService.getByIdForSelfService(any()))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException(
+                        "Not authorized to view this case"));
+
+        mockMvc.perform(get(BASE + "/self-service")
+                        .param("caseId", UUID.randomUUID().toString())
+                        .cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("42-15 / CR-02: when CaseService.getSymptomsForFeedback denies ownership, "
+            + "GET /api/v1/cases/self-service/symptoms returns 403, not a 200 with another case's symptoms")
+    void selfServiceSymptomRead_whenTheServiceDeniesOwnership_is403NotDataDisclosure() throws Exception {
+        authenticateAs("PATIENT");
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+        when(caseService.getSymptomsForFeedback(any(), any()))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException(
+                        "Not authorized to view this case"));
+
+        mockMvc.perform(get(BASE + "/self-service/symptoms")
+                        .param("caseId", UUID.randomUUID().toString())
+                        .cookie(accessCookie()))
                 .andExpect(status().isForbidden());
     }
 }
