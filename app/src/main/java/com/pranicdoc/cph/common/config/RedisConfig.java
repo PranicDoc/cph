@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.common.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -56,15 +57,30 @@ public class RedisConfig {
     /**
      * Serializer-configured {@link RedisCacheManager} exposing the L2 cache tier.
      * Reuses the autoconfigured {@link RedisConnectionFactory} (LettuceConnectionFactory)
-     * and the app's own {@link ObjectMapper} bean (see {@link ObjectMapperConfig}, already
-     * registers {@code JavaTimeModule} so dashboard DTOs with date/time fields serialize
-     * correctly) for JSON value serialization.
+     * and a copy of the app's own {@link ObjectMapper} bean (see {@link ObjectMapperConfig},
+     * already registers {@code JavaTimeModule} so dashboard DTOs with date/time fields
+     * serialize correctly) for JSON value serialization.
+     *
+     * <p>The copy has default typing activated ({@code @class} embedded in the stored JSON).
+     * {@link GenericJackson2JsonRedisSerializer} needs this to know the concrete Java type to
+     * reconstruct on read — without it, a cache value with no type hint deserializes to a
+     * plain {@code LinkedHashMap}/{@code ArrayList} instead of the original DTO (e.g.
+     * {@code ApiResponse}), which surfaces as a {@code ClassCastException} at the
+     * {@code @Cacheable} call site on any read that misses Caffeine's L1 and falls through to
+     * this Redis L2. Default typing is activated on a copy, not the shared {@code objectMapper}
+     * bean itself, so {@code @class} metadata never leaks into HTTP JSON responses.
      */
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory redisConnectionFactory,
                                                 ObjectMapper objectMapper) {
+        ObjectMapper redisMapper = objectMapper.copy();
+        redisMapper.activateDefaultTyping(
+                redisMapper.getPolymorphicTypeValidator(),
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY);
+
         GenericJackson2JsonRedisSerializer jsonValueSerializer =
-                new GenericJackson2JsonRedisSerializer(objectMapper);
+                new GenericJackson2JsonRedisSerializer(redisMapper);
 
         RedisCacheConfiguration cacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(redisCacheTtlMinutes))
