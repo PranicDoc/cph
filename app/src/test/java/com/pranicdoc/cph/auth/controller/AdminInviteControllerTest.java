@@ -14,13 +14,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -30,8 +28,9 @@ import static org.mockito.Mockito.*;
  * documented broken WebMvcTest + SecurityConfig import pattern (missing OAuth2 bean mocks).
  *
  * Solo-healer world (CUTOVER-05/D-26-02): invite visibility is no longer clinic-scoped —
- * AdminAuthz's clinic-filter plumbing was removed from the controller entirely. The only
- * remaining authorization distinction covered here is role-based (ADMIN cannot invite SUPADM).
+ * AdminAuthz's clinic-filter plumbing was removed from the controller entirely. Phase 41
+ * removed the last static role check (the invite-escalation guard); every endpoint is now
+ * gated purely by {@code @rbacAuthz.hasPermission} and createInvite always mints a plain HEALER.
  */
 @ExtendWith(MockitoExtension.class)
 class AdminInviteControllerTest {
@@ -50,66 +49,29 @@ class AdminInviteControllerTest {
     // ─── create() ────────────────────────────────────────────────
 
     @Test
-    void create_asAdmin_createsClinicFreeInvite() {
-        InviteCreateRequest request = new InviteCreateRequest("healer@example.com", Role.HEALER);
+    void create_delegatesEmailAndCallerId_returns201() {
+        // WR-03: this replaces the byte-identical create_asAdmin_* / create_asSupadm_* pair.
+        // This is a plain Mockito test with no Spring Security, so the caller's role is
+        // invisible to the controller method — "as X" naming implied coverage that never
+        // existed. Genuine caller-role differentiation lives in the filter-chain sibling
+        // FilterChainAdminInviteControllerAuthorizationTest.
+        InviteCreateRequest request = new InviteCreateRequest("healer@example.com");
 
         when(securityContextUtil.getCurrentHealerId()).thenReturn(CALLER_HEALER_ID);
         InviteResponse expected = sampleResponse();
-        when(inviteService.createInvite(eq("healer@example.com"), eq(Role.HEALER), eq(CALLER_HEALER_ID)))
+        when(inviteService.createInvite(eq("healer@example.com"), eq(CALLER_HEALER_ID)))
                 .thenReturn(expected);
 
         ResponseEntity<InviteResponse> response = controller.create(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(expected);
-        verify(inviteService).createInvite("healer@example.com", Role.HEALER, CALLER_HEALER_ID);
+        verify(inviteService).createInvite("healer@example.com", CALLER_HEALER_ID);
     }
 
-    @Test
-    void create_asSupadm_createsClinicFreeInvite() {
-        InviteCreateRequest request = new InviteCreateRequest("healer@example.com", Role.HEALER);
-
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(CALLER_HEALER_ID);
-        InviteResponse expected = sampleResponse();
-        when(inviteService.createInvite(eq("healer@example.com"), eq(Role.HEALER), eq(CALLER_HEALER_ID)))
-                .thenReturn(expected);
-
-        ResponseEntity<InviteResponse> response = controller.create(request);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody()).isEqualTo(expected);
-        verify(inviteService).createInvite("healer@example.com", Role.HEALER, CALLER_HEALER_ID);
-    }
-
-    @Test
-    void adminCannotInviteSupadm() {
-        InviteCreateRequest request = new InviteCreateRequest("healer@example.com", Role.SUPADM);
-
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
-
-        assertThatThrownBy(() -> controller.create(request))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.FORBIDDEN));
-
-        verifyNoInteractions(inviteService);
-    }
-
-    @Test
-    void supadmCanInviteSupadm() {
-        InviteCreateRequest request = new InviteCreateRequest("healer@example.com", Role.SUPADM);
-
-        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(CALLER_HEALER_ID);
-        InviteResponse expected = sampleResponse();
-        when(inviteService.createInvite(eq("healer@example.com"), eq(Role.SUPADM), eq(CALLER_HEALER_ID)))
-                .thenReturn(expected);
-
-        ResponseEntity<InviteResponse> response = controller.create(request);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        verify(inviteService).createInvite("healer@example.com", Role.SUPADM, CALLER_HEALER_ID);
-    }
+    // Phase 41 deleted the escalation-guard tests: the request contract no longer carries a
+    // role, the guard is gone from AdminInviteController, and the HEALER-only rule now lives
+    // as an InviteService invariant covered by InviteServiceTest.
 
     // ─── list() ──────────────────────────────────────────────────
 

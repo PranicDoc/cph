@@ -1,9 +1,17 @@
 package com.pranicdoc.cph.payments;
 
-import com.pranicdoc.cph.common.security.SecurityConfig;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.security.JwtService;
+import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
+import com.pranicdoc.cph.common.security.SecurityConfig;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
 import com.pranicdoc.cph.payments.service.impl.CreditServiceImpl;
+import com.pranicdoc.cph.rbac.RbacAuthz;
+import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,29 +21,45 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.client.RestClient;
 
+import java.util.UUID;
+
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc unit tests for CreditProxyController.
- * Tests: GET /api/credits/packages, POST /api/credits/purchase, and unauthenticated 401.
- * Uses @TestConfiguration to provide the RestClient mock as a named Spring bean,
- * avoiding @MockBean/CreditProxyConfig bean-replacement ordering issues.
+ * MockMvc proxy-behaviour tests for {@link CreditProxyController}.
+ *
+ * <p>Purpose (unchanged by plan 42-06's repair): the controller forwards {@code GET /packages}
+ * and {@code POST /purchase} through {@link CreditServiceImpl} to creditService and returns the
+ * upstream status/body, without exposing the server-side {@code X-Api-Key} to the browser;
+ * unauthenticated calls are rejected before the handler runs.
+ *
+ * <p><b>D-14 repair.</b> This class was one of the 13 red slices in the Phase 42 baseline —
+ * {@code IllegalStateException: Failed to load ApplicationContext}. It is rebuilt on the PROVEN
+ * {@code @WebMvcTest + @Import(SecurityConfig)} harness from {@code 40-HARNESS-DECISION.md}:
+ * {@code @ActiveProfiles("test")} for the dummy OAuth2 client registration, the always-required
+ * {@code HealerCacheService} / {@code OAuth2AuthenticationSuccessHandler} mocks, and — because
+ * {@code CreditProxyController} is now capability-gated (Task 1) — the {@code rbacAuthz} SpEL bean
+ * plus {@code SecurityContextUtil} / {@code RolePermissionLookupService}. {@code @WithMockUser}
+ * (silently wiped by {@code JwtAuthFilter}, which calls {@code clearContext()} when there is no
+ * {@code accessToken} cookie) is replaced by real cookie authentication; every behavioural test
+ * authenticates as SUPADM so it reaches the handler through the {@link RbacAuthz} short-circuit —
+ * authorization itself is covered by {@code CreditProxyControllerAuthorizationTest}.
  */
 @WebMvcTest(CreditProxyController.class)
-@Import({SecurityConfig.class, CreditProxyControllerTest.RestClientTestConfig.class, CreditServiceImpl.class})
+@Import({SecurityConfig.class, CreditProxyControllerTest.RestClientTestConfig.class,
+        CreditProxyControllerTest.RbacAuthzTestConfig.class, CreditServiceImpl.class})
+@ActiveProfiles("test")
 @TestPropertySource(properties = "app.enable.credit-service=true")
 class CreditProxyControllerTest {
 
@@ -50,6 +74,15 @@ class CreditProxyControllerTest {
         }
     }
 
+    @TestConfiguration
+    static class RbacAuthzTestConfig {
+        @Bean   // MUST be named 'rbacAuthz' — this is the @PreAuthorize SpEL reference
+        RbacAuthz rbacAuthz(SecurityContextUtil securityContextUtil,
+                            RolePermissionLookupService lookupService) {
+            return new RbacAuthz(securityContextUtil, lookupService);
+        }
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -59,73 +92,84 @@ class CreditProxyControllerTest {
     @MockBean
     private TenantInterceptor tenantInterceptor;
 
-    // Mocks for the RestClient fluent GET chain
-    @SuppressWarnings("rawtypes")
-    private RestClient.RequestHeadersUriSpec getUriSpec;
-    @SuppressWarnings("rawtypes")
-    private RestClient.RequestHeadersSpec getHeadersSpec;
-    private RestClient.ResponseSpec getResponseSpec;
+    @MockBean
+    private HealerCacheService healerCacheService;
 
-    // Mocks for the RestClient fluent POST chain
-    private RestClient.RequestBodyUriSpec postBodyUriSpec;
-    private RestClient.RequestBodySpec postBodySpec;
-    private RestClient.ResponseSpec postResponseSpec;
+    @MockBean
+    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
-    @SuppressWarnings("unchecked")
+    @MockBean
+    private SecurityContextUtil securityContextUtil;
+
+    @MockBean
+    private RolePermissionLookupService lookupService;
+
+    // CreditServiceImpl collaborators — the slice does not scan @Service / repositories,
+    // so both must be @MockBean'd for the context to load (D-14 assembly fact 1).
+    @MockBean
+    private CreditServiceClient creditServiceClient;
+
+    @MockBean
+    private HealerRepository healerRepository;
+
+    private static final UUID HEALER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final String ACCESS_TOKEN = "test-access-token";
+
     @BeforeEach
     void setUp() {
-        reset(CREDIT_SERVICE_REST_CLIENT);
+        // Behavioural tests are about proxy forwarding, not authorization: authenticate as SUPADM
+        // so RbacAuthz short-circuits to true and every request reaches the handler.
+        lenient().when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+        lenient().when(creditServiceClient.getPackages()).thenReturn("[{\"name\":\"FREE\",\"credits\":10}]");
+        lenient().when(creditServiceClient.purchase(any(), any()))
+                .thenReturn("{\"purchase_reference\":\"uuid\",\"credits_added\":50}");
+    }
 
-        // GET chain
-        getUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        getHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-        getResponseSpec = mock(RestClient.ResponseSpec.class);
+    private void authenticateAsSupadm() {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(HEALER_ID.toString());
+        when(claims.get("role", String.class)).thenReturn("SUPADM");
+        when(jwtService.isTokenValid(ACCESS_TOKEN)).thenReturn(true);
+        when(jwtService.extractTokenType(ACCESS_TOKEN)).thenReturn("ACCESS");
+        when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
+        when(healerCacheService.isActive(any())).thenReturn(true);
+        try {
+            when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        } catch (Exception impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
 
-        when(CREDIT_SERVICE_REST_CLIENT.get()).thenReturn(getUriSpec);
-        when(getUriSpec.uri(anyString())).thenReturn(getHeadersSpec);
-        when(getHeadersSpec.retrieve()).thenReturn(getResponseSpec);
-
-        // POST chain
-        postBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
-        postBodySpec = mock(RestClient.RequestBodySpec.class);
-        postResponseSpec = mock(RestClient.ResponseSpec.class);
-
-        when(CREDIT_SERVICE_REST_CLIENT.post()).thenReturn(postBodyUriSpec);
-        when(postBodyUriSpec.uri(anyString())).thenReturn(postBodySpec);
-        when(postBodySpec.body(any())).thenReturn(postBodySpec);
-        when(postBodySpec.retrieve()).thenReturn(postResponseSpec);
+    private static Cookie accessCookie() {
+        return new Cookie("accessToken", ACCESS_TOKEN);
     }
 
     @Test
-    @WithMockUser
     void getPackages_returns200WithPackageList() throws Exception {
-        String responseBody = "[{\"name\":\"FREE\",\"credits\":10}]";
-        when(getResponseSpec.toEntity(any(Class.class)))
-                .thenReturn(ResponseEntity.ok(responseBody));
+        authenticateAsSupadm();
 
         mockMvc.perform(get("/api/credits/packages")
-                        .accept(MediaType.APPLICATION_JSON))
+                        .accept(MediaType.APPLICATION_JSON)
+                        .cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser
     void purchase_returns200WithPurchaseResponse() throws Exception {
-        String requestBody = "{\"package_id\":\"uuid\",\"owner_type\":\"CLINIC\",\"owner_id\":\"uuid\",\"idempotency_key\":\"key\"}";
-        String responseBody = "{\"purchase_reference\":\"uuid\",\"credits_added\":50}";
-        when(postResponseSpec.toEntity(any(Class.class)))
-                .thenReturn(ResponseEntity.ok(responseBody));
+        authenticateAsSupadm();
+        String requestBody = "{\"package_id\":\"uuid\",\"owner_type\":\"HEALER\",\"owner_id\":\"uuid\",\"idempotency_key\":\"key\"}";
 
         mockMvc.perform(post("/api/credits/purchase")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .content(requestBody)
+                        .cookie(accessCookie()))
                 .andExpect(status().isOk());
     }
 
     @Test
     void getPackages_unauthenticated_returns4xx() throws Exception {
-        // Without authentication, Spring Security returns 401 or 403 depending on configuration.
-        // The important invariant is that unauthenticated access is blocked (not 200/2xx).
+        // Without an accessToken cookie, JwtAuthFilter clears the context and
+        // .anyRequest().authenticated() rejects the request before the handler runs.
         mockMvc.perform(get("/api/credits/packages"))
                 .andExpect(status().is4xxClientError());
     }

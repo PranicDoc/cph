@@ -72,6 +72,9 @@ class InviteServiceTest {
     private CreditService creditService;
 
     @Mock
+    private com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner baselineRoleAssigner;
+
+    @Mock
     private HttpServletResponse httpServletResponse;
 
     private InviteService inviteService;
@@ -81,7 +84,8 @@ class InviteServiceTest {
     @BeforeEach
     void setUp() {
         inviteService = new InviteService(inviteRepository, healerRepository,
-                mailSender, passwordEncoder, jwtService, cookieUtil, creditService);
+                mailSender, passwordEncoder, jwtService, cookieUtil, creditService,
+                baselineRoleAssigner);
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
         ReflectionTestUtils.setField(inviteService, "inviteExpiryHours", 72);
     }
@@ -98,7 +102,7 @@ class InviteServiceTest {
         ArgumentCaptor<HealerInviteLink> captor = ArgumentCaptor.forClass(HealerInviteLink.class);
         when(inviteRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         HealerInviteLink saved = captor.getValue();
         assertEquals(email, saved.getEmail());
@@ -127,12 +131,16 @@ class InviteServiceTest {
         when(healerRepository.existsByEmail(email)).thenReturn(false);
         when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
                 .thenReturn(Optional.of(existing));
-        when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
+        ArgumentCaptor<HealerInviteLink> captor = ArgumentCaptor.forClass(HealerInviteLink.class);
+        when(inviteRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         // Only ONE save call — the existing row is mutated and re-saved, no second row inserted.
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
+        // 41-04: the rotate-existing-PENDING-row branch must still pin Role.HEALER on the persisted row —
+        // this is the branch a three-argument-era regression would most easily miss.
+        assertEquals(Role.HEALER, captor.getValue().getRole());
         assertNotEquals(oldToken, existing.getToken());
         assertEquals(email, response.email());
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
@@ -144,7 +152,7 @@ class InviteServiceTest {
         when(healerRepository.existsByEmail(email)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class,
-                () -> inviteService.createInvite(email, Role.HEALER, invitedByHealerId));
+                () -> inviteService.createInvite(email, invitedByHealerId));
 
         verify(inviteRepository, never()).save(any());
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
@@ -159,7 +167,7 @@ class InviteServiceTest {
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
 
-        InviteResponse response = inviteService.createInvite(email, Role.HEALER, invitedByHealerId);
+        InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
         assertEquals(email, response.email());
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
@@ -251,6 +259,46 @@ class InviteServiceTest {
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
         assertNotEquals(oldToken, existing.getToken());
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    /**
+     * Negative branch of the {@code requestSelfSignup} HEALER-only invariant (Phase 41
+     * code review WR-01). The rotate-existing-PENDING-row branch never touches {@code role},
+     * so a self-signup row persisted before the retirement carrying {@link Role#SUPADM} —
+     * the only non-HEALER value left after the enum shrink — is the realistic way a
+     * non-HEALER role could still reach the {@code save(...)}. The single-sourced
+     * {@code assertInviteMintsHealer} guard must throw {@link IllegalStateException} before
+     * any row is persisted or any email is sent. Mirrors
+     * {@code acceptInvite_staleInviteWithSupadmRole_throws}.
+     */
+    @Test
+    void requestSelfSignup_staleSelfSignupRowWithSupadmRole_throws() {
+        String email = "stale-self-signup-elevated@example.com";
+        HealerInviteLink existing = HealerInviteLink.builder()
+                .id(UUID.randomUUID())
+                .token("old-self-signup-token")
+                .email(email)
+                .role(Role.SUPADM)
+                .source(HealerInviteLink.Source.SELF_SIGNUP)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.existsByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.ADMIN_INVITE, HealerInviteLink.Status.PENDING))
+                .thenReturn(false);
+        when(inviteRepository.findByEmailAndSourceAndStatus(
+                email, HealerInviteLink.Source.SELF_SIGNUP, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.of(existing));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> inviteService.requestSelfSignup(email));
+        assertTrue(ex.getMessage().contains("HEALER"),
+                "invariant message must name the survivor tier HEALER — got: " + ex.getMessage());
+
+        verify(inviteRepository, never()).save(any());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
     // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
@@ -439,6 +487,7 @@ class InviteServiceTest {
         assertEquals(savedHealerId, response.id());
         assertEquals("invitee@example.com", response.email());
         verify(creditService).createAccount(OwnerType.HEALER, savedHealerId);
+        verify(baselineRoleAssigner).assignTo(savedHealerId);
         verify(cookieUtil).setAuthCookies(any(), any(), any());
         Healer savedHealer = healerCaptor.getValue();
         assertEquals("New Healer", savedHealer.getFullName());
@@ -553,6 +602,93 @@ class InviteServiceTest {
 
         assertThrows(TokenExpiredException.class,
                 () -> inviteService.acceptInvite(token, request, httpServletResponse));
+
+        verify(healerRepository, never()).save(any());
+        verify(creditService, never()).createAccount(any(), any());
+    }
+
+    // ─── acceptInvite — role retirement invariant (Phase 41 / MIGRATE-04 / D-05, D-06) ───
+
+    /**
+     * ADMIN_INVITE-source branch of {@code acceptInvite}: the ternary in acceptInvite keeps
+     * {@code invite.getRole()} for a non-self-signup invite, so this is the branch that proves
+     * an admin invite still mints a plain {@link Role#HEALER} account after the Phase 41 enum
+     * shrink. Complements {@code acceptInvite_selfSignupSource_noClinicCreated_healerRoleForced},
+     * which locks the SELF_SIGNUP half.
+     */
+    @Test
+    void acceptInvite_adminInviteSource_forcesHealer() {
+        String token = "admin-invite-accept-token";
+        UUID inviteId = UUID.randomUUID();
+        HealerInviteLink invite = HealerInviteLink.builder()
+                .id(inviteId)
+                .token(token)
+                .email("admin-invited@example.com")
+                .role(Role.HEALER)
+                .source(HealerInviteLink.Source.ADMIN_INVITE)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+        UUID savedHealerId = UUID.randomUUID();
+
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq(token), eq(HealerInviteLink.Status.PENDING), any()))
+                .thenReturn(Optional.of(invite));
+        when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
+        when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
+
+        ArgumentCaptor<Healer> healerCaptor = ArgumentCaptor.forClass(Healer.class);
+        when(healerRepository.save(healerCaptor.capture())).thenAnswer(inv -> {
+            Healer h = inv.getArgument(0);
+            h.setId(savedHealerId);
+            return h;
+        });
+
+        AcceptInviteRequest request = new AcceptInviteRequest("Admin Invited", "password1", "555-9876");
+        HealerResponse response = inviteService.acceptInvite(token, request, httpServletResponse);
+
+        Healer savedHealer = healerCaptor.getValue();
+        assertEquals(Role.HEALER, savedHealer.getRole());
+        assertEquals(savedHealerId, response.id());
+        verify(creditService).createAccount(OwnerType.HEALER, savedHealerId);
+    }
+
+    /**
+     * Negative branch of the {@code acceptInvite} retirement invariant (PD-41-01).
+     * {@code healer_invite_link.role} has no DB CHECK constraint (D-05), so a PENDING row
+     * written before this phase is the one realistic way a non-HEALER role could still reach
+     * {@code acceptInvite}; this is that guard's regression test. A stale ADMIN_INVITE row
+     * carrying {@link Role#SUPADM} — the only non-HEALER value that still exists after the
+     * enum shrink — must throw {@link IllegalStateException} before any {@code Healer} (or
+     * credit account) is persisted.
+     */
+    @Test
+    void acceptInvite_staleInviteWithSupadmRole_throws() {
+        String token = "stale-pre-retirement-token";
+        UUID inviteId = UUID.randomUUID();
+        HealerInviteLink invite = HealerInviteLink.builder()
+                .id(inviteId)
+                .token(token)
+                .email("stale-elevated@example.com")
+                .role(Role.SUPADM)
+                .source(HealerInviteLink.Source.ADMIN_INVITE)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq(token), eq(HealerInviteLink.Status.PENDING), any()))
+                .thenReturn(Optional.of(invite));
+        when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
+        when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
+
+        AcceptInviteRequest request = new AcceptInviteRequest("Stale Elevated", "password1", null);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> inviteService.acceptInvite(token, request, httpServletResponse));
+        assertTrue(ex.getMessage().contains("HEALER"),
+                "invariant message must name the survivor tier HEALER — got: " + ex.getMessage());
 
         verify(healerRepository, never()).save(any());
         verify(creditService, never()).createAccount(any(), any());

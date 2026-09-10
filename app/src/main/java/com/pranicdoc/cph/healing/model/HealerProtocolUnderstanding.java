@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.model;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "healer_protocol_understanding")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

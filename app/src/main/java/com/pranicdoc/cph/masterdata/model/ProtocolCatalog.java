@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_protocol_catalog_name_book_page",
                 columnNames = {"name", "source_book", "page_number"}))
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

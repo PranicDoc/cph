@@ -1,0 +1,97 @@
+name: Backfill — Practitioner Role
+
+# Calls the running app's own API to (1) ensure the baseline "Practitioner"
+# rbac_role + its grant matrix exist and match BaselineRole.java, and (2)
+# assign the role to every active HEALER that has none. No direct DB access —
+# the app does the work, so this keeps working once Postgres moves behind a
+# VPC.
+#
+# Two entry points:
+#   • workflow_dispatch — run it by hand from the Actions tab whenever the
+#     grant matrix in BaselineRole.java changes, or to (re)assign the role
+#     after an import. Tick "dry_run" to see the plan without writing.
+#   • workflow_call — build-and-push.yml calls this right AFTER the deploy job
+#     (Flyway V33–V36 and BaselineRoleSeeder run on app boot, so the rbac_*
+#     tables and the role row already exist by then). A release isn't done
+#     until this is green.
+#
+# Requires these repo/environment secrets:
+#   APP_BASE_URL      e.g. https://api.example.com/cph  (INCLUDE the /cph context path)
+#   SUPADM_USERNAME   email of a password-login SUPADM service account
+#   SUPADM_PASSWORD   its password
+# The SUPADM account short-circuits @rbacAuthz.hasPermission, so it clears the
+# endpoint's ROLES:UPDATE gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — compute the plan, write nothing"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+    secrets:
+      APP_BASE_URL:
+        required: true
+      SUPADM_USERNAME:
+        required: true
+      SUPADM_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    name: Provision + assign Practitioner role (via app API)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the app to report healthy
+        env:
+          BASE: ${{ secrets.APP_BASE_URL }}
+        run: |
+          set -u
+          for i in $(seq 1 40); do
+            code=$(curl -fsS -o /dev/null -w '%{http_code}' "$BASE/actuator/health" || true)
+            echo "health attempt $i -> ${code:-000}"
+            [ "$code" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "::error::app did not report healthy at $BASE/actuator/health within ~10 min"
+          exit 1
+
+      - name: Log in as SUPADM and run the backfill
+        env:
+          BASE: ${{ secrets.APP_BASE_URL }}
+          SUPADM_USERNAME: ${{ secrets.SUPADM_USERNAME }}
+          SUPADM_PASSWORD: ${{ secrets.SUPADM_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          jar="$(mktemp)"
+
+          login_body="$(jq -nc --arg e "$SUPADM_USERNAME" --arg p "$SUPADM_PASSWORD" \
+            '{email:$e, password:$p}')"
+          code=$(curl -sS -c "$jar" -o /tmp/login.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -X POST "$BASE/api/v1/auth/login" --data "$login_body")
+          echo "login -> $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::SUPADM login failed ($code)"; cat /tmp/login.json; exit 1
+          fi
+
+          query=""
+          [ "$DRY_RUN" = "true" ] && query="?dryRun=true"
+
+          code=$(curl -sS -b "$jar" -o /tmp/backfill.json -w '%{http_code}' \
+            -X POST "$BASE/api/admin/roles/practitioner/backfill${query}")
+          echo "backfill -> $code"
+          echo "--- report ---"
+          jq . /tmp/backfill.json || cat /tmp/backfill.json
+          [ "$code" = "200" ] || { echo "::error::backfill call failed ($code)"; exit 1; }
+
+          echo "::notice::Practitioner backfill $( [ -n "$query" ] && echo '(dry run) ' )complete: $(jq -c . /tmp/backfill.json)"

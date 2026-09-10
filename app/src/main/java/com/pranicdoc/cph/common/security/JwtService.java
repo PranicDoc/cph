@@ -17,7 +17,7 @@ import java.util.UUID;
  *
  * Token claims (ACCESS/REFRESH, post-26-09 CONTRACT step):
  *   sub       = healerId (UUID)
- *   role      = healer role (HEALER, SENIOR_HEALER, ADMIN, etc.)
+ *   role      = healer role (HEALER, SUPADM)
  *   type      = "ACCESS" or "REFRESH"
  *
  * Token claims (SELF_REG/PATIENT_CASE, post-26-11 D-26-04):
@@ -71,6 +71,30 @@ public class JwtService {
                 .claim("type", "SELF_REG")
                 .claim("role", "PATIENT")
                 .claim("reg_uuid", regUuid)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + accessTokenExpirationMs))
+                .signWith(signingKey)
+                .compact();
+    }
+
+    /**
+     * Generate a feedback-session token bound to a single {@code FeedbackLink.caseId}
+     * (42-15 / CR-02). Same SELF_REG shape as {@link #generateSelfRegToken(String)} —
+     * subject is the owning healerId, role PATIENT — but additionally carries a
+     * server-derived {@code caseId} claim so {@code CaseService} can perform a
+     * record-level ownership check on the patient feedback read. The caseId always
+     * comes from the persisted {@code FeedbackLink} row, never from a request
+     * parameter. Kept as type SELF_REG (not promoted to PATIENT_CASE) because this
+     * token still has no patientId claim; a PATIENT_CASE-shaped filter branch would
+     * assume one exists.
+     */
+    public String generateFeedbackSessionToken(String healerId, UUID caseId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(healerId)
+                .claim("type", "SELF_REG")
+                .claim("role", "PATIENT")
+                .claim("caseId", caseId.toString())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + accessTokenExpirationMs))
                 .signWith(signingKey)

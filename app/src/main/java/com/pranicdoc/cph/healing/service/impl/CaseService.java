@@ -163,6 +163,33 @@ public class CaseService {
         return toResponse(findOrThrow(id));
     }
 
+    /**
+     * Patient self-service case read (42-15 / CR-01). {@link #getById} remains the
+     * healer-path read and stays a bare lookup — the caller-class matcher in
+     * SecurityConfig already restricts /self-service to ROLE_PATIENT. This method adds
+     * the record-level ownership check that path was missing: it loads the entity, then
+     * requires the JWT-derived patientId/caseId claims to match the LOADED record — never
+     * the request parameter — mirroring the reference pattern in {@link
+     * #updateCaseDetails}. Fails closed (denies) when either claim is null or the caller's
+     * role is not PATIENT, as defence in depth against a future matcher regression.
+     */
+    @Transactional(readOnly = true)
+    public CaseResponse getByIdForSelfService(UUID id) {
+        HealingCase entity = findOrThrow(id);
+        String role = securityContextUtil.getCurrentRole();
+        if (!"PATIENT".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("Not authorized to view this case");
+        }
+        UUID tokenPatientId = securityContextUtil.getCurrentPatientId();
+        UUID tokenCaseId = securityContextUtil.getCurrentCaseId();
+        if (tokenPatientId == null || tokenCaseId == null
+                || !entity.getPatientId().equals(tokenPatientId)
+                || !entity.getId().equals(tokenCaseId)) {
+            throw new AccessDeniedException("Not authorized to view this case");
+        }
+        return toResponse(entity);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<CaseResponse> getByPatientId(UUID patientId, Pageable pageable) {
         return PageResponse.from(
@@ -199,10 +226,35 @@ public class CaseService {
         caseRepository.save(healingCase);
     }
 
+    /**
+     * Case-symptom read for both the healer-gated route and its patient self-service
+     * twin (42-15 / CR-02). {@code CaseSymptom} extends {@code BaseEntity}, not {@code
+     * TenantEntity}, and the backing JPQL predicate is FK-id-only with no JOIN to {@code
+     * healing_case} — so the Hibernate {@code tenantFilter} never attaches to this query
+     * shape. Routing the lookup through {@link #findOrThrow} first (a tenant-filtered
+     * {@code HealingCase} read) plus the explicit ownership comparison below IS the
+     * record-level control for this method; it is not, and cannot be, the row filter.
+     */
     @Auditable(action = "GET_SYMPTOMS_FOR_FEEDBACK")
     @Transactional(readOnly = true)
     public PageResponse<SymptomFeedbackDTO> getSymptomsForFeedback(UUID caseId, Pageable pageable) {
-        return PageResponse.from(caseRepository.findAllSymptomsByCaseId(caseId, pageable));
+        HealingCase healingCase = findOrThrow(caseId);
+        String role = securityContextUtil.getCurrentRole();
+        if ("PATIENT".equalsIgnoreCase(role)) {
+            UUID tokenCaseId = securityContextUtil.getCurrentCaseId();
+            UUID tokenPatientId = securityContextUtil.getCurrentPatientId();
+            if (tokenCaseId == null || !healingCase.getId().equals(tokenCaseId)) {
+                throw new AccessDeniedException("Not authorized to view this case");
+            }
+            if (tokenPatientId != null && !healingCase.getPatientId().equals(tokenPatientId)) {
+                throw new AccessDeniedException("Not authorized to view this case");
+            }
+        } else {
+            if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+                throw new AccessDeniedException("Case does not belong to you");
+            }
+        }
+        return PageResponse.from(caseRepository.findAllSymptomsByCaseId(healingCase.getId(), pageable));
     }
 
     // --- Medications ---

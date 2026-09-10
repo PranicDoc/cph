@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.UUID;
@@ -12,6 +13,7 @@ import java.util.UUID;
 @Table(name = "protocol_color_mapping",
         uniqueConstraints = @UniqueConstraint(
                 columnNames = {"protocol_name", "color_id", "usage_type", "healer_id"}))
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

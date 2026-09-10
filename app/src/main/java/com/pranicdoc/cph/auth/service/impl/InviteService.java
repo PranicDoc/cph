@@ -15,6 +15,7 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
+import com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class InviteService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final CreditService creditService;
+    private final BaselineRoleAssigner baselineRoleAssigner;
 
     @Value("${app.invite.url}")
     private String inviteUrl;
@@ -89,10 +91,34 @@ public class InviteService {
         }
     }
 
+    /**
+     * Single-sourced HEALER-only retirement invariant (Phase 41 / MIGRATE-04 / D-05, D-06,
+     * WR-01). {@code createInvite}, {@code requestSelfSignup} and {@code acceptInvite} all
+     * call this immediately before they persist, so the three write paths share one guard
+     * and one message instead of drifting apart. Tripping it means a stale pre-retirement
+     * row or a regression, never a client error — hence {@link IllegalStateException}
+     * (rendered HTTP 500 via the GlobalExceptionHandler catch-all, PD-41-01).
+     */
+    private static void assertInviteMintsHealer(Role role) {
+        if (role != Role.HEALER) {
+            throw new IllegalStateException(
+                    "Invite must mint a plain HEALER — the retired non-HEALER invite tiers were "
+                            + "removed in Phase 41; grant elevated capability via a separate role "
+                            + "assignment, never at invite time. Got: " + role);
+        }
+    }
+
     // ─── Create ─────────────────────────────────────────────────
 
+    /**
+     * Creates a new admin invite (or rotates the caller's existing PENDING row).
+     * Every invite mints a plain {@link Role#HEALER}; elevated capability is granted
+     * afterward via the Phase 37/38 role-assignment path, never at invite time
+     * (Phase 41 / MIGRATE-04, D-06). A pre-persist invariant fails closed if anything
+     * other than a plain healer is about to be saved.
+     */
     @Auditable(action = "CREATE_INVITE")
-    public InviteResponse createInvite(String email, Role role, UUID invitedByHealerId) {
+    public InviteResponse createInvite(String email, UUID invitedByHealerId) {
         // Global check: Healer.email has no per-clinic scoping anywhere else in the system —
         // AuthService.login()/HealerServiceImpl.findHealerByEmail() both look up by email alone,
         // so a per-clinic dedup here would let the same email activate in two different clinics
@@ -111,18 +137,26 @@ public class InviteService {
         if (invite != null) {
             // Rotate the existing PENDING row in place — SC-1: no duplicate active token.
             invite.setToken(token);
-            invite.setRole(role);
+            invite.setRole(Role.HEALER);
             invite.setExpiresAt(expiresAt);
         } else {
             invite = HealerInviteLink.builder()
                     .token(token)
                     .email(email)
-                    .role(role)
+                    .role(Role.HEALER)
                     .invitedByHealerId(invitedByHealerId)
                     .status(HealerInviteLink.Status.PENDING)
                     .expiresAt(expiresAt)
                     .build();
         }
+
+        // Retirement invariant (Phase 41 / MIGRATE-04 / D-06), single-sourced in
+        // assertInviteMintsHealer. This call is structurally unreachable: the rotate
+        // branch runs invite.setRole(Role.HEALER) and the new-row branch hardcodes
+        // .role(Role.HEALER) above, so getRole() is always HEALER here. Kept as
+        // documented defence-in-depth — a future refactor that stops pinning the role
+        // is still caught — and a reader should not treat this line as load-bearing.
+        assertInviteMintsHealer(invite.getRole());
 
         HealerInviteLink saved = inviteRepository.save(invite);
         boolean emailSent = sendInviteEmail(saved.getEmail(), saved.getToken());
@@ -178,6 +212,12 @@ public class InviteService {
                         .expiresAt(expiresAt)
                         .build();
             }
+
+            // Retirement invariant (Phase 41 / MIGRATE-04 / WR-01), single-sourced in
+            // assertInviteMintsHealer. The rotate branch does not touch role, so a
+            // self-signup row persisted before the retirement is the realistic way a
+            // non-HEALER value could still reach this save.
+            assertInviteMintsHealer(invite.getRole());
 
             HealerInviteLink saved = inviteRepository.save(invite);
             sendSelfSignupEmail(saved.getEmail(), saved.getToken());
@@ -251,6 +291,16 @@ public class InviteService {
         // D-04: never trust the token's role for self-signup — always plain HEALER.
         Role role = invite.getSource() == HealerInviteLink.Source.SELF_SIGNUP ? Role.HEALER : invite.getRole();
 
+        // Retirement invariant (Phase 41 / MIGRATE-04 / D-05, D-06), single-sourced in
+        // assertInviteMintsHealer. NOTE (CR-01): this does NOT fail closed for every
+        // non-HEALER value. healer_invite_links.role is @Enumerated(STRING) with no DB
+        // CHECK, so a row carrying one of the retired non-HEALER tiers throws during ORM
+        // hydration at findByTokenAndStatusAndExpiresAtAfter above — before this line is
+        // reached. The only non-HEALER value this guard can actually observe is SUPADM
+        // (still a live enum constant); for the retired tiers the real remediation is
+        // V36's data cleanup plus the extended D-03 preflight, not this check.
+        assertInviteMintsHealer(role);
+
         // Solo-healer world (CUTOVER-05): no clinic to create or join — the healer IS the tenant.
         Healer healer = Healer.builder()
                 .fullName(request.fullName())
@@ -269,6 +319,11 @@ public class InviteService {
             log.warn("CREDIT_ACCOUNT_PROVISION_FAILED healerId={} reason={} (account activated; manual provisioning may be needed)",
                     saved.getId(), e.getMessage());
         }
+
+        // Give the new healer the baseline capability grants so the Phase-42 gates
+        // don't lock them out of the core app. Fail-soft (same posture as credit
+        // provisioning above) — the assigner swallows its own errors.
+        baselineRoleAssigner.assignTo(saved.getId());
 
         setAuthCookies(response, saved);
 

@@ -77,7 +77,10 @@ public class AuthService {
         FeedbackLink link = feedbackLinkRepository
                 .findByTokenAndStatusAndExpiresAtAfter(token, LinkStatus.ACTIVE, Instant.now())
                 .orElseThrow(() -> new TokenExpiredException("Feedback link is expired or already used"));
-        String selfRegToken = jwtService.generateSelfRegToken(link.getHealerId().toString());
+        // 42-15/CR-02: caseId is taken from the persisted FeedbackLink row, so a caller
+        // cannot influence which case the resulting session is bound to.
+        String selfRegToken = jwtService.generateFeedbackSessionToken(
+                link.getHealerId().toString(), link.getCaseId());
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
     }
 

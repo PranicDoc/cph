@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -117,6 +118,27 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    /**
+     * PD-37-01 (RBAC-05): a role/assignment mutation that would leave nobody able to
+     * manage roles is refused. 409 CONFLICT rather than 400 BAD_REQUEST because the
+     * request is well-formed and its literals are valid — what fails is a required
+     * system invariant that persisting it would violate, the same category as
+     * handleFeedbackAlreadySubmitted and handleOptimisticLockingFailure. A blanket
+     * IllegalStateException handler is deliberately NOT added: it would silently
+     * reclassify unrelated pre-existing IllegalStateException throw sites (e.g.
+     * SecurityContextUtil's tenant-context checks) from 500 to 409. Using
+     * ex.getMessage() is safe here because the message is a fixed compile-time
+     * constant in this codebase, not driver-generated text.
+     */
+    @ExceptionHandler(SelfLockoutException.class)
+    public ProblemDetail handleSelfLockout(SelfLockoutException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Role Management Lockout Prevented");
+        pd.setType(URI.create("https://pranicdoc.com/errors/self-lockout"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(InsufficientCreditsException.class)
     public ProblemDetail handleInsufficientCredits(InsufficientCreditsException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
@@ -159,6 +181,25 @@ public class GlobalExceptionHandler {
                 "The requested change conflicts with existing data. It may have been modified concurrently — reload and retry.");
         pd.setTitle("Conflict");
         pd.setType(URI.create("https://pranicdoc.com/errors/conflict"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * PD-36-07 (36-RESEARCH.md Pitfall 3): every entity extending BaseEntity
+     * carries a version column, so two concurrent edits of the same row (a
+     * role, or anything else) raise this exception on the losing write.
+     * Before this handler existed it fell through to the catch-all Exception
+     * handler and surfaced as an opaque 500. Detail text is fixed (never
+     * ex.getMessage()) so no entity/table internals leak to the client —
+     * mirrors handleDataIntegrityViolation's existing non-leaking wording.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "This record was changed by someone else. Reload it and try again.");
+        pd.setTitle("Concurrent Modification");
+        pd.setType(URI.create("https://pranicdoc.com/errors/concurrent-modification"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }

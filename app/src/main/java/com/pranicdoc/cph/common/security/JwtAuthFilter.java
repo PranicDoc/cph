@@ -93,11 +93,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // 42-15/CR-02: only the feedback-session SELF_REG shape
+                // (JwtService.generateFeedbackSessionToken) carries a caseId claim, so it
+                // can be ownership-checked by CaseService.getSymptomsForFeedback. Plain
+                // ACCESS tokens and the self-registration SELF_REG shape
+                // (generateSelfRegToken) carry no such claim and keep resolving to null.
+                String caseIdClaim = claims.get("caseId", String.class);
+                UUID caseId = caseIdClaim != null ? UUID.fromString(caseIdClaim) : null;
+
                 authToken = new UsernamePasswordAuthenticationToken(
                         healerId.toString(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                 authToken.setDetails(new SecurityContextUtil.TenantDetails(
-                        healerId, null, null));
+                        healerId, null, caseId));
 
             } else {
                 filterChain.doFilter(request, response);

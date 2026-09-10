@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.UUID;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "symptom_feedback",
         uniqueConstraints = @UniqueConstraint(columnNames = {"healing_session_id", "case_symptom_id"}))
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor

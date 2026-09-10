@@ -71,7 +71,7 @@ export default function PatientHealthForm() {
         const formData = new FormData();
         formData.append("data", new Blob([JSON.stringify(payload)], { type: "application/json" }));
         labFindings.forEach((f) => formData.append("labFindings", f));
-        await api.patch("/api/v1/cases", formData, { headers: { "Content-Type": undefined } });
+        await api.patch("/api/v1/cases/self-service", formData, { headers: { "Content-Type": undefined } });
         await api.post("/api/v1/auth/clear-patient-session");
         setIsSubmitted(true);
       } catch (err) {
@@ -88,7 +88,7 @@ export default function PatientHealthForm() {
 
     const fetchCase = async () => {
       try {
-        const { data } = await api.get(`/api/v1/cases/${caseId}`);
+        const { data } = await api.get("/api/v1/cases/self-service", { params: { caseId } });
         setCaseStatus(data.status);
 
         const values: PatientFormValues = {

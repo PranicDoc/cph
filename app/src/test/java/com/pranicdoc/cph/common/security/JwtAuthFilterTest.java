@@ -119,4 +119,55 @@ class JwtAuthFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    void feedbackSessionTokenWithCaseIdClaim_populatesCaseIdInTenantDetails() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        UUID caseId = UUID.randomUUID();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("accessToken", "feedback-token"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.isTokenValid("feedback-token")).thenReturn(true);
+        when(jwtService.extractTokenType("feedback-token")).thenReturn("SELF_REG");
+        when(jwtService.parseToken("feedback-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn(healerId.toString());
+        when(claims.get("role", String.class)).thenReturn("PATIENT");
+        when(claims.get("caseId", String.class)).thenReturn(caseId.toString());
+        when(healerCacheService.isActive(healerId)).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        var details = (SecurityContextUtil.TenantDetails) auth.getDetails();
+        assertThat(details.healerId()).isEqualTo(healerId);
+        assertThat(details.patientId()).isNull();
+        assertThat(details.caseId()).isEqualTo(caseId);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void selfRegTokenWithoutCaseIdClaim_leavesCaseIdNull() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("accessToken", "self-reg-token"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.isTokenValid("self-reg-token")).thenReturn(true);
+        when(jwtService.extractTokenType("self-reg-token")).thenReturn("SELF_REG");
+        when(jwtService.parseToken("self-reg-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn(healerId.toString());
+        when(claims.get("role", String.class)).thenReturn("PATIENT");
+        when(claims.get("caseId", String.class)).thenReturn(null);
+        when(healerCacheService.isActive(healerId)).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        var details = (SecurityContextUtil.TenantDetails) auth.getDetails();
+        assertThat(details.caseId()).isNull();
+        verify(filterChain).doFilter(request, response);
+    }
 }

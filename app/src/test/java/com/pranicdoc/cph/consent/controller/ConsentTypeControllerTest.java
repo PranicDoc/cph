@@ -3,11 +3,11 @@ package com.pranicdoc.cph.consent.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
-import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.consent.dto.ConsentTypeCreateRequest;
 import com.pranicdoc.cph.consent.dto.ConsentTypeRenameRequest;
 import com.pranicdoc.cph.consent.dto.ConsentTypeResponse;
 import com.pranicdoc.cph.consent.service.ConsentTypeService;
+import com.pranicdoc.cph.rbac.RbacAuthz;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -31,28 +32,36 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Web-layer coverage for {@link ConsentTypeController}. Standalone MockMvc +
- * Mockito-mocked {@link ConsentTypeService}/{@link SecurityContextUtil} (no
- * Spring/JWT context), matching {@code ConsentControllerTest}'s convention.
+ * Mockito-mocked {@link ConsentTypeService}/{@link RbacAuthz} (no Spring/JWT
+ * context), matching {@code ConsentControllerTest}'s convention.
  *
  * <p>Because standalone MockMvc has no Spring Security filter chain,
  * {@code @PreAuthorize} is never enforced at request time in these tests —
  * that is exactly why the five reflection contract tests exist (T-31.1-03):
  * each reads the {@code PreAuthorize} annotation off the compiled method and
- * asserts its literal value, which is the only automated defence against a
- * future endpoint being added without a gate.
+ * asserts its literal value, which is the only automated defence in this
+ * file against a future endpoint being added without a gate. The real
+ * filter-chain allow/deny behaviour and the D-04 override matrix live in
+ * {@code ConsentTypeControllerAuthorizationTest}.
+ *
+ * <p>The four capability-flag tests below stub {@code RbacAuthz.hasPermission
+ * ("LEGAL_DOCUMENTS", "ADMIN")} — the D-04 source of {@code isSuperAdmin} — and
+ * keep their {@code ArgumentCaptor} assertions on the boolean reaching the
+ * service unchanged: that captor is the proof the service contract did not
+ * change when the flag's source was swapped from {@code SecurityContextUtil}.
  */
 class ConsentTypeControllerTest {
 
     private MockMvc mockMvc;
     private ConsentTypeService consentTypeService;
-    private SecurityContextUtil securityContextUtil;
+    private RbacAuthz rbacAuthz;
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
         consentTypeService = mock(ConsentTypeService.class);
-        securityContextUtil = mock(SecurityContextUtil.class);
-        ConsentTypeController controller = new ConsentTypeController(consentTypeService, securityContextUtil);
+        rbacAuthz = mock(RbacAuthz.class);
+        ConsentTypeController controller = new ConsentTypeController(consentTypeService, rbacAuthz);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setValidator(new LocalValidatorFactoryBean())
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -166,9 +175,9 @@ class ConsentTypeControllerTest {
     // ─── setMandatory() ──────────────────────────────────────────
 
     @Test
-    void setMandatory_asSuperAdmin_passesIsSuperAdminTrue() throws Exception {
+    void setMandatory_callerWithLegalDocumentsAdminGrant_passesIsSuperAdminTrue() throws Exception {
         UUID id = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+        when(rbacAuthz.hasPermission("LEGAL_DOCUMENTS", "ADMIN")).thenReturn(true);
         when(consentTypeService.setMandatory(eq(id), eq(true), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(patch("/api/v1/consents/types/{id}/mandatory", id).param("value", "true"))
@@ -180,9 +189,9 @@ class ConsentTypeControllerTest {
     }
 
     @Test
-    void setMandatory_asAdmin_passesIsSuperAdminFalse() throws Exception {
+    void setMandatory_callerWithoutLegalDocumentsAdminGrant_passesIsSuperAdminFalse() throws Exception {
         UUID id = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(rbacAuthz.hasPermission("LEGAL_DOCUMENTS", "ADMIN")).thenReturn(false);
         when(consentTypeService.setMandatory(eq(id), eq(true), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(patch("/api/v1/consents/types/{id}/mandatory", id).param("value", "true"))
@@ -196,9 +205,9 @@ class ConsentTypeControllerTest {
     // ─── setActive() ─────────────────────────────────────────────
 
     @Test
-    void setActive_asSuperAdmin_passesIsSuperAdminTrue() throws Exception {
+    void setActive_callerWithLegalDocumentsAdminGrant_passesIsSuperAdminTrue() throws Exception {
         UUID id = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+        when(rbacAuthz.hasPermission("LEGAL_DOCUMENTS", "ADMIN")).thenReturn(true);
         when(consentTypeService.setActive(eq(id), eq(false), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(patch("/api/v1/consents/types/{id}/active", id).param("value", "false"))
@@ -210,9 +219,9 @@ class ConsentTypeControllerTest {
     }
 
     @Test
-    void setActive_asAdmin_passesIsSuperAdminFalse() throws Exception {
+    void setActive_callerWithoutLegalDocumentsAdminGrant_passesIsSuperAdminFalse() throws Exception {
         UUID id = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(rbacAuthz.hasPermission("LEGAL_DOCUMENTS", "ADMIN")).thenReturn(false);
         when(consentTypeService.setActive(eq(id), eq(false), anyBoolean())).thenReturn(sampleResponse());
 
         mockMvc.perform(patch("/api/v1/consents/types/{id}/active", id).param("value", "false"))
@@ -226,7 +235,7 @@ class ConsentTypeControllerTest {
     @Test
     void setActive_serviceThrowsAccessDenied_returns403() throws Exception {
         UUID id = UUID.randomUUID();
-        when(securityContextUtil.getCurrentRole()).thenReturn("ADMIN");
+        when(rbacAuthz.hasPermission("LEGAL_DOCUMENTS", "ADMIN")).thenReturn(false);
         when(consentTypeService.setActive(eq(id), eq(false), anyBoolean()))
                 .thenThrow(new AccessDeniedException("System consent types can only be deactivated by SUPADM"));
 
@@ -237,49 +246,49 @@ class ConsentTypeControllerTest {
     // ─── @PreAuthorize reflection contract tests (T-31.1-03) ──────
 
     @Test
-    void list_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
+    void list_isAnnotatedWithBareLegalDocumentsReadGate() throws Exception {
         Method method = ConsentTypeController.class.getMethod("list", boolean.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','READ')");
     }
 
     @Test
-    void create_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
+    void create_isAnnotatedWithBareLegalDocumentsCreateGate() throws Exception {
         Method method = ConsentTypeController.class.getMethod("create", ConsentTypeCreateRequest.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','CREATE')");
     }
 
     @Test
-    void rename_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
+    void rename_isAnnotatedWithBareLegalDocumentsUpdateGate() throws Exception {
         Method method = ConsentTypeController.class.getMethod(
                 "rename", UUID.class, ConsentTypeRenameRequest.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','UPDATE')");
     }
 
     @Test
-    void setMandatory_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
+    void setMandatory_isAnnotatedWithBareLegalDocumentsUpdateGate() throws Exception {
         Method method = ConsentTypeController.class.getMethod("setMandatory", UUID.class, boolean.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','UPDATE')");
     }
 
     @Test
-    void setActive_isAnnotatedWithAdminSupadmPreAuthorize() throws Exception {
+    void setActive_isAnnotatedWithBareLegalDocumentsUpdateGate() throws Exception {
         Method method = ConsentTypeController.class.getMethod("setActive", UUID.class, boolean.class);
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
 
         assertThat(preAuthorize).isNotNull();
-        assertThat(preAuthorize.value()).isEqualTo("hasAnyRole('ADMIN', 'SUPADM')");
+        assertThat(preAuthorize.value()).isEqualTo("@rbacAuthz.hasPermission('LEGAL_DOCUMENTS','UPDATE')");
     }
 
     // ─── structural no-delete guard (D-02) ─────────────────────────
