@@ -44,6 +44,7 @@ public class RbacCatalogService {
             Map.entry(Resource.MASTER_DATA_COLORS, "Master Data — Colors"),
             Map.entry(Resource.MASTER_DATA_PROTOCOLS, "Master Data — Protocols"),
             Map.entry(Resource.MASTER_DATA_CHAKRAS, "Master Data — Chakras"),
+            Map.entry(Resource.MASTER_DATA_COLUMN_CONFIG, "Master Data — Column Config"),
             Map.entry(Resource.HEALER_REG, "Healer Registration"),
             Map.entry(Resource.LEGAL_DOCUMENTS, "Legal Documents"),
             Map.entry(Resource.ROLES, "Roles"),
