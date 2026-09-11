@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,8 +25,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RbacResourceOperationCatalogTest {
 
     @Test
-    void declaresExactlyEighteenResources() {
-        assertEquals(18, Resource.values().length, "Resource catalog size drifted — update this test deliberately if intended");
+    void declaresExactlyNineteenResources() {
+        assertEquals(19, Resource.values().length, "Resource catalog size drifted — update this test deliberately if intended");
+    }
+
+    @Test
+    void masterDataColumnConfigAllowListsOrdinaryCrudVerbsOnlyPerD10() {
+        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE),
+                Resource.MASTER_DATA_COLUMN_CONFIG.getSupportedOperations(),
+                "D-10: all four verbs must be ordinary grantable permissions on MASTER_DATA_COLUMN_CONFIG");
+        assertFalse(Resource.MASTER_DATA_COLUMN_CONFIG.supports(Operation.ADMIN),
+                "D-10: ADMIN must stay absent — this resource must never adopt the "
+                        + "non-grantable-ADMIN-verb idiom superseded by D-10");
     }
 
     @Test

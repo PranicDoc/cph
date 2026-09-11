@@ -88,6 +88,23 @@ public enum Resource {
             Operation.DELETE
     ),
 
+    /**
+     * Masterdata column-config registry (D-10). All four verbs are ordinary
+     * grantable RBAC permissions — SUPADM reaches every one of them via the
+     * single hardcoded short-circuit in {@code RbacAuthz}, exactly like every
+     * other resource. {@link Operation#ADMIN} is deliberately absent from
+     * this allow-list, and must stay absent: this resource does NOT use the
+     * non-grantable-verb idiom ({@code MasterDataController.updateChakra}'s
+     * {@code MASTER_DATA_CHAKRAS}-style pattern) that the superseded
+     * 01-RESEARCH.md Pattern 3 originally recommended for it.
+     */
+    MASTER_DATA_COLUMN_CONFIG(
+            Operation.READ,
+            Operation.CREATE,
+            Operation.UPDATE,
+            Operation.DELETE
+    ),
+
     HEALER_REG(
             Operation.READ,
             Operation.CREATE,
