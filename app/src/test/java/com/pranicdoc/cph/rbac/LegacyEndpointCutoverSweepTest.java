@@ -201,6 +201,17 @@ class LegacyEndpointCutoverSweepTest {
                         + "anti-vacuous sweep + allow-list validity + filter-chain matrix), so it is "
                         + "not an ungated hole; it is simply owned by neither Phase-40 nor Phase-42's "
                         + "pinned counts");
+        m.put("com.pranicdoc.cph.masterdata.controller.MasterDataImportController",
+                "Phase 02 (masterdata-import-redesign) unified import endpoint, added after the "
+                        + "MIGRATE-02 (Phase 40) and Phase-42 healer-surface sweeps were frozen. Its "
+                        + "single handler is gated by an in-body dynamic rbacAuthz.hasPermission(...) "
+                        + "call (D-12) — NOT a bare @PreAuthorize annotation, since the resource "
+                        + "depends on the request's 'type' param and isn't known at compile time. "
+                        + "Reflection cannot find a gate to pin here (there is none to find); its RBAC "
+                        + "behavior is instead proven by MasterDataImportControllerAuthorizationTest, a "
+                        + "behavioral 403-per-type test, not a reflection pin — distinguishing it from "
+                        + "MasterdataColumnConfigController's entry above, whose gates ARE bare "
+                        + "@PreAuthorize annotations simply outside the frozen counts");
         return m;
     }
 

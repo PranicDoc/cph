@@ -48,8 +48,17 @@ public class RbacAuthz {
     /**
      * Decision function referenced from {@code @PreAuthorize} SpEL as
      * {@code @rbacAuthz.hasPermission(resourceKey, verb)}. Both arguments are
-     * always compile-time string literals baked into an annotation in this
-     * codebase — never request-derived data.
+     * compile-time string literals baked into an annotation at every call site
+     * in this codebase EXCEPT one: {@code
+     * MasterDataImportController.importMasterData} (Phase 02, D-12) calls this
+     * method in-body with {@code resourceKey} resolved from parsed request data
+     * (the {@code type} request param) rather than a literal — the first
+     * request-derived call site. This remains safe: {@code resourceKey} there
+     * is only ever one of the four fixed {@code TYPE_TO_RESOURCE} enum-name
+     * values, never a raw user string reaching {@link Resource#valueOf}
+     * directly, and this method already fails closed via its own {@code
+     * Resource.valueOf}/{@code Operation.valueOf} try/catch on any malformed
+     * input regardless of call-site origin.
      */
     public boolean hasPermission(String resourceKey, String verb) {
         try {
