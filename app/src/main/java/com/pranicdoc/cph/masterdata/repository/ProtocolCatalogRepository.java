@@ -26,4 +26,7 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
 
     /** Upsert lookup for bulk import */
     Optional<ProtocolCatalog> findByNameAndSourceBookAndPageNumber(String name, String sourceBook, Integer pageNumber);
+
+    /** Case-insensitive existence check for D-16's Protocol Name validation (ProtocolColorMappingImportService). */
+    boolean existsByNameIgnoreCase(String name);
 }
