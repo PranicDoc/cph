@@ -5,7 +5,7 @@ import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
-import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
+import com.pranicdoc.cph.masterdata.dto.ImportResult;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
@@ -229,7 +229,7 @@ public class MasterDataController {
     // importProtocols is bulk protocol creation from a CSV, so CREATE is the correct verb.
     @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
-    public ResponseEntity<ApiResponse<ProtocolImportResult>> importProtocols(
+    public ResponseEntity<ApiResponse<ImportResult>> importProtocols(
             @RequestPart("file") MultipartFile file) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
     }
