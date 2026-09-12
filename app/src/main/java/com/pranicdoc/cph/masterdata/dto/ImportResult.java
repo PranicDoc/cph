@@ -4,10 +4,9 @@ import java.util.List;
 
 /**
  * Shared 5-field import result DTO used by every {@code MasterDataImporter}
- * implementation (Phase 02). Byte-identical field set to {@link
- * ProtocolImportResult}, under a new name so new code (registry, controller,
- * all four importers) does not depend on the Protocol-specific type.
- * {@link ProtocolImportResult} itself is untouched by this plan.
+ * implementation (Phase 02), including {@code ProtocolImportService} since
+ * Plan 02-03, which superseded and deleted the former Protocol-specific
+ * {@code ProtocolImportResult} DTO.
  */
 public record ImportResult(
         int totalRows,
