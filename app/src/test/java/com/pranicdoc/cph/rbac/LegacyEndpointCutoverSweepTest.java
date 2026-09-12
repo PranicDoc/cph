@@ -191,6 +191,16 @@ class LegacyEndpointCutoverSweepTest {
                         + "'UPDATE') — pinned in BaselineRoleBackfillControllerAuthorizationContract"
                         + "Test — so it is not an ungated hole; it is simply owned by neither sweep's "
                         + "pinned counts");
+        m.put("com.pranicdoc.cph.masterdata.controller.MasterdataColumnConfigController",
+                "Phase 01 (masterdata-import-redesign) column-config registry CRUD surface, added "
+                        + "after the MIGRATE-02 (Phase 40) and Phase-42 healer-surface sweeps were "
+                        + "frozen. Carries 4 bare gates — @rbacAuthz.hasPermission('MASTER_DATA_"
+                        + "COLUMN_CONFIG','READ'|'CREATE'|'UPDATE'|'DELETE') — each independently "
+                        + "grantable per D-10, pinned by its own "
+                        + "MasterdataColumnConfigControllerAuthorizationTest (reflection pin + "
+                        + "anti-vacuous sweep + allow-list validity + filter-chain matrix), so it is "
+                        + "not an ungated hole; it is simply owned by neither Phase-40 nor Phase-42's "
+                        + "pinned counts");
         return m;
     }
 
