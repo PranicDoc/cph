@@ -78,7 +78,7 @@ export interface ProtocolPayload {
   healerId?: string | null;
 }
 
-export interface ProtocolImportResult {
+export interface ImportResult {
   totalRows: number;
   created: number;
   updated: number;
@@ -86,12 +86,21 @@ export interface ProtocolImportResult {
   errors: string[];
 }
 
+export type MasterDataImportType = "protocol" | "color" | "chakra" | "mapping";
+
 // -- Query Keys -------------------------------------------------------------------------
 
 const COLOR_QK = ["master-colors"] as const;
 const CHAKRA_QK = ["master-chakras"] as const;
 const MAPPING_QK = ["master-mappings"] as const;
 const PROTOCOL_QK = ["master-protocols"] as const;
+
+const IMPORT_QK: Record<MasterDataImportType, readonly string[]> = {
+  protocol: PROTOCOL_QK,
+  color: COLOR_QK,
+  chakra: CHAKRA_QK,
+  mapping: MAPPING_QK,
+};
 
 // -- Prana Colors -----------------------------------------------------------------------
 
@@ -278,20 +287,20 @@ export function useDeleteProtocol() {
   });
 }
 
-export function useImportProtocols() {
+export function useImportMasterData(type: MasterDataImportType) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
       return api
-        .post("/api/v1/masterdata/protocols/import", formData, {
+        .post(`/api/v1/masterdata/import?type=${type}`, formData, {
           headers: { "Content-Type": undefined },
         })
-        .then((r) => r.data.data as ProtocolImportResult);
+        .then((r) => r.data.data as ImportResult);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      qc.invalidateQueries({ queryKey: IMPORT_QK[type] });
       toast.success("Import complete");
     },
     onError: (e) => toast.error(extractDetail(e) || "Import failed", { duration: 5000 }),
