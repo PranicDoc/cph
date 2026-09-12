@@ -38,9 +38,9 @@ import static org.assertj.core.api.Assertions.fail;
  * annotations say.
  *
  * <ul>
- *   <li><b>Section A</b> — 21 independent literal pins, one per endpoint.</li>
+ *   <li><b>Section A</b> — 20 independent literal pins, one per endpoint.</li>
  *   <li><b>Section B</b> — anti-vacuous sweep: every request-mapped method carries
- *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 21}.</li>
+ *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 20}.</li>
  *   <li><b>Section C</b> — every named (resource, verb) pair is allow-listed.</li>
  *   <li><b>Section D</b> — PD-40-04: the master-data ADMIN override verb is
  *       intentionally non-grantable; adding it fails this test.</li>
@@ -89,8 +89,7 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"getProtocolById", PROTOCOLS_READ},
             new String[]{"createProtocol",  PROTOCOLS_CREATE},
             new String[]{"updateProtocol",  PROTOCOLS_UPDATE},
-            new String[]{"deleteProtocol",  PROTOCOLS_DELETE},
-            new String[]{"importProtocols", PROTOCOLS_CREATE});
+            new String[]{"deleteProtocol",  PROTOCOLS_DELETE});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -182,9 +181,6 @@ class MasterDataControllerAuthorizationContractTest {
     @Test @DisplayName("protocols: deleteProtocol is gated MASTER_DATA_PROTOCOLS:DELETE")
     void deleteProtocol_isGatedByProtocolsDelete() { assertGate("deleteProtocol", PROTOCOLS_DELETE); }
 
-    @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:CREATE (bulk CSV creation)")
-    void importProtocols_isGatedByProtocolsCreate() { assertGate("importProtocols", PROTOCOLS_CREATE); }
-
     // ─── Section B — anti-vacuous sweep ──────────────────────────────────
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
@@ -229,16 +225,16 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 21 declared MasterDataController endpoints. "
+                .as("the sweep must inspect exactly the 20 declared MasterDataController endpoints. "
                         + "Eight of these (three chakra GETs, three colour GETs, two protocol GETs) were "
                         + "ungated before this phase (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(21);
+                .isEqualTo(20);
     }
 
-    // ─── Section C — allow-list validity for all 21 pairs ────────────────
+    // ─── Section C — allow-list validity for all 20 pairs ────────────────
 
     @Test
     void everyGateNamesAnAllowListedResourceVerbPair() {

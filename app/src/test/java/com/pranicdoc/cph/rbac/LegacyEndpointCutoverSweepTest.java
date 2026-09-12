@@ -133,13 +133,13 @@ class LegacyEndpointCutoverSweepTest {
             new CutoverController(HealerController.class, 3, 3),
             new CutoverController(ConsentController.class, 6, 1),
             new CutoverController(ConsentTypeController.class, 5, 5),
-            new CutoverController(MasterDataController.class, 21, 21),
+            new CutoverController(MasterDataController.class, 20, 20),
             new CutoverController(RbacRoleController.class, 5, 5),
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 58;
-    private static final int EXPECTED_TOTAL_GATED = 53;
+    private static final int EXPECTED_TOTAL_MAPPED = 57;
+    private static final int EXPECTED_TOTAL_GATED = 52;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated

@@ -8,7 +8,6 @@ import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -26,7 +25,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,7 +46,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -84,13 +81,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       request.</li>
  * </ul>
  *
- * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 21
+ * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 20
  * concrete requests asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
  * {@code newlyGatedReadEndpointsDenyAnUngrantedCaller} /
  * {@code ...AdmitAGrantedCaller} prove the D-09 read-leak closure endpoint by
  * endpoint (the 8 GETs that carried no {@code @PreAuthorize} before this phase);
  * {@code resourceIsolation_*} and {@code verbIsolation_*} catch the copy-paste
- * error a 21-site conversion is most likely to produce.
+ * error a 20-site conversion is most likely to produce.
  *
  * <p><b>Task 2</b> — the D-04 master-data system-row override matrix, asserted
  * via {@code ArgumentCaptor} on the actual {@code isSuperAdmin} boolean the
@@ -125,8 +122,6 @@ class MasterDataControllerAuthorizationTest {
     // ─── per-controller collaborators ───────────────────────────────────────
     @MockBean
     private MasterDataService masterDataService;
-    @MockBean
-    private ProtocolImportService protocolImportService;
 
     // ─── consumed by RbacAuthz ─────────────────────────────────────────────
     @MockBean
@@ -171,8 +166,10 @@ class MasterDataControllerAuthorizationTest {
     /**
      * Builds a byte-minimal request for the given method + path. POST/PUT bodies
      * are {@code "{}"} (they may fail bean-validation downstream with 400 — that
-     * is fine, every Task-1 assertion is "not 403" / "isForbidden"). "MULTIPART"
-     * is the {@code POST /protocols/import} case with an empty part named "file".
+     * is fine, every Task-1 assertion is "not 403" / "isForbidden"). This
+     * controller no longer has a multipart endpoint — {@code /protocols/import}
+     * was removed and moved to {@code MasterDataImportController} (plan 02-08,
+     * D-09) — so there is no "MULTIPART" case.
      */
     private static MockHttpServletRequestBuilder request(String method, String path) {
         MockHttpServletRequestBuilder b = switch (method) {
@@ -180,8 +177,6 @@ class MasterDataControllerAuthorizationTest {
             case "POST" -> post(path).contentType(MediaType.APPLICATION_JSON).content("{}");
             case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content("{}");
             case "DELETE" -> delete(path);
-            case "MULTIPART" -> multipart(path)
-                    .file(new MockMultipartFile("file", "protocols.csv", "text/csv", new byte[0]));
             default -> throw new IllegalArgumentException("unsupported method " + method);
         };
         return b.cookie(accessCookie());
@@ -191,8 +186,8 @@ class MasterDataControllerAuthorizationTest {
     //  Task 1 — SUPADM sweep + D-09 deny/admit + resource/verb isolation
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** All 21 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
-    static Stream<Arguments> allTwentyOneEndpoints() {
+    /** All 20 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
+    static Stream<Arguments> allTwentyEndpoints() {
         return Stream.of(
                 Arguments.of("GET", BASE + "/chakras"),
                 Arguments.of("GET", BASE + "/chakras/" + ROW_ID),
@@ -213,19 +208,18 @@ class MasterDataControllerAuthorizationTest {
                 Arguments.of("GET", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("POST", BASE + "/protocols"),
                 Arguments.of("PUT", BASE + "/protocols/" + ROW_ID),
-                Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID),
-                Arguments.of("MULTIPART", BASE + "/protocols/import"));
+                Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID));
     }
 
     @Test
-    void task1SweepCoversExactly21Endpoints() {
-        assertThat(allTwentyOneEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 21 converted MasterDataController requests")
-                .isEqualTo(21L);
+    void task1SweepCoversExactly20Endpoints() {
+        assertThat(allTwentyEndpoints().count())
+                .as("the SUPADM sweep must supply exactly the 20 converted MasterDataController requests")
+                .isEqualTo(20L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
-    @MethodSource("allTwentyOneEndpoints")
+    @MethodSource("allTwentyEndpoints")
     void supadmReachesEveryConvertedEndpoint(String method, String path) throws Exception {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");

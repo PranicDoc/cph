@@ -5,16 +5,13 @@ import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
-import com.pranicdoc.cph.masterdata.dto.ImportResult;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
-import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -57,7 +54,6 @@ import java.util.UUID;
 public class MasterDataController {
 
     private final MasterDataService masterDataService;
-    private final ProtocolImportService protocolImportService;
     private final RbacAuthz rbacAuthz;
 
     @GetMapping("/chakras")
@@ -224,13 +220,5 @@ public class MasterDataController {
         boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         masterDataService.deleteProtocol(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
-    }
-
-    // importProtocols is bulk protocol creation from a CSV, so CREATE is the correct verb.
-    @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
-    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
-    public ResponseEntity<ApiResponse<ImportResult>> importProtocols(
-            @RequestPart("file") MultipartFile file) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
     }
 }
