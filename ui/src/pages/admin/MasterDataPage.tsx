@@ -19,14 +19,15 @@ import {
   useCreateProtocol,
   useUpdateProtocol,
   useDeleteProtocol,
-  useImportProtocols,
+  useImportMasterData,
   type PranaColor,
   type Chakra,
   type Protocol,
   type PranaColorPayload,
   type ChakraPayload,
   type ProtocolPayload,
-  type ProtocolImportResult,
+  type ImportResult,
+  type MasterDataImportType,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,6 +285,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const deleteColor = useDeleteColor();
   const [modal, setModal] = useState<PranaColor | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<PranaColor | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const canModify = (item: PranaColor) => isSuperAdmin || !!item.healerId;
 
@@ -346,10 +348,20 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System colors are seeded globally. Your own custom colors are also listed here.
         </p>
-        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Color</span>
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            className="px-3 py-2 h-auto"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Color</span>
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -400,6 +412,14 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
       {modal !== null && (
         <ColorModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+      )}
+
+      {showImport && (
+        <ImportDialog
+          type="color"
+          columnHint="Code, Name, Type, Value, Color Hex, Description"
+          onClose={() => setShowImport(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -541,6 +561,7 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const deleteChakra = useDeleteChakra();
   const [modal, setModal] = useState<Chakra | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Chakra | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const canModify = (item: Chakra) => isSuperAdmin || !!item.healerId;
 
@@ -600,10 +621,20 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System chakras (26 seeded) are global. Add your own custom chakras below.
         </p>
-        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Chakra</span>
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            className="px-3 py-2 h-auto"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Chakra</span>
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -652,6 +683,14 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
       {modal !== null && (
         <ChakraModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+      )}
+
+      {showImport && (
+        <ImportDialog
+          type="chakra"
+          columnHint="Code, Name, Category, Location"
+          onClose={() => setShowImport(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -845,6 +884,7 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const { data: colors } = usePranaColors();
   const deleteMapping = useDeleteMapping();
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MappingItem | null>(null);
 
   const colorById = (id: string) => colors?.find((c) => c.id === id);
@@ -902,10 +942,20 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           Maps a protocol name to cleansing or energising prana colors.
         </p>
-        <Button onClick={() => setShowModal(true)} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Mapping</span>
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            className="px-3 py-2 h-auto"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button onClick={() => setShowModal(true)} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Mapping</span>
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -956,6 +1006,14 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
       {showModal && (
         <MappingModal onClose={() => setShowModal(false)} isSuperAdmin={isSuperAdmin} />
+      )}
+
+      {showImport && (
+        <ImportDialog
+          type="mapping"
+          columnHint="Protocol Name, Color Code, Usage Type, Chakra Name"
+          onClose={() => setShowImport(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -1127,16 +1185,24 @@ function ProtocolModal({
   );
 }
 
-function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
+function ImportDialog({
+  type,
+  columnHint,
+  onClose,
+}: {
+  type: MasterDataImportType;
+  columnHint: string;
+  onClose: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<ProtocolImportResult | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const importProtocols = useImportProtocols();
+  const importMasterData = useImportMasterData(type);
 
   const handleUpload = async () => {
     if (!file) return;
     try {
-      const res = await importProtocols.mutateAsync(file);
+      const res = await importMasterData.mutateAsync(file);
       setResult(res);
     } catch {
       // error toast already shown by the hook
@@ -1144,12 +1210,11 @@ function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <ModalShell title="Import Protocols" onClose={onClose}>
+    <ModalShell title="Import" onClose={onClose}>
       {!result ? (
         <div className="space-y-4">
           <p className="text-sm text-text-light">
-            Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
-            Page, Category, Description, Chapter, Type.
+            Upload a .xlsx or .csv file with columns: {columnHint}.
           </p>
           <Input
             ref={fileInputRef}
@@ -1160,11 +1225,11 @@ function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
           <div className="flex gap-2 pt-1">
             <Button
               type="button"
-              disabled={!file || importProtocols.isPending}
+              disabled={!file || importMasterData.isPending}
               onClick={handleUpload}
               className="flex-1 py-2.5 h-auto"
             >
-              {importProtocols.isPending ? "Uploading…" : "Upload"}
+              {importMasterData.isPending ? "Uploading…" : "Upload"}
             </Button>
             <Button
               type="button"
@@ -1356,7 +1421,13 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <ProtocolModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
       )}
 
-      {showImport && <ImportProtocolsDialog onClose={() => setShowImport(false)} />}
+      {showImport && (
+        <ImportDialog
+          type="protocol"
+          columnHint="Protocol/Technique Name, Book, Page, Category, Description, Chapter, Type"
+          onClose={() => setShowImport(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
