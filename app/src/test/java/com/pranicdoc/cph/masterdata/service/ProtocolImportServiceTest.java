@@ -1,8 +1,13 @@
 package com.pranicdoc.cph.masterdata.service;
 
+import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
-import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
+import com.pranicdoc.cph.masterdata.dto.ImportResult;
+import com.pranicdoc.cph.masterdata.importer.SpreadsheetReader;
+import com.pranicdoc.cph.masterdata.model.ColumnDataType;
+import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
+import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -12,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -30,6 +36,8 @@ import static org.mockito.Mockito.*;
 class ProtocolImportServiceTest {
 
     @Mock private ProtocolCatalogRepository protocolRepo;
+    @Mock private MasterdataColumnConfigRepository columnConfigRepo;
+    @Spy private SpreadsheetReader spreadsheetReader = new SpreadsheetReader();
 
     @InjectMocks private ProtocolImportService importService;
 
@@ -41,6 +49,31 @@ class ProtocolImportServiceTest {
     void setUp() {
         lenient().when(protocolRepo.save(any(ProtocolCatalog.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
+                .thenReturn(protocolColumnConfigs());
+    }
+
+    private List<MasterdataColumnConfig> protocolColumnConfigs() {
+        return List.of(
+                columnConfig("Protocol/Technique Name", "name", true, ColumnDataType.STRING),
+                columnConfig("Book", "sourceBook", true, ColumnDataType.STRING),
+                columnConfig("Page", "pageNumber", true, ColumnDataType.NUMBER),
+                columnConfig("Category", "category", false, ColumnDataType.STRING),
+                columnConfig("Description", "description", false, ColumnDataType.STRING),
+                columnConfig("Chapter", "chapter", false, ColumnDataType.STRING),
+                columnConfig("Type", "protocolType", true, ColumnDataType.ENUM)
+        );
+    }
+
+    private MasterdataColumnConfig columnConfig(String columnName, String targetField, boolean required, ColumnDataType dataType) {
+        return MasterdataColumnConfig.builder()
+                .masterdataType(MasterdataType.PROTOCOL)
+                .columnName(columnName)
+                .targetField(targetField)
+                .required(required)
+                .dataType(dataType)
+                .systemDefined(true)
+                .build();
     }
 
     private MockMultipartFile buildXlsx(List<String[]> rows) throws IOException {
@@ -85,7 +118,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Sleep protocol", "Sleep Disorders", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.totalRows());
         assertEquals(1, result.created());
@@ -110,7 +143,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Fever", "Pranic Psychotherapy", "12", "Physical Ailment", "Fever protocol", "Common Ailments", "SUPPLEMENTARY"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.created());
         assertEquals(0, result.skipped());
@@ -131,7 +164,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Updated desc", "Sleep Disorders", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
@@ -145,7 +178,7 @@ class ProtocolImportServiceTest {
                 new String[]{"", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.skipped());
         assertEquals(0, result.created());
@@ -159,7 +192,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Book"));
@@ -171,7 +204,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Page"));
@@ -183,7 +216,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "N/A", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("not numeric"));
@@ -195,7 +228,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "Supplemental"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Type"));
@@ -211,7 +244,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Fever", "Advanced Pranic Healing", "10", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ProtocolImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file);
 
         assertEquals(2, result.totalRows());
         assertEquals(1, result.created());
@@ -225,6 +258,22 @@ class ProtocolImportServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> importService.importFile(file));
         assertTrue(ex.getMessage().contains("Unsupported file type"));
+        verifyNoInteractions(protocolRepo);
+    }
+
+    @Test
+    void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
+        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
+                .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true, ColumnDataType.STRING)));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
+        ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> importService.importFile(file));
+        assertTrue(ex.getMessage().contains("bogusField"));
+        assertTrue(ex.getMessage().contains("PROTOCOL"));
         verifyNoInteractions(protocolRepo);
     }
 }
