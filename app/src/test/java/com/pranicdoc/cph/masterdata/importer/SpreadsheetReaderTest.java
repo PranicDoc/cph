@@ -114,7 +114,7 @@ class SpreadsheetReaderTest {
     void read_xlsxNumericCell_wholeNumberRoundTripsWithoutTrailingDecimal() throws IOException {
         MockMultipartFile file = buildXlsx("Sheet1",
                 new String[]{"Page"},
-                List.of(new Object[]{45.0}));
+                List.<Object[]>of(new Object[]{45.0}));
 
         List<Map<String, String>> rows = reader.read(file, "Sheet1");
 
