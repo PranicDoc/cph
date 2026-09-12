@@ -111,6 +111,8 @@ public class MasterDataService {
         color.setCode(req.code().toUpperCase());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setApplications(req.applications() != null ? req.applications() : List.of());
+        color.setDescription(req.description());
         color.setHealerId(securityContextUtil.getCurrentHealerId());
         return colorRepo.save(color);
     }
@@ -123,6 +125,8 @@ public class MasterDataService {
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setApplications(req.applications() != null ? req.applications() : List.of());
+        color.setDescription(req.description());
         return colorRepo.save(color);
     }
 

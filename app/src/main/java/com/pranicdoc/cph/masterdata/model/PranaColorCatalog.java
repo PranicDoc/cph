@@ -38,6 +38,13 @@ public class PranaColorCatalog extends BaseEntity {
     @Builder.Default
     private List<String> properties = new ArrayList<>(); // Individual healing properties of this color
 
+    @ElementCollection(fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<String> applications = new ArrayList<>(); // Individual usage applications of this color
+
     @Column(name = "healer_id", columnDefinition = "uuid")
     private UUID healerId; // NULL = system-level, non-null = healer-custom
+
+    @Column(name = "description", length = 500)
+    private String description;
 }
