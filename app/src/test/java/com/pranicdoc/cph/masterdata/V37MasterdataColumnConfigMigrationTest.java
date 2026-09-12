@@ -72,8 +72,14 @@ class V37MasterdataColumnConfigMigrationTest {
 
     @Test
     void hasUniqueConstraintOnTypeAndColumnName() {
-        assertTrue(SQL.contains("CONSTRAINT uq_masterdata_column_config_type_column UNIQUE (masterdata_type, column_name)"),
-                "A column-config row must be unique per (masterdata_type, column_name)");
+        assertTrue(SQL.contains("CREATE UNIQUE INDEX uq_masterdata_column_config_type_column"),
+                "A column-config row must be unique per (masterdata_type, column_name) among live rows");
+        assertTrue(SQL.contains("ON masterdata_column_config (masterdata_type, column_name)"),
+                "The uniqueness index must be scoped to (masterdata_type, column_name)");
+        assertTrue(SQL.contains("WHERE is_deleted = FALSE"),
+                "CR-01: a plain table-level UNIQUE constraint has no is_deleted awareness and would permanently "
+                        + "block re-adding a column name after a real soft-delete (MDIMPORT-03 / Pitfall 1) — "
+                        + "the uniqueness guarantee must be a partial index scoped to live rows only");
     }
 
     @Test

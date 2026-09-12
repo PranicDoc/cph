@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -100,6 +101,26 @@ class MasterdataColumnConfigServiceTest {
         verify(masterdataColumnConfigRepository, never()).save(any());
     }
 
+    @Test
+    void create_dbLevelUniqueViolation_translatesToIllegalArgumentException() {
+        // CR-01/WR-01: the proactive existsBy... check is soft-delete-aware and can pass even
+        // when a concurrent create races this one and wins at the DB layer first. The partial
+        // unique index (masterdata_type, column_name) WHERE is_deleted = FALSE then rejects
+        // this save — the raw DataIntegrityViolationException must be translated, not leaked
+        // as an unhandled 500.
+        when(masterdataColumnConfigRepository.existsByMasterdataTypeAndColumnName(
+                MasterdataType.CHAKRA, "Note")).thenReturn(false);
+        when(masterdataColumnConfigRepository.save(any(MasterdataColumnConfig.class)))
+                .thenThrow(new DataIntegrityViolationException("uq_masterdata_column_config_type_column"));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> masterdataColumnConfigService.create(
+                        new ColumnConfigCreateRequest(MasterdataType.CHAKRA, "Note", "note", false, ColumnDataType.STRING)));
+
+        assertTrue(ex.getMessage().contains("Note"));
+        assertInstanceOf(DataIntegrityViolationException.class, ex.getCause());
+    }
+
     // --- update ---
 
     @Test
@@ -114,6 +135,23 @@ class MasterdataColumnConfigServiceTest {
                         new ColumnConfigUpdateRequest("Code", "code", true, ColumnDataType.STRING)));
 
         verify(masterdataColumnConfigRepository, never()).save(any());
+    }
+
+    @Test
+    void update_dbLevelUniqueViolation_translatesToIllegalArgumentException() {
+        MasterdataColumnConfig existing = customRow();
+        when(masterdataColumnConfigRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(masterdataColumnConfigRepository.existsByMasterdataTypeAndColumnName(
+                MasterdataType.CHAKRA, "Code")).thenReturn(false);
+        when(masterdataColumnConfigRepository.save(any(MasterdataColumnConfig.class)))
+                .thenThrow(new DataIntegrityViolationException("uq_masterdata_column_config_type_column"));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> masterdataColumnConfigService.update(existing.getId(),
+                        new ColumnConfigUpdateRequest("Code", "code", true, ColumnDataType.STRING)));
+
+        assertTrue(ex.getMessage().contains("Code"));
+        assertInstanceOf(DataIntegrityViolationException.class, ex.getCause());
     }
 
     @Test

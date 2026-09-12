@@ -9,6 +9,7 @@ import com.pranicdoc.cph.masterdata.dto.ColumnConfigUpdateRequest;
 import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -77,7 +78,7 @@ public class MasterdataColumnConfigService {
                 .systemDefined(false)
                 .build();
 
-        return toResponse(masterdataColumnConfigRepository.save(config));
+        return saveOrTranslateCollision(config, request.columnName());
     }
 
     @Auditable(action = "UPDATE_MASTERDATA_COLUMN_CONFIG")
@@ -96,7 +97,24 @@ public class MasterdataColumnConfigService {
         existing.setRequired(request.required());
         existing.setDataType(request.dataType());
 
-        return toResponse(masterdataColumnConfigRepository.save(existing));
+        return saveOrTranslateCollision(existing, request.columnName());
+    }
+
+    /**
+     * WR-01: the proactive {@code existsByMasterdataTypeAndColumnName} check above is
+     * soft-delete-aware, but it cannot fully replace a DB-level constraint (a concurrent
+     * create/update racing this one can still collide between the check and the write).
+     * Translate that race — or any other unique-index violation — into the same clean
+     * {@link IllegalArgumentException} the proactive check throws, instead of letting a raw
+     * {@link DataIntegrityViolationException} surface as an unhandled 500.
+     */
+    private ColumnConfigResponse saveOrTranslateCollision(MasterdataColumnConfig config, String columnName) {
+        try {
+            return toResponse(masterdataColumnConfigRepository.save(config));
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException(
+                    "A column named '" + columnName + "' already exists for this masterdata type.", e);
+        }
     }
 
     @Auditable(action = "DELETE_MASTERDATA_COLUMN_CONFIG")

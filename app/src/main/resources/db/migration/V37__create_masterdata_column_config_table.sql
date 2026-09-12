@@ -41,9 +41,20 @@ CREATE TABLE masterdata_column_config (
     required        BOOLEAN      NOT NULL DEFAULT FALSE,
     data_type       VARCHAR(20)  NOT NULL,
     system_defined  BOOLEAN      NOT NULL DEFAULT FALSE,
-    CONSTRAINT pk_masterdata_column_config PRIMARY KEY (id),
-    CONSTRAINT uq_masterdata_column_config_type_column UNIQUE (masterdata_type, column_name)
+    CONSTRAINT pk_masterdata_column_config PRIMARY KEY (id)
 );
+
+-- Partial unique index (not a table-level UNIQUE constraint) scoped to live
+-- rows only. A table-level UNIQUE constraint has no is_deleted awareness, so
+-- it would permanently block re-adding a column name after a real soft-delete
+-- (MasterdataColumnConfig.remove() performs an actual softDelete(), never a
+-- hard delete or a dedicated active flag — see MDIMPORT-03 / Pitfall 1) —
+-- exactly the "removal is real" guarantee this design goes out of its way to
+-- provide. Postgres cannot express a WHERE clause on a table CONSTRAINT, so
+-- this must be a standalone CREATE UNIQUE INDEX statement (CR-01 fix).
+CREATE UNIQUE INDEX uq_masterdata_column_config_type_column
+    ON masterdata_column_config (masterdata_type, column_name)
+    WHERE is_deleted = FALSE;
 
 -- Envers audit-history shadow table — required because BaseEntity is
 -- @Audited at the mapped-superclass level, so MasterdataColumnConfig (which
