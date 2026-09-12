@@ -1,0 +1,129 @@
+package com.pranicdoc.cph.masterdata.importer;
+
+import com.pranicdoc.cph.common.enums.MasterdataType;
+import com.pranicdoc.cph.masterdata.dto.ImportResult;
+import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
+import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
+import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * MasterDataImporter implementation for CHAKRA — simplest of the four
+ * importers: one row equals one chakra, no grouping/multi-row logic
+ * (unlike PranaColor).
+ */
+@Service
+@RequiredArgsConstructor
+public class ChakraImportService implements MasterDataImporter {
+
+    private static final String SHEET_NAME = "Chakras";
+
+    private final ChakraCatalogRepository chakraRepo;
+    private final SpreadsheetReader spreadsheetReader;
+    private final MasterdataColumnConfigRepository columnConfigRepo;
+
+    @Override
+    public MasterdataType kind() {
+        return MasterdataType.CHAKRA;
+    }
+
+    @Override
+    @Transactional
+    public ImportResult importFile(MultipartFile file) {
+        // D-17 config-integrity fail-fast: reject the whole import up front if any
+        // CHAKRA column-config row points at a targetField this importer doesn't
+        // know how to write — before the spreadsheet is even parsed.
+        List<MasterdataColumnConfig> columns = columnConfigRepo
+                .findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA);
+        for (MasterdataColumnConfig config : columns) {
+            validateTargetField(config.getTargetField());
+        }
+
+        List<Map<String, String>> rows = spreadsheetReader.read(file, SHEET_NAME);
+
+        int created = 0;
+        int updated = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        int rowNumber = 1; // header is row 0 (not counted); data rows start at 1
+        for (Map<String, String> row : rows) {
+            rowNumber++;
+
+            ChakraCatalog values = new ChakraCatalog();
+            String skipError = null;
+
+            for (MasterdataColumnConfig config : columns) {
+                String targetField = config.getTargetField();
+                String rawValue = trimToNull(row.get(config.getColumnName()));
+
+                if (config.isRequired() && rawValue == null) {
+                    skipError = "Row " + rowNumber + ": missing " + config.getColumnName();
+                    break;
+                }
+                if (rawValue == null) {
+                    continue;
+                }
+
+                applyColumn(values, targetField, rawValue);
+            }
+
+            if (skipError != null) {
+                errors.add(skipError);
+                skipped++;
+                continue;
+            }
+
+            ChakraCatalog chakra = chakraRepo.findByCode(values.getCode()).orElse(null);
+            if (chakra == null) {
+                chakra = values;
+                chakra.setHealerId(null);
+                created++;
+            } else {
+                chakra.setCode(values.getCode());
+                chakra.setName(values.getName());
+                chakra.setCategory(values.getCategory());
+                chakra.setLocation(values.getLocation());
+                updated++;
+            }
+            chakraRepo.save(chakra);
+        }
+
+        return new ImportResult(rows.size(), created, updated, skipped, errors);
+    }
+
+    private void applyColumn(ChakraCatalog entity, String targetField, String rawValue) {
+        switch (targetField) {
+            case "code" -> entity.setCode(rawValue.toUpperCase(Locale.ROOT));
+            case "name" -> entity.setName(rawValue);
+            case "category" -> entity.setCategory(rawValue);
+            case "location" -> entity.setLocation(rawValue);
+            default -> validateTargetField(targetField);
+        }
+    }
+
+    private void validateTargetField(String targetField) {
+        switch (targetField) {
+            case "code", "name", "category", "location" -> {
+                // recognized — no-op
+            }
+            default -> throw new IllegalStateException(
+                    "Unknown targetField '" + targetField + "' in masterdata_column_config for CHAKRA — config/importer drift");
+        }
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}
