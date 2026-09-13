@@ -116,6 +116,17 @@ class MasterDataServiceTest {
         verify(chakraRepo).save(any());
     }
 
+    @Test
+    void updateChakra_superAdmin_canEditSystemRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(null);
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+        when(chakraRepo.save(any(ChakraCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.updateChakra(UUID.randomUUID(), chakraRequest(), true));
+        verify(chakraRepo).save(any());
+    }
+
     // ── deleteChakra ─────────────────────────────────────────────────────────
 
     @Test
@@ -208,6 +219,17 @@ class MasterDataServiceTest {
         verify(colorRepo).save(any());
     }
 
+    @Test
+    void updateColor_superAdmin_canEditSystemRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(null);
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+        when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.updateColor(UUID.randomUUID(), colorRequest(), true));
+        verify(colorRepo).save(any());
+    }
+
     // ── deleteColor ──────────────────────────────────────────────────────────
 
     @Test
@@ -293,6 +315,17 @@ class MasterDataServiceTest {
     void updateProtocol_superAdmin_canOverwriteAnotherHealersCustomRow() {
         ProtocolCatalog protocol = new ProtocolCatalog();
         protocol.setHealerId(UUID.randomUUID());
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+        when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.updateProtocol(UUID.randomUUID(), protocolRequest(), true));
+        verify(protocolRepo).save(any());
+    }
+
+    @Test
+    void updateProtocol_superAdmin_canEditSystemRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(null);
         when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
         when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
 
