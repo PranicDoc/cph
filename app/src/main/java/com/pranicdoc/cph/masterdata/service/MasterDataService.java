@@ -41,10 +41,13 @@ public class MasterDataService {
      * mutating master-data operations (MDIMPORT-19).
      */
     private void assertOwnership(UUID entityHealerId, boolean isSuperAdmin, String entityName, String action) {
-        boolean denied = entityHealerId == null
-                ? !isSuperAdmin
-                : !Objects.equals(entityHealerId, securityContextUtil.getCurrentHealerId()) && !isSuperAdmin;
-        if (denied) {
+        if (entityHealerId == null) {
+            if (!isSuperAdmin) {
+                throw new AccessDeniedException(entityName + " is a system row — only SUPADM may " + action + " it");
+            }
+            return;
+        }
+        if (!Objects.equals(entityHealerId, securityContextUtil.getCurrentHealerId()) && !isSuperAdmin) {
             throw new AccessDeniedException(entityName + " is owned by another party — not permitted to " + action);
         }
     }
