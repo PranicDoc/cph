@@ -148,9 +148,11 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
             }
 
             ProtocolColorMapping mapping = findExisting(protocolName, colorId, usageType, healerId);
-            // PD-40-04: same row-ownership guard MasterDataService.deleteMapping enforces —
-            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
-            // healer's custom row can only be overwritten by that healer or SUPADM.
+            // PD-40-04-style guard: a SYSTEM row (healerId == null) can only be
+            // overwritten by SUPADM; another healer's custom row can only be
+            // overwritten by that healer or SUPADM. (Note: MasterDataService's
+            // single-row CRUD path currently only enforces the SYSTEM-row half of
+            // this — see MASTERDATA-XXX if tracking that gap.)
             // (WR-01: findExisting now also searches the caller's own healerId-scoped rows —
             // see findByProtocolNameAndHealerId — so a healer's own custom mapping is found
             // and updated in place on re-import instead of being duplicated. The "other

@@ -102,9 +102,11 @@ public class ChakraImportService implements MasterDataImporter {
             }
 
             ChakraCatalog chakra = chakraRepo.findByCode(values.getCode()).orElse(null);
-            // PD-40-04: same row-ownership guard MasterDataService.updateChakra enforces —
-            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
-            // healer's custom row can only be overwritten by that healer or SUPADM.
+            // PD-40-04-style guard: a SYSTEM row (healerId == null) can only be
+            // overwritten by SUPADM; another healer's custom row can only be
+            // overwritten by that healer or SUPADM. (Note: MasterDataService's
+            // single-row CRUD path currently only enforces the SYSTEM-row half of
+            // this — see MASTERDATA-XXX if tracking that gap.)
             if (chakra != null && (chakra.getHealerId() == null
                     ? !isSuperAdmin
                     : !Objects.equals(chakra.getHealerId(), healerId) && !isSuperAdmin)) {

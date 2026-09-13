@@ -153,9 +153,11 @@ public class PranaColorImportService implements MasterDataImporter {
             }
 
             PranaColorCatalog entity = pranaColorRepo.findByCode(code).orElse(null);
-            // PD-40-04: same row-ownership guard MasterDataService.updateColor enforces —
-            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
-            // healer's custom row can only be overwritten by that healer or SUPADM.
+            // PD-40-04-style guard: a SYSTEM row (healerId == null) can only be
+            // overwritten by SUPADM; another healer's custom row can only be
+            // overwritten by that healer or SUPADM. (Note: MasterDataService's
+            // single-row CRUD path currently only enforces the SYSTEM-row half of
+            // this — see MASTERDATA-XXX if tracking that gap.)
             if (entity != null && (entity.getHealerId() == null
                     ? !isSuperAdmin
                     : !Objects.equals(entity.getHealerId(), healerId) && !isSuperAdmin)) {

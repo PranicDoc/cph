@@ -113,9 +113,11 @@ public class ProtocolImportService implements MasterDataImporter {
             ProtocolCatalog protocol = protocolRepo
                     .findByNameAndSourceBookAndPageNumber(values.getName(), values.getSourceBook(), values.getPageNumber())
                     .orElse(null);
-            // PD-40-04: same row-ownership guard MasterDataService.updateProtocol enforces —
-            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
-            // healer's custom row can only be overwritten by that healer or SUPADM.
+            // PD-40-04-style guard: a SYSTEM row (healerId == null) can only be
+            // overwritten by SUPADM; another healer's custom row can only be
+            // overwritten by that healer or SUPADM. (Note: MasterDataService's
+            // single-row CRUD path currently only enforces the SYSTEM-row half of
+            // this — see MASTERDATA-XXX if tracking that gap.)
             if (protocol != null && (protocol.getHealerId() == null
                     ? !isSuperAdmin
                     : !Objects.equals(protocol.getHealerId(), healerId) && !isSuperAdmin)) {
