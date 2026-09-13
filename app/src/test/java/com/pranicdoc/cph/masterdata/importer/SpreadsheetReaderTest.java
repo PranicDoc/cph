@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.importer;
 
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -119,5 +120,80 @@ class SpreadsheetReaderTest {
         List<Map<String, String>> rows = reader.read(file, "Sheet1");
 
         assertEquals("45", rows.get(0).get("Page"));
+    }
+
+    // ---- WR-05: formula cells read the cached evaluated result, not the ------
+    // ---- literal formula text --------------------------------------------
+
+    @Test
+    void read_xlsxStringFormulaCell_returnsCachedEvaluatedValueNotFormulaText() throws IOException {
+        MockMultipartFile file;
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Name");
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellFormula("\"Crown\"&\" Chakra\"");
+
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            evaluator.evaluateFormulaCell(dataRow.getCell(0));
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            file = new MockMultipartFile("file", "data.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
+
+        List<Map<String, String>> rows = reader.read(file, "Sheet1");
+
+        assertEquals("Crown Chakra", rows.get(0).get("Name"));
+    }
+
+    @Test
+    void read_xlsxNumericFormulaCell_returnsCachedEvaluatedNumericValue() throws IOException {
+        MockMultipartFile file;
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Page");
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellFormula("40+5");
+
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            evaluator.evaluateFormulaCell(dataRow.getCell(0));
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            file = new MockMultipartFile("file", "data.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
+
+        List<Map<String, String>> rows = reader.read(file, "Sheet1");
+
+        assertEquals("45", rows.get(0).get("Page"));
+    }
+
+    @Test
+    void read_xlsxBooleanFormulaCell_throwsIllegalArgumentExceptionInsteadOfCorruptingData() throws IOException {
+        MockMultipartFile file;
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Flag");
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellFormula("TRUE()");
+
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            evaluator.evaluateFormulaCell(dataRow.getCell(0));
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            file = new MockMultipartFile("file", "data.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> reader.read(file, "Sheet1"));
+        assertTrue(ex.getMessage().contains("Unsupported formula result type"));
     }
 }

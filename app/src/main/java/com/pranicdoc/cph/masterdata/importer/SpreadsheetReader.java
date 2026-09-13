@@ -98,14 +98,27 @@ public class SpreadsheetReader {
     }
 
     private String cellToString(Cell cell) {
-        if (cell.getCellType() == CellType.NUMERIC) {
-            double value = cell.getNumericCellValue();
-            if (value == Math.floor(value)) {
-                return String.valueOf((long) value);
-            }
-            return String.valueOf(value);
+        return switch (cell.getCellType()) {
+            case NUMERIC -> formatNumeric(cell.getNumericCellValue());
+            // WR-05: a formula cell's Cell#toString() returns the formula text itself
+            // (e.g. "=A2&\" \"&B2"), not its evaluated value — reading the cached
+            // formula result instead avoids writing the literal formula string into a
+            // masterdata row's field.
+            case FORMULA -> switch (cell.getCachedFormulaResultType()) {
+                case NUMERIC -> formatNumeric(cell.getNumericCellValue());
+                case STRING -> cell.getStringCellValue().trim();
+                default -> throw new IllegalArgumentException(
+                        "Unsupported formula result type in cell " + cell.getAddress());
+            };
+            default -> cell.toString().trim();
+        };
+    }
+
+    private String formatNumeric(double value) {
+        if (value == Math.floor(value)) {
+            return String.valueOf((long) value);
         }
-        return cell.toString().trim();
+        return String.valueOf(value);
     }
 
     private String extractExtension(String filename) {
