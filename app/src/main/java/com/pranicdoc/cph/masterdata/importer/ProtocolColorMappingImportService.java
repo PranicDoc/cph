@@ -147,13 +147,15 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
                 continue;
             }
 
-            ProtocolColorMapping mapping = findExisting(protocolName, colorId, usageType);
+            ProtocolColorMapping mapping = findExisting(protocolName, colorId, usageType, healerId);
             // PD-40-04: same row-ownership guard MasterDataService.deleteMapping enforces —
             // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
             // healer's custom row can only be overwritten by that healer or SUPADM.
-            // (findExisting only ever matches SYSTEM rows today — see its
-            // findByProtocolNameAndHealerIdIsNull query — but the explicit check is kept
-            // here so this importer stays correct if that lookup is ever broadened.)
+            // (WR-01: findExisting now also searches the caller's own healerId-scoped rows —
+            // see findByProtocolNameAndHealerId — so a healer's own custom mapping is found
+            // and updated in place on re-import instead of being duplicated. The "other
+            // healer's row" branch below is reachable when a different, non-caller healerId
+            // is passed to isSuperAdmin-driven bulk imports done on another healer's behalf.)
             if (mapping != null && (mapping.getHealerId() == null
                     ? !isSuperAdmin
                     : !Objects.equals(mapping.getHealerId(), healerId) && !isSuperAdmin)) {
@@ -182,8 +184,17 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
         return new ImportResult(rows.size(), created, updated, skipped, errors);
     }
 
-    private ProtocolColorMapping findExisting(String protocolName, UUID colorId, ColorUsageType usageType) {
-        return mappingRepo.findByProtocolNameAndHealerIdIsNull(protocolName).stream()
+    private ProtocolColorMapping findExisting(String protocolName, UUID colorId, ColorUsageType usageType, UUID healerId) {
+        // WR-01: search both the SYSTEM-row pool (healerId == null) and, when the caller
+        // is a non-SUPADM healer, that healer's own previously-imported custom rows —
+        // otherwise re-importing the same file as that healer can never find its own
+        // existing mapping and always inserts a duplicate instead of updating in place.
+        List<ProtocolColorMapping> candidates = new ArrayList<>(
+                mappingRepo.findByProtocolNameAndHealerIdIsNull(protocolName));
+        if (healerId != null) {
+            candidates.addAll(mappingRepo.findByProtocolNameAndHealerId(protocolName, healerId));
+        }
+        return candidates.stream()
                 .filter(m -> Objects.equals(m.getColorId(), colorId) && m.getUsageType() == usageType)
                 .findFirst()
                 .orElse(null);
