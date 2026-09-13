@@ -34,6 +34,21 @@ public class MasterDataService {
     private final ProtocolCatalogRepository protocolRepo;
     private final SecurityContextUtil securityContextUtil;
 
+    /**
+     * Denies the caller unless they own {@code entityHealerId} (i.e. it matches their own
+     * healerId) or the caller is a SUPADM. SYSTEM rows ({@code entityHealerId == null}) are
+     * SUPADM-only. Single enforcement point for the cross-healer ownership guard across all
+     * mutating master-data operations (MDIMPORT-19).
+     */
+    private void assertOwnership(UUID entityHealerId, boolean isSuperAdmin, String entityName, String action) {
+        boolean denied = entityHealerId == null
+                ? !isSuperAdmin
+                : !Objects.equals(entityHealerId, securityContextUtil.getCurrentHealerId()) && !isSuperAdmin;
+        if (denied) {
+            throw new AccessDeniedException(entityName + " is owned by another party — not permitted to " + action);
+        }
+    }
+
     // ── Chakras ──────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -68,11 +83,7 @@ public class MasterDataService {
     @Transactional
     public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
-        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
-        if (chakra.getHealerId() == null
-                ? !isSuperAdmin
-                : !Objects.equals(chakra.getHealerId(), callerHealerId) && !isSuperAdmin)
-            throw new AccessDeniedException("Chakra is owned by another party — not permitted to edit");
+        assertOwnership(chakra.getHealerId(), isSuperAdmin, "Chakra", "edit");
         chakra.setName(req.name());
         chakra.setCategory(req.category());
         chakra.setLocation(req.location());
@@ -82,8 +93,7 @@ public class MasterDataService {
     @Transactional
     public void deleteChakra(UUID id, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
-        if (chakra.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System chakras can only be deleted by SUPADM");
+        assertOwnership(chakra.getHealerId(), isSuperAdmin, "Chakra", "delete");
         chakra.softDelete();
         chakraRepo.save(chakra);
     }
@@ -124,11 +134,7 @@ public class MasterDataService {
     @Transactional
     public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
-        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
-        if (color.getHealerId() == null
-                ? !isSuperAdmin
-                : !Objects.equals(color.getHealerId(), callerHealerId) && !isSuperAdmin)
-            throw new AccessDeniedException("Color is owned by another party — not permitted to edit");
+        assertOwnership(color.getHealerId(), isSuperAdmin, "Color", "edit");
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
@@ -140,8 +146,7 @@ public class MasterDataService {
     @Transactional
     public void deleteColor(UUID id, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
-        if (color.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System colors can only be deleted by SUPADM");
+        assertOwnership(color.getHealerId(), isSuperAdmin, "Color", "delete");
         color.softDelete();
         colorRepo.save(color);
     }
@@ -173,11 +178,7 @@ public class MasterDataService {
     public void deleteMapping(UUID id, boolean isSuperAdmin) {
         ProtocolColorMapping mapping = mappingRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ProtocolColorMapping", id));
-        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
-        if (mapping.getHealerId() == null
-                ? !isSuperAdmin
-                : !Objects.equals(mapping.getHealerId(), callerHealerId) && !isSuperAdmin)
-            throw new AccessDeniedException("Mapping is owned by another party — not permitted to delete");
+        assertOwnership(mapping.getHealerId(), isSuperAdmin, "Mapping", "delete");
         mapping.softDelete();
         mappingRepo.save(mapping);
     }
@@ -219,11 +220,7 @@ public class MasterDataService {
     @Transactional
     public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean isSuperAdmin) {
         ProtocolCatalog protocol = getProtocolById(id);
-        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
-        if (protocol.getHealerId() == null
-                ? !isSuperAdmin
-                : !Objects.equals(protocol.getHealerId(), callerHealerId) && !isSuperAdmin)
-            throw new AccessDeniedException("Protocol is owned by another party — not permitted to edit");
+        assertOwnership(protocol.getHealerId(), isSuperAdmin, "Protocol", "edit");
         protocol.setName(req.name());
         protocol.setSourceBook(req.sourceBook());
         protocol.setPageNumber(req.pageNumber());
@@ -237,8 +234,7 @@ public class MasterDataService {
     @Transactional
     public void deleteProtocol(UUID id, boolean isSuperAdmin) {
         ProtocolCatalog protocol = getProtocolById(id);
-        if (protocol.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System protocols can only be deleted by SUPADM");
+        assertOwnership(protocol.getHealerId(), isSuperAdmin, "Protocol", "delete");
         protocol.softDelete();
         protocolRepo.save(protocol);
     }

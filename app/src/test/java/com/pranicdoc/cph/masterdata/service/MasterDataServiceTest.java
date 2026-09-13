@@ -116,6 +116,52 @@ class MasterDataServiceTest {
         verify(chakraRepo).save(any());
     }
 
+    // ── deleteChakra ─────────────────────────────────────────────────────────
+
+    @Test
+    void deleteChakra_nonSuperAdmin_cannotDeleteAnotherHealersCustomRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(UUID.randomUUID());
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteChakra(UUID.randomUUID(), false));
+        verify(chakraRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteChakra_nonSuperAdmin_canDeleteOwnCustomRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(CALLER_HEALER_ID);
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+        when(chakraRepo.save(any(ChakraCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteChakra(UUID.randomUUID(), false));
+        verify(chakraRepo).save(any());
+    }
+
+    @Test
+    void deleteChakra_nonSuperAdmin_cannotDeleteSystemRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(null);
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteChakra(UUID.randomUUID(), false));
+        verify(chakraRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteChakra_superAdmin_canDeleteAnotherHealersCustomRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(UUID.randomUUID());
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+        when(chakraRepo.save(any(ChakraCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteChakra(UUID.randomUUID(), true));
+        verify(chakraRepo).save(any());
+    }
+
     // ── updateColor ──────────────────────────────────────────────────────────
 
     @Test
@@ -162,6 +208,52 @@ class MasterDataServiceTest {
         verify(colorRepo).save(any());
     }
 
+    // ── deleteColor ──────────────────────────────────────────────────────────
+
+    @Test
+    void deleteColor_nonSuperAdmin_cannotDeleteAnotherHealersCustomRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(UUID.randomUUID());
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteColor(UUID.randomUUID(), false));
+        verify(colorRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteColor_nonSuperAdmin_canDeleteOwnCustomRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(CALLER_HEALER_ID);
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+        when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteColor(UUID.randomUUID(), false));
+        verify(colorRepo).save(any());
+    }
+
+    @Test
+    void deleteColor_nonSuperAdmin_cannotDeleteSystemRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(null);
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteColor(UUID.randomUUID(), false));
+        verify(colorRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteColor_superAdmin_canDeleteAnotherHealersCustomRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(UUID.randomUUID());
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+        when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteColor(UUID.randomUUID(), true));
+        verify(colorRepo).save(any());
+    }
+
     // ── updateProtocol ───────────────────────────────────────────────────────
 
     @Test
@@ -205,6 +297,52 @@ class MasterDataServiceTest {
         when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
 
         assertDoesNotThrow(() -> service.updateProtocol(UUID.randomUUID(), protocolRequest(), true));
+        verify(protocolRepo).save(any());
+    }
+
+    // ── deleteProtocol ───────────────────────────────────────────────────────
+
+    @Test
+    void deleteProtocol_nonSuperAdmin_cannotDeleteAnotherHealersCustomRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(UUID.randomUUID());
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteProtocol(UUID.randomUUID(), false));
+        verify(protocolRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteProtocol_nonSuperAdmin_canDeleteOwnCustomRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(CALLER_HEALER_ID);
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+        when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteProtocol(UUID.randomUUID(), false));
+        verify(protocolRepo).save(any());
+    }
+
+    @Test
+    void deleteProtocol_nonSuperAdmin_cannotDeleteSystemRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(null);
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.deleteProtocol(UUID.randomUUID(), false));
+        verify(protocolRepo, never()).save(any());
+    }
+
+    @Test
+    void deleteProtocol_superAdmin_canDeleteAnotherHealersCustomRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(UUID.randomUUID());
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+        when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteProtocol(UUID.randomUUID(), true));
         verify(protocolRepo).save(any());
     }
 
