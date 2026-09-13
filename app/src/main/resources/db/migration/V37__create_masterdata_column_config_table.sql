@@ -16,8 +16,9 @@
 -- D-08: seeds all 4 masterdata types (PROTOCOL, PRANA_COLOR, CHAKRA,
 --       PROTOCOL_COLOR_MAPPING), not just the two the original design doc
 --       covered.
--- D-10: MASTER_DATA_COLUMN_CONFIG's RBAC allow-list (see Resource.java) is a
---       Java-only concern — this migration has no bearing on it.
+-- D-10 (superseded 2026-09-13): this registry is now SUPADM-only, gated by
+--       hasRole('SUPADM') in MasterdataColumnConfigController — not a
+--       grantable RBAC resource. Java-only concern; no bearing on this schema.
 --
 -- No CHECK constraint on masterdata_type/data_type: superseded V7 anti-pattern.
 -- Validity of both enum-backed columns is enforced by Enum.valueOf at the

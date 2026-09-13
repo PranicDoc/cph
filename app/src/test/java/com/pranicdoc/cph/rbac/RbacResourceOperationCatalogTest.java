@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,19 +24,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RbacResourceOperationCatalogTest {
 
     @Test
-    void declaresExactlyNineteenResources() {
-        assertEquals(19, Resource.values().length, "Resource catalog size drifted — update this test deliberately if intended");
+    void declaresExactlyEighteenResources() {
+        assertEquals(18, Resource.values().length, "Resource catalog size drifted — update this test deliberately if intended");
     }
 
-    @Test
-    void masterDataColumnConfigAllowListsOrdinaryCrudVerbsOnlyPerD10() {
-        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE),
-                Resource.MASTER_DATA_COLUMN_CONFIG.getSupportedOperations(),
-                "D-10: all four verbs must be ordinary grantable permissions on MASTER_DATA_COLUMN_CONFIG");
-        assertFalse(Resource.MASTER_DATA_COLUMN_CONFIG.supports(Operation.ADMIN),
-                "D-10: ADMIN must stay absent — this resource must never adopt the "
-                        + "non-grantable-ADMIN-verb idiom superseded by D-10");
-    }
+    // masterDataColumnConfigAllowListsOrdinaryCrudVerbsOnlyPerD10 removed: D-10 was
+    // superseded 2026-09-13 — MASTER_DATA_COLUMN_CONFIG is no longer a grantable
+    // resource at all (the enum constant was removed). The column-config registry
+    // is now SUPADM-only via hasRole('SUPADM') on MasterdataColumnConfigController;
+    // see MasterdataColumnConfigControllerAuthorizationTest for its authorization gate.
 
     @Test
     void declaresExactlyEightOperations() {

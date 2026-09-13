@@ -12,7 +12,6 @@ import com.pranicdoc.cph.masterdata.dto.ColumnConfigResponse;
 import com.pranicdoc.cph.masterdata.model.ColumnDataType;
 import com.pranicdoc.cph.masterdata.service.MasterdataColumnConfigService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
-import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
 import io.jsonwebtoken.Claims;
@@ -43,17 +42,15 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -67,45 +64,39 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Authorization contract for {@link MasterdataColumnConfigController}
  * (Phase 01, masterdata-import-redesign, MDIMPORT-01/02/03/06).
  *
- * <p><b>D-10 (critical):</b> all 4 verbs on {@code MASTER_DATA_COLUMN_CONFIG}
- * are normal grantable RBAC permissions, each handler gated on its own
- * matching verb — no shared/blanket {@code ADMIN}-gated handler exists on
- * this controller. This is the opposite shape from {@code
- * MasterDataController.updateChakra}'s non-grantable-override idiom.
+ * <p><b>D-10 superseded (2026-09-13):</b> this registry is SUPADM-only.
+ * Every handler carries the exact same {@code hasRole('SUPADM')} literal
+ * used by {@code BootstrapController.assignRole} — no {@code
+ * Resource.MASTER_DATA_COLUMN_CONFIG} exists any more, so there is nothing
+ * for a custom role to be granted here.
  *
  * <p><b>Section A</b> pins each of the 4 endpoint {@code @PreAuthorize}
- * literals.
+ * literals to the exact {@code hasRole('SUPADM')} string.
  *
  * <p><b>Section B</b> is the anti-vacuous sweep: exactly 4 request-mapped
- * methods, each a bare {@code @rbacAuthz.hasPermission('R','V')} gate, no
- * residual {@code hasRole}/{@code hasAnyRole}.
- *
- * <p><b>Section C</b> resolves every named (resource, verb) pair through
- * {@link Resource#valueOf} + {@link Operation#valueOf} + {@link
- * Resource#supports}, and asserts {@code
- * MASTER_DATA_COLUMN_CONFIG.supports(ADMIN)} is {@code false} — the D-10
- * regression guard: this controller must never gain a 5th
- * {@code ADMIN}-gated handler.
+ * methods, each carrying that exact literal and nothing else.
  *
  * <p>The sibling {@link FilterChainMasterdataColumnConfigControllerAuthorizationTest}
- * proves the per-verb filter-chain matrix through the real Spring Security
- * filter chain.
+ * proves SUPADM-only enforcement through the real Spring Security filter chain.
  */
 class MasterdataColumnConfigControllerAuthorizationTest {
 
     // ─── Section A — the 4 pinned literals ────────────────────────────────
 
-    static final String READ_LITERAL   = "@rbacAuthz.hasPermission('MASTER_DATA_COLUMN_CONFIG','READ')";
-    static final String CREATE_LITERAL = "@rbacAuthz.hasPermission('MASTER_DATA_COLUMN_CONFIG','CREATE')";
-    static final String UPDATE_LITERAL = "@rbacAuthz.hasPermission('MASTER_DATA_COLUMN_CONFIG','UPDATE')";
-    static final String DELETE_LITERAL = "@rbacAuthz.hasPermission('MASTER_DATA_COLUMN_CONFIG','DELETE')";
+    /**
+     * The exact authorization literal every handler must carry, written out
+     * in full — not assembled from a prefix + a role name, so a typo in a
+     * shared fragment would not slip through unnoticed. Matches {@code
+     * BootstrapControllerTest.ASSIGN_ROLE_LITERAL}.
+     */
+    static final String SUPADM_LITERAL = "hasRole('SUPADM')";
 
     /** methodName -> expected @PreAuthorize literal. */
     private static final List<String[]> EXPECTED_GATES = List.of(
-            new String[]{"list", READ_LITERAL},
-            new String[]{"create", CREATE_LITERAL},
-            new String[]{"update", UPDATE_LITERAL},
-            new String[]{"remove", DELETE_LITERAL});
+            new String[]{"list", SUPADM_LITERAL},
+            new String[]{"create", SUPADM_LITERAL},
+            new String[]{"update", SUPADM_LITERAL},
+            new String[]{"remove", SUPADM_LITERAL});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -130,34 +121,27 @@ class MasterdataColumnConfigControllerAuthorizationTest {
     }
 
     @Test
-    void list_isGatedByRead() {
+    void list_isGatedBySupadm() {
         assertThat(preAuthorizeValueOf(MasterdataColumnConfigController.class, "list"))
-                .isEqualTo(READ_LITERAL);
+                .isEqualTo(SUPADM_LITERAL);
     }
 
     @Test
-    void create_isGatedByCreate() {
+    void create_isGatedBySupadm() {
         assertThat(preAuthorizeValueOf(MasterdataColumnConfigController.class, "create"))
-                .isEqualTo(CREATE_LITERAL);
+                .isEqualTo(SUPADM_LITERAL);
     }
 
     @Test
-    void update_isGatedByUpdate() {
+    void update_isGatedBySupadm() {
         assertThat(preAuthorizeValueOf(MasterdataColumnConfigController.class, "update"))
-                .isEqualTo(UPDATE_LITERAL);
+                .isEqualTo(SUPADM_LITERAL);
     }
 
     @Test
-    void remove_isGatedByDelete() {
+    void remove_isGatedBySupadm() {
         assertThat(preAuthorizeValueOf(MasterdataColumnConfigController.class, "remove"))
-                .isEqualTo(DELETE_LITERAL);
-    }
-
-    @Test
-    void noHandlerIsNamedOrGatedOnAdmin() {
-        for (String[] entry : EXPECTED_GATES) {
-            assertThat(entry[1]).doesNotContain("'ADMIN'");
-        }
+                .isEqualTo(SUPADM_LITERAL);
     }
 
     // ─── Section B — anti-vacuous sweep ───────────────────────────────────
@@ -166,11 +150,8 @@ class MasterdataColumnConfigControllerAuthorizationTest {
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
             DeleteMapping.class, RequestMapping.class);
 
-    private static final Pattern BARE_GATE =
-            Pattern.compile("^@rbacAuthz\\.hasPermission\\('([A-Z_]+)','([A-Z]+)'\\)$");
-
     @Test
-    void everyRequestMappedMethodCarriesABareDynamicGate() {
+    void everyRequestMappedMethodCarriesExactlyTheSupadmGate() {
         int inspected = 0;
 
         for (Method method : MasterdataColumnConfigController.class.getDeclaredMethods()) {
@@ -190,17 +171,10 @@ class MasterdataColumnConfigControllerAuthorizationTest {
                     .as("method %s must carry @PreAuthorize", method.getName())
                     .isNotNull();
 
-            String value = preAuthorize.value();
-            assertThat(value)
-                    .as("method %s's @PreAuthorize must be a bare @rbacAuthz.hasPermission('R','V') expression",
-                            method.getName())
-                    .matches(BARE_GATE);
-            assertThat(value)
-                    .as("method %s's @PreAuthorize must not retain a hasRole gate", method.getName())
-                    .doesNotContain("hasRole");
-            assertThat(value)
-                    .as("method %s's @PreAuthorize must not retain a hasAnyRole gate", method.getName())
-                    .doesNotContain("hasAnyRole");
+            assertThat(preAuthorize.value())
+                    .as("method %s's @PreAuthorize must be exactly hasRole('SUPADM') — no resource-based "
+                            + "grant exists for this registry any more", method.getName())
+                    .isEqualTo(SUPADM_LITERAL);
         }
 
         assertThat(inspected)
@@ -208,43 +182,20 @@ class MasterdataColumnConfigControllerAuthorizationTest {
                 .isEqualTo(4);
     }
 
-    // ─── Section C — allow-list validity ─────────────────────────────────
-
     @Test
-    void everyGateNamesAnAllowListedResourceVerbPair() {
-        for (String[] entry : EXPECTED_GATES) {
-            String methodName = entry[0];
-            String literal = preAuthorizeValueOf(MasterdataColumnConfigController.class, methodName);
-
-            Matcher matcher = BARE_GATE.matcher(literal);
-            assertThat(matcher.matches())
-                    .as("gate for %s (%s) must be a bare @rbacAuthz.hasPermission('R','V') expression",
-                            methodName, literal)
-                    .isTrue();
-
-            Resource resource = Resource.valueOf(matcher.group(1));
-            Operation operation = Operation.valueOf(matcher.group(2));
-
-            assertThat(resource.supports(operation))
-                    .as("%s: %s:%s is not an allow-listed (resource, verb) pair (D-10)",
-                            methodName, resource, operation)
-                    .isTrue();
-        }
-    }
-
-    @Test
-    void masterDataColumnConfigDoesNotSupportAdminVerb_regressionGuardForD10() {
-        assertThat(Resource.MASTER_DATA_COLUMN_CONFIG.supports(Operation.ADMIN))
-                .as("D-10: MASTER_DATA_COLUMN_CONFIG must never allow-list ADMIN — this controller must never "
-                        + "gain a 5th ADMIN-gated handler; all 4 verbs (READ/CREATE/UPDATE/DELETE) are ordinary "
-                        + "grantable permissions")
+    void masterDataColumnConfigResourceNoLongerExists_regressionGuardForD10Reversal() {
+        boolean stillDeclared = Arrays.stream(Resource.values())
+                .anyMatch(r -> r.name().equals("MASTER_DATA_COLUMN_CONFIG"));
+        assertThat(stillDeclared)
+                .as("D-10 was superseded 2026-09-13: MASTER_DATA_COLUMN_CONFIG must stay removed from the "
+                        + "grantable Resource catalog — this registry is SUPADM-only via hasRole, not a permission")
                 .isFalse();
     }
 }
 
 /**
- * SC2 contribution — the per-verb filter-chain matrix, run through the real
- * Spring Security filter chain on the PROVEN {@code
+ * SC2 contribution — SUPADM-only enforcement proven through the real Spring
+ * Security filter chain on the PROVEN {@code
  * @WebMvcTest(controller) + @Import(SecurityConfig)} harness (see {@code
  * MasterDataControllerAuthorizationTest} / {@code
  * FilterChainConsentTypeControllerAuthorizationTest}).
@@ -254,15 +205,20 @@ class MasterdataColumnConfigControllerAuthorizationTest {
  * MasterdataColumnConfigControllerAuthorizationTest}, so {@code --tests
  * "*MasterdataColumnConfigControllerAuthorizationTest*"} runs both.
  *
+ * <p><b>D-10 superseded (2026-09-13):</b> there is no more per-verb grant
+ * matrix to prove — {@code hasRole('SUPADM')} either matches the caller's
+ * role or it doesn't, so {@code RbacAuthz}/{@code lookupService} are never
+ * consulted for this controller at all (kept wired only because the shared
+ * {@code SecurityConfig} slice's method-security expression handler resolves
+ * a {@code @rbacAuthz} bean generically for the whole app context).
+ *
  * <ol>
- *   <li>SUPADM passes all 4 endpoints without any {@code lookupService}
- *       interaction (the {@code RbacAuthz} short-circuit fires first).</li>
- *   <li>A caller granted exactly the matching verb passes that endpoint.</li>
- *   <li>The same caller with only a DIFFERENT one of the 4 verbs granted is
- *       403 on this endpoint (D-10: no permanently-non-grantable verb
- *       exists on this resource — each verb is independent).</li>
- *   <li>A fully-ungranted, non-SUPADM caller is 403 on all 4 endpoints with
- *       zero {@code masterdataColumnConfigService} interaction.</li>
+ *   <li>SUPADM passes all 4 endpoints, with zero {@code lookupService}
+ *       interaction (Spring Security's native role check never touches
+ *       {@code RbacAuthz}).</li>
+ *   <li>A non-SUPADM caller (HEALER) is 403 on all 4 endpoints, with zero
+ *       {@code masterdataColumnConfigService} interaction — there is no
+ *       grant that could ever let a HEALER through any more.</li>
  * </ol>
  */
 @WebMvcTest(MasterdataColumnConfigController.class)
@@ -339,13 +295,13 @@ class FilterChainMasterdataColumnConfigControllerAuthorizationTest {
     private static final String UPDATE_BODY =
             "{\"columnName\":\"Note\",\"targetField\":\"note\",\"required\":false,\"dataType\":\"STRING\"}";
 
-    /** The 4 (method, path, body, gate-verb) tuples under test. */
+    /** The 4 (method, path, body) tuples under test. */
     static Stream<Arguments> allFourEndpoints() {
         return Stream.of(
-                Arguments.of("GET", BASE + "?type=PROTOCOL", null, Operation.READ),
-                Arguments.of("POST", BASE, CREATE_BODY, Operation.CREATE),
-                Arguments.of("PUT", BASE + "/" + ROW_ID, UPDATE_BODY, Operation.UPDATE),
-                Arguments.of("DELETE", BASE + "/" + ROW_ID, null, Operation.DELETE));
+                Arguments.of("GET", BASE + "?type=PROTOCOL", null),
+                Arguments.of("POST", BASE, CREATE_BODY),
+                Arguments.of("PUT", BASE + "/" + ROW_ID, UPDATE_BODY),
+                Arguments.of("DELETE", BASE + "/" + ROW_ID, null));
     }
 
     private static MockHttpServletRequestBuilder request(String method, String path, String body) {
@@ -369,7 +325,7 @@ class FilterChainMasterdataColumnConfigControllerAuthorizationTest {
         when(masterdataColumnConfigService.update(any(), any())).thenReturn(sampleResponse());
     }
 
-    // ─── (1) SUPADM sweep — all 4 pass without any grant lookup ──────────
+    // ─── (1) SUPADM sweep — all 4 pass, RbacAuthz/lookupService untouched ──
 
     @Test
     void task1SweepCoversExactlyFourEndpoints() {
@@ -380,9 +336,8 @@ class FilterChainMasterdataColumnConfigControllerAuthorizationTest {
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
     @MethodSource("allFourEndpoints")
-    void supadm_reachesEveryEndpoint_withoutAnyGrantLookup(String method, String path, String body, Operation verb) throws Exception {
+    void supadm_reachesEveryEndpoint_withoutAnyRbacLookup(String method, String path, String body) throws Exception {
         authenticateAs("SUPADM");
-        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
         stubServiceHappyPath();
 
         mockMvc.perform(request(method, path, body))
@@ -391,71 +346,17 @@ class FilterChainMasterdataColumnConfigControllerAuthorizationTest {
         verifyNoInteractions(lookupService);
     }
 
-    // ─── (2) caller granted exactly the matching verb passes that endpoint ──
+    // ─── (2) any non-SUPADM caller — 403 on all 4, zero service interaction ──
 
-    @ParameterizedTest(name = "granted-{3} caller on its own endpoint {0} {1} is not 403")
+    @ParameterizedTest(name = "non-SUPADM HEALER {0} {1} is 403")
     @MethodSource("allFourEndpoints")
-    void grantedMatchingVerb_passesItsOwnEndpoint(String method, String path, String body, Operation verb) throws Exception {
+    void nonSupadmCaller_is403OnEveryEndpoint_andServiceNeverInvoked(String method, String path, String body) throws Exception {
         authenticateAs("HEALER");
-        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_COLUMN_CONFIG), eq(verb)))
-                .thenReturn(true);
-        stubServiceHappyPath();
-
-        mockMvc.perform(request(method, path, body))
-                .andExpect(status().is(not(403)));
-    }
-
-    // ─── (3) caller granted only a DIFFERENT one of the 4 verbs is 403 here ──
-
-    @ParameterizedTest(name = "granted-only-{0} caller on {2} {3} (needs {4}) is 403")
-    @MethodSource("crossVerbDenialMatrix")
-    void grantedOnlyADifferentVerb_is403OnThisEndpoint(
-            Operation grantedVerb, Operation neededVerb, String method, String path, String body) throws Exception {
-        authenticateAs("HEALER");
-        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_COLUMN_CONFIG), eq(grantedVerb)))
-                .thenReturn(true);
-        // neededVerb intentionally left unstubbed -> defaults to false.
-
-        mockMvc.perform(request(method, path, body))
-                .andExpect(status().isForbidden());
-    }
-
-    static Stream<Arguments> crossVerbDenialMatrix() {
-        List<Object[]> endpoints = List.of(
-                new Object[]{Operation.READ, "GET", BASE + "?type=PROTOCOL", null},
-                new Object[]{Operation.CREATE, "POST", BASE, CREATE_BODY},
-                new Object[]{Operation.UPDATE, "PUT", BASE + "/" + ROW_ID, UPDATE_BODY},
-                new Object[]{Operation.DELETE, "DELETE", BASE + "/" + ROW_ID, null});
-
-        return endpoints.stream().flatMap(endpoint -> {
-            Operation neededVerb = (Operation) endpoint[0];
-            String method = (String) endpoint[1];
-            String path = (String) endpoint[2];
-            String body = (String) endpoint[3];
-            return List.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE).stream()
-                    .filter(grantedVerb -> grantedVerb != neededVerb)
-                    .map(grantedVerb -> Arguments.of(grantedVerb, neededVerb, method, path, body));
-        });
-    }
-
-    // ─── (4) fully-ungranted caller — 403 on all 4, zero service interaction ──
-
-    @ParameterizedTest(name = "ungranted HEALER {0} {1} is 403")
-    @MethodSource("allFourEndpoints")
-    void ungrantedCaller_is403OnEveryEndpoint_andServiceNeverInvoked(String method, String path, String body, Operation verb) throws Exception {
-        authenticateAs("HEALER");
-        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_COLUMN_CONFIG), any()))
-                .thenReturn(false);
 
         mockMvc.perform(request(method, path, body))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(masterdataColumnConfigService);
+        verifyNoInteractions(lookupService);
     }
 }

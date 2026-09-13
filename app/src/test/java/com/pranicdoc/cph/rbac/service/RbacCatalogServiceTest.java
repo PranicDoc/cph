@@ -70,7 +70,7 @@ class RbacCatalogServiceTest {
     void catalogHasOneEntryPerResourceTodayAndNoEmptyVerbList() {
         List<RbacCatalogResourceResponse> catalog = service.catalog();
 
-        assertThat(catalog).hasSize(19);
+        assertThat(catalog).hasSize(18);
         assertThat(catalog).allSatisfy(entry ->
                 assertThat(entry.verbs())
                         .as("resource %s must expose at least one grantable verb", entry.resource())
