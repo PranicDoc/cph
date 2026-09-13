@@ -21,7 +21,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * MasterDataImporter for PROTOCOL_COLOR_MAPPING (MDIMPORT-12) — no prior
@@ -63,6 +65,21 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
                 .findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING);
         for (MasterdataColumnConfig config : columns) {
             validateTargetField(config.getTargetField());
+        }
+        // D-17 fail-fast, part 2: also assert every targetField this importer needs is
+        // actually present among the fetched columns — not just that every present row
+        // is recognized. Otherwise a deleted required config row (e.g. "Color Code")
+        // silently disables that field's required-ness check below, letting every row
+        // write a null FK-backed column and abort the whole transactional import with an
+        // unhandled DataIntegrityViolationException mid-loop instead of a clean fail-fast.
+        Set<String> seenTargetFields = columns.stream()
+                .map(MasterdataColumnConfig::getTargetField)
+                .collect(Collectors.toSet());
+        for (String required : Set.of("protocolName", "colorId", "usageType")) {
+            if (!seenTargetFields.contains(required)) {
+                throw new IllegalStateException("Missing required targetField '" + required
+                        + "' in masterdata_column_config for PROTOCOL_COLOR_MAPPING — config/importer drift");
+            }
         }
 
         List<Map<String, String>> rows = spreadsheetReader.read(file, SHEET_NAME);

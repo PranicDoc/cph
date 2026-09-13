@@ -304,6 +304,28 @@ class ProtocolImportServiceTest {
     }
 
     @Test
+    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
+        // "Book" (sourceBook) config row deleted entirely (WR-02) — should fail fast up
+        // front rather than silently skipping the required-ness check for that field.
+        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
+                .thenReturn(List.of(
+                        columnConfig("Protocol/Technique Name", "name", true, ColumnDataType.STRING),
+                        columnConfig("Page", "pageNumber", true, ColumnDataType.NUMBER),
+                        columnConfig("Type", "protocolType", true, ColumnDataType.ENUM)
+                ));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
+        ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> importService.importFile(file, true, null));
+        assertTrue(ex.getMessage().contains("sourceBook"));
+        assertTrue(ex.getMessage().contains("PROTOCOL"));
+        verifyNoInteractions(protocolRepo);
+    }
+
+    @Test
     void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
         when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
                 .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true, ColumnDataType.STRING)));

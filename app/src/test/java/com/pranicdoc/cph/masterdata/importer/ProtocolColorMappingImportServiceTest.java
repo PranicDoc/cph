@@ -295,6 +295,28 @@ class ProtocolColorMappingImportServiceTest {
     }
 
     @Test
+    void importFile_missingRequiredColumnConfig_throwsIllegalStateException_zeroRepoInteractions() throws IOException {
+        // "Color Code" config row deleted entirely (WR-02) — colorIdConfig would be
+        // null, silently disabling its required-ness check instead of failing fast.
+        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING))
+                .thenReturn(List.of(
+                        columnConfig("Protocol Name", "protocolName", true),
+                        columnConfig("Usage Type", "usageType", true),
+                        columnConfig("Chakra Name", "chakraName", false)
+                ));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", null}
+        ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> importService.importFile(file, true, null));
+        assertTrue(ex.getMessage().contains("colorId"));
+        assertTrue(ex.getMessage().contains("PROTOCOL_COLOR_MAPPING"));
+        verifyNoInteractions(mappingRepo);
+    }
+
+    @Test
     void importFile_unrecognizedTargetField_throwsIllegalStateException_zeroRepoInteractions() throws IOException {
         when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING))
                 .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true)));

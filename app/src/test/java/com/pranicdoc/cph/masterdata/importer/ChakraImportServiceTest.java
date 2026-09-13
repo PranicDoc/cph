@@ -225,6 +225,24 @@ class ChakraImportServiceTest {
     }
 
     @Test
+    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
+        // "Code" config row deleted entirely (WR-02) — should fail fast up front
+        // rather than silently skipping the required-ness check for that field.
+        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA))
+                .thenReturn(List.of(columnConfig("Name", "name", true)));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
+        ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> importService.importFile(file, true, null));
+        assertTrue(ex.getMessage().contains("code"));
+        assertTrue(ex.getMessage().contains("CHAKRA"));
+        verifyNoInteractions(chakraRepo);
+    }
+
+    @Test
     void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
         when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA))
                 .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true)));

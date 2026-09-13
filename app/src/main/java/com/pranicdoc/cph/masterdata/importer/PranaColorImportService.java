@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * {@code MasterDataImporter} for {@link MasterdataType#PRANA_COLOR} (MDIMPORT-10).
@@ -71,6 +72,20 @@ public class PranaColorImportService implements MasterDataImporter {
                 .findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PRANA_COLOR);
         for (MasterdataColumnConfig config : columns) {
             validateTargetField(config.getTargetField());
+        }
+        // D-17 fail-fast, part 2 (WR-02): also assert every targetField this importer
+        // needs is actually present among the fetched columns — not just that every
+        // present row is recognized. Otherwise deleting a required config row (e.g.
+        // "Code") silently disables that field's required-ness check below instead of
+        // failing fast up front.
+        Set<String> seenTargetFields = columns.stream()
+                .map(MasterdataColumnConfig::getTargetField)
+                .collect(Collectors.toSet());
+        for (String required : Set.of("code", "name")) {
+            if (!seenTargetFields.contains(required)) {
+                throw new IllegalStateException("Missing required targetField '" + required
+                        + "' in masterdata_column_config for PRANA_COLOR — config/importer drift");
+            }
         }
 
         List<Map<String, String>> rows = spreadsheetReader.read(file, SHEET_NAME);

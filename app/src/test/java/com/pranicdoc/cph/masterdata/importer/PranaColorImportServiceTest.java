@@ -473,6 +473,26 @@ class PranaColorImportServiceTest {
         verify(pranaColorRepo).save(argThat(c -> callerHealerId.equals(c.getHealerId())));
     }
 
+    // ---- WR-02: D-17 fail-fast on a missing required-column-config row ----
+
+    @Test
+    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
+        // "Code" config row deleted entirely — should fail fast up front rather than
+        // silently skipping the required-ness check for that field.
+        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PRANA_COLOR))
+                .thenReturn(List.of(columnConfig("Name", "name", true)));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"RED", "Red Prana", "PROPERTY", "Strengthening", "#FF0000", ""}
+        ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> importService.importFile(file, true, null));
+        assertTrue(ex.getMessage().contains("code"));
+        assertTrue(ex.getMessage().contains("PRANA_COLOR"));
+        verifyNoInteractions(pranaColorRepo);
+    }
+
     // ---- scenario (9): D-17 fail-fast on unrecognized targetField ---------
 
     @Test
