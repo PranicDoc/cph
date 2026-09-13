@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -67,8 +68,11 @@ public class MasterDataService {
     @Transactional
     public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
-        if (chakra.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System chakras can only be edited by SUPADM");
+        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
+        if (chakra.getHealerId() == null
+                ? !isSuperAdmin
+                : !Objects.equals(chakra.getHealerId(), callerHealerId) && !isSuperAdmin)
+            throw new AccessDeniedException("Chakra is owned by another party — not permitted to edit");
         chakra.setName(req.name());
         chakra.setCategory(req.category());
         chakra.setLocation(req.location());
@@ -120,8 +124,11 @@ public class MasterDataService {
     @Transactional
     public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
-        if (color.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System colors can only be edited by SUPADM");
+        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
+        if (color.getHealerId() == null
+                ? !isSuperAdmin
+                : !Objects.equals(color.getHealerId(), callerHealerId) && !isSuperAdmin)
+            throw new AccessDeniedException("Color is owned by another party — not permitted to edit");
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
@@ -166,8 +173,11 @@ public class MasterDataService {
     public void deleteMapping(UUID id, boolean isSuperAdmin) {
         ProtocolColorMapping mapping = mappingRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ProtocolColorMapping", id));
-        if (mapping.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System mappings can only be deleted by SUPADM");
+        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
+        if (mapping.getHealerId() == null
+                ? !isSuperAdmin
+                : !Objects.equals(mapping.getHealerId(), callerHealerId) && !isSuperAdmin)
+            throw new AccessDeniedException("Mapping is owned by another party — not permitted to delete");
         mapping.softDelete();
         mappingRepo.save(mapping);
     }
@@ -209,8 +219,11 @@ public class MasterDataService {
     @Transactional
     public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean isSuperAdmin) {
         ProtocolCatalog protocol = getProtocolById(id);
-        if (protocol.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System protocols can only be edited by SUPADM");
+        UUID callerHealerId = securityContextUtil.getCurrentHealerId();
+        if (protocol.getHealerId() == null
+                ? !isSuperAdmin
+                : !Objects.equals(protocol.getHealerId(), callerHealerId) && !isSuperAdmin)
+            throw new AccessDeniedException("Protocol is owned by another party — not permitted to edit");
         protocol.setName(req.name());
         protocol.setSourceBook(req.sourceBook());
         protocol.setPageNumber(req.pageNumber());
