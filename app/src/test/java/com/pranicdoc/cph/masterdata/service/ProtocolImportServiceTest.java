@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,7 +119,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Sleep protocol", "Sleep Disorders", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.totalRows());
         assertEquals(1, result.created());
@@ -143,7 +144,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Fever", "Pranic Psychotherapy", "12", "Physical Ailment", "Fever protocol", "Common Ailments", "SUPPLEMENTARY"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.created());
         assertEquals(0, result.skipped());
@@ -164,7 +165,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Updated desc", "Sleep Disorders", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
@@ -173,12 +174,53 @@ class ProtocolImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteSystemRow() throws IOException {
+        ProtocolCatalog existing = new ProtocolCatalog();
+        existing.setName("Insomnia");
+        existing.setSourceBook("Advanced Pranic Healing");
+        existing.setPageNumber(45);
+        existing.setProtocolType(ProtocolType.PROTOCOL);
+        existing.setHealerId(null); // SYSTEM row
+        when(protocolRepo.findByNameAndSourceBookAndPageNumber("Insomnia", "Advanced Pranic Healing", 45))
+                .thenReturn(Optional.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Hostile update", "Sleep Disorders", "PROTOCOL"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertNull(existing.getDescription());
+        verify(protocolRepo, never()).save(any());
+    }
+
+    @Test
+    void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
+        UUID callerHealerId = UUID.randomUUID();
+        when(protocolRepo.findByNameAndSourceBookAndPageNumber("Fever", "Pranic Psychotherapy", 12))
+                .thenReturn(Optional.empty());
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Fever", "Pranic Psychotherapy", "12", "Physical Ailment", "Fever protocol", "Common Ailments", "SUPPLEMENTARY"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, callerHealerId);
+
+        assertEquals(1, result.created());
+        verify(protocolRepo).save(argThat(p -> callerHealerId.equals(p.getHealerId())));
+    }
+
+    @Test
     void importFile_missingName_skipsRowWithError() throws IOException {
         MockMultipartFile file = buildXlsx(List.<String[]>of(
                 new String[]{"", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertEquals(0, result.created());
@@ -192,7 +234,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Book"));
@@ -204,7 +246,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Page"));
@@ -216,7 +258,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "N/A", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("not numeric"));
@@ -228,7 +270,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "Supplemental"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("Type"));
@@ -244,7 +286,7 @@ class ProtocolImportServiceTest {
                 new String[]{"Fever", "Advanced Pranic Healing", "10", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(2, result.totalRows());
         assertEquals(1, result.created());
@@ -256,7 +298,7 @@ class ProtocolImportServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "protocols.txt", "text/plain", "junk".getBytes());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> importService.importFile(file));
+                () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("Unsupported file type"));
         verifyNoInteractions(protocolRepo);
     }
@@ -271,7 +313,7 @@ class ProtocolImportServiceTest {
         ));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file));
+                () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("bogusField"));
         assertTrue(ex.getMessage().contains("PROTOCOL"));
         verifyNoInteractions(protocolRepo);

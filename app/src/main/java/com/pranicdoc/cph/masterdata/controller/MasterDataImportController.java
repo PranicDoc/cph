@@ -2,6 +2,7 @@ package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.MasterdataType;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
 import com.pranicdoc.cph.masterdata.importer.MasterDataImportRegistry;
 import com.pranicdoc.cph.rbac.RbacAuthz;
@@ -51,6 +52,7 @@ public class MasterDataImportController {
 
     private final MasterDataImportRegistry registry;
     private final RbacAuthz rbacAuthz;
+    private final SecurityContextUtil securityContextUtil;
 
     /**
      * D-13: fixed, exhaustive, compile-time type-to-resource map. {@code
@@ -83,7 +85,12 @@ public class MasterDataImportController {
         if (!rbacAuthz.hasPermission(resource.name(), "CREATE")) {
             throw new AccessDeniedException("Not permitted to import " + kind);
         }
-        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", registry.get(kind).importFile(file)));
+        // PD-40-04: SUPADM-only, non-grantable system-row override — same pair
+        // MasterDataController's update/delete handlers resolve, so importers can
+        // apply the identical ownership guard MasterDataService's CRUD path enforces.
+        boolean isSuperAdmin = rbacAuthz.hasPermission(resource.name(), "ADMIN");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete",
+                registry.get(kind).importFile(file, isSuperAdmin, securityContextUtil.getCurrentHealerId())));
     }
 
     private MasterdataType parseType(String raw) {

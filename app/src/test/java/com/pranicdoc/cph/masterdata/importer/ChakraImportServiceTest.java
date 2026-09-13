@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -104,7 +105,7 @@ class ChakraImportServiceTest {
                 new String[]{"crown", "Crown Chakra", "major", "Top of head"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.totalRows());
         assertEquals(1, result.created());
@@ -131,7 +132,7 @@ class ChakraImportServiceTest {
                 new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
@@ -140,12 +141,49 @@ class ChakraImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteSystemRow() throws IOException {
+        ChakraCatalog existing = new ChakraCatalog();
+        existing.setCode("CROWN");
+        existing.setName("Old Name");
+        existing.setHealerId(null); // SYSTEM row
+        when(chakraRepo.findByCode("CROWN")).thenReturn(Optional.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertEquals("Old Name", existing.getName());
+        verify(chakraRepo, never()).save(any());
+    }
+
+    @Test
+    void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
+        UUID callerHealerId = UUID.randomUUID();
+        when(chakraRepo.findByCode("AJNA")).thenReturn(Optional.empty());
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"AJNA", "Ajna Chakra", "major", "Between eyebrows"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, callerHealerId);
+
+        assertEquals(1, result.created());
+        verify(chakraRepo).save(argThat(c -> callerHealerId.equals(c.getHealerId())));
+    }
+
+    @Test
     void importFile_missingCode_skipsRowWithError() throws IOException {
         MockMultipartFile file = buildXlsx(List.<String[]>of(
                 new String[]{"", "Crown Chakra", "major", "Top of head"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertEquals(0, result.created());
@@ -159,7 +197,7 @@ class ChakraImportServiceTest {
                 new String[]{"CROWN", "", "major", "Top of head"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertTrue(result.errors().get(0).contains("missing Name"));
@@ -173,7 +211,7 @@ class ChakraImportServiceTest {
                 new String[]{"AJNA", "Ajna Chakra", null, null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.created());
         assertEquals(0, result.skipped());
@@ -196,7 +234,7 @@ class ChakraImportServiceTest {
         ));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file));
+                () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("bogusField"));
         assertTrue(ex.getMessage().contains("CHAKRA"));
         verifyNoInteractions(chakraRepo);
@@ -211,7 +249,7 @@ class ChakraImportServiceTest {
                 new String[]{"AJNA", "Ajna Chakra", "major", "Between eyebrows"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(2, result.totalRows());
         assertEquals(1, result.created());

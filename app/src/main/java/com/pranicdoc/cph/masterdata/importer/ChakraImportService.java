@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * MasterDataImporter implementation for CHAKRA — simplest of the four
@@ -38,7 +40,7 @@ public class ChakraImportService implements MasterDataImporter {
 
     @Override
     @Transactional
-    public ImportResult importFile(MultipartFile file) {
+    public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
         // D-17 config-integrity fail-fast: reject the whole import up front if any
         // CHAKRA column-config row points at a targetField this importer doesn't
         // know how to write — before the spreadsheet is even parsed.
@@ -84,9 +86,23 @@ public class ChakraImportService implements MasterDataImporter {
             }
 
             ChakraCatalog chakra = chakraRepo.findByCode(values.getCode()).orElse(null);
+            // PD-40-04: same row-ownership guard MasterDataService.updateChakra enforces —
+            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
+            // healer's custom row can only be overwritten by that healer or SUPADM.
+            if (chakra != null && (chakra.getHealerId() == null
+                    ? !isSuperAdmin
+                    : !Objects.equals(chakra.getHealerId(), healerId) && !isSuperAdmin)) {
+                errors.add("Row " + rowNumber + ": code '" + values.getCode()
+                        + "' is owned by another party — not permitted to overwrite");
+                skipped++;
+                continue;
+            }
             if (chakra == null) {
                 chakra = values;
-                chakra.setHealerId(null);
+                // Non-SUPADM callers can never create a SYSTEM (healerId == null) row via
+                // import — mirrors MasterDataService.createChakra always stamping the
+                // caller's own healerId on new rows via the CRUD path.
+                chakra.setHealerId(isSuperAdmin ? null : healerId);
                 created++;
             } else {
                 chakra.setCode(values.getCode());

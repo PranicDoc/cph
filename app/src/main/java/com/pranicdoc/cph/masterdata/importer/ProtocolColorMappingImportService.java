@@ -55,7 +55,7 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
 
     @Override
     @Transactional
-    public ImportResult importFile(MultipartFile file) {
+    public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
         // D-17 config-integrity fail-fast: reject the whole import up front if any
         // PROTOCOL_COLOR_MAPPING column-config row points at a targetField this
         // importer doesn't know how to write — before the spreadsheet is even parsed.
@@ -131,9 +131,26 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
             }
 
             ProtocolColorMapping mapping = findExisting(protocolName, colorId, usageType);
+            // PD-40-04: same row-ownership guard MasterDataService.deleteMapping enforces —
+            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
+            // healer's custom row can only be overwritten by that healer or SUPADM.
+            // (findExisting only ever matches SYSTEM rows today — see its
+            // findByProtocolNameAndHealerIdIsNull query — but the explicit check is kept
+            // here so this importer stays correct if that lookup is ever broadened.)
+            if (mapping != null && (mapping.getHealerId() == null
+                    ? !isSuperAdmin
+                    : !Objects.equals(mapping.getHealerId(), healerId) && !isSuperAdmin)) {
+                errors.add("Row " + rowNumber + ": mapping for protocol '" + protocolName
+                        + "' is owned by another party — not permitted to overwrite");
+                skipped++;
+                continue;
+            }
             if (mapping == null) {
                 mapping = new ProtocolColorMapping();
-                mapping.setHealerId(null); // system row
+                // Non-SUPADM callers can never create a SYSTEM (healerId == null) row via
+                // import — mirrors MasterDataService's create-mapping path always stamping
+                // the caller's own healerId on new rows via the CRUD path.
+                mapping.setHealerId(isSuperAdmin ? null : healerId);
                 mapping.setProtocolName(protocolName);
                 mapping.setColorId(colorId);
                 mapping.setUsageType(usageType);

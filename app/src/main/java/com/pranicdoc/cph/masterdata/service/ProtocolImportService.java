@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +38,7 @@ public class ProtocolImportService implements MasterDataImporter {
 
     @Override
     @Transactional
-    public ImportResult importFile(MultipartFile file) {
+    public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
         // D-17 config-integrity fail-fast: reject the whole import up front if any
         // PROTOCOL column-config row points at a targetField this importer doesn't
         // know how to write — before the spreadsheet is even parsed.
@@ -95,9 +97,23 @@ public class ProtocolImportService implements MasterDataImporter {
             ProtocolCatalog protocol = protocolRepo
                     .findByNameAndSourceBookAndPageNumber(values.getName(), values.getSourceBook(), values.getPageNumber())
                     .orElse(null);
+            // PD-40-04: same row-ownership guard MasterDataService.updateProtocol enforces —
+            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
+            // healer's custom row can only be overwritten by that healer or SUPADM.
+            if (protocol != null && (protocol.getHealerId() == null
+                    ? !isSuperAdmin
+                    : !Objects.equals(protocol.getHealerId(), healerId) && !isSuperAdmin)) {
+                errors.add("Row " + rowNumber + ": protocol '" + values.getName()
+                        + "' is owned by another party — not permitted to overwrite");
+                skipped++;
+                continue;
+            }
             if (protocol == null) {
                 protocol = values;
-                protocol.setHealerId(null);
+                // Non-SUPADM callers can never create a SYSTEM (healerId == null) row via
+                // import — mirrors MasterDataService.createProtocol always stamping the
+                // caller's own healerId on new rows via the CRUD path.
+                protocol.setHealerId(isSuperAdmin ? null : healerId);
                 created++;
             } else {
                 protocol.setCategory(values.getCategory());

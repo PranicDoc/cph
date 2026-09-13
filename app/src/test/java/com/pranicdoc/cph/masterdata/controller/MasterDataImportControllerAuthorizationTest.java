@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -117,7 +118,7 @@ class MasterDataImportControllerAuthorizationTest {
 
     private void stubRegistryImport() {
         MasterDataImporter fakeImporter = mock(MasterDataImporter.class);
-        when(fakeImporter.importFile(any())).thenReturn(new ImportResult(1, 1, 0, 0, List.of()));
+        when(fakeImporter.importFile(any(), anyBoolean(), any())).thenReturn(new ImportResult(1, 1, 0, 0, List.of()));
         when(registry.get(any())).thenReturn(fakeImporter);
     }
 

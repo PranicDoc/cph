@@ -118,7 +118,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Insomnia Relief", "WHITE", "CLEANSING", "Crown"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.totalRows());
         assertEquals(1, result.created());
@@ -150,13 +150,56 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Insomnia Relief", "WHITE", "CLEANSING", "Crown"}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(0, result.created());
         assertEquals(1, result.updated());
         verify(mappingRepo).save(existing);
         verify(mappingRepo, never()).save(argThat(m -> m != existing));
         assertEquals("Crown", existing.getChakraName());
+    }
+
+    @Test
+    void importFile_nonSuperAdmin_cannotOverwriteSystemMapping() throws IOException {
+        UUID colorId = UUID.randomUUID();
+        ProtocolColorMapping existing = new ProtocolColorMapping();
+        existing.setProtocolName("Insomnia Relief");
+        existing.setColorId(colorId);
+        existing.setUsageType(ColorUsageType.CLEANSING);
+        existing.setHealerId(null); // SYSTEM row
+
+        when(pranaColorRepo.findByCode("WHITE")).thenReturn(Optional.of(color(colorId, "WHITE")));
+        when(mappingRepo.findByProtocolNameAndHealerIdIsNull("Insomnia Relief")).thenReturn(List.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", "Hostile"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertNull(existing.getChakraName());
+        verify(mappingRepo, never()).save(any());
+    }
+
+    @Test
+    void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
+        UUID callerHealerId = UUID.randomUUID();
+        UUID colorId = UUID.randomUUID();
+        when(pranaColorRepo.findByCode("WHITE")).thenReturn(Optional.of(color(colorId, "WHITE")));
+        when(mappingRepo.findByProtocolNameAndHealerIdIsNull("Insomnia Relief")).thenReturn(List.of());
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", "Crown"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, callerHealerId);
+
+        assertEquals(1, result.created());
+        verify(mappingRepo).save(argThat(m -> callerHealerId.equals(m.getHealerId())));
     }
 
     @Test
@@ -170,7 +213,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Fever Reduction", "WHITE", "ENERGISING", null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(2, result.totalRows());
         assertEquals(1, result.skipped());
@@ -191,7 +234,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"insomnia relief", "WHITE", "CLEANSING", null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertEquals(1, result.created());
@@ -208,7 +251,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Insomnia Relief", "WHITE", "SPARKLING", null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.skipped());
         assertEquals(0, result.created());
@@ -224,7 +267,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Insomnia Relief", "WHITE", null, null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(3, result.skipped());
         assertEquals(0, result.created());
@@ -243,7 +286,7 @@ class ProtocolColorMappingImportServiceTest {
                 new String[]{"Insomnia Relief", "WHITE", "CLEANSING", null}
         ));
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.created());
         assertEquals(0, result.skipped());
@@ -261,7 +304,7 @@ class ProtocolColorMappingImportServiceTest {
         ));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file));
+                () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("bogusField"));
         assertTrue(ex.getMessage().contains("PROTOCOL_COLOR_MAPPING"));
         verifyNoInteractions(mappingRepo);

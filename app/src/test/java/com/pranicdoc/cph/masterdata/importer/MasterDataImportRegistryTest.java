@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,7 +30,7 @@ class MasterDataImportRegistryTest {
         }
 
         @Override
-        public ImportResult importFile(MultipartFile file) {
+        public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
             return new ImportResult(0, 0, 0, 0, List.of());
         }
     }

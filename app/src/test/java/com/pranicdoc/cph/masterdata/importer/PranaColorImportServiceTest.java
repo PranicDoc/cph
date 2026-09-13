@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -213,7 +214,7 @@ class PranaColorImportServiceTest {
     void importFile_xlsxHappyPath_fullDataset_createsAllEightColours() throws IOException {
         MockMultipartFile file = buildXlsx(buildFullDatasetRows());
 
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(76, result.totalRows());
         assertEquals(8, result.created());
@@ -281,7 +282,7 @@ class PranaColorImportServiceTest {
     @Test
     void importFile_reimport_replacesNotDoublesLists() throws IOException {
         MockMultipartFile firstFile = buildXlsx(buildFullDatasetRows());
-        ImportResult firstResult = importService.importFile(firstFile);
+        ImportResult firstResult = importService.importFile(firstFile, true, null);
         assertEquals(8, firstResult.created());
 
         ArgumentCaptor<PranaColorCatalog> captor = ArgumentCaptor.forClass(PranaColorCatalog.class);
@@ -295,7 +296,7 @@ class PranaColorImportServiceTest {
         }
 
         MockMultipartFile secondFile = buildXlsx(buildFullDatasetRows());
-        ImportResult secondResult = importService.importFile(secondFile);
+        ImportResult secondResult = importService.importFile(secondFile, true, null);
 
         assertEquals(0, secondResult.created());
         assertEquals(8, secondResult.updated());
@@ -323,7 +324,7 @@ class PranaColorImportServiceTest {
                         "Improving assimilation"));
 
         MockMultipartFile file = buildCsv(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(10, result.totalRows());
         assertEquals(1, result.created());
@@ -344,7 +345,7 @@ class PranaColorImportServiceTest {
         addHeaderOnlyRow(rows, "VIOLET", "Violet Prana", "#EE82EE");
 
         MockMultipartFile file = buildXlsx(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.created());
         assertEquals(0, result.skipped());
@@ -367,7 +368,7 @@ class PranaColorImportServiceTest {
         );
 
         MockMultipartFile file = buildXlsx(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(0, result.skipped());
         assertTrue(result.errors().isEmpty());
@@ -386,7 +387,7 @@ class PranaColorImportServiceTest {
         );
 
         MockMultipartFile file = buildXlsx(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(2, result.created());
         assertTrue(result.errors().stream().anyMatch(e -> e.contains("invalid Type")));
@@ -408,7 +409,7 @@ class PranaColorImportServiceTest {
         );
 
         MockMultipartFile file = buildXlsx(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(1, result.created());
         assertTrue(result.errors().stream().anyMatch(e -> e.contains("missing Code")));
@@ -425,13 +426,51 @@ class PranaColorImportServiceTest {
         );
 
         MockMultipartFile file = buildXlsx(rows);
-        ImportResult result = importService.importFile(file);
+        ImportResult result = importService.importFile(file, true, null);
 
         assertEquals(3, result.totalRows());
         verify(pranaColorRepo).save(argThat(c ->
                 c.getProperties().size() == 2
                         && c.getProperties().equals(List.of("Strengthening", "Warm"))
         ));
+    }
+
+    // ---- CR-01: row-ownership guard on the natural-key (Code) upsert -------
+
+    @Test
+    void importFile_nonSuperAdmin_cannotOverwriteSystemRow() throws IOException {
+        PranaColorCatalog existing = new PranaColorCatalog();
+        existing.setCode("RED");
+        existing.setName("Red Prana");
+        existing.setHealerId(null); // SYSTEM row
+        when(pranaColorRepo.findByCode("RED")).thenReturn(Optional.of(existing));
+
+        List<String[]> rows = List.<String[]>of(
+                new String[]{"RED", "Red Prana", "PROPERTY", "Hostile overwrite", "#FF0000", ""}
+        );
+        MockMultipartFile file = buildXlsx(rows);
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("owned by another party")));
+        assertTrue(existing.getProperties().isEmpty());
+        verify(pranaColorRepo, never()).save(any());
+    }
+
+    @Test
+    void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
+        UUID callerHealerId = UUID.randomUUID();
+        List<String[]> rows = List.<String[]>of(
+                new String[]{"YELLOW", "Yellow Prana", "PROPERTY", "Cohesion or cementing", "#FFFF00", ""}
+        );
+        MockMultipartFile file = buildXlsx(rows);
+
+        ImportResult result = importService.importFile(file, false, callerHealerId);
+
+        assertEquals(1, result.created());
+        verify(pranaColorRepo).save(argThat(c -> callerHealerId.equals(c.getHealerId())));
     }
 
     // ---- scenario (9): D-17 fail-fast on unrecognized targetField ---------
@@ -446,7 +485,7 @@ class PranaColorImportServiceTest {
         ));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file));
+                () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("bogusField"));
         assertTrue(ex.getMessage().contains("PRANA_COLOR"));
         verifyNoInteractions(pranaColorRepo);

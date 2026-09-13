@@ -17,7 +17,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * {@code MasterDataImporter} for {@link MasterdataType#PRANA_COLOR} (MDIMPORT-10).
@@ -60,7 +62,7 @@ public class PranaColorImportService implements MasterDataImporter {
 
     @Override
     @Transactional
-    public ImportResult importFile(MultipartFile file) {
+    public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
         // D-17 config-integrity fail-fast: reject the whole import up front if any
         // PRANA_COLOR column-config row points at a targetField this importer doesn't
         // know how to write — before the spreadsheet is even parsed, same pattern as
@@ -136,9 +138,22 @@ public class PranaColorImportService implements MasterDataImporter {
             }
 
             PranaColorCatalog entity = pranaColorRepo.findByCode(code).orElse(null);
+            // PD-40-04: same row-ownership guard MasterDataService.updateColor enforces —
+            // a SYSTEM row (healerId == null) can only be overwritten by SUPADM; another
+            // healer's custom row can only be overwritten by that healer or SUPADM.
+            if (entity != null && (entity.getHealerId() == null
+                    ? !isSuperAdmin
+                    : !Objects.equals(entity.getHealerId(), healerId) && !isSuperAdmin)) {
+                errors.add("Row " + firstEntry.rowNumber() + ": code '" + code
+                        + "' is owned by another party — not permitted to overwrite");
+                continue;
+            }
             if (entity == null) {
                 entity = new PranaColorCatalog();
-                entity.setHealerId(null);
+                // Non-SUPADM callers can never create a SYSTEM (healerId == null) row via
+                // import — mirrors MasterDataService.createColor always stamping the
+                // caller's own healerId on new rows via the CRUD path.
+                entity.setHealerId(isSuperAdmin ? null : healerId);
                 created++;
             } else {
                 updated++;
