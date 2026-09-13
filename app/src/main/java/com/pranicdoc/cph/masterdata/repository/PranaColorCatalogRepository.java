@@ -13,6 +13,14 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     Optional<PranaColorCatalog> findByCode(String code);
 
+    /**
+     * Matches by descriptive name (case-insensitive) rather than by short
+     * code — used to resolve/auto-create colors from free-text phrases
+     * ("Light Whitish Green") that don't correspond to any existing base
+     * color code (MDIMPORT-22).
+     */
+    Optional<PranaColorCatalog> findByNameIgnoreCase(String name);
+
     /** System colors (healerId is null) */
     List<PranaColorCatalog> findByHealerIdIsNull();
 

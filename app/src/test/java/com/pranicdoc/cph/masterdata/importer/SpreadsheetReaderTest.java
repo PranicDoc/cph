@@ -91,8 +91,33 @@ class SpreadsheetReaderTest {
     }
 
     @Test
-    void read_xlsxMissingSheet_throwsIllegalArgumentExceptionContainingSheetName() throws IOException {
-        MockMultipartFile file = buildXlsx("Chakras", new String[]{"Code"}, List.of());
+    void read_xlsxMissingNamedSheet_fallsBackToFirstSheetInWorkbook() throws IOException {
+        // Real-world uploads don't always use the importer's expected sheet name
+        // (e.g. a workbook exported with a generic "Sheet2" name) — falling back to
+        // the first sheet lets the header-driven column mapping still apply instead
+        // of failing the whole import.
+        MockMultipartFile file = buildXlsx("Sheet2",
+                new String[]{"Code", "Name"},
+                List.<Object[]>of(new Object[]{"CROWN", "Crown Chakra"}));
+
+        List<Map<String, String>> rows = reader.read(file, "Chakras");
+
+        assertEquals(1, rows.size());
+        assertEquals("CROWN", rows.get(0).get("Code"));
+        assertEquals("Crown Chakra", rows.get(0).get("Name"));
+    }
+
+    @Test
+    void read_xlsxEmptyWorkbookNoSheetsAtAll_throwsIllegalArgumentExceptionContainingSheetName() throws IOException {
+        MockMultipartFile file;
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            // Deliberately create zero sheets — the one case where there is truly
+            // nothing to fall back to.
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            file = new MockMultipartFile("file", "data.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> reader.read(file, "DoesNotExist"));

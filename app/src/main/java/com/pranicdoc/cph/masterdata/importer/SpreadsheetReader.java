@@ -37,25 +37,50 @@ import java.util.Map;
 public class SpreadsheetReader {
 
     public List<Map<String, String>> read(MultipartFile file, String sheetName) {
+        return read(file, List.of(sheetName));
+    }
+
+    /**
+     * Tries each candidate sheet name in order, using the first one that
+     * exists in the workbook — a real-world upload's sheet name doesn't
+     * always match a single importer's expected name (e.g. a workbook
+     * exported with several generically-named sheets, only one of which is
+     * the intended data). Falls back to the workbook's first sheet only if
+     * NONE of the candidates are present.
+     */
+    public List<Map<String, String>> read(MultipartFile file, List<String> candidateSheetNames) {
         String extension = extractExtension(file.getOriginalFilename());
         return switch (extension) {
-            case "xlsx" -> readXlsxRows(file, sheetName);
+            case "xlsx" -> readXlsxRows(file, candidateSheetNames);
             case "csv" -> readCsvRows(file);
             default -> throw new IllegalArgumentException(
                     "Unsupported file type '" + extension + "' — only .xlsx and .csv are accepted");
         };
     }
 
-    private List<Map<String, String>> readXlsxRows(MultipartFile file, String sheetName) {
+    private List<Map<String, String>> readXlsxRows(MultipartFile file, List<String> candidateSheetNames) {
         List<Map<String, String>> rows = new ArrayList<>();
         try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            Sheet sheet = workbook.getSheet(sheetName);
+            Sheet sheet = null;
+            for (String candidate : candidateSheetNames) {
+                sheet = workbook.getSheet(candidate);
+                if (sheet != null) break;
+            }
             if (sheet == null) {
-                throw new IllegalArgumentException("Sheet '" + sheetName + "' not found in the uploaded file");
+                // Fallback: none of the candidate names matched (e.g. a workbook
+                // exported with a generic "Sheet2" name the importer didn't
+                // anticipate). Rather than fail the whole import, fall back to the
+                // workbook's first sheet — the header-row-driven column mapping
+                // below still applies regardless of which sheet supplied the rows.
+                if (workbook.getNumberOfSheets() == 0) {
+                    throw new IllegalArgumentException(
+                            "None of the expected sheets " + candidateSheetNames + " found in the uploaded file");
+                }
+                sheet = workbook.getSheetAt(0);
             }
             Row headerRow = sheet.getRow(sheet.getFirstRowNum());
             if (headerRow == null) {
-                throw new IllegalArgumentException("Sheet '" + sheetName + "' has no header row");
+                throw new IllegalArgumentException("Sheet '" + sheet.getSheetName() + "' has no header row");
             }
             Map<Integer, String> headerByIndex = new LinkedHashMap<>();
             for (Cell cell : headerRow) {

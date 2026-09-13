@@ -13,6 +13,14 @@ public interface ChakraCatalogRepository extends JpaRepository<ChakraCatalog, UU
 
     Optional<ChakraCatalog> findByCode(String code);
 
+    /**
+     * Matches by descriptive name (case-insensitive) rather than by short
+     * code — used to resolve/auto-create chakras from free-text names
+     * ("Solar Plexus Chakra") encountered during chakra/color enrichment
+     * import (MDIMPORT-22).
+     */
+    Optional<ChakraCatalog> findByNameIgnoreCase(String name);
+
     /** System chakras (healerId is null) */
     List<ChakraCatalog> findByHealerIdIsNull();
 
