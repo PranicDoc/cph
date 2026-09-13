@@ -40,19 +40,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Behavioral authorization proof for {@link MasterDataImportController}
- * (Phase 02, plan 02-07). Unlike {@code MasterDataControllerAuthorizationContractTest}'s
- * reflection pin on {@code @PreAuthorize}, this controller's single handler has
- * NO annotation to reflect on — the gate is an in-body dynamic {@code
- * rbacAuthz.hasPermission(...)} call (D-12), so its correctness can only be
- * proven behaviorally: send a real request, assert the real response status
- * and (for the fail-closed-ordering proof) zero interaction with the grant
- * lookup service.
+ * (Phase 02, plan 02-07). The handler now carries a real {@code
+ * @PreAuthorize("@rbacAuthz.hasImportPermission(#type, 'CREATE')")}, but
+ * unlike {@code MasterDataControllerAuthorizationContractTest}'s reflection
+ * pin on a bare {@code hasPermission('R','V')} literal, this one calls a
+ * bean method with a SpEL-bound request parameter — a reflection test could
+ * only pin the literal string, not prove it actually gates correctly per
+ * {@code type}. Correctness is therefore still proven behaviorally: send a
+ * real request, assert the real response status and (for the
+ * fail-closed-ordering proof) zero interaction with the grant lookup
+ * service.
  *
  * <p>Built on the same {@code @WebMvcTest(controller) + @Import(SecurityConfig)}
  * harness as {@code MasterDataControllerAuthorizationTest} (copied, not shared
  * across {@code @WebMvcTest} slices) — {@link RbacAuthz} is contributed from a
  * nested {@code @TestConfiguration} {@code @Bean} named {@code rbacAuthz}, not
  * {@code @Import(RbacAuthz.class)}.
+ *
+ * <p>{@code type} is a path segment ({@code POST /api/v1/masterdata/import/{type}}),
+ * not a query param — the request body carries only the {@code file} part.
  */
 @WebMvcTest(MasterDataImportController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class,
@@ -91,7 +97,11 @@ class MasterDataImportControllerAuthorizationTest {
 
     private static final UUID HEALER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final String ACCESS_TOKEN = "test-access-token";
-    private static final String IMPORT_URL = "/api/v1/masterdata/import";
+    private static final String IMPORT_BASE = "/api/v1/masterdata/import";
+
+    private static String importUrl(String type) {
+        return IMPORT_BASE + "/" + type;
+    }
 
     private void authenticateAs(String role) {
         Claims claims = mock(Claims.class);
@@ -135,9 +145,9 @@ class MasterDataImportControllerAuthorizationTest {
         when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_CHAKRAS), any())).thenReturn(false);
         stubRegistryImport();
 
-        mockMvc.perform(multipart(IMPORT_URL + "?type=protocol").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("protocol")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().is(org.hamcrest.Matchers.not(403)));
-        mockMvc.perform(multipart(IMPORT_URL + "?type=chakra").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("chakra")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().isForbidden());
     }
 
@@ -150,9 +160,9 @@ class MasterDataImportControllerAuthorizationTest {
         when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), any())).thenReturn(false);
         stubRegistryImport();
 
-        mockMvc.perform(multipart(IMPORT_URL + "?type=chakra").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("chakra")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().is(org.hamcrest.Matchers.not(403)));
-        mockMvc.perform(multipart(IMPORT_URL + "?type=protocol").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("protocol")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().isForbidden());
     }
 
@@ -167,7 +177,7 @@ class MasterDataImportControllerAuthorizationTest {
         stubRegistryImport();
 
         for (String type : List.of("protocol", "color", "chakra", "mapping")) {
-            mockMvc.perform(multipart(IMPORT_URL + "?type=" + type).file(filePart()).cookie(accessCookie()))
+            mockMvc.perform(multipart(importUrl(type)).file(filePart()).cookie(accessCookie()))
                     .andExpect(status().is(org.hamcrest.Matchers.not(403)));
         }
 
@@ -186,7 +196,7 @@ class MasterDataImportControllerAuthorizationTest {
         // Caller otherwise holds every grant — proves parse-before-check, not merely a 400 fluke.
         when(lookupService.hasPermission(any(), any(), any())).thenReturn(true);
 
-        mockMvc.perform(multipart(IMPORT_URL + "?type=bogus").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("bogus")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(lookupService);
@@ -205,7 +215,7 @@ class MasterDataImportControllerAuthorizationTest {
         when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), any())).thenReturn(false);
         stubRegistryImport();
 
-        mockMvc.perform(multipart(IMPORT_URL + "?type=mapping").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("mapping")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().isForbidden());
     }
 
@@ -217,7 +227,7 @@ class MasterDataImportControllerAuthorizationTest {
         when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), any())).thenReturn(true);
         stubRegistryImport();
 
-        mockMvc.perform(multipart(IMPORT_URL + "?type=mapping").file(filePart()).cookie(accessCookie()))
+        mockMvc.perform(multipart(importUrl("mapping")).file(filePart()).cookie(accessCookie()))
                 .andExpect(status().is(org.hamcrest.Matchers.not(403)));
     }
 }

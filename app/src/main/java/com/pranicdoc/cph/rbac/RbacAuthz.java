@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.rbac;
 
+import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -7,6 +8,7 @@ import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -28,13 +30,6 @@ import java.util.UUID;
  * Every other caller is resolved by delegating to
  * {@link RolePermissionLookupService}, which reads {@code user_role} and
  * {@code role_permission} live on every call.
- *
- * Fail-closed contract: this method must never let an exception escape.
- * An exception thrown while a {@code @PreAuthorize} SpEL expression is being
- * evaluated surfaces to the caller as an HTTP 500 — an unhandled state, not
- * a denial. An incomplete security context or a malformed resource/verb
- * literal is therefore caught here and translated into a plain
- * {@code false} return, never a propagated exception.
  */
 @Component
 @RequiredArgsConstructor
@@ -48,17 +43,20 @@ public class RbacAuthz {
     /**
      * Decision function referenced from {@code @PreAuthorize} SpEL as
      * {@code @rbacAuthz.hasPermission(resourceKey, verb)}. Both arguments are
-     * compile-time string literals baked into an annotation at every call site
-     * in this codebase EXCEPT one: {@code
-     * MasterDataImportController.importMasterData} (Phase 02, D-12) calls this
-     * method in-body with {@code resourceKey} resolved from parsed request data
-     * (the {@code type} request param) rather than a literal — the first
-     * request-derived call site. This remains safe: {@code resourceKey} there
-     * is only ever one of the four fixed {@code TYPE_TO_RESOURCE} enum-name
-     * values, never a raw user string reaching {@link Resource#valueOf}
-     * directly, and this method already fails closed via its own {@code
-     * Resource.valueOf}/{@code Operation.valueOf} try/catch on any malformed
-     * input regardless of call-site origin.
+     * compile-time string literals baked into an annotation at every call
+     * site in this codebase except through {@link #hasImportPermission},
+     * which resolves {@code resourceKey} from parsed request data before
+     * delegating here — never a raw user string reaching {@link
+     * Resource#valueOf} directly.
+     *
+     * <p><b>Fail-closed contract:</b> this method must never let an
+     * exception escape. An exception thrown while a {@code @PreAuthorize}
+     * SpEL expression is being evaluated surfaces to the caller as an HTTP
+     * 500 — an unhandled state, not a denial. An incomplete security context
+     * or a malformed resource/verb literal is therefore caught here and
+     * translated into a plain {@code false} return, never a propagated
+     * exception. (Contrast {@link #hasImportPermission}, which deliberately
+     * does NOT extend this contract to an unrecognized {@code type}.)
      */
     public boolean hasPermission(String resourceKey, String verb) {
         try {
@@ -93,5 +91,55 @@ public class RbacAuthz {
         }
 
         return lookupService.hasPermission(healerId, resource, operation);
+    }
+
+    /**
+     * D-13: fixed, exhaustive, compile-time type-to-resource map for the
+     * unified masterdata import endpoint (Phase 02). {@code
+     * PROTOCOL_COLOR_MAPPING} deliberately reuses {@code
+     * MASTER_DATA_PROTOCOLS} (no dedicated resource exists for it) —
+     * consistent with how its existing CRUD endpoints are already gated on
+     * {@code MasterDataController}. Lives here, not on {@code
+     * MasterDataImportController}, because resolving a masterdata type to an
+     * RBAC {@link Resource} is an authorization concern, not a web-layer one.
+     */
+    private static final Map<MasterdataType, Resource> MASTERDATA_TYPE_TO_RESOURCE = Map.of(
+            MasterdataType.PROTOCOL, Resource.MASTER_DATA_PROTOCOLS,
+            MasterdataType.PRANA_COLOR, Resource.MASTER_DATA_COLORS,
+            MasterdataType.CHAKRA, Resource.MASTER_DATA_CHAKRAS,
+            MasterdataType.PROTOCOL_COLOR_MAPPING, Resource.MASTER_DATA_PROTOCOLS);
+
+    /**
+     * Decision function for the unified masterdata import endpoint,
+     * referenced from {@code @PreAuthorize} SpEL as {@code
+     * @rbacAuthz.hasImportPermission(#type, 'CREATE')} on {@code
+     * MasterDataImportController.importMasterData}, and called again in
+     * that method's body with verb {@code "ADMIN"} to resolve {@code
+     * isSuperAdmin} for the row-ownership override (PD-40-04) — one decision
+     * function, not two call sites maintaining the same type→resource
+     * knowledge.
+     *
+     * <p>D-12's critical ordering, never reordered: (1) parse {@code type}
+     * via {@link MasterdataType#fromParam} — an unknown word throws {@link
+     * IllegalArgumentException} (400 via {@code GlobalExceptionHandler})
+     * before any RBAC lookup ever runs; (2) resolve the resource from the
+     * fixed {@link #MASTERDATA_TYPE_TO_RESOURCE} map — never {@link
+     * Resource#valueOf} on a raw user string; (3) delegate to {@link
+     * #hasPermission(String, String)} for the actual permission check.
+     *
+     * <p><b>Deliberately does not extend {@code hasPermission}'s
+     * fail-closed contract:</b> an unrecognized {@code type} is allowed to
+     * throw {@code IllegalArgumentException} out of this method (surfacing
+     * as 400, not 403 or 500) — that is the entire point of D-12's ordering,
+     * distinguishing "this isn't a real masterdata type" from "you don't
+     * have permission for this real one." Swallowing it here into a plain
+     * {@code false} would collapse that distinction and regress the
+     * behavior {@code MasterDataImportControllerAuthorizationTest}'s
+     * {@code unknownType_returns400_withZeroLookupServiceInteraction} pins.
+     */
+    public boolean hasImportPermission(String type, String verb) {
+        MasterdataType kind = MasterdataType.fromParam(type);
+        Resource resource = MASTERDATA_TYPE_TO_RESOURCE.get(kind);
+        return hasPermission(resource.name(), verb);
     }
 }

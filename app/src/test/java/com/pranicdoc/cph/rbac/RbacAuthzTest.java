@@ -6,6 +6,8 @@ import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -120,6 +123,82 @@ class RbacAuthzTest {
                 .thenThrow(new IllegalStateException("No tenant context found in SecurityContext, is the user authenticated?"));
 
         assertFalse(rbacAuthz.hasPermission("ROLES", "READ"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // hasImportPermission — the unified masterdata import endpoint's gate,
+    // referenced from MasterDataImportController's @PreAuthorize SpEL.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * D-13's type-to-resource map, proven for all four masterdata types:
+     * a grant on the resolved resource permits, and the caller's word for
+     * the type (not the enum constant name) is what {@code
+     * hasImportPermission} accepts — mirroring what {@code
+     * MasterdataType.fromParam} accepts.
+     */
+    @ParameterizedTest(name = "type={0} resolves to resource={1}")
+    @CsvSource({
+            "protocol, MASTER_DATA_PROTOCOLS",
+            "color, MASTER_DATA_COLORS",
+            "chakra, MASTER_DATA_CHAKRAS",
+            "mapping, MASTER_DATA_PROTOCOLS"
+    })
+    void hasImportPermission_resolvesTypeToExpectedResource(String type, Resource expectedResource) {
+        UUID healerId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.hasPermission(eq(healerId), eq(expectedResource), eq(Operation.CREATE)))
+                .thenReturn(true);
+
+        assertTrue(rbacAuthz.hasImportPermission(type, "CREATE"));
+
+        verify(lookupService).hasPermission(healerId, expectedResource, Operation.CREATE);
+    }
+
+    @Test
+    void hasImportPermission_deniesWhenNoGrantOnResolvedResource() {
+        UUID healerId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.hasPermission(eq(healerId), eq(Resource.MASTER_DATA_CHAKRAS), eq(Operation.CREATE)))
+                .thenReturn(false);
+
+        assertFalse(rbacAuthz.hasImportPermission("chakra", "CREATE"));
+    }
+
+    @Test
+    void hasImportPermission_supadmBypassesWithoutAnyLookup() {
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        assertTrue(rbacAuthz.hasImportPermission("protocol", "CREATE"));
+
+        verifyNoInteractions(lookupService);
+    }
+
+    @Test
+    void hasImportPermission_isCaseInsensitiveOnType() {
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        assertTrue(rbacAuthz.hasImportPermission("PROTOCOL", "CREATE"));
+
+        verifyNoInteractions(lookupService);
+    }
+
+    /**
+     * The fail-closed-ordering guarantee this method must preserve for
+     * {@code MasterDataImportController}: an unrecognized type is a 400
+     * (via {@code GlobalExceptionHandler} catching the propagated {@code
+     * IllegalArgumentException}), never a silent {@code false}/403 and
+     * never an RBAC lookup. Unlike {@link #hasPermission(String, String)},
+     * this method deliberately does NOT swallow the parse failure.
+     */
+    @Test
+    void hasImportPermission_unknownTypePropagatesIllegalArgumentException_withZeroLookup() {
+        assertThrows(IllegalArgumentException.class, () -> rbacAuthz.hasImportPermission("bogus", "CREATE"));
+
+        verifyNoInteractions(lookupService);
+        verifyNoInteractions(securityContextUtil);
     }
 
     /**

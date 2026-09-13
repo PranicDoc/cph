@@ -294,7 +294,7 @@ export function useImportMasterData(type: MasterDataImportType) {
       const formData = new FormData();
       formData.append("file", file);
       return api
-        .post(`/api/v1/masterdata/import?type=${type}`, formData, {
+        .post(`/api/v1/masterdata/import/${type}`, formData, {
           headers: { "Content-Type": undefined },
         })
         .then((r) => r.data.data as ImportResult);
