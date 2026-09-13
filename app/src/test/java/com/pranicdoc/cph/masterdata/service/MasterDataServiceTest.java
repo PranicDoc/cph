@@ -360,7 +360,7 @@ class MasterDataServiceTest {
     }
 
     @Test
-    void deleteMapping_nonSuperAdmin_canEditOwnCustomRow() {
+    void deleteMapping_nonSuperAdmin_canDeleteOwnCustomRow() {
         ProtocolColorMapping mapping = new ProtocolColorMapping();
         mapping.setHealerId(CALLER_HEALER_ID);
         when(mappingRepo.findById(any(UUID.class))).thenReturn(Optional.of(mapping));
