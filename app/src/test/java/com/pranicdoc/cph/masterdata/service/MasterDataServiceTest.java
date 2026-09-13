@@ -173,6 +173,17 @@ class MasterDataServiceTest {
         verify(chakraRepo).save(any());
     }
 
+    @Test
+    void deleteChakra_superAdmin_canDeleteSystemRow() {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setHealerId(null);
+        when(chakraRepo.findById(any(UUID.class))).thenReturn(Optional.of(chakra));
+        when(chakraRepo.save(any(ChakraCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteChakra(UUID.randomUUID(), true));
+        verify(chakraRepo).save(any());
+    }
+
     // ── updateColor ──────────────────────────────────────────────────────────
 
     @Test
@@ -269,6 +280,17 @@ class MasterDataServiceTest {
     void deleteColor_superAdmin_canDeleteAnotherHealersCustomRow() {
         PranaColorCatalog color = new PranaColorCatalog();
         color.setHealerId(UUID.randomUUID());
+        when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
+        when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteColor(UUID.randomUUID(), true));
+        verify(colorRepo).save(any());
+    }
+
+    @Test
+    void deleteColor_superAdmin_canDeleteSystemRow() {
+        PranaColorCatalog color = new PranaColorCatalog();
+        color.setHealerId(null);
         when(colorRepo.findById(any(UUID.class))).thenReturn(Optional.of(color));
         when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -379,6 +401,17 @@ class MasterDataServiceTest {
         verify(protocolRepo).save(any());
     }
 
+    @Test
+    void deleteProtocol_superAdmin_canDeleteSystemRow() {
+        ProtocolCatalog protocol = new ProtocolCatalog();
+        protocol.setHealerId(null);
+        when(protocolRepo.findById(any(UUID.class))).thenReturn(Optional.of(protocol));
+        when(protocolRepo.save(any(ProtocolCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteProtocol(UUID.randomUUID(), true));
+        verify(protocolRepo).save(any());
+    }
+
     // ── deleteMapping ────────────────────────────────────────────────────────
 
     @Test
@@ -418,6 +451,17 @@ class MasterDataServiceTest {
     void deleteMapping_superAdmin_canOverwriteAnotherHealersCustomRow() {
         ProtocolColorMapping mapping = new ProtocolColorMapping();
         mapping.setHealerId(UUID.randomUUID());
+        when(mappingRepo.findById(any(UUID.class))).thenReturn(Optional.of(mapping));
+        when(mappingRepo.save(any(ProtocolColorMapping.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() -> service.deleteMapping(UUID.randomUUID(), true));
+        verify(mappingRepo).save(any());
+    }
+
+    @Test
+    void deleteMapping_superAdmin_canDeleteSystemRow() {
+        ProtocolColorMapping mapping = new ProtocolColorMapping();
+        mapping.setHealerId(null);
         when(mappingRepo.findById(any(UUID.class))).thenReturn(Optional.of(mapping));
         when(mappingRepo.save(any(ProtocolColorMapping.class))).thenAnswer(inv -> inv.getArgument(0));
 
