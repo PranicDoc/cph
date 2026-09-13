@@ -1,13 +1,9 @@
 package com.pranicdoc.cph.masterdata.importer;
 
 import com.pranicdoc.cph.common.enums.ColorUsageType;
-import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
-import com.pranicdoc.cph.masterdata.model.ColumnDataType;
-import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
-import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
@@ -40,7 +36,6 @@ class ProtocolColorMappingImportServiceTest {
     @Mock private ProtocolColorMappingRepository mappingRepo;
     @Mock private PranaColorCatalogRepository pranaColorRepo;
     @Mock private ProtocolCatalogRepository protocolRepo;
-    @Mock private MasterdataColumnConfigRepository columnConfigRepo;
     @Spy private SpreadsheetReader spreadsheetReader = new SpreadsheetReader();
 
     @InjectMocks private ProtocolColorMappingImportService importService;
@@ -51,29 +46,7 @@ class ProtocolColorMappingImportServiceTest {
     void setUp() {
         lenient().when(mappingRepo.save(any(ProtocolColorMapping.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING))
-                .thenReturn(mappingColumnConfigs());
         lenient().when(protocolRepo.existsByNameIgnoreCase(anyString())).thenReturn(true);
-    }
-
-    private List<MasterdataColumnConfig> mappingColumnConfigs() {
-        return List.of(
-                columnConfig("Protocol Name", "protocolName", true),
-                columnConfig("Color Code", "colorId", true),
-                columnConfig("Usage Type", "usageType", true),
-                columnConfig("Chakra Name", "chakraName", false)
-        );
-    }
-
-    private MasterdataColumnConfig columnConfig(String columnName, String targetField, boolean required) {
-        return MasterdataColumnConfig.builder()
-                .masterdataType(MasterdataType.PROTOCOL_COLOR_MAPPING)
-                .columnName(columnName)
-                .targetField(targetField)
-                .required(required)
-                .dataType(ColumnDataType.STRING)
-                .systemDefined(true)
-                .build();
     }
 
     private PranaColorCatalog color(UUID id, String code) {
@@ -325,41 +298,4 @@ class ProtocolColorMappingImportServiceTest {
         verify(mappingRepo).save(argThat(m -> m.getChakraName() == null));
     }
 
-    @Test
-    void importFile_missingRequiredColumnConfig_throwsIllegalStateException_zeroRepoInteractions() throws IOException {
-        // "Color Code" config row deleted entirely (WR-02) — colorIdConfig would be
-        // null, silently disabling its required-ness check instead of failing fast.
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING))
-                .thenReturn(List.of(
-                        columnConfig("Protocol Name", "protocolName", true),
-                        columnConfig("Usage Type", "usageType", true),
-                        columnConfig("Chakra Name", "chakraName", false)
-                ));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", null}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("colorId"));
-        assertTrue(ex.getMessage().contains("PROTOCOL_COLOR_MAPPING"));
-        verifyNoInteractions(mappingRepo);
-    }
-
-    @Test
-    void importFile_unrecognizedTargetField_throwsIllegalStateException_zeroRepoInteractions() throws IOException {
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING))
-                .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", null}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("bogusField"));
-        assertTrue(ex.getMessage().contains("PROTOCOL_COLOR_MAPPING"));
-        verifyNoInteractions(mappingRepo);
-    }
 }

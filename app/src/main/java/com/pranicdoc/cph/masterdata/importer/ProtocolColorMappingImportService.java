@@ -3,10 +3,8 @@ package com.pranicdoc.cph.masterdata.importer;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
-import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
-import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
@@ -21,34 +19,39 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * MasterDataImporter for PROTOCOL_COLOR_MAPPING (MDIMPORT-12) — no prior
  * bulk-import path existed for this type (CRUD-only before this plan).
  *
- * <p>The one importer whose targetField mapping (D-11) includes a
- * lookup-backed field: {@code colorId} is never written as a raw spreadsheet
- * string, it is always resolved through {@link
- * PranaColorCatalogRepository#findByCode}. Two independent row-level
- * validations apply row-skip-with-collected-error treatment, neither aborting
- * the whole file: D-15 (unresolvable Color Code) and D-16 (unresolvable
- * Protocol Name, case-insensitive lookup against {@code ProtocolCatalog}
- * despite the denormalized field having no FK constraint).
+ * <p>Columns are a fixed Java template, not a DB-configurable registry — the
+ * masterdata_column_config table/API/registry was removed. Adding or
+ * renaming a column is a code change to this class (plus the spreadsheet
+ * template), not an admin action.
+ *
+ * <p>{@code colorId} is never written as a raw spreadsheet string — it is
+ * always resolved through {@link PranaColorCatalogRepository#findByCode}.
+ * Two independent row-level validations apply row-skip-with-collected-error
+ * treatment, neither aborting the whole file: D-15 (unresolvable Color Code)
+ * and D-16 (unresolvable Protocol Name, case-insensitive lookup against
+ * {@code ProtocolCatalog} despite the denormalized field having no FK
+ * constraint).
  */
 @Service
 @RequiredArgsConstructor
 public class ProtocolColorMappingImportService implements MasterDataImporter {
 
     private static final String SHEET_NAME = "ProtocolColorMappings";
+    private static final String COL_PROTOCOL_NAME = "Protocol Name";
+    private static final String COL_COLOR_CODE = "Color Code";
+    private static final String COL_USAGE_TYPE = "Usage Type";
+    private static final String COL_CHAKRA_NAME = "Chakra Name";
 
     private final ProtocolColorMappingRepository mappingRepo;
     private final PranaColorCatalogRepository pranaColorRepo;
     private final ProtocolCatalogRepository protocolRepo;
     private final SpreadsheetReader spreadsheetReader;
-    private final MasterdataColumnConfigRepository columnConfigRepo;
 
     @Override
     public MasterdataType kind() {
@@ -58,36 +61,7 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
     @Override
     @Transactional
     public ImportResult importFile(MultipartFile file, boolean isSuperAdmin, UUID healerId) {
-        // D-17 config-integrity fail-fast: reject the whole import up front if any
-        // PROTOCOL_COLOR_MAPPING column-config row points at a targetField this
-        // importer doesn't know how to write — before the spreadsheet is even parsed.
-        List<MasterdataColumnConfig> columns = columnConfigRepo
-                .findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL_COLOR_MAPPING);
-        for (MasterdataColumnConfig config : columns) {
-            validateTargetField(config.getTargetField());
-        }
-        // D-17 fail-fast, part 2: also assert every targetField this importer needs is
-        // actually present among the fetched columns — not just that every present row
-        // is recognized. Otherwise a deleted required config row (e.g. "Color Code")
-        // silently disables that field's required-ness check below, letting every row
-        // write a null FK-backed column and abort the whole transactional import with an
-        // unhandled DataIntegrityViolationException mid-loop instead of a clean fail-fast.
-        Set<String> seenTargetFields = columns.stream()
-                .map(MasterdataColumnConfig::getTargetField)
-                .collect(Collectors.toSet());
-        for (String required : Set.of("protocolName", "colorId", "usageType")) {
-            if (!seenTargetFields.contains(required)) {
-                throw new IllegalStateException("Missing required targetField '" + required
-                        + "' in masterdata_column_config for PROTOCOL_COLOR_MAPPING — config/importer drift");
-            }
-        }
-
         List<Map<String, String>> rows = spreadsheetReader.read(file, SHEET_NAME);
-
-        MasterdataColumnConfig protocolNameConfig = findConfig(columns, "protocolName");
-        MasterdataColumnConfig colorIdConfig = findConfig(columns, "colorId");
-        MasterdataColumnConfig usageTypeConfig = findConfig(columns, "usageType");
-        MasterdataColumnConfig chakraNameConfig = findConfig(columns, "chakraName");
 
         int created = 0;
         int updated = 0;
@@ -98,31 +72,31 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
         for (Map<String, String> row : rows) {
             rowNumber++;
 
-            String protocolName = protocolNameConfig == null ? null : trimToNull(row.get(protocolNameConfig.getColumnName()));
-            String colorCode = colorIdConfig == null ? null : trimToNull(row.get(colorIdConfig.getColumnName()));
-            String usageTypeRaw = usageTypeConfig == null ? null : trimToNull(row.get(usageTypeConfig.getColumnName()));
-            String chakraName = chakraNameConfig == null ? null : trimToNull(row.get(chakraNameConfig.getColumnName()));
+            String protocolName = trimToNull(row.get(COL_PROTOCOL_NAME));
+            String colorCode = trimToNull(row.get(COL_COLOR_CODE));
+            String usageTypeRaw = trimToNull(row.get(COL_USAGE_TYPE));
+            String chakraName = trimToNull(row.get(COL_CHAKRA_NAME));
 
             String skipError = null;
 
-            if (protocolNameConfig != null && protocolNameConfig.isRequired() && protocolName == null) {
-                skipError = "Row " + rowNumber + ": missing " + protocolNameConfig.getColumnName();
-            } else if (colorIdConfig != null && colorIdConfig.isRequired() && colorCode == null) {
-                skipError = "Row " + rowNumber + ": missing " + colorIdConfig.getColumnName();
-            } else if (usageTypeConfig != null && usageTypeConfig.isRequired() && usageTypeRaw == null) {
-                skipError = "Row " + rowNumber + ": missing " + usageTypeConfig.getColumnName();
+            if (protocolName == null) {
+                skipError = "Row " + rowNumber + ": missing " + COL_PROTOCOL_NAME;
+            } else if (colorCode == null) {
+                skipError = "Row " + rowNumber + ": missing " + COL_COLOR_CODE;
+            } else if (usageTypeRaw == null) {
+                skipError = "Row " + rowNumber + ": missing " + COL_USAGE_TYPE;
             }
 
             // D-16: Protocol Name validated against ProtocolCatalog, case-insensitive,
             // despite no FK constraint on this denormalized field.
-            if (skipError == null && protocolName != null && !protocolRepo.existsByNameIgnoreCase(protocolName)) {
+            if (skipError == null && !protocolRepo.existsByNameIgnoreCase(protocolName)) {
                 skipError = "Row " + rowNumber + ": Protocol Name '" + protocolName + "' not found";
             }
 
             // D-15: Color Code resolved through PranaColorCatalog.findByCode — colorId is
             // never a raw string write.
             UUID colorId = null;
-            if (skipError == null && colorCode != null) {
+            if (skipError == null) {
                 Optional<PranaColorCatalog> color = pranaColorRepo.findByCode(colorCode);
                 if (color.isEmpty()) {
                     skipError = "Row " + rowNumber + ": Color Code '" + colorCode + "' not found";
@@ -132,11 +106,10 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
             }
 
             ColorUsageType usageType = null;
-            if (skipError == null && usageTypeRaw != null) {
+            if (skipError == null) {
                 usageType = parseUsageType(usageTypeRaw);
                 if (usageType == null) {
-                    String columnLabel = usageTypeConfig != null ? usageTypeConfig.getColumnName() : "Usage Type";
-                    skipError = "Row " + rowNumber + ": invalid " + columnLabel
+                    skipError = "Row " + rowNumber + ": invalid " + COL_USAGE_TYPE
                             + " '" + usageTypeRaw + "' — must be CLEANSING or ENERGISING";
                 }
             }
@@ -153,7 +126,7 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
             // overwritten by that healer or SUPADM. (Note: MasterDataService's
             // single-row CRUD path currently only enforces the SYSTEM-row half of
             // this — see MASTERDATA-XXX if tracking that gap.)
-            // (WR-01: findExisting now also searches the caller's own healerId-scoped rows —
+            // (WR-01: findExisting also searches the caller's own healerId-scoped rows —
             // see findByProtocolNameAndHealerId — so a healer's own custom mapping is found
             // and updated in place on re-import instead of being duplicated. The "other
             // healer's row" branch below is reachable when a different, non-caller healerId
@@ -200,23 +173,6 @@ public class ProtocolColorMappingImportService implements MasterDataImporter {
                 .filter(m -> Objects.equals(m.getColorId(), colorId) && m.getUsageType() == usageType)
                 .findFirst()
                 .orElse(null);
-    }
-
-    private MasterdataColumnConfig findConfig(List<MasterdataColumnConfig> columns, String targetField) {
-        return columns.stream()
-                .filter(c -> targetField.equals(c.getTargetField()))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private void validateTargetField(String targetField) {
-        switch (targetField) {
-            case "protocolName", "colorId", "usageType", "chakraName" -> {
-                // recognized — no-op
-            }
-            default -> throw new IllegalStateException("Unknown targetField '" + targetField
-                    + "' in masterdata_column_config for PROTOCOL_COLOR_MAPPING — config/importer drift");
-        }
     }
 
     private ColorUsageType parseUsageType(String raw) {

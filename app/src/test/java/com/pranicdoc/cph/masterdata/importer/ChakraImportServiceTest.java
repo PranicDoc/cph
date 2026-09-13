@@ -3,10 +3,7 @@ package com.pranicdoc.cph.masterdata.importer;
 import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
-import com.pranicdoc.cph.masterdata.model.ColumnDataType;
-import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
-import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -32,7 +29,6 @@ import static org.mockito.Mockito.*;
 class ChakraImportServiceTest {
 
     @Mock private ChakraCatalogRepository chakraRepo;
-    @Mock private MasterdataColumnConfigRepository columnConfigRepo;
     @Spy private SpreadsheetReader spreadsheetReader = new SpreadsheetReader();
 
     private ChakraImportService importService;
@@ -41,31 +37,9 @@ class ChakraImportServiceTest {
 
     @BeforeEach
     void setUp() {
-        importService = new ChakraImportService(chakraRepo, spreadsheetReader, columnConfigRepo);
+        importService = new ChakraImportService(chakraRepo, spreadsheetReader);
         lenient().when(chakraRepo.save(any(ChakraCatalog.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA))
-                .thenReturn(chakraColumnConfigs());
-    }
-
-    private List<MasterdataColumnConfig> chakraColumnConfigs() {
-        return List.of(
-                columnConfig("Code", "code", true),
-                columnConfig("Name", "name", true),
-                columnConfig("Category", "category", false),
-                columnConfig("Location", "location", false)
-        );
-    }
-
-    private MasterdataColumnConfig columnConfig(String columnName, String targetField, boolean required) {
-        return MasterdataColumnConfig.builder()
-                .masterdataType(MasterdataType.CHAKRA)
-                .columnName(columnName)
-                .targetField(targetField)
-                .required(required)
-                .dataType(ColumnDataType.STRING)
-                .systemDefined(true)
-                .build();
     }
 
     private MockMultipartFile buildXlsx(List<String[]> rows) throws IOException {
@@ -244,40 +218,6 @@ class ChakraImportServiceTest {
                         && c.getCategory() == null
                         && c.getLocation() == null
         ));
-    }
-
-    @Test
-    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
-        // "Code" config row deleted entirely (WR-02) — should fail fast up front
-        // rather than silently skipping the required-ness check for that field.
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA))
-                .thenReturn(List.of(columnConfig("Name", "name", true)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("code"));
-        assertTrue(ex.getMessage().contains("CHAKRA"));
-        verifyNoInteractions(chakraRepo);
-    }
-
-    @Test
-    void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.CHAKRA))
-                .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("bogusField"));
-        assertTrue(ex.getMessage().contains("CHAKRA"));
-        verifyNoInteractions(chakraRepo);
     }
 
     @Test

@@ -28,12 +28,6 @@ class RbacResourceOperationCatalogTest {
         assertEquals(18, Resource.values().length, "Resource catalog size drifted — update this test deliberately if intended");
     }
 
-    // masterDataColumnConfigAllowListsOrdinaryCrudVerbsOnlyPerD10 removed: D-10 was
-    // superseded 2026-09-13 — MASTER_DATA_COLUMN_CONFIG is no longer a grantable
-    // resource at all (the enum constant was removed). The column-config registry
-    // is now SUPADM-only via hasRole('SUPADM') on MasterdataColumnConfigController;
-    // see MasterdataColumnConfigControllerAuthorizationTest for its authorization gate.
-
     @Test
     void declaresExactlyEightOperations() {
         assertEquals(8, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");

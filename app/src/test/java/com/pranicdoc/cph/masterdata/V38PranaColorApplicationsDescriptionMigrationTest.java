@@ -19,8 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Full Spring context boot is broken repo-wide and the test profile disables
  * Flyway replay entirely (H2 cannot parse this repo's Postgres-only DDL), so
  * V38's correctness is proven by reading the raw file off the classpath and
- * asserting on its content — exactly mirroring
- * {@code V37MasterdataColumnConfigMigrationTest}'s established pattern.
+ * asserting on its content.
  */
 class V38PranaColorApplicationsDescriptionMigrationTest {
 
@@ -74,16 +73,8 @@ class V38PranaColorApplicationsDescriptionMigrationTest {
                 "V38 must add a description column to prana_color_catalog_aud (Envers shadow table)");
     }
 
-    @Test
-    void seedsSystemDefinedDescriptionColumnConfigRow() {
-        assertTrue(SQL.contains("'PRANA_COLOR'") && SQL.contains("'Description'") && SQL.contains("'description'"),
-                "D-14b: V38 must seed a masterdata_column_config row for PRANA_COLOR's new Description column");
-        assertTrue(SQL.contains("INSERT INTO masterdata_column_config"),
-                "D-14b: the seed row must be inserted into masterdata_column_config");
-    }
-
     // -------------------------------------------------------------------
-    // Parsing helper — copied verbatim from V37MasterdataColumnConfigMigrationTest.
+    // Parsing helper — same comment-strip pattern used by other migration tests in this suite.
     // -------------------------------------------------------------------
 
     private static String stripComments(String raw) {

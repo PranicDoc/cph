@@ -1,13 +1,9 @@
 package com.pranicdoc.cph.masterdata.service;
 
-import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
 import com.pranicdoc.cph.masterdata.importer.SpreadsheetReader;
-import com.pranicdoc.cph.masterdata.model.ColumnDataType;
-import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
-import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -37,7 +33,6 @@ import static org.mockito.Mockito.*;
 class ProtocolImportServiceTest {
 
     @Mock private ProtocolCatalogRepository protocolRepo;
-    @Mock private MasterdataColumnConfigRepository columnConfigRepo;
     @Spy private SpreadsheetReader spreadsheetReader = new SpreadsheetReader();
 
     @InjectMocks private ProtocolImportService importService;
@@ -50,31 +45,6 @@ class ProtocolImportServiceTest {
     void setUp() {
         lenient().when(protocolRepo.save(any(ProtocolCatalog.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
-                .thenReturn(protocolColumnConfigs());
-    }
-
-    private List<MasterdataColumnConfig> protocolColumnConfigs() {
-        return List.of(
-                columnConfig("Protocol/Technique Name", "name", true, ColumnDataType.STRING),
-                columnConfig("Book", "sourceBook", true, ColumnDataType.STRING),
-                columnConfig("Page", "pageNumber", true, ColumnDataType.NUMBER),
-                columnConfig("Category", "category", false, ColumnDataType.STRING),
-                columnConfig("Description", "description", false, ColumnDataType.STRING),
-                columnConfig("Chapter", "chapter", false, ColumnDataType.STRING),
-                columnConfig("Type", "protocolType", true, ColumnDataType.ENUM)
-        );
-    }
-
-    private MasterdataColumnConfig columnConfig(String columnName, String targetField, boolean required, ColumnDataType dataType) {
-        return MasterdataColumnConfig.builder()
-                .masterdataType(MasterdataType.PROTOCOL)
-                .columnName(columnName)
-                .targetField(targetField)
-                .required(required)
-                .dataType(dataType)
-                .systemDefined(true)
-                .build();
     }
 
     private MockMultipartFile buildXlsx(List<String[]> rows) throws IOException {
@@ -325,44 +295,6 @@ class ProtocolImportServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> importService.importFile(file, true, null));
         assertTrue(ex.getMessage().contains("Unsupported file type"));
-        verifyNoInteractions(protocolRepo);
-    }
-
-    @Test
-    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
-        // "Book" (sourceBook) config row deleted entirely (WR-02) — should fail fast up
-        // front rather than silently skipping the required-ness check for that field.
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
-                .thenReturn(List.of(
-                        columnConfig("Protocol/Technique Name", "name", true, ColumnDataType.STRING),
-                        columnConfig("Page", "pageNumber", true, ColumnDataType.NUMBER),
-                        columnConfig("Type", "protocolType", true, ColumnDataType.ENUM)
-                ));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("sourceBook"));
-        assertTrue(ex.getMessage().contains("PROTOCOL"));
-        verifyNoInteractions(protocolRepo);
-    }
-
-    @Test
-    void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PROTOCOL))
-                .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true, ColumnDataType.STRING)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "desc", "Chapter", "PROTOCOL"}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("bogusField"));
-        assertTrue(ex.getMessage().contains("PROTOCOL"));
         verifyNoInteractions(protocolRepo);
     }
 }

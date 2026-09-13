@@ -1,11 +1,7 @@
 package com.pranicdoc.cph.masterdata.importer;
 
-import com.pranicdoc.cph.common.enums.MasterdataType;
 import com.pranicdoc.cph.masterdata.dto.ImportResult;
-import com.pranicdoc.cph.masterdata.model.ColumnDataType;
-import com.pranicdoc.cph.masterdata.model.MasterdataColumnConfig;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
-import com.pranicdoc.cph.masterdata.repository.MasterdataColumnConfigRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -39,7 +35,6 @@ import static org.mockito.Mockito.*;
 class PranaColorImportServiceTest {
 
     @Mock private PranaColorCatalogRepository pranaColorRepo;
-    @Mock private MasterdataColumnConfigRepository columnConfigRepo;
     @Spy private SpreadsheetReader spreadsheetReader = new SpreadsheetReader();
 
     @InjectMocks private PranaColorImportService importService;
@@ -51,29 +46,6 @@ class PranaColorImportServiceTest {
         lenient().when(pranaColorRepo.save(any(PranaColorCatalog.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(pranaColorRepo.findByCode(anyString())).thenReturn(Optional.empty());
-        lenient().when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PRANA_COLOR))
-                .thenReturn(pranaColorColumnConfigs());
-    }
-
-    private List<MasterdataColumnConfig> pranaColorColumnConfigs() {
-        return List.of(
-                columnConfig("Code", "code", true),
-                columnConfig("Name", "name", true),
-                columnConfig("Color Hex", "colorHex", false),
-                columnConfig("Value", "properties", false),
-                columnConfig("Description", "description", false)
-        );
-    }
-
-    private MasterdataColumnConfig columnConfig(String columnName, String targetField, boolean required) {
-        return MasterdataColumnConfig.builder()
-                .masterdataType(MasterdataType.PRANA_COLOR)
-                .columnName(columnName)
-                .targetField(targetField)
-                .required(required)
-                .dataType(ColumnDataType.STRING)
-                .systemDefined(true)
-                .build();
     }
 
     // ---- fixture builders -------------------------------------------------
@@ -495,41 +467,4 @@ class PranaColorImportServiceTest {
         verify(pranaColorRepo).save(argThat(c -> callerHealerId.equals(c.getHealerId())));
     }
 
-    // ---- WR-02: D-17 fail-fast on a missing required-column-config row ----
-
-    @Test
-    void importFile_missingRequiredColumnConfig_throwsIllegalStateException() throws IOException {
-        // "Code" config row deleted entirely — should fail fast up front rather than
-        // silently skipping the required-ness check for that field.
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PRANA_COLOR))
-                .thenReturn(List.of(columnConfig("Name", "name", true)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"RED", "Red Prana", "PROPERTY", "Strengthening", "#FF0000", ""}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("code"));
-        assertTrue(ex.getMessage().contains("PRANA_COLOR"));
-        verifyNoInteractions(pranaColorRepo);
-    }
-
-    // ---- scenario (9): D-17 fail-fast on unrecognized targetField ---------
-
-    @Test
-    void importFile_unrecognizedTargetField_throwsIllegalStateException() throws IOException {
-        when(columnConfigRepo.findAllByMasterdataTypeOrderByColumnNameAsc(MasterdataType.PRANA_COLOR))
-                .thenReturn(List.of(columnConfig("Bogus Column", "bogusField", true)));
-
-        MockMultipartFile file = buildXlsx(List.<String[]>of(
-                new String[]{"RED", "Red Prana", "PROPERTY", "Strengthening", "#FF0000", ""}
-        ));
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> importService.importFile(file, true, null));
-        assertTrue(ex.getMessage().contains("bogusField"));
-        assertTrue(ex.getMessage().contains("PRANA_COLOR"));
-        verifyNoInteractions(pranaColorRepo);
-    }
 }

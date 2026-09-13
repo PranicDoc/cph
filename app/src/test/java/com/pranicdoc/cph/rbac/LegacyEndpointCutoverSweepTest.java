@@ -191,16 +191,6 @@ class LegacyEndpointCutoverSweepTest {
                         + "'UPDATE') — pinned in BaselineRoleBackfillControllerAuthorizationContract"
                         + "Test — so it is not an ungated hole; it is simply owned by neither sweep's "
                         + "pinned counts");
-        m.put("com.pranicdoc.cph.masterdata.controller.MasterdataColumnConfigController",
-                "Phase 01 (masterdata-import-redesign) column-config registry CRUD surface, added "
-                        + "after the MIGRATE-02 (Phase 40) and Phase-42 healer-surface sweeps were "
-                        + "frozen. Carries 4 bare gates — @rbacAuthz.hasPermission('MASTER_DATA_"
-                        + "COLUMN_CONFIG','READ'|'CREATE'|'UPDATE'|'DELETE') — each independently "
-                        + "grantable per D-10, pinned by its own "
-                        + "MasterdataColumnConfigControllerAuthorizationTest (reflection pin + "
-                        + "anti-vacuous sweep + allow-list validity + filter-chain matrix), so it is "
-                        + "not an ungated hole; it is simply owned by neither Phase-40 nor Phase-42's "
-                        + "pinned counts");
         m.put("com.pranicdoc.cph.masterdata.controller.MasterDataImportController",
                 "Phase 02 (masterdata-import-redesign) unified import endpoint, added after the "
                         + "MIGRATE-02 (Phase 40) and Phase-42 healer-surface sweeps were frozen. Its "
@@ -209,9 +199,7 @@ class LegacyEndpointCutoverSweepTest {
                         + "depends on the request's 'type' param and isn't known at compile time. "
                         + "Reflection cannot find a gate to pin here (there is none to find); its RBAC "
                         + "behavior is instead proven by MasterDataImportControllerAuthorizationTest, a "
-                        + "behavioral 403-per-type test, not a reflection pin — distinguishing it from "
-                        + "MasterdataColumnConfigController's entry above, whose gates ARE bare "
-                        + "@PreAuthorize annotations simply outside the frozen counts");
+                        + "behavioral 403-per-type test, not a reflection pin");
         return m;
     }
 

@@ -8,10 +8,6 @@
 -- so PranaColor import can ship complete against all 76 design-doc rows
 -- (properties AND applications AND description).
 --
--- D-14b: the new `description` column's column-config row is seeded here
--- (system-defined), consistent with how V37 seeded every other day-1 column
--- — not left for SUPADM to add manually via the Phase 1 API.
---
 -- Both new columns/tables are purely additive — no back-fill needed.
 -- =============================================================================
 
@@ -36,11 +32,3 @@ CREATE TABLE prana_color_catalog_applications_aud (
 
 ALTER TABLE prana_color_catalog     ADD COLUMN description VARCHAR(500);
 ALTER TABLE prana_color_catalog_aud ADD COLUMN description VARCHAR(500);
-
--- D-14b: seed the system-defined column-config row for the new Description
--- column so it is importable at runtime without a code deploy. Next free
--- literal UUID after V37's sequence (...0001 through ...0019) is ...0020.
-INSERT INTO masterdata_column_config
-    (id, created_at, updated_at, is_deleted, version, masterdata_type, column_name, target_field, required, data_type, system_defined)
-VALUES
-    ('00000000-0000-7000-9000-000000000020', now(), now(), false, 0, 'PRANA_COLOR', 'Description', 'description', false, 'STRING', true);
