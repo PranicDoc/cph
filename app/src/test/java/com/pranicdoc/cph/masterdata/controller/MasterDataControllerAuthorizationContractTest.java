@@ -68,7 +68,7 @@ class MasterDataControllerAuthorizationContractTest {
     private static final String PROTOCOLS_UPDATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')";
     private static final String PROTOCOLS_DELETE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 21 endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 20 endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getChakras",      CHAKRAS_READ},
             new String[]{"getChakraById",   CHAKRAS_READ},
@@ -119,7 +119,7 @@ class MasterDataControllerAuthorizationContractTest {
                 .isEqualTo(expected);
     }
 
-    // ─── Section A — 21 independent literal pins ──────────────────────────
+    // ─── Section A — 20 independent literal pins ──────────────────────────
 
     @Test @DisplayName("chakras: getChakras is gated MASTER_DATA_CHAKRAS:READ (D-09 newly gated)")
     void getChakras_isGatedByChakrasRead() { assertGate("getChakras", CHAKRAS_READ); }
