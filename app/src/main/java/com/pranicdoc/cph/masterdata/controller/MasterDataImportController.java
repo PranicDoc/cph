@@ -9,7 +9,8 @@ import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.method.P;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,22 +26,24 @@ import java.util.Map;
  * endpoint (MDIMPORT-07, Phase 02), dispatching by request-supplied {@code type}
  * through {@link MasterDataImportRegistry} to the matching {@code MasterDataImporter}.
  *
- * <p><b>Why a separate controller from {@link MasterDataController} (D-18):</b>
- * this endpoint's RBAC gate is a runtime, in-body {@code rbacAuthz.hasPermission(...)}
- * call (D-12) — the resource being checked depends on the request's {@code type}
- * param and is not known at compile time, so a static {@code @PreAuthorize}
- * annotation is structurally impossible here. {@code MasterDataController}'s
- * endpoint/gate counts are pinned by two build-gate tests
- * ({@code LegacyEndpointCutoverSweepTest}, {@code MasterDataControllerAuthorizationContractTest})
- * at an exact count; adding an ungated-by-annotation handler to that controller
- * would collide with both pins. This mirrors the exact precedent Phase 1 already
- * set for {@link MasterdataColumnConfigController}, registered in
- * {@code LegacyEndpointCutoverSweepTest.DELIBERATELY_UNSWEPT} for the same
- * "added after the sweep was frozen" reason — though that controller's gates
- * ARE bare {@code @PreAuthorize} annotations, simply outside the frozen counts,
- * whereas this controller's single handler has no annotation to reflect on at
- * all. Its RBAC behavior is instead proven behaviorally by
- * {@code MasterDataImportControllerAuthorizationTest}.
+ * <p><b>D-12 revised (2026-09-13):</b> the gate is now a declarative {@code
+ * @PreAuthorize} that evaluates {@link #hasImportPermission(String, String)}
+ * against the request's {@code #type} parameter — {@code @PreAuthorize} CAN
+ * reference a method parameter via SpEL (bound at request time, not compile
+ * time), so the earlier "structurally impossible" framing was wrong. {@code
+ * type} carries an explicit {@link P @P("type")} so the binding does not
+ * depend on the project compiling with {@code -parameters}. {@code
+ * hasImportPermission} still does exactly D-12's original three steps in
+ * order — parse (unknown word throws {@link IllegalArgumentException}, 400
+ * via {@code GlobalExceptionHandler}, before any RBAC lookup) → resolve the
+ * resource from the fixed {@link #TYPE_TO_RESOURCE} map → check permission
+ * — it is just invoked from the annotation instead of the method body.
+ * Denial is Spring Security's own {@code AccessDeniedException} (403) from
+ * the {@code @PreAuthorize} expression evaluating {@code false}, not a
+ * hand-thrown one. Proven behaviorally (not by reflection, since the literal
+ * carries a bean-method call rather than a bare {@code hasPermission(...)}
+ * pin) by {@code MasterDataImportControllerAuthorizationTest} — the same
+ * suite that proved the old in-body version, unchanged, still passes.
  *
  * <p>Follows the {@code ApiResponse<T>} wrapper convention shared by every
  * sibling endpoint under {@code /api/v1/masterdata}.
@@ -66,31 +69,34 @@ public class MasterDataImportController {
             MasterdataType.CHAKRA, Resource.MASTER_DATA_CHAKRAS,
             MasterdataType.PROTOCOL_COLOR_MAPPING, Resource.MASTER_DATA_PROTOCOLS);
 
-    /**
-     * D-12 critical ordering, never reordered: (1) parse {@code type} — an
-     * unknown word throws {@link IllegalArgumentException} (400 via {@code
-     * GlobalExceptionHandler}) before any RBAC lookup ever runs; (2) resolve the
-     * resource from the fixed {@link #TYPE_TO_RESOURCE} map — never {@code
-     * Resource.valueOf(rawUserString)} directly; (3) check permission — a denial
-     * throws {@link AccessDeniedException} (403); (4) only then dispatch to
-     * {@link MasterDataImportRegistry#get(MasterdataType)}. No {@code
-     * @PreAuthorize} anywhere on this handler — structurally impossible per
-     * D-12, since the resource is not known until {@code type} is parsed.
-     */
     @PostMapping(value = "/import", consumes = "multipart/form-data")
+    @PreAuthorize("@masterDataImportController.hasImportPermission(#type, 'CREATE')")
     public ResponseEntity<ApiResponse<ImportResult>> importMasterData(
-            @RequestParam String type, @RequestPart("file") MultipartFile file) {
+            @RequestParam @P("type") String type, @RequestPart("file") MultipartFile file) {
         MasterdataType kind = parseType(type);
         Resource resource = TYPE_TO_RESOURCE.get(kind);
-        if (!rbacAuthz.hasPermission(resource.name(), "CREATE")) {
-            throw new AccessDeniedException("Not permitted to import " + kind);
-        }
         // PD-40-04: SUPADM-only, non-grantable system-row override — same pair
         // MasterDataController's update/delete handlers resolve, so importers can
         // apply the identical ownership guard MasterDataService's CRUD path enforces.
         boolean isSuperAdmin = rbacAuthz.hasPermission(resource.name(), "ADMIN");
         return ResponseEntity.ok(new ApiResponse<>(true, "Import complete",
                 registry.get(kind).importFile(file, isSuperAdmin, securityContextUtil.getCurrentHealerId())));
+    }
+
+    /**
+     * Called from {@code importMasterData}'s {@code @PreAuthorize} SpEL, not
+     * from application code — must stay public and unannotated (no {@code
+     * @PreAuthorize} of its own) so Spring Security's bean-method SpEL call
+     * is a plain, unadvised invocation. D-12's original three-step order:
+     * parse {@code type} (unknown word throws {@link IllegalArgumentException},
+     * 400 via {@code GlobalExceptionHandler}, before any RBAC lookup) → resolve
+     * the resource from {@link #TYPE_TO_RESOURCE} (never {@code
+     * Resource.valueOf(rawUserString)} directly) → check permission.
+     */
+    public boolean hasImportPermission(String type, String verb) {
+        MasterdataType kind = parseType(type);
+        Resource resource = TYPE_TO_RESOURCE.get(kind);
+        return rbacAuthz.hasPermission(resource.name(), verb);
     }
 
     private MasterdataType parseType(String raw) {
