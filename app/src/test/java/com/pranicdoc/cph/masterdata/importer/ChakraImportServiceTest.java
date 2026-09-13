@@ -163,6 +163,28 @@ class ChakraImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteAnotherHealersCustomRow() throws IOException {
+        ChakraCatalog existing = new ChakraCatalog();
+        existing.setCode("CROWN");
+        existing.setName("Old Name");
+        existing.setHealerId(UUID.randomUUID()); // owned by a DIFFERENT healer
+        when(chakraRepo.findByCode("CROWN")).thenReturn(Optional.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"CROWN", "Crown Chakra", "major", "Top of head"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertEquals("Old Name", existing.getName());
+        verify(chakraRepo, never()).save(any());
+    }
+
+    @Test
     void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
         UUID callerHealerId = UUID.randomUUID();
         when(chakraRepo.findByCode("AJNA")).thenReturn(Optional.empty());

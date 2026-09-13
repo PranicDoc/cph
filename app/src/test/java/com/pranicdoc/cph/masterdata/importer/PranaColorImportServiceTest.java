@@ -460,6 +460,28 @@ class PranaColorImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteAnotherHealersCustomRow() throws IOException {
+        PranaColorCatalog existing = new PranaColorCatalog();
+        existing.setCode("RED");
+        existing.setName("Red Prana");
+        existing.setHealerId(UUID.randomUUID()); // owned by a DIFFERENT healer
+        when(pranaColorRepo.findByCode("RED")).thenReturn(Optional.of(existing));
+
+        List<String[]> rows = List.<String[]>of(
+                new String[]{"RED", "Red Prana", "PROPERTY", "Hostile overwrite", "#FF0000", ""}
+        );
+        MockMultipartFile file = buildXlsx(rows);
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("owned by another party")));
+        assertTrue(existing.getProperties().isEmpty());
+        verify(pranaColorRepo, never()).save(any());
+    }
+
+    @Test
     void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
         UUID callerHealerId = UUID.randomUUID();
         List<String[]> rows = List.<String[]>of(

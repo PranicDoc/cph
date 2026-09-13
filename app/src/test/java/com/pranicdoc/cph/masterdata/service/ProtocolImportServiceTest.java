@@ -199,6 +199,31 @@ class ProtocolImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteAnotherHealersCustomRow() throws IOException {
+        ProtocolCatalog existing = new ProtocolCatalog();
+        existing.setName("Insomnia");
+        existing.setSourceBook("Advanced Pranic Healing");
+        existing.setPageNumber(45);
+        existing.setProtocolType(ProtocolType.PROTOCOL);
+        existing.setHealerId(UUID.randomUUID()); // owned by a DIFFERENT healer
+        when(protocolRepo.findByNameAndSourceBookAndPageNumber("Insomnia", "Advanced Pranic Healing", 45))
+                .thenReturn(Optional.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia", "Advanced Pranic Healing", "45", "Physical Ailment", "Hostile update", "Sleep Disorders", "PROTOCOL"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, UUID.randomUUID());
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertNull(existing.getDescription());
+        verify(protocolRepo, never()).save(any());
+    }
+
+    @Test
     void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
         UUID callerHealerId = UUID.randomUUID();
         when(protocolRepo.findByNameAndSourceBookAndPageNumber("Fever", "Pranic Psychotherapy", 12))

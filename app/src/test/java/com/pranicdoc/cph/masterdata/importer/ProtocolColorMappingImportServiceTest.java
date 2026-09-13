@@ -186,6 +186,37 @@ class ProtocolColorMappingImportServiceTest {
     }
 
     @Test
+    void importFile_nonSuperAdmin_cannotOverwriteAnotherHealersCustomRow() throws IOException {
+        UUID colorId = UUID.randomUUID();
+        UUID callerHealerId = UUID.randomUUID();
+        ProtocolColorMapping existing = new ProtocolColorMapping();
+        existing.setProtocolName("Insomnia Relief");
+        existing.setColorId(colorId);
+        existing.setUsageType(ColorUsageType.CLEANSING);
+        existing.setHealerId(UUID.randomUUID()); // owned by a DIFFERENT healer
+
+        when(pranaColorRepo.findByCode("WHITE")).thenReturn(Optional.of(color(colorId, "WHITE")));
+        when(mappingRepo.findByProtocolNameAndHealerIdIsNull("Insomnia Relief")).thenReturn(List.of());
+        // WR-01: findExisting now also looks up the caller's own healerId-scoped rows —
+        // simulate that lookup surfacing a row that (unexpectedly) belongs to someone
+        // else, to verify the ownership guard itself (not the query) is what denies it.
+        when(mappingRepo.findByProtocolNameAndHealerId("Insomnia Relief", callerHealerId)).thenReturn(List.of(existing));
+
+        MockMultipartFile file = buildXlsx(List.<String[]>of(
+                new String[]{"Insomnia Relief", "WHITE", "CLEANSING", "Hostile"}
+        ));
+
+        ImportResult result = importService.importFile(file, false, callerHealerId);
+
+        assertEquals(0, result.created());
+        assertEquals(0, result.updated());
+        assertEquals(1, result.skipped());
+        assertTrue(result.errors().get(0).contains("owned by another party"));
+        assertNull(existing.getChakraName());
+        verify(mappingRepo, never()).save(any());
+    }
+
+    @Test
     void importFile_nonSuperAdmin_newRow_stampsCallerHealerId() throws IOException {
         UUID callerHealerId = UUID.randomUUID();
         UUID colorId = UUID.randomUUID();
