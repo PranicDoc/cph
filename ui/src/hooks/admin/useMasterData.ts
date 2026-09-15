@@ -291,9 +291,37 @@ export function useImportProtocols() {
         .then((r) => r.data.data as ProtocolImportResult);
     },
     onSuccess: () => {
+      // The import file may also carry Chakras Used / Cleansing Color / Energizing Color
+      // columns, which can create new chakra/color catalog rows alongside protocols —
+      // refresh those tabs too, not just Protocols.
       qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      qc.invalidateQueries({ queryKey: CHAKRA_QK });
+      qc.invalidateQueries({ queryKey: COLOR_QK });
       toast.success("Import complete");
     },
     onError: (e) => toast.error(extractDetail(e) || "Import failed", { duration: 5000 }),
+  });
+}
+
+// -- Protocol -> Chakra relationship (read flow) -----------------------------------------
+
+/**
+ * Distinct chakras associated with any of the given protocols — used to filter the chakra
+ * scan's chakra list down to what the selected protocol(s) actually address, instead of the
+ * full catalog. Disabled (no request) when no protocol ids are given.
+ */
+export function useChakrasForProtocols(protocolIds: string[]) {
+  return useQuery<Chakra[]>({
+    queryKey: [...CHAKRA_QK, "for-protocols", ...[...protocolIds].sort()],
+    enabled: protocolIds.length > 0,
+    queryFn: () =>
+      api
+        // Comma-joined as a single query value (not axios's array serialization) — Spring's
+        // @RequestParam List<UUID> binds a single comma-separated value out of the box, and
+        // this avoids depending on axios's array-param format matching that on the wire.
+        .get("/api/v1/masterdata/protocols/chakras", {
+          params: { protocolIds: protocolIds.join(",") },
+        })
+        .then((r) => r.data.data ?? r.data),
   });
 }

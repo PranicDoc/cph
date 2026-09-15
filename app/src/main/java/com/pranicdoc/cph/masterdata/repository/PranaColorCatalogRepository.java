@@ -13,6 +13,9 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     Optional<PranaColorCatalog> findByCode(String code);
 
+    /** Name-based lookup for import-time resolve-or-backfill (source files carry display names, not codes). */
+    Optional<PranaColorCatalog> findByNameIgnoreCase(String name);
+
     /** System colors (healerId is null) */
     List<PranaColorCatalog> findByHealerIdIsNull();
 

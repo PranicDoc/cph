@@ -38,9 +38,10 @@ import static org.assertj.core.api.Assertions.fail;
  * annotations say.
  *
  * <ul>
- *   <li><b>Section A</b> — 21 independent literal pins, one per endpoint.</li>
+ *   <li><b>Section A</b> — 23 independent literal pins, one per endpoint (21 from Phase 40
+ *       plus 2 protocol-&gt;chakra-&gt;color relationship reads added afterward).</li>
  *   <li><b>Section B</b> — anti-vacuous sweep: every request-mapped method carries
- *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 21}.</li>
+ *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 23}.</li>
  *   <li><b>Section C</b> — every named (resource, verb) pair is allow-listed.</li>
  *   <li><b>Section D</b> — PD-40-04: the master-data ADMIN override verb is
  *       intentionally non-grantable; adding it fails this test.</li>
@@ -68,7 +69,7 @@ class MasterDataControllerAuthorizationContractTest {
     private static final String PROTOCOLS_UPDATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')";
     private static final String PROTOCOLS_DELETE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 21 endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 23 endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getChakras",      CHAKRAS_READ},
             new String[]{"getChakraById",   CHAKRAS_READ},
@@ -90,7 +91,9 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"createProtocol",  PROTOCOLS_CREATE},
             new String[]{"updateProtocol",  PROTOCOLS_UPDATE},
             new String[]{"deleteProtocol",  PROTOCOLS_DELETE},
-            new String[]{"importProtocols", PROTOCOLS_CREATE});
+            new String[]{"importProtocols", PROTOCOLS_CREATE},
+            new String[]{"getChakrasForProtocols",          PROTOCOLS_READ},
+            new String[]{"getColorsForProtocolsAndChakras", PROTOCOLS_READ});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -120,7 +123,7 @@ class MasterDataControllerAuthorizationContractTest {
                 .isEqualTo(expected);
     }
 
-    // ─── Section A — 21 independent literal pins ──────────────────────────
+    // ─── Section A — 23 independent literal pins ──────────────────────────
 
     @Test @DisplayName("chakras: getChakras is gated MASTER_DATA_CHAKRAS:READ (D-09 newly gated)")
     void getChakras_isGatedByChakrasRead() { assertGate("getChakras", CHAKRAS_READ); }
@@ -185,6 +188,12 @@ class MasterDataControllerAuthorizationContractTest {
     @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:CREATE (bulk CSV creation)")
     void importProtocols_isGatedByProtocolsCreate() { assertGate("importProtocols", PROTOCOLS_CREATE); }
 
+    @Test @DisplayName("protocols: getChakrasForProtocols is gated MASTER_DATA_PROTOCOLS:READ (protocol->chakra relationship read)")
+    void getChakrasForProtocols_isGatedByProtocolsRead() { assertGate("getChakrasForProtocols", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: getColorsForProtocolsAndChakras is gated MASTER_DATA_PROTOCOLS:READ (protocol+chakra->color relationship read)")
+    void getColorsForProtocolsAndChakras_isGatedByProtocolsRead() { assertGate("getColorsForProtocolsAndChakras", PROTOCOLS_READ); }
+
     // ─── Section B — anti-vacuous sweep ──────────────────────────────────
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
@@ -229,16 +238,17 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 21 declared MasterDataController endpoints. "
-                        + "Eight of these (three chakra GETs, three colour GETs, two protocol GETs) were "
-                        + "ungated before this phase (D-09); a regression that drops one of those gates "
+                .as("the sweep must inspect exactly the 23 declared MasterDataController endpoints (21 from "
+                        + "Phase 40 plus the 2 protocol->chakra->color relationship reads added afterward). "
+                        + "Eight of the original 21 (three chakra GETs, three colour GETs, two protocol GETs) were "
+                        + "ungated before Phase 40 (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(21);
+                .isEqualTo(23);
     }
 
-    // ─── Section C — allow-list validity for all 21 pairs ────────────────
+    // ─── Section C — allow-list validity for all 23 pairs ────────────────
 
     @Test
     void everyGateNamesAnAllowListedResourceVerbPair() {

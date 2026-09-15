@@ -13,6 +13,9 @@ public interface ChakraCatalogRepository extends JpaRepository<ChakraCatalog, UU
 
     Optional<ChakraCatalog> findByCode(String code);
 
+    /** Name-based lookup for import-time resolve-or-backfill (source files carry display names, not codes). */
+    Optional<ChakraCatalog> findByNameIgnoreCase(String name);
+
     /** System chakras (healerId is null) */
     List<ChakraCatalog> findByHealerIdIsNull();
 

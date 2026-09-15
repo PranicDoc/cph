@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -53,7 +47,8 @@ function entriesToRows(entries: ChakraDocEntry[]): Row[] {
   return entries.map((entry) => ({ key: entry.id, entry }));
 }
 
-function LevelSelect({
+/** Compact 3-way tag toggle (N/D/C or N/O/U) — replaces a dropdown for a fixed, tiny option set. */
+function LevelTags({
   value,
   labels,
   onChange,
@@ -63,18 +58,29 @@ function LevelSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {Object.entries(labels).map(([key, label]) => (
-          <SelectItem key={key} value={key}>
-            {label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="inline-flex gap-1.5" role="group">
+      {Object.entries(labels).map(([key, label]) => {
+        const selected = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            title={label}
+            aria-label={label}
+            aria-pressed={selected}
+            onClick={() => onChange(key)}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
+              selected
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            )}
+          >
+            {key}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -138,6 +144,24 @@ export function ChakraManualEntry({
   useEffect(() => {
     setRows(entriesToRows(value));
   }, [value]);
+
+  // Keep the row set in sync with availableChakras: any chakra in the (possibly
+  // protocol-filtered) list that doesn't already have a row gets a default one appended
+  // — the healer never clicks "Add Chakra" for a fresh scan, AND if the case is later
+  // edited to add another protocol, that protocol's chakras get appended to the
+  // existing set rather than requiring a fresh scan (never removes or overwrites a row
+  // that already exists, so recorded readings are always preserved).
+  useEffect(() => {
+    if (availableChakras.length === 0) return; // still loading — nothing to reconcile yet
+    const existingIds = new Set(value.map((e) => e.id));
+    const missing = availableChakras.filter((c) => !existingIds.has(c.id));
+    if (missing.length === 0) return;
+    onChange([...value, ...missing.map((c) => createDefaultEntry(c))]);
+    // Only re-run when the resolved chakra list changes — `value`/`onChange` are read from
+    // the same render that triggered this (not stale), including them as deps would loop
+    // (onChange here changes `value`, which would re-trigger this effect on the *same* list).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableChakras]);
 
   function commit(nextRows: Row[]) {
     setRows(nextRows);
@@ -219,7 +243,7 @@ export function ChakraManualEntry({
                       </TableCell>
                       <TableCell>
                         {row.entry && (
-                          <LevelSelect
+                          <LevelTags
                             value={row.entry.energyLevel}
                             labels={ENERGY_LEVEL_LABELS}
                             onChange={(v) =>
@@ -230,7 +254,7 @@ export function ChakraManualEntry({
                       </TableCell>
                       <TableCell>
                         {row.entry && (
-                          <LevelSelect
+                          <LevelTags
                             value={row.entry.activationLevel}
                             labels={ACTIVATION_LEVEL_LABELS}
                             onChange={(v) =>
@@ -285,14 +309,14 @@ export function ChakraManualEntry({
                   </div>
                   {row.entry && (
                     <div className="grid grid-cols-2 gap-3">
-                      <LevelSelect
+                      <LevelTags
                         value={row.entry.energyLevel}
                         labels={ENERGY_LEVEL_LABELS}
                         onChange={(v) =>
                           updateLevel(row.key, "energyLevel", v as EnergyLevel)
                         }
                       />
-                      <LevelSelect
+                      <LevelTags
                         value={row.entry.activationLevel}
                         labels={ACTIVATION_LEVEL_LABELS}
                         onChange={(v) =>

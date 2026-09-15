@@ -84,8 +84,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       request.</li>
  * </ul>
  *
- * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 21
- * concrete requests asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
+ * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 23
+ * concrete requests (21 from Phase 40 plus 2 protocol-&gt;chakra-&gt;color relationship
+ * reads added afterward) asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
  * {@code newlyGatedReadEndpointsDenyAnUngrantedCaller} /
  * {@code ...AdmitAGrantedCaller} prove the D-09 read-leak closure endpoint by
  * endpoint (the 8 GETs that carried no {@code @PreAuthorize} before this phase);
@@ -191,8 +192,8 @@ class MasterDataControllerAuthorizationTest {
     //  Task 1 — SUPADM sweep + D-09 deny/admit + resource/verb isolation
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** All 21 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
-    static Stream<Arguments> allTwentyOneEndpoints() {
+    /** All 23 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
+    static Stream<Arguments> allConvertedEndpoints() {
         return Stream.of(
                 Arguments.of("GET", BASE + "/chakras"),
                 Arguments.of("GET", BASE + "/chakras/" + ROW_ID),
@@ -214,18 +215,20 @@ class MasterDataControllerAuthorizationTest {
                 Arguments.of("POST", BASE + "/protocols"),
                 Arguments.of("PUT", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID),
-                Arguments.of("MULTIPART", BASE + "/protocols/import"));
+                Arguments.of("MULTIPART", BASE + "/protocols/import"),
+                Arguments.of("GET", BASE + "/protocols/chakras?protocolIds=" + ROW_ID),
+                Arguments.of("GET", BASE + "/protocols/colors?protocolIds=" + ROW_ID + "&chakraIds=" + ROW_ID));
     }
 
     @Test
-    void task1SweepCoversExactly21Endpoints() {
-        assertThat(allTwentyOneEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 21 converted MasterDataController requests")
-                .isEqualTo(21L);
+    void task1SweepCoversExactly23Endpoints() {
+        assertThat(allConvertedEndpoints().count())
+                .as("the SUPADM sweep must supply exactly the 23 converted MasterDataController requests")
+                .isEqualTo(23L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
-    @MethodSource("allTwentyOneEndpoints")
+    @MethodSource("allConvertedEndpoints")
     void supadmReachesEveryConvertedEndpoint(String method, String path) throws Exception {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");

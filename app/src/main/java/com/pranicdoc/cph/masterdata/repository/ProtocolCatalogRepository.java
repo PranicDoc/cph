@@ -26,4 +26,12 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
 
     /** Upsert lookup for bulk import */
     Optional<ProtocolCatalog> findByNameAndSourceBookAndPageNumber(String name, String sourceBook, Integer pageNumber);
+
+    /**
+     * Lookup for chakra/color enrichment import (name + book, no page): may return more than
+     * one row, since a protocol can legitimately span multiple pages under the same name and
+     * book — name + sourceBook + pageNumber is the entity's actual unique key, not name + book
+     * alone.
+     */
+    List<ProtocolCatalog> findByNameAndSourceBook(String name, String sourceBook);
 }

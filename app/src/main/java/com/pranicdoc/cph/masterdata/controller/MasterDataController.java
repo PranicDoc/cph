@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
@@ -200,6 +201,28 @@ public class MasterDataController {
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
     public ResponseEntity<ApiResponse<ProtocolCatalog>> getProtocolById(@PathVariable UUID id) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getProtocolById(id)));
+    }
+
+    // ── Protocol -> Chakra -> Color filtered read flow ─────────────────────
+    // Step 2: given selected protocol ids, return the distinct chakras they
+    // reference. Step 3: given selected protocol ids + chakra ids, return the
+    // (colorId, usageType) pairs for that combination. Both gated on the same
+    // MASTER_DATA_PROTOCOLS:READ verb as the rest of the protocol surface —
+    // this is protocol-relationship data, not a new resource.
+
+    @GetMapping("/protocols/chakras")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ChakraCatalog>>> getChakrasForProtocols(
+            @RequestParam List<UUID> protocolIds) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getChakrasForProtocols(protocolIds)));
+    }
+
+    @GetMapping("/protocols/colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorView>>> getColorsForProtocolsAndChakras(
+            @RequestParam List<UUID> protocolIds, @RequestParam List<UUID> chakraIds) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",
+                masterDataService.getColorsForProtocolsAndChakras(protocolIds, chakraIds)));
     }
 
     @PostMapping("/protocols")

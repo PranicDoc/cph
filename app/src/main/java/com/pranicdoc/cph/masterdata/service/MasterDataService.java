@@ -5,6 +5,7 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
@@ -14,6 +15,8 @@ import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,6 +34,8 @@ public class MasterDataService {
     private final PranaColorCatalogRepository colorRepo;
     private final ProtocolColorMappingRepository mappingRepo;
     private final ProtocolCatalogRepository protocolRepo;
+    private final ProtocolChakraRepository protocolChakraRepo;
+    private final ProtocolChakraColorRepository protocolChakraColorRepo;
     private final SecurityContextUtil securityContextUtil;
 
     // ── Chakras ──────────────────────────────────────────────────────────────
@@ -224,5 +229,29 @@ public class MasterDataService {
             throw new AccessDeniedException("System protocols can only be deleted by SUPADM");
         protocol.softDelete();
         protocolRepo.save(protocol);
+    }
+
+    // ── Protocol <-> Chakra <-> Color (filtered master-data read flow) ────────
+
+    /**
+     * Step 2 of the read flow: distinct chakras associated with any of the
+     * given protocols. Returns empty for an empty/null input rather than
+     * running a query that would otherwise match nothing (an empty "in"
+     * clause is invalid JPQL).
+     */
+    @Transactional(readOnly = true)
+    public List<ChakraCatalog> getChakrasForProtocols(List<UUID> protocolIds) {
+        if (protocolIds == null || protocolIds.isEmpty()) return List.of();
+        return protocolChakraRepo.findDistinctChakrasByProtocolIds(protocolIds);
+    }
+
+    /**
+     * Step 3 of the read flow: colors (cleansing + energizing, distinguished
+     * by usage type) for the given protocol + chakra selection.
+     */
+    @Transactional(readOnly = true)
+    public List<ProtocolChakraColorView> getColorsForProtocolsAndChakras(List<UUID> protocolIds, List<UUID> chakraIds) {
+        if (protocolIds == null || protocolIds.isEmpty() || chakraIds == null || chakraIds.isEmpty()) return List.of();
+        return protocolChakraColorRepo.findColorsForProtocolsAndChakras(protocolIds, chakraIds);
     }
 }

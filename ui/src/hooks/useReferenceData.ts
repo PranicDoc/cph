@@ -8,22 +8,6 @@ let colorsCache: ColorOption[] | null = null;
 let chakrasCache: ChakraOption[] | null = null;
 let fetchPromise: Promise<[ColorOption[], ChakraOption[]]> | null = null;
 
-const TARGET_CHAKRAS = [
-  "crown",
-  "forehead",
-  "ajna",
-  "throat",
-  "front heart",
-  "back heart",
-  "front solar plexus",
-  "back solar plexus",
-  "spleen",
-  "navel",
-  "meng mein",
-  "sex",
-  "basic",
-];
-
 function unwrapList<T>(response: ApiListResponse<T>): T[] {
   if (Array.isArray(response)) {
     return response;
@@ -90,17 +74,12 @@ export function useReferenceData() {
           .map(normalizeColor)
           .filter((color) => color.id)
       ),
+      // Backend is the sole source of truth for which chakras exist — no client-side
+      // allowlist. Only a structurally invalid row (no id/name) is dropped.
       api.get<ApiListResponse<any>>("/api/v1/masterdata/chakras").then((res) =>
         unwrapList(res.data)
           .map(normalizeChakra)
-          .filter((chakra) => {
-            if (!chakra.id || !chakra.name) return false;
-            const cleanName = chakra.name
-              .toLowerCase()
-              .replace(" chakra", "")
-              .trim();
-            return TARGET_CHAKRAS.includes(cleanName);
-          })
+          .filter((chakra) => chakra.id && chakra.name)
       ),
     ]);
 

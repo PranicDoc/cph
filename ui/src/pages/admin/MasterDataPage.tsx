@@ -1151,6 +1151,13 @@ function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
             Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
             Page, Category, Description, Chapter, Type.
           </p>
+          <p className="text-sm text-text-light">
+            Optionally also include Chakras Used, Cleansing Color and Energizing
+            Color columns to link the chakras and colors each protocol uses —
+            unrecognized chakra/color names are created automatically. This never
+            creates or edits a protocol: a row whose Protocol/Technique Name +
+            Page doesn't already match an existing protocol is skipped.
+          </p>
           <Input
             ref={fileInputRef}
             type="file"
