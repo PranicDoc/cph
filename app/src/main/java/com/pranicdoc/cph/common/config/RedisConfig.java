@@ -69,6 +69,24 @@ public class RedisConfig {
      * {@code @Cacheable} call site on any read that misses Caffeine's L1 and falls through to
      * this Redis L2. Default typing is activated on a copy, not the shared {@code objectMapper}
      * bean itself, so {@code @class} metadata never leaks into HTTP JSON responses.
+     *
+     * <p><b>Must be {@code DefaultTyping.EVERYTHING}, not {@code NON_FINAL}:</b> every
+     * {@code @Cacheable} method here returns an {@code ApiResponse<T>} record wrapper (or a
+     * bare {@code List<record>}). Jackson's root-value serialization
+     * ({@code ObjectMapper#writeValue}) treats the value being written as its own declared
+     * type — so under {@code NON_FINAL}, the POJO/record root of a cache entry (e.g. the outer
+     * {@code ApiResponse}) never gets a {@code @class} tag, only nested Object-declared fields
+     * do. That's invisible on write, but {@code GenericJackson2JsonRedisSerializer}'s generic
+     * {@code deserialize(byte[])} (what {@code RedisCache.get()} calls) always reads back with
+     * target type {@code Object.class}, which requires the root's own {@code @class} — so any
+     * {@code ApiResponse}-wrapped dashboard.* cache throws
+     * {@code InvalidTypeIdException: missing type id property '@class'} on every L1-miss/L2-hit
+     * (recurring in prod, not a rare edge case — reproduced and confirmed against this project's
+     * exact Jackson 2.17.2 + record DTOs on 2026-09-16). {@code EVERYTHING} forces a type tag on
+     * the root value too, closing this gap. (Bare-list caches like
+     * {@code policy.active-version} happened to work under {@code NON_FINAL} because Jackson
+     * types root-level Collections regardless of typing mode — that was coincidence, not a
+     * working case of {@code NON_FINAL}.)
      */
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory redisConnectionFactory,
@@ -76,7 +94,7 @@ public class RedisConfig {
         ObjectMapper redisMapper = objectMapper.copy();
         redisMapper.activateDefaultTyping(
                 redisMapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL,
+                ObjectMapper.DefaultTyping.EVERYTHING,
                 JsonTypeInfo.As.PROPERTY);
 
         GenericJackson2JsonRedisSerializer jsonValueSerializer =
