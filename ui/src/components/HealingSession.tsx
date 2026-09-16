@@ -2,6 +2,7 @@ import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHealingSessionWizard } from "../hooks/useHealingSessionWizard";
 import { useChakrasForProtocols } from "../hooks/admin/useMasterData";
+import { resolveScanChakras } from "../lib/resolveScanChakras";
 import {
   buildBackendChakraCatalog,
   buildPranaColorCatalog,
@@ -18,8 +19,10 @@ interface HealingSessionWizardProps {
   symptoms: any[];
   onClose: () => void;
   /** Protocol ids selected for this session — narrows the chakra scan list to the chakras
-   * those protocols address. Falls back to the full chakra catalog when empty, or when none
-   * of the selected protocols' chakras are found in this session's chakra list. */
+   * those protocols address. When no protocol is selected yet, shows the full chakra catalog
+   * (nothing to filter by yet). Once a protocol IS selected, the scan list is exactly that
+   * protocol's linked chakras — empty if it has none — never a silent fallback to the full
+   * catalog, so a protocol with no chakra data doesn't masquerade as "every chakra applies". */
   protocolIds?: string[];
 }
 
@@ -61,13 +64,8 @@ export const HealingSessionWizard = ({
   const chakraFilterPending = protocolIds.length > 0 && protocolChakrasLoading;
   const scanChakras = useMemo(() => {
     if (chakraFilterPending) return [];
-    if (protocolChakras.length === 0) return chakras;
-    const linkedIds = new Set(protocolChakras.map((c) => c.id));
-    const filtered = chakras.filter((c: any) => linkedIds.has(c.id));
-    // Selected protocol(s) resolved chakras, but none matched this session's chakra list
-    // (e.g. healer-custom rows another healer can't see) — fall back rather than an empty scan.
-    return filtered.length > 0 ? filtered : chakras;
-  }, [chakras, protocolChakras, chakraFilterPending]);
+    return resolveScanChakras(chakras, protocolChakras, protocolIds);
+  }, [chakras, protocolChakras, protocolIds, chakraFilterPending]);
   const availableChakras = useMemo(
     () => buildBackendChakraCatalog(scanChakras),
     [scanChakras]
