@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,7 +118,7 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIds(List.of(fever.getId()));
+        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(List.of(fever.getId()), null);
         assertEquals(2, chakras.size());
         assertTrue(chakras.stream().anyMatch(c -> c.getId().equals(solarPlexus.getId())));
         assertTrue(chakras.stream().anyMatch(c -> c.getId().equals(spleen.getId())));
@@ -135,9 +136,9 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ChakraCatalog> forFever = protocolChakraRepo.findDistinctChakrasByProtocolIds(List.of(fever.getId()));
-        List<ChakraCatalog> forBoth = protocolChakraRepo.findDistinctChakrasByProtocolIds(
-                List.of(fever.getId(), headache.getId()));
+        List<ChakraCatalog> forFever = protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(List.of(fever.getId()), null);
+        List<ChakraCatalog> forBoth = protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(
+                List.of(fever.getId(), headache.getId()), null);
 
         assertEquals(1, forFever.size());
         assertEquals(crown.getId(), forFever.get(0).getId());
@@ -148,15 +149,50 @@ class ProtocolChakraColorRelationshipIntegrationTest {
 
     @Test
     @Transactional
-    void duplicateProtocolChakraLinkIsRejected() {
+    void duplicateProtocolChakraLinkForSameHealerIsRejected() {
         ProtocolCatalog fever = newProtocol("Fever", 4);
         ChakraCatalog crown = newChakra("CROWN_DUP_T", "Crown Chakra Dup");
+        UUID healerId = UUID.randomUUID();
+        protocolChakraRepo.save(ProtocolChakra.builder().protocol(fever).chakra(crown).healerId(healerId).build());
+        entityManager.flush();
+
+        ProtocolChakra duplicate = ProtocolChakra.builder().protocol(fever).chakra(crown).healerId(healerId).build();
+        assertThrows(DataIntegrityViolationException.class,
+                () -> protocolChakraRepo.saveAndFlush(duplicate));
+    }
+
+    /**
+     * V38: the unique constraint became (protocol_id, chakra_id, healer_id) so each healer can
+     * independently add their own link for a (protocol, chakra) pair already covered by a system
+     * row. Postgres/H2 both treat NULL as distinct for uniqueness purposes, so two system
+     * (healer_id null) rows for the same pair are NOT rejected by this constraint — exactly the
+     * same accepted trade-off protocol_color_mapping's healer-keyed UNIQUE already makes (V19).
+     * De-duplicating the system row is the import path's find-or-create responsibility, not this
+     * constraint's — this test documents that this is expected, not a regression.
+     */
+    @Test
+    @Transactional
+    void twoSystemRowsForSameProtocolChakraPairAreNotRejectedByTheConstraint() {
+        ProtocolCatalog fever = newProtocol("Fever", 4);
+        ChakraCatalog crown = newChakra("CROWN_SYS_DUP_T", "Crown Chakra Sys Dup");
         link(fever, crown);
         entityManager.flush();
 
-        ProtocolChakra duplicate = ProtocolChakra.builder().protocol(fever).chakra(crown).build();
-        assertThrows(DataIntegrityViolationException.class,
-                () -> protocolChakraRepo.saveAndFlush(duplicate));
+        ProtocolChakra secondSystemRow = ProtocolChakra.builder().protocol(fever).chakra(crown).build();
+        assertDoesNotThrow(() -> protocolChakraRepo.saveAndFlush(secondSystemRow));
+    }
+
+    @Test
+    @Transactional
+    void healerCanAddTheirOwnLinkAlongsideAnExistingSystemLink() {
+        ProtocolCatalog fever = newProtocol("Fever", 4);
+        ChakraCatalog crown = newChakra("CROWN_OWN_T", "Crown Chakra Own");
+        link(fever, crown); // system row, healerId null
+        entityManager.flush();
+
+        ProtocolChakra ownRow = ProtocolChakra.builder()
+                .protocol(fever).chakra(crown).healerId(UUID.randomUUID()).build();
+        assertDoesNotThrow(() -> protocolChakraRepo.saveAndFlush(ownRow));
     }
 
     @Test
@@ -172,7 +208,7 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIds(List.of(fever.getId()));
+        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(List.of(fever.getId()), null);
         assertEquals(1, chakras.size());
         assertEquals(crown.getId(), chakras.get(0).getId());
     }
@@ -193,8 +229,8 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(solarPlexus.getId()));
+        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(solarPlexus.getId()), null);
         assertEquals(2, views.size());
         assertTrue(views.stream().allMatch(v -> v.usageType() == ColorUsageType.CLEANSING));
     }
@@ -215,8 +251,8 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(solarPlexus.getId()));
+        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(solarPlexus.getId()), null);
         assertEquals(3, views.size());
         assertTrue(views.stream().allMatch(v -> v.usageType() == ColorUsageType.ENERGISING));
     }
@@ -234,8 +270,8 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(heartBack.getId()));
+        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(heartBack.getId()), null);
         assertEquals(2, views.size());
         assertTrue(views.stream().anyMatch(v -> v.usageType() == ColorUsageType.CLEANSING && v.colorId().equals(green.getId())));
         assertTrue(views.stream().anyMatch(v -> v.usageType() == ColorUsageType.ENERGISING && v.colorId().equals(green.getId())));
@@ -257,10 +293,10 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ProtocolChakraColorView> solarViews = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(solarPlexus.getId()));
-        List<ProtocolChakraColorView> spleenViews = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(spleen.getId()));
+        List<ProtocolChakraColorView> solarViews = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(solarPlexus.getId()), null);
+        List<ProtocolChakraColorView> spleenViews = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(spleen.getId()), null);
 
         assertEquals(1, solarViews.size());
         assertEquals(green.getId(), solarViews.get(0).colorId());
@@ -284,8 +320,8 @@ class ProtocolChakraColorRelationshipIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakras(
-                List.of(fever.getId()), List.of(solarPlexus.getId()));
+        List<ProtocolChakraColorView> views = protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                List.of(fever.getId()), List.of(solarPlexus.getId()), null);
         assertEquals(1, views.size());
         assertEquals(green.getId(), views.get(0).colorId());
     }
@@ -309,7 +345,7 @@ class ProtocolChakraColorRelationshipIntegrationTest {
     @Test
     @Transactional
     void unknownProtocolIdReturnsNoChakras() {
-        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIds(List.of(UUID.randomUUID()));
+        List<ChakraCatalog> chakras = protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(List.of(UUID.randomUUID()), null);
         assertTrue(chakras.isEmpty());
     }
 }

@@ -21,11 +21,27 @@ public interface ProtocolChakraRepository extends JpaRepository<ProtocolChakra, 
     List<ProtocolChakra> findByProtocol_IdIn(List<UUID> protocolIds);
 
     /**
-     * Distinct chakras associated with any of the given protocols (step 2 of
-     * the protocol -> chakra -> color read flow). Returns {@link ChakraCatalog}
-     * rows directly rather than the join entity — the caller needs chakra
-     * master data (name/code/category), not the link itself.
+     * Distinct chakras associated with any of the given protocols, visible to
+     * the given healer (system rows, healer_id null, union that healer's own
+     * rows) — step 2 of the protocol -> chakra -> color read flow used by the
+     * healing-session wizard. Returns {@link ChakraCatalog} rows directly
+     * rather than the join entity — the caller needs chakra master data
+     * (name/code/category), not the link itself.
      */
-    @Query("select distinct pc.chakra from ProtocolChakra pc where pc.protocol.id in :protocolIds")
-    List<ChakraCatalog> findDistinctChakrasByProtocolIds(@Param("protocolIds") List<UUID> protocolIds);
+    @Query("""
+            select distinct pc.chakra from ProtocolChakra pc
+            where pc.protocol.id in :protocolIds
+              and (pc.healerId is null or pc.healerId = :healerId)
+            """)
+    List<ChakraCatalog> findDistinctChakrasByProtocolIdsForHealer(
+            @Param("protocolIds") List<UUID> protocolIds, @Param("healerId") UUID healerId);
+
+    /** A specific healer's own link for this protocol+chakra pair (find-or-create target for the add endpoint). */
+    Optional<ProtocolChakra> findByProtocol_IdAndChakra_IdAndHealerId(UUID protocolId, UUID chakraId, UUID healerId);
+
+    /**
+     * All links (system + the given healer's own) for one protocol — the
+     * single-protocol "manage chakras/colors" admin view.
+     */
+    List<ProtocolChakra> findByProtocol_IdAndHealerIdIsNullOrHealerId(UUID protocolId, UUID healerId);
 }

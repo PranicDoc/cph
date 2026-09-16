@@ -50,10 +50,13 @@ class MasterDataServiceProtocolChakraColorTest {
     @Test
     void getChakrasForProtocols_delegatesToRepository() {
         UUID protocolId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
         ChakraCatalog chakra = new ChakraCatalog();
         chakra.setCode("CROWN");
         chakra.setName("Crown Chakra");
-        when(protocolChakraRepo.findDistinctChakrasByProtocolIds(List.of(protocolId))).thenReturn(List.of(chakra));
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(List.of(protocolId), healerId))
+                .thenReturn(List.of(chakra));
 
         List<ChakraCatalog> result = masterDataService.getChakrasForProtocols(List.of(protocolId));
 
@@ -78,8 +81,10 @@ class MasterDataServiceProtocolChakraColorTest {
         UUID protocolId = UUID.randomUUID();
         UUID chakraId = UUID.randomUUID();
         UUID colorId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
         ProtocolChakraColorView view = new ProtocolChakraColorView(protocolId, chakraId, colorId, ColorUsageType.CLEANSING);
-        when(protocolChakraColorRepo.findColorsForProtocolsAndChakras(List.of(protocolId), List.of(chakraId)))
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(List.of(protocolId), List.of(chakraId), healerId))
                 .thenReturn(List.of(view));
 
         List<ProtocolChakraColorView> result =
@@ -99,6 +104,6 @@ class MasterDataServiceProtocolChakraColorTest {
     @Test
     void getColorsForProtocolsAndChakras_missingProtocolIds_returnsEmptyWithoutQuerying() {
         assertTrue(masterDataService.getColorsForProtocolsAndChakras(List.of(), List.of(UUID.randomUUID())).isEmpty());
-        verify(protocolChakraColorRepo, never()).findColorsForProtocolsAndChakras(any(), any());
+        verify(protocolChakraColorRepo, never()).findColorsForProtocolsAndChakrasForHealer(any(), any(), any());
     }
 }

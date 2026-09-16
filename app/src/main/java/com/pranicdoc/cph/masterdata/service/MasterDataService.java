@@ -1,16 +1,23 @@
 package com.pranicdoc.cph.masterdata.service;
 
+import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorEntry;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorGroup;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorUpdateRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
+import com.pranicdoc.cph.masterdata.model.ProtocolChakra;
+import com.pranicdoc.cph.masterdata.model.ProtocolChakraColor;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
@@ -23,8 +30,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -235,23 +246,172 @@ public class MasterDataService {
 
     /**
      * Step 2 of the read flow: distinct chakras associated with any of the
-     * given protocols. Returns empty for an empty/null input rather than
-     * running a query that would otherwise match nothing (an empty "in"
-     * clause is invalid JPQL).
+     * given protocols, visible to the current healer (system rows union
+     * their own). Returns empty for an empty/null input rather than running
+     * a query that would otherwise match nothing (an empty "in" clause is
+     * invalid JPQL).
      */
     @Transactional(readOnly = true)
     public List<ChakraCatalog> getChakrasForProtocols(List<UUID> protocolIds) {
         if (protocolIds == null || protocolIds.isEmpty()) return List.of();
-        return protocolChakraRepo.findDistinctChakrasByProtocolIds(protocolIds);
+        return protocolChakraRepo.findDistinctChakrasByProtocolIdsForHealer(
+                protocolIds, securityContextUtil.getCurrentHealerId());
     }
 
     /**
      * Step 3 of the read flow: colors (cleansing + energizing, distinguished
-     * by usage type) for the given protocol + chakra selection.
+     * by usage type) for the given protocol + chakra selection, visible to
+     * the current healer (system rows union their own).
      */
     @Transactional(readOnly = true)
     public List<ProtocolChakraColorView> getColorsForProtocolsAndChakras(List<UUID> protocolIds, List<UUID> chakraIds) {
         if (protocolIds == null || protocolIds.isEmpty() || chakraIds == null || chakraIds.isEmpty()) return List.of();
-        return protocolChakraColorRepo.findColorsForProtocolsAndChakras(protocolIds, chakraIds);
+        return protocolChakraColorRepo.findColorsForProtocolsAndChakrasForHealer(
+                protocolIds, chakraIds, securityContextUtil.getCurrentHealerId());
     }
+
+    // ── Protocol <-> Chakra <-> Color (single-protocol manage view) ──────────
+    // Distinct from the read flow above: this is the "select one protocol,
+    // add/edit/remove its chakras and colors" admin surface. A healer's own
+    // additions here are visible and editable only by them (or SUPADM);
+    // system (bulk-imported) links stay read-only for everyone else.
+
+    @Transactional(readOnly = true)
+    public List<ProtocolChakraColorGroup> getChakraColorGroupsForProtocol(UUID protocolId) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        List<ProtocolChakra> links = protocolChakraRepo.findByProtocol_IdAndHealerIdIsNullOrHealerId(protocolId, healerId);
+        if (links.isEmpty()) return List.of();
+
+        List<UUID> linkIds = links.stream().map(ProtocolChakra::getId).toList();
+        Map<UUID, List<ProtocolChakraColor>> colorsByLink = protocolChakraColorRepo.findByProtocolChakra_IdIn(linkIds)
+                .stream()
+                .collect(Collectors.groupingBy(pcc -> pcc.getProtocolChakra().getId()));
+
+        return links.stream()
+                .map(link -> toGroup(link, colorsByLink.getOrDefault(link.getId(), List.of())))
+                .toList();
+    }
+
+    /**
+     * Add one or more chakras (each with cleansing/energising colors) to a
+     * protocol. Always find-or-creates the CALLER's own {@code ProtocolChakra}
+     * row (healerId = current healer) — never touches a system row or
+     * another healer's row, so no ownership check is needed here (unlike
+     * update/delete below, which target an existing row by id).
+     */
+    @Transactional
+    public List<ProtocolChakraColorGroup> addProtocolChakraColors(UUID protocolId, ProtocolChakraColorAddRequest req) {
+        ProtocolCatalog protocol = getProtocolById(protocolId);
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+
+        for (ProtocolChakraColorEntry entry : req.entries()) {
+            ChakraCatalog chakra = getChakraById(entry.chakraId());
+            ProtocolChakra link = protocolChakraRepo
+                    .findByProtocol_IdAndChakra_IdAndHealerId(protocolId, entry.chakraId(), healerId)
+                    .orElseGet(() -> protocolChakraRepo.save(
+                            ProtocolChakra.builder().protocol(protocol).chakra(chakra).healerId(healerId).build()));
+
+            Set<ColorLinkKey> existing = protocolChakraColorRepo.findByProtocolChakra_IdIn(List.of(link.getId()))
+                    .stream()
+                    .map(pcc -> new ColorLinkKey(pcc.getColor().getId(), pcc.getUsageType()))
+                    .collect(Collectors.toSet());
+
+            addNewColors(link, entry.cleansingColorIds(), ColorUsageType.CLEANSING, existing);
+            addNewColors(link, entry.energisingColorIds(), ColorUsageType.ENERGISING, existing);
+        }
+
+        return getChakraColorGroupsForProtocol(protocolId);
+    }
+
+    /** Full replace of one existing link's color set (diffed, not delete-all-then-recreate — see below). */
+    @Transactional
+    public List<ProtocolChakraColorGroup> updateProtocolChakraColor(
+            UUID protocolId, UUID protocolChakraId, ProtocolChakraColorUpdateRequest req, boolean isSuperAdmin) {
+        ProtocolChakra link = getOwnedProtocolChakra(protocolId, protocolChakraId, isSuperAdmin);
+
+        List<ProtocolChakraColor> existing = protocolChakraColorRepo.findByProtocolChakra_IdIn(List.of(protocolChakraId));
+        replaceColorsForUsage(link, existing, req.cleansingColorIds(), ColorUsageType.CLEANSING);
+        replaceColorsForUsage(link, existing, req.energisingColorIds(), ColorUsageType.ENERGISING);
+
+        return getChakraColorGroupsForProtocol(protocolId);
+    }
+
+    /** Removes a chakra (and its colors) from a protocol. */
+    @Transactional
+    public void deleteProtocolChakraColor(UUID protocolId, UUID protocolChakraId, boolean isSuperAdmin) {
+        ProtocolChakra link = getOwnedProtocolChakra(protocolId, protocolChakraId, isSuperAdmin);
+        List<ProtocolChakraColor> colors = protocolChakraColorRepo.findByProtocolChakra_IdIn(List.of(protocolChakraId));
+        colors.forEach(c -> { c.softDelete(); protocolChakraColorRepo.save(c); });
+        link.softDelete();
+        protocolChakraRepo.save(link);
+    }
+
+    /**
+     * Ownership check for update/delete: system rows (healerId null) require
+     * the SUPADM override; a non-system row may only be touched by the
+     * healer who owns it, never by another healer even with the same grant.
+     */
+    private ProtocolChakra getOwnedProtocolChakra(UUID protocolId, UUID protocolChakraId, boolean isSuperAdmin) {
+        ProtocolChakra link = protocolChakraRepo.findById(protocolChakraId)
+                .orElseThrow(() -> new ResourceNotFoundException("ProtocolChakra", protocolChakraId));
+        if (!link.getProtocol().getId().equals(protocolId)) {
+            throw new ResourceNotFoundException("ProtocolChakra", protocolChakraId);
+        }
+        UUID ownerHealerId = link.getHealerId();
+        if (ownerHealerId == null) {
+            if (!isSuperAdmin) throw new AccessDeniedException("System protocol-chakra links can only be edited by SUPADM");
+            return link;
+        }
+        if (!ownerHealerId.equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("You can only edit your own protocol-chakra links");
+        }
+        return link;
+    }
+
+    private void addNewColors(ProtocolChakra link, List<UUID> colorIds, ColorUsageType usageType, Set<ColorLinkKey> existing) {
+        if (colorIds == null) return;
+        for (UUID colorId : colorIds) {
+            if (existing.contains(new ColorLinkKey(colorId, usageType))) continue;
+            PranaColorCatalog color = getColorById(colorId);
+            protocolChakraColorRepo.save(ProtocolChakraColor.builder()
+                    .protocolChakra(link).color(color).usageType(usageType).build());
+        }
+    }
+
+    /** Diffs desired vs current colors for one usage type — soft-deletes removed, inserts added, leaves the rest untouched. */
+    private void replaceColorsForUsage(ProtocolChakra link, List<ProtocolChakraColor> existing, List<UUID> desiredColorIds, ColorUsageType usageType) {
+        Set<UUID> desired = desiredColorIds == null ? Set.of() : new HashSet<>(desiredColorIds);
+        Map<UUID, ProtocolChakraColor> currentByColor = existing.stream()
+                .filter(c -> c.getUsageType() == usageType)
+                .collect(Collectors.toMap(c -> c.getColor().getId(), c -> c));
+
+        currentByColor.forEach((colorId, row) -> {
+            if (!desired.contains(colorId)) {
+                row.softDelete();
+                protocolChakraColorRepo.save(row);
+            }
+        });
+        for (UUID colorId : desired) {
+            if (!currentByColor.containsKey(colorId)) {
+                PranaColorCatalog color = getColorById(colorId);
+                protocolChakraColorRepo.save(ProtocolChakraColor.builder()
+                        .protocolChakra(link).color(color).usageType(usageType).build());
+            }
+        }
+    }
+
+    private ProtocolChakraColorGroup toGroup(ProtocolChakra link, List<ProtocolChakraColor> colors) {
+        List<UUID> cleansing = colors.stream()
+                .filter(c -> c.getUsageType() == ColorUsageType.CLEANSING)
+                .map(c -> c.getColor().getId())
+                .toList();
+        List<UUID> energising = colors.stream()
+                .filter(c -> c.getUsageType() == ColorUsageType.ENERGISING)
+                .map(c -> c.getColor().getId())
+                .toList();
+        return new ProtocolChakraColorGroup(
+                link.getId(), link.getChakra().getId(), link.getChakra().getName(), link.getHealerId(), cleansing, energising);
+    }
+
+    private record ColorLinkKey(UUID colorId, ColorUsageType usageType) {}
 }

@@ -4,6 +4,9 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorGroup;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorUpdateRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
@@ -255,5 +258,49 @@ public class MasterDataController {
     public ResponseEntity<ApiResponse<ProtocolImportResult>> importProtocols(
             @RequestPart("file") MultipartFile file) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
+    }
+
+    // ── Single-protocol chakra/color management ─────────────────────────────
+    // Distinct from the bulk /protocols/import xlsx path: lets a healer pick
+    // ONE protocol and add/edit/remove its chakras and colors directly,
+    // without a file. Additions are always the caller's own (healerId =
+    // current healer) and visible/editable only by them (or SUPADM) — same
+    // gate (MASTER_DATA_PROTOCOLS) as the rest of the protocol surface.
+
+    @GetMapping("/protocols/{protocolId}/chakra-colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> getChakraColorGroupsForProtocol(
+            @PathVariable UUID protocolId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",
+                masterDataService.getChakraColorGroupsForProtocol(protocolId)));
+    }
+
+    @PostMapping("/protocols/{protocolId}/chakra-colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> addProtocolChakraColors(
+            @PathVariable UUID protocolId, @Valid @RequestBody ProtocolChakraColorAddRequest req) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakras/colors added",
+                masterDataService.addProtocolChakraColors(protocolId, req)));
+    }
+
+    @PutMapping("/protocols/{protocolId}/chakra-colors/{protocolChakraId}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> updateProtocolChakraColor(
+            @PathVariable UUID protocolId, @PathVariable UUID protocolChakraId,
+            @Valid @RequestBody ProtocolChakraColorUpdateRequest req) {
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra colors updated",
+                masterDataService.updateProtocolChakraColor(protocolId, protocolChakraId, req, isSuperAdmin)));
+    }
+
+    @DeleteMapping("/protocols/{protocolId}/chakra-colors/{protocolChakraId}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
+    public ResponseEntity<ApiResponse<Void>> deleteProtocolChakraColor(
+            @PathVariable UUID protocolId, @PathVariable UUID protocolChakraId) {
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        masterDataService.deleteProtocolChakraColor(protocolId, protocolChakraId, isSuperAdmin);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra removed from protocol", null));
     }
 }
