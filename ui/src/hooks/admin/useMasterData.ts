@@ -86,6 +86,25 @@ export interface ProtocolImportResult {
   errors: string[];
 }
 
+/** One chakra linked to a protocol, with its cleansing/energising colors — the single-protocol
+ * "manage chakras/colors" admin view. `healerId` null means a system (bulk-imported) row,
+ * read-only for anyone without the SUPADM override; non-null means it belongs to that healer
+ * and is editable/deletable by them alone (or SUPADM). */
+export interface ProtocolChakraColorGroup {
+  protocolChakraId: string;
+  chakraId: string;
+  chakraName: string;
+  healerId: string | null;
+  cleansingColorIds: string[];
+  energisingColorIds: string[];
+}
+
+export interface ProtocolChakraColorEntryPayload {
+  chakraId: string;
+  cleansingColorIds: string[];
+  energisingColorIds: string[];
+}
+
 // -- Query Keys -------------------------------------------------------------------------
 
 const COLOR_QK = ["master-colors"] as const;
@@ -323,5 +342,82 @@ export function useChakrasForProtocols(protocolIds: string[]) {
           params: { protocolIds: protocolIds.join(",") },
         })
         .then((r) => r.data.data ?? r.data),
+  });
+}
+
+// -- Protocol <-> Chakra <-> Color (single-protocol manage view) ------------------------
+// Distinct from the read flow above: the "select one protocol, add/edit/remove its chakras
+// and colors" admin surface (MasterDataPage's Protocols tab). A healer's own additions here
+// are visible and editable only by them (or SUPADM); system (bulk-imported) links stay
+// read-only for everyone else.
+
+function chakraColorGroupsQueryKey(protocolId: string) {
+  return [...PROTOCOL_QK, "chakra-colors", protocolId] as const;
+}
+
+export function useChakraColorGroupsForProtocol(protocolId: string | undefined) {
+  return useQuery<ProtocolChakraColorGroup[]>({
+    queryKey: chakraColorGroupsQueryKey(protocolId ?? ""),
+    enabled: !!protocolId,
+    queryFn: () =>
+      api
+        .get(`/api/v1/masterdata/protocols/${protocolId}/chakra-colors`)
+        .then((r) => r.data.data ?? r.data),
+  });
+}
+
+export function useAddProtocolChakraColors(protocolId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entries: ProtocolChakraColorEntryPayload[]) =>
+      api
+        .post(`/api/v1/masterdata/protocols/${protocolId}/chakra-colors`, { entries })
+        .then((r) => r.data.data as ProtocolChakraColorGroup[]),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chakraColorGroupsQueryKey(protocolId ?? "") });
+      toast.success("Added");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to add", { duration: 5000 }),
+  });
+}
+
+export function useUpdateProtocolChakraColor(protocolId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      protocolChakraId,
+      cleansingColorIds,
+      energisingColorIds,
+    }: {
+      protocolChakraId: string;
+      cleansingColorIds: string[];
+      energisingColorIds: string[];
+    }) =>
+      api
+        .put(`/api/v1/masterdata/protocols/${protocolId}/chakra-colors/${protocolChakraId}`, {
+          cleansingColorIds,
+          energisingColorIds,
+        })
+        .then((r) => r.data.data as ProtocolChakraColorGroup[]),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chakraColorGroupsQueryKey(protocolId ?? "") });
+      toast.success("Saved");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to save", { duration: 5000 }),
+  });
+}
+
+export function useDeleteProtocolChakraColor(protocolId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (protocolChakraId: string) =>
+      api
+        .delete(`/api/v1/masterdata/protocols/${protocolId}/chakra-colors/${protocolChakraId}`)
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: chakraColorGroupsQueryKey(protocolId ?? "") });
+      toast.success("Removed");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to remove", { duration: 5000 }),
   });
 }

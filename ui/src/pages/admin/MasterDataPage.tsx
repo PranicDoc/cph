@@ -20,6 +20,10 @@ import {
   useUpdateProtocol,
   useDeleteProtocol,
   useImportProtocols,
+  useChakraColorGroupsForProtocol,
+  useAddProtocolChakraColors,
+  useUpdateProtocolChakraColor,
+  useDeleteProtocolChakraColor,
   type PranaColor,
   type Chakra,
   type Protocol,
@@ -27,6 +31,7 @@ import {
   type ChakraPayload,
   type ProtocolPayload,
   type ProtocolImportResult,
+  type ProtocolChakraColorGroup,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +41,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SelectField, TextField, TextareaField } from "@/components/form/Field";
+import { MultiSelect } from "@/components/ui/multi-select/multi-select";
 import { cn } from "@/lib/utils";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -997,16 +1003,292 @@ function ProtocolTypeBadge({ protocolType }: { protocolType: string }) {
   );
 }
 
+// ── Protocol Chakras & Colors (self-serve, per-protocol) ──────────────────────
+// Lets a healer pick a protocol they can already see and add/edit/remove which
+// chakras (and each chakra's cleansing/energising colors) it addresses,
+// without a bulk xlsx upload. Additions are always the caller's own
+// (healerId = current healer per V38) and editable/deletable only by them
+// (or SUPADM) — system (bulk-imported) rows stay read-only for everyone else.
+
+function ChakraColorRow({
+  group,
+  colors,
+  canModify,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  group: ProtocolChakraColorGroup;
+  colors: PranaColor[];
+  canModify: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const colorLabel = (id: string) => colors.find((c) => c.id === id)?.name ?? id;
+  const colorHex = (id: string) => colors.find((c) => c.id === id)?.colorHex;
+
+  const colorList = (ids: string[]) =>
+    ids.length === 0 ? (
+      <span className="text-text-light">—</span>
+    ) : (
+      <div className="flex flex-wrap gap-1.5 mt-0.5">
+        {ids.map((id) => (
+          <span key={id} className="inline-flex items-center gap-1 text-xs text-text-light">
+            <ColorSwatch hex={colorHex(id)} />
+            {colorLabel(id)}
+          </span>
+        ))}
+      </div>
+    );
+
+  return (
+    <div className="border border-border rounded-lg p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-text text-sm">{group.chakraName}</span>
+          <SourceBadge healerId={group.healerId} />
+        </div>
+        {canModify ? (
+          <RowActions onEdit={onEdit} onDelete={onDelete} deleting={deleting} />
+        ) : (
+          <LockIcon />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+        <div>
+          <span className="text-text-light font-medium">Cleansing</span>
+          {colorList(group.cleansingColorIds)}
+        </div>
+        <div>
+          <span className="text-text-light font-medium">Energising</span>
+          {colorList(group.energisingColorIds)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChakraColorForm({
+  protocolId,
+  editing,
+  usedChakraIds,
+  onDone,
+}: {
+  protocolId: string;
+  /** null = adding a new chakra link; a group = editing that link's colors. */
+  editing: ProtocolChakraColorGroup | null;
+  /** Chakra ids already linked to this protocol (for the caller) — excluded from the add picker. */
+  usedChakraIds: string[];
+  onDone: () => void;
+}) {
+  const { data: chakras } = useChakras();
+  const { data: colors } = usePranaColors();
+  const addMutation = useAddProtocolChakraColors(protocolId);
+  const updateMutation = useUpdateProtocolChakraColor(protocolId);
+
+  const [chakraId, setChakraId] = useState(editing?.chakraId ?? "");
+  const [cleansing, setCleansing] = useState<string[]>(editing?.cleansingColorIds ?? []);
+  const [energising, setEnergising] = useState<string[]>(editing?.energisingColorIds ?? []);
+
+  const chakraOptions = (chakras ?? []).filter(
+    (c) => editing?.chakraId === c.id || !usedChakraIds.includes(c.id)
+  );
+  const colorIds = (colors ?? []).map((c) => c.id);
+  const colorLabel = (id: string) => (colors ?? []).find((c) => c.id === id)?.name ?? id;
+
+  const isPending = addMutation.isPending || updateMutation.isPending;
+
+  const handleSave = async () => {
+    if (!chakraId) return;
+    try {
+      if (editing) {
+        await updateMutation.mutateAsync({
+          protocolChakraId: editing.protocolChakraId,
+          cleansingColorIds: cleansing,
+          energisingColorIds: energising,
+        });
+      } else {
+        await addMutation.mutateAsync([
+          { chakraId, cleansingColorIds: cleansing, energisingColorIds: energising },
+        ]);
+      }
+      onDone();
+    } catch {
+      // error toast already shown by the hook
+    }
+  };
+
+  return (
+    <div className="border border-dashed border-border rounded-lg p-3 space-y-2.5">
+      <Field label="Chakra">
+        <select
+          value={chakraId}
+          onChange={(e) => setChakraId(e.target.value)}
+          disabled={!!editing}
+          className={cn(fieldCls, "w-full rounded-md bg-background")}
+        >
+          <option value="">Select a chakra…</option>
+          {chakraOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Cleansing colors">
+        <MultiSelect<string>
+          title="Cleansing colors"
+          options={colorIds}
+          value={cleansing}
+          onChange={setCleansing}
+          getOptionKey={(id) => id}
+          getOptionLabel={colorLabel}
+          placeholder="Select colors"
+        />
+      </Field>
+      <Field label="Energising colors">
+        <MultiSelect<string>
+          title="Energising colors"
+          options={colorIds}
+          value={energising}
+          onChange={setEnergising}
+          getOptionKey={(id) => id}
+          getOptionLabel={colorLabel}
+          placeholder="Select colors"
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          disabled={!chakraId || isPending}
+          onClick={handleSave}
+          className="flex-1 py-2 h-auto text-sm"
+        >
+          {isPending ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDone}
+          className="px-3 py-2 h-auto text-sm font-normal text-text"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ChakraColorSection({
+  protocolId,
+  isSuperAdmin,
+  currentHealerId,
+}: {
+  protocolId: string;
+  isSuperAdmin: boolean;
+  currentHealerId?: string;
+}) {
+  const { data: groups, isLoading } = useChakraColorGroupsForProtocol(protocolId);
+  const { data: colors } = usePranaColors();
+  const deleteMutation = useDeleteProtocolChakraColor(protocolId);
+  const [editing, setEditing] = useState<ProtocolChakraColorGroup | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProtocolChakraColorGroup | null>(null);
+
+  const canModify = (g: ProtocolChakraColorGroup) =>
+    isSuperAdmin || (!!g.healerId && g.healerId === currentHealerId);
+
+  return (
+    <div className="border-t border-border pt-4 mt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-semibold text-text">Chakras &amp; Colors</Label>
+        {editing === null && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setEditing("new")}
+            className="h-auto py-1.5 px-2.5 text-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Chakra
+          </Button>
+        )}
+      </div>
+
+      {isLoading && <p className="text-xs text-text-light">Loading…</p>}
+      {!isLoading && (groups ?? []).length === 0 && editing === null && (
+        <p className="text-xs text-text-light">No chakras linked yet. Add one below.</p>
+      )}
+
+      <div className="space-y-2">
+        {(groups ?? []).map((g) =>
+          editing !== "new" && editing?.protocolChakraId === g.protocolChakraId ? (
+            <ChakraColorForm
+              key={g.protocolChakraId}
+              protocolId={protocolId}
+              editing={editing}
+              usedChakraIds={[]}
+              onDone={() => setEditing(null)}
+            />
+          ) : (
+            <ChakraColorRow
+              key={g.protocolChakraId}
+              group={g}
+              colors={colors ?? []}
+              canModify={canModify(g)}
+              onEdit={() => setEditing(g)}
+              onDelete={() => setDeleteTarget(g)}
+              deleting={deleteMutation.isPending}
+            />
+          )
+        )}
+      </div>
+
+      {editing === "new" && (
+        <ChakraColorForm
+          protocolId={protocolId}
+          editing={null}
+          usedChakraIds={(groups ?? []).map((g) => g.chakraId)}
+          onDone={() => setEditing(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Remove chakra from protocol?"
+        description={
+          deleteTarget ? `"${deleteTarget.chakraName}" and its colors will be removed.` : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget.protocolChakraId, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function ProtocolModal({
   initial,
+  isSuperAdmin,
   onClose,
 }: {
   initial?: Protocol;
+  isSuperAdmin: boolean;
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
   const create = useCreateProtocol();
   const update = useUpdateProtocol();
+  const { user } = useAuth();
 
   const form = useForm({
     defaultValues: {
@@ -1123,6 +1405,18 @@ function ProtocolModal({
           onClose={onClose}
         />
       </form>
+
+      {/* Sibling to the form (not nested inside it) — its Save/Cancel buttons must never be
+          swept into the protocol name/book/page form's submit handler. Only shown once the
+          protocol exists: chakras/colors attach to a protocol id, so there's nothing to
+          manage yet on "Add Protocol". */}
+      {initial && (
+        <ChakraColorSection
+          protocolId={initial.id}
+          isSuperAdmin={isSuperAdmin}
+          currentHealerId={user?.id}
+        />
+      )}
     </ModalShell>
   );
 }
@@ -1360,7 +1654,11 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       )}
 
       {modal !== null && (
-        <ProtocolModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+        <ProtocolModal
+          initial={modal === "new" ? undefined : modal}
+          isSuperAdmin={isSuperAdmin}
+          onClose={() => setModal(null)}
+        />
       )}
 
       {showImport && <ImportProtocolsDialog onClose={() => setShowImport(false)} />}
