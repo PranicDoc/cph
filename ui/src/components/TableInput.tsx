@@ -115,6 +115,14 @@ export function TableInput({
     onChange(value.filter((_, i) => i !== rowIdx));
   };
 
+  // updateCell/deleteRow close over `value`/`onChange`, which change on every keystroke —
+  // routed through `meta` (not closed over inside `editableColumns` below) so `columns`
+  // itself stays referentially stable. See data-table.tsx's DataTableRowProps comment: an
+  // unstable `columns` array makes flexRender treat each cell as a brand-new component type
+  // and fully remount it every render, which was silently stealing focus from this table's
+  // text inputs after every character typed.
+  const editableMeta = useMemo(() => ({ updateCell, deleteRow }), [value, onChange]);
+
   const textCols = useMemo(
     () =>
       Object.entries(editableFields ?? {}).filter(
@@ -204,82 +212,98 @@ export function TableInput({
   }
 
   // ── Editable view ───────────────────────────────────────────────────────────
-  const columns = [
-    {
-      key: displayKey,
-      label: camelToLabel(displayKey),
-      type: "text" as const,
-      options: undefined as { label: string; value: string }[] | undefined,
-      placeholder: undefined as string | undefined,
-    },
-    ...Object.entries(editableFields ?? {}).map(([key, cfg]) => ({
-      key,
-      label: cfg.label,
-      type: cfg.type ?? "text",
-      options: cfg.options,
-      placeholder: cfg.placeholder,
-    })),
-  ];
+  // Stable across keystrokes (depends only on displayKey/editableFields, never on
+  // value/onChange) — cell renderers pull the current updateCell/deleteRow off
+  // table.options.meta (editableMeta above) instead of closing over them, so this
+  // array's identity never changes while typing. See editableMeta's comment for why
+  // that matters: an unstable columns array was remounting the <input> on every key.
+  const editableColumns = useMemo<ColumnDef<any, unknown>[]>(() => {
+    const columns = [
+      {
+        key: displayKey,
+        label: camelToLabel(displayKey),
+        type: "text" as const,
+        options: undefined as { label: string; value: string }[] | undefined,
+        placeholder: undefined as string | undefined,
+      },
+      ...Object.entries(editableFields ?? {}).map(([key, cfg]) => ({
+        key,
+        label: cfg.label,
+        type: cfg.type ?? "text",
+        options: cfg.options,
+        placeholder: cfg.placeholder,
+      })),
+    ];
 
-  const editableColumns: ColumnDef<any, unknown>[] = [
-    ...columns.map(
-      (col): ColumnDef<any, unknown> => ({
-        id: col.key,
-        header: col.label,
-        cell: ({ row }) => {
-          const rowIdx = row.index;
-          const rowData = row.original;
-          if (col.type === "checkbox-group" && col.options) {
+    return [
+      ...columns.map(
+        (col): ColumnDef<any, unknown> => ({
+          id: col.key,
+          header: col.label,
+          cell: ({ row, table }) => {
+            const rowIdx = row.index;
+            const rowData = row.original;
+            const meta = table.options.meta as
+              | { updateCell: typeof updateCell; deleteRow: typeof deleteRow }
+              | undefined;
+            if (col.type === "checkbox-group" && col.options) {
+              return (
+                <div className="flex flex-col gap-1 px-1">
+                  {col.options.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-1.5 text-xs cursor-pointer select-none"
+                    >
+                      <Checkbox
+                        checked={!!rowData[opt.value]}
+                        onCheckedChange={(checked) =>
+                          meta?.updateCell(rowIdx, opt.value, checked === true)
+                        }
+                        className="w-3.5 h-3.5"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              );
+            }
             return (
-              <div className="flex flex-col gap-1 px-1">
-                {col.options.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="flex items-center gap-1.5 text-xs cursor-pointer select-none"
-                  >
-                    <Checkbox
-                      checked={!!rowData[opt.value]}
-                      onCheckedChange={(checked) =>
-                        updateCell(rowIdx, opt.value, checked === true)
-                      }
-                      className="w-3.5 h-3.5"
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
+              <Input
+                type="text"
+                value={rowData[col.key] ?? ""}
+                onChange={(e) => meta?.updateCell(rowIdx, col.key, e.target.value)}
+                placeholder={col.placeholder}
+                className="p-1.5 border border-transparent rounded rounded-md bg-transparent hover:border-border focus-visible:border-primary"
+              />
             );
-          }
+          },
+        })
+      ),
+      {
+        id: "delete",
+        header: "",
+        meta: { headClassName: "w-10", cellClassName: "px-2 py-1.5 text-center" },
+        cell: ({ row, table }) => {
+          const meta = table.options.meta as { deleteRow: typeof deleteRow } | undefined;
           return (
-            <Input
-              type="text"
-              value={rowData[col.key] ?? ""}
-              onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
-              placeholder={col.placeholder}
-              className="p-1.5 border border-transparent rounded rounded-md bg-transparent hover:border-border focus-visible:border-primary"
-            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => meta?.deleteRow(row.index)}
+              className="h-auto w-auto p-1 text-text-light/50 hover:text-danger hover:bg-transparent"
+              aria-label="Delete row"
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
           );
         },
-      })
-    ),
-    {
-      id: "delete",
-      header: "",
-      meta: { headClassName: "w-10", cellClassName: "px-2 py-1.5 text-center" },
-      cell: ({ row }) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => deleteRow(row.index)}
-          className="h-auto w-auto p-1 text-text-light/50 hover:text-danger hover:bg-transparent"
-          aria-label="Delete row"
-        >
-          <X className="w-3.5 h-3.5" />
-        </Button>
-      ),
-    },
-  ];
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately excludes
+    // updateCell/deleteRow (recreated every render via value/onChange) so this array
+    // stays referentially stable; current versions are read from meta at call time.
+  }, [displayKey, editableFields]);
 
   return (
     <div className="space-y-3">
@@ -297,6 +321,7 @@ export function TableInput({
         <DataTable
           columns={editableColumns}
           data={value}
+          meta={editableMeta}
           enableSorting={false}
           className="rounded-lg border-2"
           headerRowClassName="bg-background hover:bg-background"
