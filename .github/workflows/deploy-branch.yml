@@ -188,8 +188,8 @@ jobs:
           fi
           {
             echo "## Deploy to the VM"
-            [ "${{ inputs.deploy_backend }}" = "true" ] && echo "- backend: \`$BACKEND_IMAGE:$BTAG\`"
-            [ "${{ inputs.deploy_ui }}" = "true" ] && echo "- ui: \`$UI_IMAGE:$UTAG\`"
+            if [ "${{ inputs.deploy_backend }}" = "true" ]; then echo "- backend: \`$BACKEND_IMAGE:$BTAG\`"; fi
+            if [ "${{ inputs.deploy_ui }}" = "true" ]; then echo "- ui: \`$UI_IMAGE:$UTAG\`"; fi
             true
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -232,8 +232,8 @@ jobs:
             set -e
             cd /opt/pranicdoc
             SERVICES=""
-            [ "$DEPLOY_BACKEND" = "true" ] && SERVICES="$SERVICES cph"
-            [ "$DEPLOY_UI" = "true" ] && SERVICES="$SERVICES ui"
+            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
+            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
             if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
             docker compose pull $SERVICES
             docker compose up -d --no-deps $SERVICES
@@ -284,8 +284,8 @@ jobs:
             set -e
             cd /opt/pranicdoc
             SERVICES=""
-            [ "$DEPLOY_BACKEND" = "true" ] && SERVICES="$SERVICES cph"
-            [ "$DEPLOY_UI" = "true" ] && SERVICES="$SERVICES ui"
+            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
+            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
             if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
             docker compose pull $SERVICES
             docker compose up -d --no-deps $SERVICES
