@@ -1,8 +1,10 @@
 package com.pranicdoc.cph.common.exception;
 
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,6 +20,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Global exception handler → RFC 7807 ProblemDetail responses.
@@ -85,6 +88,30 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ProblemDetail handleMissingServletRequestParameter(MissingServletRequestParameterException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Bad Request");
+        pd.setType(URI.create("https://pranicdoc.com/errors/bad-request"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * A request body Jackson cannot bind (an enum value that does not exist, a wrong
+     * type, malformed JSON) is the caller's mistake, so it is a 400 — previously it
+     * fell through to the catch-all and was reported as a 500 with a full stack trace.
+     * Detail text names only the offending field path and never uses ex.getMessage(),
+     * which embeds fully-qualified class names.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleNotReadable(HttpMessageNotReadableException ex) {
+        String detail = "Malformed request body";
+        if (ex.getCause() instanceof MismatchedInputException mie && !mie.getPath().isEmpty()) {
+            String field = mie.getPath().stream()
+                    .map(ref -> ref.getFieldName() != null ? ref.getFieldName() : "[" + ref.getIndex() + "]")
+                    .collect(Collectors.joining(".")).replace(".[", "[");
+            detail = "Invalid value for field '" + field + "'";
+        }
+        log.warn("Unreadable request body: {}", detail);
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
         pd.setTitle("Bad Request");
         pd.setType(URI.create("https://pranicdoc.com/errors/bad-request"));
         pd.setProperty("timestamp", Instant.now());

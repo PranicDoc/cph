@@ -72,6 +72,18 @@ class AuditAspectFailureTest {
     }
 
     @Test
+    void proceedThrows_flagsRequestSoTheWebLayerDoesNotAuditItAgain() throws Throwable {
+        when(joinPoint.getArgs()).thenReturn(new Object[]{});
+        when(joinPoint.proceed()).thenThrow(new RuntimeException("db exploded"));
+        Auditable auditable = mock(Auditable.class);
+        when(auditable.action()).thenReturn("PUBLISH_POLICY");
+
+        assertThrows(RuntimeException.class, () -> auditAspect.audit(joinPoint, auditable));
+
+        verify(httpServletRequest).setAttribute(AuditAspect.AUDITED_ATTRIBUTE, Boolean.TRUE);
+    }
+
+    @Test
     void proceedThrows_auditLogWrittenWithFailureStatusAndMessage() throws Throwable {
         RuntimeException boom = new RuntimeException("db exploded");
         SamplePayload payload = new SamplePayload("MEDICAL_CONSENT");
@@ -79,6 +91,8 @@ class AuditAspectFailureTest {
         when(joinPoint.proceed()).thenThrow(boom);
         Auditable auditable = mock(Auditable.class);
         when(auditable.action()).thenReturn("PUBLISH_POLICY");
+        // mock(Auditable) returns false for auditPayload(); the real annotation defaults to true
+        when(auditable.auditPayload()).thenReturn(true);
 
         assertThrows(RuntimeException.class, () -> auditAspect.audit(joinPoint, auditable));
 

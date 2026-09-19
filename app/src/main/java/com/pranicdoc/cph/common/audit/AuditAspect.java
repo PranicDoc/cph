@@ -23,6 +23,9 @@ import java.util.UUID;
 @Slf4j
 public class AuditAspect {
 
+    /** Request attribute set once a failure has been audited here; see RequestFailureAuditResolver. */
+    public static final String AUDITED_ATTRIBUTE = AuditAspect.class.getName() + ".AUDITED";
+
     private static final int PAYLOAD_MAX_LENGTH = 4000;
     private static final int MESSAGE_MAX_LENGTH = 10_000;
 
@@ -50,8 +53,20 @@ public class AuditAspect {
             return result;
         } catch (Throwable ex) {
             recordAuditLog(joinPoint, auditable, args, null, AuditStatus.FAILURE, ex);
+            flagRequestAudited();
             throw ex;
         }
+    }
+
+    /**
+     * Tells RequestFailureAuditResolver this request's failure already has a row, so
+     * the exception propagating on to the web layer is not audited a second time.
+     * Swallowed because @Auditable methods can also run off the request thread.
+     */
+    private void flagRequestAudited() {
+        try {
+            httpServletRequest.setAttribute(AUDITED_ATTRIBUTE, Boolean.TRUE);
+        } catch (Exception ignored) {}
     }
 
     private void recordAuditLog(ProceedingJoinPoint joinPoint, Auditable auditable, Object[] args,
