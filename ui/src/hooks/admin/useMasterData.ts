@@ -466,3 +466,34 @@ export function useDeleteProtocolChakraColor(protocolId: string | undefined) {
     onError: (e) => toast.error(extractDetail(e) || "Failed to remove", { duration: 5000 }),
   });
 }
+
+// -- Bulk wipe (SUPADM only) --------------------------------------------------------------
+
+export type MasterDataType = "ALL" | "CHAKRAS" | "COLORS" | "MAPPINGS" | "PROTOCOLS";
+
+export interface MasterDataWipeResult {
+  type: MasterDataType;
+  chakrasDeleted: number;
+  colorsDeleted: number;
+  mappingsDeleted: number;
+  protocolsDeleted: number;
+}
+
+/** SUPADM-only — the backend rejects any other caller regardless of what this hook sends. */
+export function useWipeMasterData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (type: MasterDataType) =>
+      api
+        .delete("/api/v1/masterdata/wipe", { params: { type } })
+        .then((r) => r.data.data as MasterDataWipeResult),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+      qc.invalidateQueries({ queryKey: CHAKRA_QK });
+      qc.invalidateQueries({ queryKey: COLOR_QK });
+      qc.invalidateQueries({ queryKey: MAPPING_QK });
+      toast.success("Master data wiped");
+    },
+    onError: (e) => toast.error(extractDetail(e) || "Failed to wipe master data", { duration: 5000 }),
+  });
+}

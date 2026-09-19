@@ -1,8 +1,10 @@
 package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
+import com.pranicdoc.cph.masterdata.dto.MasterDataWipeResult;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorGroup;
@@ -250,6 +252,24 @@ public class MasterDataController {
         boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         masterDataService.deleteProtocol(id, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
+    }
+
+    // Single bulk-wipe endpoint across all four master-data categories, gated on
+    // MASTER_DATA_PROTOCOLS:DELETE to admit the request, same as the rest of this
+    // cross-cutting protocol-mappings-style surface — but the operation itself is
+    // unconditionally SUPADM-only (not row-conditional like the PD-40-04 overrides
+    // above): MasterDataService.wipeMasterData throws AccessDeniedException outright
+    // for any caller where this in-body flag isn't true, regardless of what DELETE
+    // grants they hold. MASTER_DATA_PROTOCOLS does not allow-list the ADMIN verb
+    // (Resource.java), so this can only ever be true for SUPADM's RbacAuthz
+    // short-circuit — see updateChakra's comment for why that pair is permanently
+    // non-grantable.
+    @DeleteMapping("/wipe")
+//    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
+    public ResponseEntity<ApiResponse<MasterDataWipeResult>> wipeMasterData(
+            @RequestParam(defaultValue = "ALL") MasterDataType type) {
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Master data wiped", masterDataService.wipeMasterData(type, isSuperAdmin)));
     }
 
     // Async: submitting an import returns immediately (QUEUED) — the actual parse+upsert runs

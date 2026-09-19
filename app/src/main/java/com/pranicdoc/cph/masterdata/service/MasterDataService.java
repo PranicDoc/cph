@@ -2,10 +2,13 @@ package com.pranicdoc.cph.masterdata.service;
 
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
+import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
+import com.pranicdoc.cph.masterdata.dto.MasterDataWipeResult;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorEntry;
@@ -27,6 +30,7 @@ import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -429,4 +433,39 @@ public class MasterDataService {
     }
 
     private record ColorLinkKey(UUID colorId, ColorUsageType usageType) {}
+
+    // ── Bulk wipe (SUPADM only — see MasterDataController#wipeMasterData) ────
+
+    /**
+     * Soft-deletes every row (system AND healer-owned alike) in the requested category —
+     * {@link MasterDataType#ALL} covers all four. Mirrors the same {@code softDelete()} +
+     * {@code save()} pattern the single-row delete methods use (Envers audit history depends
+     * on going through the persistence context row-by-row, not a bulk JPQL UPDATE, which would
+     * bypass both the audit listener and Envers entirely). Never cascades into
+     * {@code ProtocolChakra}/{@code ProtocolChakraColor} — same as {@link #deleteProtocol},
+     * which also leaves those relationship rows untouched.
+     */
+    @Auditable(action = "WIPE_MASTER_DATA")
+    @Transactional
+    public MasterDataWipeResult wipeMasterData(MasterDataType type, boolean isSuperAdmin) {
+        if (!isSuperAdmin) {
+            throw new AccessDeniedException("Master data can only be wiped by SUPADM");
+        }
+        int chakras = (type == MasterDataType.ALL || type == MasterDataType.CHAKRAS)
+                ? softDeleteAll(chakraRepo) : 0;
+        int colors = (type == MasterDataType.ALL || type == MasterDataType.COLORS)
+                ? softDeleteAll(colorRepo) : 0;
+        int mappings = (type == MasterDataType.ALL || type == MasterDataType.MAPPINGS)
+                ? softDeleteAll(mappingRepo) : 0;
+        int protocols = (type == MasterDataType.ALL || type == MasterDataType.PROTOCOLS)
+                ? softDeleteAll(protocolRepo) : 0;
+        return new MasterDataWipeResult(type, chakras, colors, mappings, protocols);
+    }
+
+    private <T extends BaseEntity> int softDeleteAll(JpaRepository<T, UUID> repo) {
+        List<T> rows = repo.findAll();
+        rows.forEach(BaseEntity::softDelete);
+        repo.saveAll(rows);
+        return rows.size();
+    }
 }

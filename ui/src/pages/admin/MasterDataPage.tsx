@@ -25,6 +25,7 @@ import {
   useAddProtocolChakraColors,
   useUpdateProtocolChakraColor,
   useDeleteProtocolChakraColor,
+  useWipeMasterData,
   type PranaColor,
   type Chakra,
   type Protocol,
@@ -33,6 +34,7 @@ import {
   type ProtocolPayload,
   type ProtocolImportJobView,
   type ProtocolChakraColorGroup,
+  type MasterDataType,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1785,6 +1787,65 @@ function ProtocolsTab({
   );
 }
 
+// ── Bulk wipe (SUPADM only) ─────────────────────────────────────────────────────
+
+const WIPE_TYPE_OPTIONS: { label: string; value: MasterDataType }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Prana Colors", value: "COLORS" },
+  { label: "Chakras", value: "CHAKRAS" },
+  { label: "Protocol Mappings", value: "MAPPINGS" },
+  { label: "Protocols", value: "PROTOCOLS" },
+];
+
+/** Rendered only for SUPADM by the caller — the backend also refuses everyone else regardless. */
+function WipeMasterDataControl() {
+  const [type, setType] = useState<MasterDataType>("ALL");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const wipe = useWipeMasterData();
+
+  const selectedLabel = WIPE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+
+  return (
+    <div className="mb-6 border border-red-200 bg-red-50 rounded-lg p-3 flex flex-wrap items-center gap-3">
+      <span className="text-sm text-red-700 font-medium">Danger zone —</span>
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as MasterDataType)}
+        className={cn(fieldCls, "rounded-md bg-background")}
+      >
+        {WIPE_TYPE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <Button
+        type="button"
+        variant="outline"
+        className="border-red-300 text-red-700 hover:bg-red-100"
+        onClick={() => setConfirmOpen(true)}
+      >
+        Delete master data
+      </Button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={type === "ALL" ? "Delete ALL master data?" : `Delete all ${selectedLabel}?`}
+        description={`This permanently removes every ${
+          type === "ALL" ? "prana color, chakra, protocol mapping, and protocol" : selectedLabel.toLowerCase()
+        } row — system and healer-owned alike. This cannot be undone from the UI.`}
+        confirmLabel="Delete"
+        destructive
+        loading={wipe.isPending}
+        onConfirm={() => {
+          wipe.mutate(type, { onSettled: () => setConfirmOpen(false) });
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type Tab = "colors" | "chakras" | "mappings" | "protocols" | "imports";
@@ -1810,6 +1871,8 @@ export default function MasterDataPage() {
           Manage prana colors, chakras, and protocol color mappings.
         </p>
       </div>
+
+      {isSuperAdmin && <WipeMasterDataControl />}
 
       {/* Tab bar */}
       <div className="flex border-b border-border mb-6 overflow-x-auto">

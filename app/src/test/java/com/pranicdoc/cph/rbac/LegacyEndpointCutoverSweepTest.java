@@ -136,14 +136,14 @@ class LegacyEndpointCutoverSweepTest {
             // 23 from Phase 40 + the 2 protocol->chakra->color relationship reads, + 4
             // single-protocol chakra/color self-serve management endpoints (GET/POST/PUT/DELETE
             // .../protocols/{id}/chakra-colors), + 2 import-job status reads added when the
-            // bulk import became async.
-            new CutoverController(MasterDataController.class, 29, 29),
+            // bulk import became async, + 1 SUPADM-only bulk-wipe endpoint (DELETE /wipe).
+            new CutoverController(MasterDataController.class, 30, 30),
             new CutoverController(RbacRoleController.class, 5, 5),
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 66;
-    private static final int EXPECTED_TOTAL_GATED = 61;
+    private static final int EXPECTED_TOTAL_MAPPED = 67;
+    private static final int EXPECTED_TOTAL_GATED = 62;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated

@@ -104,7 +104,8 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"getChakraColorGroupsForProtocol", PROTOCOLS_READ},
             new String[]{"addProtocolChakraColors",         PROTOCOLS_CREATE},
             new String[]{"updateProtocolChakraColor",       PROTOCOLS_UPDATE},
-            new String[]{"deleteProtocolChakraColor",       PROTOCOLS_DELETE});
+            new String[]{"deleteProtocolChakraColor",       PROTOCOLS_DELETE},
+            new String[]{"wipeMasterData",                  PROTOCOLS_DELETE});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -267,21 +268,21 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 29 declared MasterDataController endpoints (21 from "
+                .as("the sweep must inspect exactly the 30 declared MasterDataController endpoints (21 from "
                         + "Phase 40, the 2 protocol->chakra->color relationship reads added afterward, the "
                         + "4 single-protocol chakra/color management endpoints -- GET/POST/PUT/DELETE "
                         + ".../protocols/{id}/chakra-colors -- added to let a healer self-serve their own "
-                        + "chakra/color additions on a protocol, and the 2 import-job status reads added when "
-                        + "the bulk import became async). "
+                        + "chakra/color additions on a protocol, the 2 import-job status reads added when "
+                        + "the bulk import became async, and the 1 SUPADM-only bulk-wipe endpoint). "
                         + "Eight of the original 21 (three chakra GETs, three colour GETs, two protocol GETs) were "
                         + "ungated before Phase 40 (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(29);
+                .isEqualTo(30);
     }
 
-    // ─── Section C — allow-list validity for all 29 pairs ────────────────
+    // ─── Section C — allow-list validity for all 30 pairs ────────────────
 
     @Test
     void everyGateNamesAnAllowListedResourceVerbPair() {
@@ -364,11 +365,11 @@ class MasterDataControllerAuthorizationContractTest {
 
         int flagCount = countOccurrences(stripped, "boolean isSuperAdmin");
         assertThat(flagCount)
-                .as("all 9 system-row override flags (7 from Phase 40 plus 2 for the new PUT/DELETE "
-                        + "chakra-colors endpoints) must still be computed and passed to the service — "
-                        + "deleting them (or replacing with a literal true) would hand the override to every "
-                        + "caller who clears the coarse gate (T-40-21)")
-                .isEqualTo(9);
+                .as("all 10 SUPADM-only flags (7 from Phase 40 plus 2 for the PUT/DELETE chakra-colors "
+                        + "endpoints, plus 1 for the bulk-wipe endpoint) must still be computed and passed "
+                        + "to the service — deleting them (or replacing with a literal true) would hand the "
+                        + "override/operation to every caller who clears the coarse gate (T-40-21)")
+                .isEqualTo(10);
     }
 
     private static int countOccurrences(String haystack, String needle) {
