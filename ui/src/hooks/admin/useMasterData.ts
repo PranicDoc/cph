@@ -86,6 +86,22 @@ export interface ProtocolImportResult {
   errors: string[];
 }
 
+/** One submitted bulk protocol import, tracked async — the "Imports" tab's list/status view. */
+export interface ProtocolImportJobView {
+  id: string;
+  originalFilename: string | null;
+  status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+  totalRows: number | null;
+  created: number | null;
+  updated: number | null;
+  skipped: number | null;
+  errors: string[];
+  failureMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 /** One chakra linked to a protocol, with its cleansing/energising colors — the single-protocol
  * "manage chakras/colors" admin view. `healerId` null means a system (bulk-imported) row,
  * read-only for anyone without the SUPADM override; non-null means it belongs to that healer
@@ -262,7 +278,7 @@ export function useCreateProtocol() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: ProtocolPayload) =>
-      api.post("/api/v1/masterdata/protocols", payload).then((r) => r.data),
+      api.post("/api/v1/masterdata/protocols", payload).then((r) => r.data.data as Protocol),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROTOCOL_QK });
       toast.success("Saved");
@@ -275,7 +291,7 @@ export function useUpdateProtocol() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: ProtocolPayload }) =>
-      api.put(`/api/v1/masterdata/protocols/${id}`, payload).then((r) => r.data),
+      api.put(`/api/v1/masterdata/protocols/${id}`, payload).then((r) => r.data.data as Protocol),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROTOCOL_QK });
       toast.success("Saved");
@@ -297,7 +313,14 @@ export function useDeleteProtocol() {
   });
 }
 
-export function useImportProtocols() {
+// -- Protocol import jobs (async) --------------------------------------------------------
+// Submitting no longer blocks on the parse+upsert: the request returns a QUEUED job
+// immediately and the "Imports" tab polls its status. A healer can submit several imports;
+// each gets its own independent job.
+
+const IMPORT_JOBS_QK = ["master-protocol-import-jobs"] as const;
+
+export function useSubmitProtocolImport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => {
@@ -307,18 +330,40 @@ export function useImportProtocols() {
         .post("/api/v1/masterdata/protocols/import", formData, {
           headers: { "Content-Type": undefined },
         })
-        .then((r) => r.data.data as ProtocolImportResult);
+        .then((r) => r.data.data as ProtocolImportJobView);
     },
     onSuccess: () => {
-      // The import file may also carry Chakras Used / Cleansing Color / Energizing Color
-      // columns, which can create new chakra/color catalog rows alongside protocols —
-      // refresh those tabs too, not just Protocols.
-      qc.invalidateQueries({ queryKey: PROTOCOL_QK });
-      qc.invalidateQueries({ queryKey: CHAKRA_QK });
-      qc.invalidateQueries({ queryKey: COLOR_QK });
-      toast.success("Import complete");
+      qc.invalidateQueries({ queryKey: IMPORT_JOBS_QK });
+      toast.success("Import queued");
     },
-    onError: (e) => toast.error(extractDetail(e) || "Import failed", { duration: 5000 }),
+    onError: (e) => toast.error(extractDetail(e) || "Failed to queue import", { duration: 5000 }),
+  });
+}
+
+export function useProtocolImportJobs() {
+  const qc = useQueryClient();
+  return useQuery<ProtocolImportJobView[]>({
+    queryKey: IMPORT_JOBS_QK,
+    queryFn: () =>
+      api.get("/api/v1/masterdata/protocols/import-jobs").then((r) => {
+        const jobs = (r.data.data ?? r.data) as ProtocolImportJobView[];
+        // A completed/failed import may have created chakra/color/protocol rows (the file can
+        // carry Chakras Used / Cleansing Color / Energizing Color columns) — refresh those
+        // tabs too whenever any job is no longer in flight, not just on the submit response
+        // (which fires before any of that work has actually happened).
+        if (jobs.some((j) => j.status === "COMPLETED" || j.status === "FAILED")) {
+          qc.invalidateQueries({ queryKey: PROTOCOL_QK });
+          qc.invalidateQueries({ queryKey: CHAKRA_QK });
+          qc.invalidateQueries({ queryKey: COLOR_QK });
+        }
+        return jobs;
+      }),
+    // Poll only while something is actually in flight — stop once every job is terminal.
+    refetchInterval: (query) => {
+      const jobs = query.state.data ?? [];
+      const inFlight = jobs.some((j) => j.status === "QUEUED" || j.status === "PROCESSING");
+      return inFlight ? 2000 : false;
+    },
   });
 }
 

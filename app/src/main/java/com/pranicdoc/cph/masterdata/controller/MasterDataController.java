@@ -9,14 +9,14 @@ import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorGroup;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorUpdateRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
-import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
+import com.pranicdoc.cph.masterdata.dto.ProtocolImportJobView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
@@ -61,7 +61,7 @@ import java.util.UUID;
 public class MasterDataController {
 
     private final MasterDataService masterDataService;
-    private final ProtocolImportService protocolImportService;
+    private final ProtocolImportJobService protocolImportJobService;
     private final RbacAuthz rbacAuthz;
 
     @GetMapping("/chakras")
@@ -252,12 +252,28 @@ public class MasterDataController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
     }
 
-    // importProtocols is bulk protocol creation from a CSV, so CREATE is the correct verb.
+    // Async: submitting an import returns immediately (QUEUED) — the actual parse+upsert runs
+    // in the background (ProtocolImportAsyncRunner) and is tracked via the /import-jobs
+    // endpoints below, not returned in this response. importProtocols is bulk protocol
+    // creation from a CSV, so CREATE is the correct verb.
     @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
-    public ResponseEntity<ApiResponse<ProtocolImportResult>> importProtocols(
+    public ResponseEntity<ApiResponse<ProtocolImportJobView>> importProtocols(
             @RequestPart("file") MultipartFile file) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
+        return ResponseEntity.accepted()
+                .body(new ApiResponse<>(true, "Import queued", protocolImportJobService.submitImport(file)));
+    }
+
+    @GetMapping("/protocols/import-jobs")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolImportJobView>>> getImportJobs() {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJobs()));
+    }
+
+    @GetMapping("/protocols/import-jobs/{id}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<ProtocolImportJobView>> getImportJob(@PathVariable UUID id) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJob(id)));
     }
 
     // ── Single-protocol chakra/color management ─────────────────────────────

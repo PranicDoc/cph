@@ -153,21 +153,3 @@ jobs:
             docker compose pull cph
             docker compose up -d --no-deps cph
             docker image prune -f
-
-  # ── Required post-deploy step: baseline "Practitioner" role backfill ───────
-  # Calls the app's own POST /api/admin/roles/practitioner/backfill (logging in
-  # as a SUPADM service account). Runs AFTER the app is live — Flyway V33–V36
-  # and BaselineRoleSeeder have run on boot — and BEFORE the release counts as
-  # done: if it fails, this run goes red. The endpoint reconciles the role's
-  # grants to BaselineRole.java and assigns the role to every pre-existing
-  # healer that has none. No DB access from CI (survives a VPC-locked DB).
-  #
-  # Also runnable on its own from the Actions tab (workflow_dispatch). Needs
-  # APP_BASE_URL / SUPADM_USERNAME / SUPADM_PASSWORD secrets — see
-  # backfill-practitioner-role.yml.
-  backfill-practitioner-role:
-    name: Backfill Practitioner role
-    needs: deploy
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/backfill-practitioner-role.yml
-    secrets: inherit

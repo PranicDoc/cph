@@ -8,7 +8,7 @@ import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -84,9 +84,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       request.</li>
  * </ul>
  *
- * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 23
- * concrete requests (21 from Phase 40 plus 2 protocol-&gt;chakra-&gt;color relationship
- * reads added afterward) asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
+ * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 25
+ * concrete requests (21 from Phase 40, 2 protocol-&gt;chakra-&gt;color relationship
+ * reads added afterward, and 2 import-job status reads added when the bulk
+ * import became async) asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
  * {@code newlyGatedReadEndpointsDenyAnUngrantedCaller} /
  * {@code ...AdmitAGrantedCaller} prove the D-09 read-leak closure endpoint by
  * endpoint (the 8 GETs that carried no {@code @PreAuthorize} before this phase);
@@ -127,7 +128,7 @@ class MasterDataControllerAuthorizationTest {
     @MockBean
     private MasterDataService masterDataService;
     @MockBean
-    private ProtocolImportService protocolImportService;
+    private ProtocolImportJobService protocolImportJobService;
 
     // ─── consumed by RbacAuthz ─────────────────────────────────────────────
     @MockBean
@@ -192,7 +193,7 @@ class MasterDataControllerAuthorizationTest {
     //  Task 1 — SUPADM sweep + D-09 deny/admit + resource/verb isolation
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** All 23 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
+    /** All 25 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
     static Stream<Arguments> allConvertedEndpoints() {
         return Stream.of(
                 Arguments.of("GET", BASE + "/chakras"),
@@ -216,15 +217,17 @@ class MasterDataControllerAuthorizationTest {
                 Arguments.of("PUT", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("MULTIPART", BASE + "/protocols/import"),
+                Arguments.of("GET", BASE + "/protocols/import-jobs"),
+                Arguments.of("GET", BASE + "/protocols/import-jobs/" + ROW_ID),
                 Arguments.of("GET", BASE + "/protocols/chakras?protocolIds=" + ROW_ID),
                 Arguments.of("GET", BASE + "/protocols/colors?protocolIds=" + ROW_ID + "&chakraIds=" + ROW_ID));
     }
 
     @Test
-    void task1SweepCoversExactly23Endpoints() {
+    void task1SweepCoversExactly25Endpoints() {
         assertThat(allConvertedEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 23 converted MasterDataController requests")
-                .isEqualTo(23L);
+                .as("the SUPADM sweep must supply exactly the 25 converted MasterDataController requests")
+                .isEqualTo(25L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")

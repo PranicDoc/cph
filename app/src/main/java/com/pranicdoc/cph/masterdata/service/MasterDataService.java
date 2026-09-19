@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.service;
 
+import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -69,6 +70,7 @@ public class MasterDataService {
                 .orElseThrow(() -> new ResourceNotFoundException("ChakraCatalog", code));
     }
 
+    @Auditable(action = "CREATE_CHAKRA")
     @Transactional
     public ChakraCatalog createChakra(ChakraRequest req) {
         ChakraCatalog chakra = new ChakraCatalog();
@@ -80,6 +82,7 @@ public class MasterDataService {
         return chakraRepo.save(chakra);
     }
 
+    @Auditable(action = "UPDATE_CHAKRA")
     @Transactional
     public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
@@ -91,6 +94,7 @@ public class MasterDataService {
         return chakraRepo.save(chakra);
     }
 
+    @Auditable(action = "DELETE_CHAKRA")
     @Transactional
     public void deleteChakra(UUID id, boolean isSuperAdmin) {
         ChakraCatalog chakra = getChakraById(id);
@@ -120,6 +124,7 @@ public class MasterDataService {
                 .orElseThrow(() -> new ResourceNotFoundException("PranaColorCatalog", code));
     }
 
+    @Auditable(action = "CREATE_COLOR")
     @Transactional
     public PranaColorCatalog createColor(PranaColorRequest req) {
         PranaColorCatalog color = new PranaColorCatalog();
@@ -131,6 +136,7 @@ public class MasterDataService {
         return colorRepo.save(color);
     }
 
+    @Auditable(action = "UPDATE_COLOR")
     @Transactional
     public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
@@ -142,6 +148,7 @@ public class MasterDataService {
         return colorRepo.save(color);
     }
 
+    @Auditable(action = "DELETE_COLOR")
     @Transactional
     public void deleteColor(UUID id, boolean isSuperAdmin) {
         PranaColorCatalog color = getColorById(id);
@@ -159,6 +166,7 @@ public class MasterDataService {
         return mappingRepo.findByHealerIdIsNullOrHealerId(healerId);
     }
 
+    @Auditable(action = "CREATE_PROTOCOL_MAPPING")
     @Transactional
     public List<ProtocolColorMapping> createMappings(ProtocolColorMappingRequest req) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
@@ -174,6 +182,7 @@ public class MasterDataService {
         return mappingRepo.saveAll(entities);
     }
 
+    @Auditable(action = "DELETE_PROTOCOL_MAPPING")
     @Transactional
     public void deleteMapping(UUID id, boolean isSuperAdmin) {
         ProtocolColorMapping mapping = mappingRepo.findById(id)
@@ -204,6 +213,7 @@ public class MasterDataService {
                 .orElseThrow(() -> new ResourceNotFoundException("ProtocolCatalog", id));
     }
 
+    @Auditable(action = "CREATE_PROTOCOL")
     @Transactional
     public ProtocolCatalog createProtocol(ProtocolRequest req) {
         ProtocolCatalog protocol = new ProtocolCatalog();
@@ -218,6 +228,7 @@ public class MasterDataService {
         return protocolRepo.save(protocol);
     }
 
+    @Auditable(action = "UPDATE_PROTOCOL")
     @Transactional
     public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean isSuperAdmin) {
         ProtocolCatalog protocol = getProtocolById(id);
@@ -233,6 +244,7 @@ public class MasterDataService {
         return protocolRepo.save(protocol);
     }
 
+    @Auditable(action = "DELETE_PROTOCOL")
     @Transactional
     public void deleteProtocol(UUID id, boolean isSuperAdmin) {
         ProtocolCatalog protocol = getProtocolById(id);
@@ -299,6 +311,7 @@ public class MasterDataService {
      * another healer's row, so no ownership check is needed here (unlike
      * update/delete below, which target an existing row by id).
      */
+    @Auditable(action = "ADD_PROTOCOL_CHAKRA_COLORS")
     @Transactional
     public List<ProtocolChakraColorGroup> addProtocolChakraColors(UUID protocolId, ProtocolChakraColorAddRequest req) {
         ProtocolCatalog protocol = getProtocolById(protocolId);
@@ -324,6 +337,7 @@ public class MasterDataService {
     }
 
     /** Full replace of one existing link's color set (diffed, not delete-all-then-recreate — see below). */
+    @Auditable(action = "UPDATE_PROTOCOL_CHAKRA_COLOR")
     @Transactional
     public List<ProtocolChakraColorGroup> updateProtocolChakraColor(
             UUID protocolId, UUID protocolChakraId, ProtocolChakraColorUpdateRequest req, boolean isSuperAdmin) {
@@ -337,6 +351,7 @@ public class MasterDataService {
     }
 
     /** Removes a chakra (and its colors) from a protocol. */
+    @Auditable(action = "DELETE_PROTOCOL_CHAKRA_COLOR")
     @Transactional
     public void deleteProtocolChakraColor(UUID protocolId, UUID protocolChakraId, boolean isSuperAdmin) {
         ProtocolChakra link = getOwnedProtocolChakra(protocolId, protocolChakraId, isSuperAdmin);

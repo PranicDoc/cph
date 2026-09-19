@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -116,12 +117,27 @@ public class ProtocolImportService {
 
     @Transactional
     public ProtocolImportResult importFile(MultipartFile file) {
-        String filename = file.getOriginalFilename();
+        try {
+            return importFile(file.getOriginalFilename(), file.getInputStream());
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to read uploaded file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Same processing as {@link #importFile(MultipartFile)}, but off a filename + stream
+     * instead of a {@link MultipartFile} — the async import path ({@code
+     * ProtocolImportAsyncRunner}) reads the upload into memory synchronously (a
+     * MultipartFile's backing resource doesn't survive past the request), then calls this
+     * overload from a background thread via a fresh {@code ByteArrayInputStream}.
+     */
+    @Transactional
+    public ProtocolImportResult importFile(String filename, InputStream inputStream) {
         String extension = extractExtension(filename);
 
         List<Map<String, String>> rows = switch (extension) {
-            case "xlsx" -> readXlsxRows(file);
-            case "csv" -> readCsvRows(file);
+            case "xlsx" -> readXlsxRows(inputStream);
+            case "csv" -> readCsvRows(inputStream);
             default -> throw new IllegalArgumentException(
                     "Unsupported file type '" + extension + "' — only .xlsx and .csv are accepted");
         };
@@ -564,9 +580,9 @@ public class ProtocolImportService {
 
     // ── File reading ─────────────────────────────────────────────────────
 
-    private List<Map<String, String>> readXlsxRows(MultipartFile file) {
+    private List<Map<String, String>> readXlsxRows(InputStream inputStream) {
         List<Map<String, String>> rows = new ArrayList<>();
-        try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(inputStream)) {
             Sheet sheet = workbook.getSheet(SHEET_NAME);
             if (sheet == null) {
                 throw new IllegalArgumentException("Sheet '" + SHEET_NAME + "' not found in the uploaded file");
@@ -595,9 +611,9 @@ public class ProtocolImportService {
         return rows;
     }
 
-    private List<Map<String, String>> readCsvRows(MultipartFile file) {
+    private List<Map<String, String>> readCsvRows(InputStream inputStream) {
         List<Map<String, String>> rows = new ArrayList<>();
-        try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+        try (InputStreamReader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = CSVFormat.DEFAULT.builder()
                      .setHeader()
                      .setSkipHeaderRecord(true)

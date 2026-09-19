@@ -19,7 +19,8 @@ import {
   useCreateProtocol,
   useUpdateProtocol,
   useDeleteProtocol,
-  useImportProtocols,
+  useSubmitProtocolImport,
+  useProtocolImportJobs,
   useChakraColorGroupsForProtocol,
   useAddProtocolChakraColors,
   useUpdateProtocolChakraColor,
@@ -30,7 +31,7 @@ import {
   type PranaColorPayload,
   type ChakraPayload,
   type ProtocolPayload,
-  type ProtocolImportResult,
+  type ProtocolImportJobView,
   type ProtocolChakraColorGroup,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
@@ -1286,19 +1287,24 @@ function ProtocolModal({
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
+  // Tracks the protocol being edited, including the one just created in this same modal
+  // session — a fresh "Add Protocol" has no id yet, so chakras/colors can't attach to
+  // anything; once create succeeds, this flips the modal into edit mode in place (see
+  // onSubmit below) instead of closing, so the Chakras & Colors section can appear.
+  const [protocol, setProtocol] = useState<Protocol | undefined>(initial);
   const create = useCreateProtocol();
   const update = useUpdateProtocol();
   const { user } = useAuth();
 
   const form = useForm({
     defaultValues: {
-      name: initial?.name ?? "",
-      sourceBook: initial?.sourceBook ?? "",
-      pageNumber: initial?.pageNumber?.toString() ?? "",
-      category: initial?.category ?? "",
-      description: initial?.description ?? "",
-      chapter: initial?.chapter ?? "",
-      protocolType: initial?.protocolType ?? "PROTOCOL",
+      name: protocol?.name ?? "",
+      sourceBook: protocol?.sourceBook ?? "",
+      pageNumber: protocol?.pageNumber?.toString() ?? "",
+      category: protocol?.category ?? "",
+      description: protocol?.description ?? "",
+      chapter: protocol?.chapter ?? "",
+      protocolType: protocol?.protocolType ?? "PROTOCOL",
     },
     onSubmit: async ({ value }) => {
       setError("");
@@ -1315,15 +1321,17 @@ function ProtocolModal({
         description: value.description,
         chapter: value.chapter,
         protocolType: value.protocolType as "PROTOCOL" | "SUPPLEMENTARY",
-        healerId: initial ? initial.healerId : null,
+        healerId: protocol ? protocol.healerId : null,
       };
       try {
-        if (initial) {
-          await update.mutateAsync({ id: initial.id, payload });
+        if (protocol) {
+          const updated = await update.mutateAsync({ id: protocol.id, payload });
+          setProtocol(updated);
+          onClose();
         } else {
-          await create.mutateAsync(payload);
+          const created = await create.mutateAsync(payload);
+          setProtocol(created);
         }
-        onClose();
       } catch {
         setError("Failed to save. Please try again.");
       }
@@ -1333,7 +1341,7 @@ function ProtocolModal({
   const isPending = create.isPending || update.isPending;
 
   return (
-    <ModalShell title={initial ? "Edit Protocol" : "Add Protocol"} onClose={onClose}>
+    <ModalShell title={protocol ? "Edit Protocol" : "Add Protocol"} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -1401,18 +1409,23 @@ function ProtocolModal({
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <ModalFooter
           isPending={isPending}
-          submitLabel={initial ? "Save Changes" : "Add Protocol"}
+          submitLabel={protocol ? "Save Changes" : "Add Protocol"}
           onClose={onClose}
         />
+        {!initial && protocol && (
+          <p className="text-xs text-text-light text-center pt-1">
+            Protocol created — add chakras &amp; colors below, then close when done.
+          </p>
+        )}
       </form>
 
       {/* Sibling to the form (not nested inside it) — its Save/Cancel buttons must never be
           swept into the protocol name/book/page form's submit handler. Only shown once the
-          protocol exists: chakras/colors attach to a protocol id, so there's nothing to
-          manage yet on "Add Protocol". */}
-      {initial && (
+          protocol exists (either passed in for editing, or just created above): chakras/colors
+          attach to a protocol id, so there's nothing to manage yet before that. */}
+      {protocol && (
         <ChakraColorSection
-          protocolId={initial.id}
+          protocolId={protocol.id}
           isSuperAdmin={isSuperAdmin}
           currentHealerId={user?.id}
         />
@@ -1421,87 +1434,171 @@ function ProtocolModal({
   );
 }
 
-function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
+function ImportProtocolsDialog({
+  onClose,
+  onSubmitted,
+}: {
+  onClose: () => void;
+  /** Called after a successful submit, before closing — lets the caller switch to the Imports tab. */
+  onSubmitted: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<ProtocolImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const importProtocols = useImportProtocols();
+  const submitImport = useSubmitProtocolImport();
+  // submitImport.isPending only disables the button once React re-renders — two clicks fired
+  // back-to-back (a real double-click) can both fire before that lands, submitting the same
+  // file twice. This ref is checked/set synchronously, so the second click is dropped
+  // regardless of render timing.
+  const isSubmittingRef = useRef(false);
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     try {
-      const res = await importProtocols.mutateAsync(file);
-      setResult(res);
+      await submitImport.mutateAsync(file);
+      onSubmitted();
+      onClose();
     } catch {
       // error toast already shown by the hook
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
   return (
     <ModalShell title="Import Protocols" onClose={onClose}>
-      {!result ? (
-        <div className="space-y-4">
-          <p className="text-sm text-text-light">
-            Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
-            Page, Category, Description, Chapter, Type.
-          </p>
-          <p className="text-sm text-text-light">
-            Optionally also include Chakras Used, Cleansing Color and Energizing
-            Color columns to link the chakras and colors each protocol uses —
-            unrecognized chakra/color names are created automatically. This never
-            creates or edits a protocol: a row whose Protocol/Technique Name +
-            Page doesn't already match an existing protocol is skipped.
-          </p>
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <div className="flex gap-2 pt-1">
-            <Button
-              type="button"
-              disabled={!file || importProtocols.isPending}
-              onClick={handleUpload}
-              className="flex-1 py-2.5 h-auto"
-            >
-              {importProtocols.isPending ? "Uploading…" : "Upload"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="px-4 py-2.5 h-auto font-normal text-text"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-text">
-            {result.totalRows} rows processed — {result.created} created,{" "}
-            {result.updated} updated, {result.skipped} skipped.
-          </p>
-          {result.errors.length > 0 && (
-            <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 space-y-1">
-              {result.errors.map((err, i) => (
-                <p key={i} className="text-xs text-red-500">
-                  {err}
-                </p>
-              ))}
-            </div>
-          )}
-          <Button onClick={onClose} className="w-full py-2.5 h-auto">
-            Done
+      <div className="space-y-4">
+        <p className="text-sm text-text-light">
+          Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
+          Page, Category, Description, Chapter, Type.
+        </p>
+        <p className="text-sm text-text-light">
+          Optionally also include Chakras Used, Cleansing Color and Energizing
+          Color columns to link the chakras and colors each protocol uses —
+          unrecognized chakra/color names are created automatically. This never
+          creates or edits a protocol: a row whose Protocol/Technique Name +
+          Page doesn't already match an existing protocol is skipped.
+        </p>
+        <p className="text-sm text-text-light">
+          The import runs in the background — you can keep working, submit
+          another import, and check progress any time in the Imports tab.
+        </p>
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.csv"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="button"
+            disabled={!file || submitImport.isPending}
+            onClick={handleUpload}
+            className="flex-1 py-2.5 h-auto"
+          >
+            {submitImport.isPending ? "Submitting…" : "Upload"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="px-4 py-2.5 h-auto font-normal text-text"
+          >
+            Cancel
           </Button>
         </div>
-      )}
+      </div>
     </ModalShell>
   );
 }
 
-function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+// ── Imports Tab ────────────────────────────────────────────────────────────────
+
+function ImportJobStatusBadge({ status }: { status: ProtocolImportJobView["status"] }) {
+  const styles: Record<ProtocolImportJobView["status"], string> = {
+    QUEUED: "bg-gray-100 text-gray-600",
+    PROCESSING: "bg-blue-100 text-blue-700",
+    COMPLETED: "bg-green-100 text-green-700",
+    FAILED: "bg-red-100 text-red-700",
+  };
+  return <Badge className={cn("font-semibold px-2", styles[status])}>{status}</Badge>;
+}
+
+function ImportJobRow({ job }: { job: ProtocolImportJobView }) {
+  const [showErrors, setShowErrors] = useState(false);
+  return (
+    <div className="border border-border rounded-xl p-4 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium text-text truncate">{job.originalFilename ?? "—"}</p>
+          <p className="text-xs text-text-light">{new Date(job.createdAt).toLocaleString()}</p>
+        </div>
+        <ImportJobStatusBadge status={job.status} />
+      </div>
+      {job.status === "COMPLETED" && (
+        <p className="text-sm text-text-light">
+          {job.totalRows} rows — {job.created} created, {job.updated} updated, {job.skipped} skipped
+        </p>
+      )}
+      {job.status === "FAILED" && job.failureMessage && (
+        <p className="text-sm text-red-500">{job.failureMessage}</p>
+      )}
+      {job.errors.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowErrors((v) => !v)}
+            className="text-xs text-primary underline"
+          >
+            {showErrors ? "Hide" : "Show"} {job.errors.length} row error{job.errors.length === 1 ? "" : "s"}
+          </button>
+          {showErrors && (
+            <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 mt-2 space-y-1">
+              {job.errors.map((err, i) => (
+                <p key={i} className="text-xs text-red-500">{err}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportsTab() {
+  const { data, isLoading, isError } = useProtocolImportJobs();
+
+  return (
+    <div>
+      <p className="text-sm text-text-light mb-4">
+        Every protocol import you've submitted, newest first. Still-running imports
+        refresh automatically.
+      </p>
+      {isLoading && <p className="text-text-light text-sm">Loading…</p>}
+      {isError && <p className="text-red-500 text-sm">Failed to load import jobs.</p>}
+      {data && data.length === 0 && (
+        <p className="text-text-light text-sm">
+          No imports submitted yet — use Import on the Protocols tab.
+        </p>
+      )}
+      {data && data.length > 0 && (
+        <div className="space-y-3">
+          {data.map((job) => (
+            <ImportJobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProtocolsTab({
+  isSuperAdmin,
+  onNavigateToImports,
+}: {
+  isSuperAdmin: boolean;
+  onNavigateToImports: () => void;
+}) {
   const { data, isLoading, isError } = useProtocols();
   const deleteProtocol = useDeleteProtocol();
   const [modal, setModal] = useState<Protocol | null | "new">(null);
@@ -1661,7 +1758,12 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         />
       )}
 
-      {showImport && <ImportProtocolsDialog onClose={() => setShowImport(false)} />}
+      {showImport && (
+        <ImportProtocolsDialog
+          onClose={() => setShowImport(false)}
+          onSubmitted={onNavigateToImports}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -1685,7 +1787,7 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type Tab = "colors" | "chakras" | "mappings" | "protocols";
+type Tab = "colors" | "chakras" | "mappings" | "protocols" | "imports";
 
 export default function MasterDataPage() {
   const { user } = useAuth();
@@ -1695,8 +1797,9 @@ export default function MasterDataPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "colors", label: "Prana Colors" },
     { key: "chakras", label: "Chakras" },
-    { key: "mappings", label: "Protocol Mappings" },
+    // { key: "mappings", label: "Protocol Mappings" },
     { key: "protocols", label: "Protocols" },
+    { key: "imports", label: "Imports" },
   ];
 
   return (
@@ -1731,7 +1834,13 @@ export default function MasterDataPage() {
       {activeTab === "colors" && <PranaColorsTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "chakras" && <ChakrasTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "mappings" && <ProtocolMappingsTab isSuperAdmin={isSuperAdmin} />}
-      {activeTab === "protocols" && <ProtocolsTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "protocols" && (
+        <ProtocolsTab
+          isSuperAdmin={isSuperAdmin}
+          onNavigateToImports={() => setActiveTab("imports")}
+        />
+      )}
+      {activeTab === "imports" && <ImportsTab />}
     </div>
   );
 }
