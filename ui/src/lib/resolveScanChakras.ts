@@ -3,20 +3,20 @@ export interface ChakraLike {
 }
 
 /**
- * Which chakras a healing session's scan step should offer, given the full chakra catalog
- * and the chakras linked to the session's selected protocol(s).
+ * Which chakras a healing session's scan step should PRE-POPULATE as rows, given the full
+ * chakra catalog and the chakras linked (protocol_chakra) to the session's selected
+ * protocol(s).
  *
- * No protocol selected yet: nothing to filter by, show the full catalog.
- * One or more protocols selected: show exactly their linked chakras, even if that's none —
- * never silently fall back to the full catalog, since that would make a protocol with no
- * chakra data look like every chakra applies to it.
+ * This is only a convenience prefill for the healer, never a restriction: the chakra picker
+ * always offers the whole catalog so a healer can add, swap or remove any chakra. A protocol
+ * with no linked chakra data (or no protocol yet) simply prefills nothing.
  */
-export function resolveScanChakras<T extends ChakraLike>(
-  chakras: T[],
+export function resolvePrefillChakras<T extends ChakraLike>(
+  catalog: T[],
   protocolChakras: ChakraLike[],
   protocolIds: string[]
 ): T[] {
-  if (protocolIds.length === 0) return chakras;
+  if (protocolIds.length === 0) return [];
   const linkedIds = new Set(protocolChakras.map((c) => c.id));
-  return chakras.filter((c) => linkedIds.has(c.id));
+  return catalog.filter((c) => linkedIds.has(c.id));
 }

@@ -1,12 +1,13 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHealingSessionWizard } from "../hooks/useHealingSessionWizard";
 import { useChakrasForProtocols } from "../hooks/admin/useMasterData";
-import { resolveScanChakras } from "../lib/resolveScanChakras";
+import { resolvePrefillChakras } from "../lib/resolveScanChakras";
 import {
   buildBackendChakraCatalog,
   buildPranaColorCatalog,
 } from "./ChakraScan";
+import type { ChakraCatalogEntry } from "./ChakraScan/types/spatial-chakra";
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";
 import { StepPostScan } from "./HealingSessionWizard/StepPostScan";
 import { StepPreScan } from "./HealingSessionWizard/StepPreScan";
@@ -18,13 +19,14 @@ interface HealingSessionWizardProps {
   caseId: string;
   symptoms: any[];
   onClose: () => void;
-  /** Protocol ids selected for this session — narrows the chakra scan list to the chakras
-   * those protocols address. When no protocol is selected yet, shows the full chakra catalog
-   * (nothing to filter by yet). Once a protocol IS selected, the scan list is exactly that
-   * protocol's linked chakras — empty if it has none — never a silent fallback to the full
-   * catalog, so a protocol with no chakra data doesn't masquerade as "every chakra applies". */
+  /** Protocol ids selected for this session — used only to PRE-POPULATE the scan rows with the
+   * chakras those protocols are linked to (protocol_chakra). It never restricts the picker: the
+   * healer can always choose from the full chakra catalog, so a protocol with no linked chakra
+   * data still leaves every chakra available to add manually. */
   protocolIds?: string[];
 }
+
+const NO_CHAKRAS: ChakraCatalogEntry[] = [];
 
 export const HealingSessionWizard = ({
   caseId,
@@ -57,19 +59,27 @@ export const HealingSessionWizard = ({
     data: protocolChakras = [],
     isLoading: protocolChakrasLoading,
   } = useChakrasForProtocols(protocolIds);
+  // The full catalog: what the chakra picker (and voice parsing) can choose from.
+  const availableChakras = useMemo(() => buildBackendChakraCatalog(chakras), [chakras]);
   // While protocolIds is non-empty but the lookup hasn't resolved yet, protocolChakras is
-  // still [] — treat that as "not decided yet" (full catalog), NOT as "no chakras found",
-  // so the scan list doesn't render the full catalog then jump to the filtered one a moment
-  // later (that render-order matters once this feeds auto-populated rows, not just a picker).
+  // still [] — wait for it rather than render the wizard and then append prefilled rows a
+  // moment later.
   const chakraFilterPending = protocolIds.length > 0 && protocolChakrasLoading;
-  const scanChakras = useMemo(() => {
-    if (chakraFilterPending) return [];
-    return resolveScanChakras(chakras, protocolChakras, protocolIds);
-  }, [chakras, protocolChakras, protocolIds, chakraFilterPending]);
-  const availableChakras = useMemo(
-    () => buildBackendChakraCatalog(scanChakras),
-    [scanChakras]
+  // The subset linked to the selected protocols: only pre-populated as rows, editable after.
+  const prefillChakras = useMemo(
+    () => (chakraFilterPending ? [] : resolvePrefillChakras(availableChakras, protocolChakras, protocolIds)),
+    [availableChakras, protocolChakras, protocolIds, chakraFilterPending]
   );
+
+  // Prefill each scan step once per wizard visit. The steps unmount/remount when the healer
+  // goes Back/Next, and re-seeding on every mount would bring back chakras they deliberately
+  // deleted from that scan.
+  const prefilledSteps = useRef<Set<number>>(new Set());
+  const contentReady = !loading && !chakraFilterPending;
+  useEffect(() => {
+    if (contentReady && step <= 2) prefilledSteps.current.add(step);
+  }, [contentReady, step]);
+  const stepPrefillChakras = prefilledSteps.current.has(step) ? NO_CHAKRAS : prefillChakras;
 
   const handleWizardBack = () => {
     if (step === 1) {
@@ -94,6 +104,7 @@ export const HealingSessionWizard = ({
             value={preScanChakraData}
             onChange={setPreScanChakraData}
             availableChakras={availableChakras}
+            prefillChakras={stepPrefillChakras}
           />
         )}
 
@@ -102,6 +113,7 @@ export const HealingSessionWizard = ({
             value={postScanChakraData}
             onChange={setPostScanChakraData}
             availableChakras={availableChakras}
+            prefillChakras={stepPrefillChakras}
           />
         )}
 

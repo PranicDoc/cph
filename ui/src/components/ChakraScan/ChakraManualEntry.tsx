@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,12 @@ import type {
 interface ChakraManualEntryProps {
   value: ChakraDocEntry[];
   onChange: (entries: ChakraDocEntry[]) => void;
+  /** Everything the chakra picker can offer (the full catalog). */
   availableChakras?: ChakraCatalogEntry[];
+  /** Chakras to pre-populate as default rows (e.g. those linked to the selected protocols).
+   * Defaults to none. Independent of the picker: a healer can still add, swap or remove any
+   * chakra from `availableChakras`. */
+  prefillChakras?: ChakraCatalogEntry[];
 }
 
 interface Row {
@@ -36,6 +41,8 @@ interface Row {
   key: string;
   entry: ChakraDocEntry | null;
 }
+
+const NO_PREFILL: ChakraCatalogEntry[] = [];
 
 let rowCounter = 0;
 function nextRowKey() {
@@ -138,6 +145,7 @@ export function ChakraManualEntry({
   value,
   onChange,
   availableChakras = CHAKRA_CATALOG,
+  prefillChakras,
 }: ChakraManualEntryProps) {
   const [rows, setRows] = useState<Row[]>(() => entriesToRows(value));
 
@@ -145,23 +153,33 @@ export function ChakraManualEntry({
     setRows(entriesToRows(value));
   }, [value]);
 
-  // Keep the row set in sync with availableChakras: any chakra in the (possibly
-  // protocol-filtered) list that doesn't already have a row gets a default one appended
-  // — the healer never clicks "Add Chakra" for a fresh scan, AND if the case is later
-  // edited to add another protocol, that protocol's chakras get appended to the
-  // existing set rather than requiring a fresh scan (never removes or overwrites a row
-  // that already exists, so recorded readings are always preserved).
+  // `availableChakras` is what the picker offers; `prefill` only seeds rows (none by default).
+  const prefill = prefillChakras ?? NO_PREFILL;
+  // Keyed by ids, not array identity: a parent that rebuilds an equal list on every render must
+  // not re-trigger the prefill below.
+  const prefillKey = prefill.map((c) => c.id).join("|");
+  // Chakras the healer removed (or swapped out) from this scan — never prefilled back.
+  const dismissedIds = useRef<Set<string>>(new Set());
+
+  // Keep the row set in sync with the prefill list: any chakra in it that doesn't already
+  // have a row gets a default one appended — the healer never clicks "Add Chakra" for a
+  // fresh scan, AND if the case is later edited to add another protocol, that protocol's
+  // chakras get appended to the existing set rather than requiring a fresh scan (never
+  // removes or overwrites a row that already exists, so recorded readings are always
+  // preserved). The healer can still remove, swap or add any chakra from availableChakras.
   useEffect(() => {
-    if (availableChakras.length === 0) return; // still loading — nothing to reconcile yet
+    if (prefill.length === 0) return; // still loading, or nothing to prefill
     const existingIds = new Set(value.map((e) => e.id));
-    const missing = availableChakras.filter((c) => !existingIds.has(c.id));
+    const missing = prefill.filter(
+      (c) => !existingIds.has(c.id) && !dismissedIds.current.has(c.id)
+    );
     if (missing.length === 0) return;
     onChange([...value, ...missing.map((c) => createDefaultEntry(c))]);
-    // Only re-run when the resolved chakra list changes — `value`/`onChange` are read from
+    // Only re-run when the resolved prefill list changes — `value`/`onChange` are read from
     // the same render that triggered this (not stale), including them as deps would loop
     // (onChange here changes `value`, which would re-trigger this effect on the *same* list).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableChakras]);
+  }, [prefillKey]);
 
   function commit(nextRows: Row[]) {
     setRows(nextRows);
@@ -175,10 +193,14 @@ export function ChakraManualEntry({
   }
 
   function removeRow(key: string) {
+    const removed = rows.find((r) => r.key === key)?.entry;
+    if (removed) dismissedIds.current.add(removed.id);
     commit(rows.filter((r) => r.key !== key));
   }
 
   function selectChakra(key: string, chakra: ChakraCatalogEntry) {
+    const replaced = rows.find((r) => r.key === key)?.entry;
+    if (replaced && replaced.id !== chakra.id) dismissedIds.current.add(replaced.id);
     commit(
       rows.map((r) => (r.key === key ? { ...r, entry: createDefaultEntry(chakra) } : r))
     );

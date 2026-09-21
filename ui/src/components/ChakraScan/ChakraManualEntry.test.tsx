@@ -33,12 +33,19 @@ const CATALOG: ChakraCatalogEntry[] = [
   },
 ];
 
-function Harness({ onChangeSpy }: { onChangeSpy: (v: ChakraDocEntry[]) => void }) {
+function Harness({
+  onChangeSpy,
+  prefillChakras,
+}: {
+  onChangeSpy: (v: ChakraDocEntry[]) => void;
+  prefillChakras?: ChakraCatalogEntry[];
+}) {
   const [value, setValue] = useState<ChakraDocEntry[]>([]);
   return (
     <ChakraManualEntry
       value={value}
       availableChakras={CATALOG}
+      prefillChakras={prefillChakras}
       onChange={(next) => {
         setValue(next);
         onChangeSpy(next);
@@ -54,6 +61,42 @@ function Harness({ onChangeSpy }: { onChangeSpy: (v: ChakraDocEntry[]) => void }
 // queried unscoped via role="option" instead.
 
 describe("ChakraManualEntry", () => {
+  it("pre-populates rows only for prefillChakras, not the whole catalog", () => {
+    const onChangeSpy = vi.fn();
+    render(<Harness onChangeSpy={onChangeSpy} prefillChakras={[CATALOG[0]]} />);
+
+    expect(onChangeSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy.mock.calls[0][0].map((e: ChakraDocEntry) => e.id)).toEqual(["crown"]);
+  });
+
+  it("a prefilled chakra the healer deleted is not brought back when the parent re-renders with an equal prefill list", async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    const { rerender } = render(<Harness onChangeSpy={onChangeSpy} prefillChakras={[CATALOG[0], CATALOG[1]]} />);
+    const ids = () => onChangeSpy.mock.calls.at(-1)![0].map((e: ChakraDocEntry) => e.id);
+    expect(ids()).toEqual(["crown", "heart"]);
+
+    const table = within(screen.getByRole("table"));
+    await user.click(table.getAllByRole("button", { name: /remove chakra/i })[0]);
+    expect(ids()).toEqual(["heart"]);
+
+    // Parent rebuilds a new-but-equal array (e.g. Session.tsx re-render): must not re-add crown.
+    rerender(<Harness onChangeSpy={onChangeSpy} prefillChakras={[CATALOG[0], CATALOG[1]]} />);
+    expect(ids()).toEqual(["heart"]);
+  });
+
+  it("pre-populates nothing when there is nothing to prefill, and still lets the healer add a row", async () => {
+    const user = userEvent.setup();
+    const onChangeSpy = vi.fn();
+    render(<Harness onChangeSpy={onChangeSpy} prefillChakras={[]} />);
+
+    expect(onChangeSpy).not.toHaveBeenCalled();
+    expect(screen.getByText(/no chakras documented yet/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /add chakra/i }));
+    expect(within(screen.getByRole("table")).getByPlaceholderText(/select chakra/i)).toBeInTheDocument();
+  });
+
   it("starts empty and adds a row with a chakra combobox on '+ Add Chakra'", async () => {
     const user = userEvent.setup();
     render(<Harness onChangeSpy={vi.fn()} />);

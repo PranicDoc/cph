@@ -21,6 +21,8 @@ interface ScanStepProps {
   value: ChakraDocEntry[];
   onChange: (data: ChakraDocEntry[]) => void;
   availableChakras: ChakraCatalogEntry[];
+  /** Chakras to pre-populate as rows (e.g. the selected protocols' linked chakras); the picker still offers `availableChakras`. */
+  prefillChakras?: ChakraCatalogEntry[];
 }
 
 export function ScanStep({
@@ -28,6 +30,7 @@ export function ScanStep({
   value,
   onChange,
   availableChakras,
+  prefillChakras,
 }: ScanStepProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mode, setMode] = useState<ScanEntryMode>(DEFAULT_SCAN_ENTRY_MODE);
@@ -97,6 +100,7 @@ export function ScanStep({
             value={value}
             onChange={onChange}
             availableChakras={availableChakras}
+            prefillChakras={prefillChakras}
           />
         ) : (
           <div className="flex justify-center">
