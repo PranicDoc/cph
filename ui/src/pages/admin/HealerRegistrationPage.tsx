@@ -22,9 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { SelectField, TextField } from "@/components/form/Field";
-
-const ROLE_OPTIONS = ["HEALER", "SENIOR_HEALER", "RECEPTIONIST", "ADMIN", "SUPADM"];
+import { TextField } from "@/components/form/Field";
 
 const STATUS_BADGE: Record<AdminInvite["status"], string> = {
   PENDING: "bg-amber-100 text-amber-700",
@@ -72,18 +70,14 @@ export default function HealerRegistrationPage() {
   const removeHealer = useRemoveHealer();
   const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
 
-  const roleOptions = isSupadm ? ROLE_OPTIONS : ROLE_OPTIONS.filter((r) => r !== "SUPADM");
-
   const inviteForm = useForm({
     defaultValues: {
       email: "",
-      role: "HEALER",
     },
     onSubmit: async ({ value, formApi }) => {
       createInvite.mutate(
         {
           email: value.email,
-          role: value.role,
         },
         {
           onSuccess: () => {
@@ -274,21 +268,6 @@ export default function HealerRegistrationPage() {
                     field={field}
                     type="email"
                     placeholder="healer@example.com"
-                    className="border px-3 py-2 bg-background"
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Label className="block text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
-                Role
-              </Label>
-              <inviteForm.Field
-                name="role"
-                children={(field) => (
-                  <SelectField
-                    field={field}
-                    options={roleOptions.map((r) => ({ label: r, value: r }))}
                     className="border px-3 py-2 bg-background"
                   />
                 )}

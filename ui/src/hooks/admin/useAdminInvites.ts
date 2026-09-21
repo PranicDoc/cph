@@ -16,7 +16,6 @@ export interface AdminInvite {
 
 export interface InviteCreatePayload {
   email: string;
-  role: string;
 }
 
 const QK = ["admin-invites"] as const;

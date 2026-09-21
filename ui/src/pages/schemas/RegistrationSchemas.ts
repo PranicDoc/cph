@@ -39,6 +39,7 @@ export const patientDemographicsSchema: FormSchema = [
           { label: "Married", value: "MARRIED" },
           { label: "Divorced", value: "DIVORCED" },
           { label: "Widowed", value: "WIDOWED" },
+          { label: "Others", value: "OTHERS" },
         ],
       },
       {
