@@ -2,6 +2,8 @@ package com.pranicdoc.cph.masterdata.repository;
 
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,4 +26,17 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     /** All accessible: system + current healer */
     List<PranaColorCatalog> findByHealerIdIsNullOrHealerId(UUID healerId);
+
+    /**
+     * Physically removes every row — including already soft-deleted ones, which the entity's
+     * {@code @SQLRestriction} hides from JPQL/derived queries — via native SQL. Used only by
+     * the SUPADM master-data wipe.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM prana_color_catalog", nativeQuery = true)
+    int hardDeleteAll();
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM prana_color_catalog_properties", nativeQuery = true)
+    int hardDeleteAllProperties();
 }

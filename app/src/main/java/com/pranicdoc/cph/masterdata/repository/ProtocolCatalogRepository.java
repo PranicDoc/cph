@@ -3,6 +3,8 @@ package com.pranicdoc.cph.masterdata.repository;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,4 +36,13 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
      * alone.
      */
     List<ProtocolCatalog> findByNameAndSourceBook(String name, String sourceBook);
+
+    /**
+     * Physically removes every row — including already soft-deleted ones, which the entity's
+     * {@code @SQLRestriction} hides from JPQL/derived queries — via native SQL. Used only by
+     * the SUPADM master-data wipe.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM protocol_catalog", nativeQuery = true)
+    int hardDeleteAll();
 }

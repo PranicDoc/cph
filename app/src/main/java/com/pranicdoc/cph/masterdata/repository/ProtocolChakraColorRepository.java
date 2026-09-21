@@ -3,6 +3,7 @@ package com.pranicdoc.cph.masterdata.repository;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.model.ProtocolChakraColor;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -38,4 +39,13 @@ public interface ProtocolChakraColorRepository extends JpaRepository<ProtocolCha
             @Param("protocolIds") List<UUID> protocolIds,
             @Param("chakraIds") List<UUID> chakraIds,
             @Param("healerId") UUID healerId);
+
+    /**
+     * Physically removes every row — including already soft-deleted ones, which the entity's
+     * {@code @SQLRestriction} hides from JPQL/derived queries — via native SQL. Used only by
+     * the SUPADM master-data wipe.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM protocol_chakra_color", nativeQuery = true)
+    int hardDeleteAll();
 }

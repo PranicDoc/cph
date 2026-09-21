@@ -5,7 +5,6 @@ import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
-import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
 import com.pranicdoc.cph.masterdata.dto.MasterDataWipeResult;
@@ -30,7 +29,6 @@ import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -437,13 +435,19 @@ public class MasterDataService {
     // ── Bulk wipe (SUPADM only — see MasterDataController#wipeMasterData) ────
 
     /**
-     * Soft-deletes every row (system AND healer-owned alike) in the requested category —
-     * {@link MasterDataType#ALL} covers all four. Mirrors the same {@code softDelete()} +
-     * {@code save()} pattern the single-row delete methods use (Envers audit history depends
-     * on going through the persistence context row-by-row, not a bulk JPQL UPDATE, which would
-     * bypass both the audit listener and Envers entirely). Never cascades into
-     * {@code ProtocolChakra}/{@code ProtocolChakraColor} — same as {@link #deleteProtocol},
-     * which also leaves those relationship rows untouched.
+     * Hard-deletes every row (system AND healer-owned alike, plus any already soft-deleted
+     * ones) in the requested category — {@link MasterDataType#ALL} covers all four. Native
+     * {@code DELETE}s are used on purpose: the entities' {@code @SQLRestriction} hides
+     * soft-deleted rows from JPQL, and those rows would otherwise survive and keep holding
+     * their UNIQUE {@code code}/name keys, blocking a clean re-import. Because
+     * {@code protocol_chakra}, {@code protocol_chakra_color}, {@code protocol_color_mapping}
+     * and {@code prana_color_catalog_properties} carry real FKs into the catalogs, the
+     * dependent rows are removed first: chakras/protocols take the protocol↔chakra links (and
+     * their colors), colors take the color links, properties and mappings. The mappings count
+     * therefore also includes mappings removed as a dependency of a COLORS wipe. Healing-case
+     * history only holds logical (FK-less) ids into the catalogs, so it is untouched. Envers
+     * history is not written for native deletes; the {@code WIPE_MASTER_DATA} audit-log entry
+     * is the record of the wipe.
      */
     @Auditable(action = "WIPE_MASTER_DATA")
     @Transactional
@@ -451,21 +455,27 @@ public class MasterDataService {
         if (!isSuperAdmin) {
             throw new AccessDeniedException("Master data can only be wiped by SUPADM");
         }
-        int chakras = (type == MasterDataType.ALL || type == MasterDataType.CHAKRAS)
-                ? softDeleteAll(chakraRepo) : 0;
-        int colors = (type == MasterDataType.ALL || type == MasterDataType.COLORS)
-                ? softDeleteAll(colorRepo) : 0;
-        int mappings = (type == MasterDataType.ALL || type == MasterDataType.MAPPINGS)
-                ? softDeleteAll(mappingRepo) : 0;
-        int protocols = (type == MasterDataType.ALL || type == MasterDataType.PROTOCOLS)
-                ? softDeleteAll(protocolRepo) : 0;
-        return new MasterDataWipeResult(type, chakras, colors, mappings, protocols);
-    }
+        boolean all = type == MasterDataType.ALL;
+        boolean wipeChakras = all || type == MasterDataType.CHAKRAS;
+        boolean wipeColors = all || type == MasterDataType.COLORS;
+        boolean wipeMappings = all || type == MasterDataType.MAPPINGS;
+        boolean wipeProtocols = all || type == MasterDataType.PROTOCOLS;
 
-    private <T extends BaseEntity> int softDeleteAll(JpaRepository<T, UUID> repo) {
-        List<T> rows = repo.findAll();
-        rows.forEach(BaseEntity::softDelete);
-        repo.saveAll(rows);
-        return rows.size();
+        // Dependents first (FK order): link colors -> protocol/chakra links -> catalogs.
+        if (wipeChakras || wipeProtocols || wipeColors) {
+            protocolChakraColorRepo.hardDeleteAll();
+        }
+        if (wipeChakras || wipeProtocols) {
+            protocolChakraRepo.hardDeleteAll();
+        }
+        int mappings = (wipeMappings || wipeColors) ? mappingRepo.hardDeleteAll() : 0;
+        int colors = 0;
+        if (wipeColors) {
+            colorRepo.hardDeleteAllProperties();
+            colors = colorRepo.hardDeleteAll();
+        }
+        int chakras = wipeChakras ? chakraRepo.hardDeleteAll() : 0;
+        int protocols = wipeProtocols ? protocolRepo.hardDeleteAll() : 0;
+        return new MasterDataWipeResult(type, chakras, colors, mappings, protocols);
     }
 }

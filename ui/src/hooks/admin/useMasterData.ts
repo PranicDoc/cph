@@ -123,8 +123,8 @@ export interface ProtocolChakraColorEntryPayload {
 
 // -- Query Keys -------------------------------------------------------------------------
 
-const COLOR_QK = ["master-colors"] as const;
-const CHAKRA_QK = ["master-chakras"] as const;
+export const COLOR_QK = ["master-colors"] as const;
+export const CHAKRA_QK = ["master-chakras"] as const;
 const MAPPING_QK = ["master-mappings"] as const;
 const PROTOCOL_QK = ["master-protocols"] as const;
 
