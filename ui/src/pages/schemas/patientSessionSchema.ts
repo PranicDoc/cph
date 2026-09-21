@@ -29,6 +29,7 @@ export const patientSessionSchema: FormSchema = [
         type: "tag",
         placeholder: "Type to add symptoms...",
         suggestions: COMMON_SYMPTOMS,
+        required: true,
         displayKey: "symptomName",
         createNewTag: (name: string) => ({
           symptomName: name,
@@ -109,6 +110,7 @@ export const patientSessionSchema: FormSchema = [
         type: "textarea",
         placeholder: "Example: Physiotherapy, Accupunture...",
         enableToggle: true,
+        requiredWhenEnabled: true,
       },
       {
         name: "infectiousDetails",
@@ -116,6 +118,7 @@ export const patientSessionSchema: FormSchema = [
         type: "textarea",
         placeholder: "Example: Cold...",
         enableToggle: true,
+        requiredWhenEnabled: true,
       },
     ],
   },

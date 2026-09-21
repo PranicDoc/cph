@@ -58,6 +58,8 @@ export type FieldConfig = {
   createNewTag?: (input: string) => any;
   readOnly?: boolean;
   enableToggle?: boolean;
+  /** With enableToggle: once the toggle is switched on, the value must be filled in. */
+  requiredWhenEnabled?: boolean;
   trimSpaces?: boolean;
   multiSelectOptions?: any[];
   getOptionKey?: (option: any) => string;
@@ -70,6 +72,12 @@ export type FieldConfig = {
     fieldName: string
   ) => string | undefined;
 };
+
+// Blank strings and empty arrays count as "not filled in", not just falsy values.
+const isEmptyValue = (value: unknown) =>
+  !value ||
+  (typeof value === "string" && value.trim() === "") ||
+  (Array.isArray(value) && value.length === 0);
 
 export type FormGroup = {
   title?: string;
@@ -125,8 +133,11 @@ export function DynamicField({
   // touched still fails validation when the form is submitted (onChange-only
   // validators skip untouched fields, letting an empty form through).
   const runFieldValidation = ({ value }: any) => {
-    if (required && !value) {
+    if (required && isEmptyValue(value)) {
       return "Required";
+    }
+    if (fieldConfig.requiredWhenEnabled && enabled && isEmptyValue(value)) {
+      return "Please fill this in, or switch the toggle off";
     }
     // Contact number validation
     if (name === "contact" && value) {
@@ -168,7 +179,7 @@ export function DynamicField({
           return (
             <div className={wrapperClassName}>
               <Label className="block text-sm font-semibold mb-2">
-                {label}
+                {label} {required && "*"}
               </Label>
               <TagInput
                 value={field.state.value}
@@ -181,6 +192,7 @@ export function DynamicField({
                 createNewTag={fieldConfig.createNewTag}
                 editableFields={fieldConfig.editableFields}
               />
+              <FieldError errors={field.state.meta.errors} />
             </div>
           );
         }
