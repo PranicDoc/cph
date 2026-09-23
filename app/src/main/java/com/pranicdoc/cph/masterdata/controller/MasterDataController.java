@@ -265,7 +265,7 @@ public class MasterDataController {
     // short-circuit — see updateChakra's comment for why that pair is permanently
     // non-grantable.
     @DeleteMapping("/wipe")
-//    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
     public ResponseEntity<ApiResponse<MasterDataWipeResult>> wipeMasterData(
             @RequestParam(defaultValue = "ALL") MasterDataType type) {
         boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
