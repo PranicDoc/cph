@@ -1793,7 +1793,7 @@ const WIPE_TYPE_OPTIONS: { label: string; value: MasterDataType }[] = [
   { label: "All", value: "ALL" },
   { label: "Prana Colors", value: "COLORS" },
   { label: "Chakras", value: "CHAKRAS" },
-  { label: "Protocol Mappings", value: "MAPPINGS" },
+  // { label: "Protocol Mappings", value: "MAPPINGS" },
   { label: "Protocols", value: "PROTOCOLS" },
 ];
 
