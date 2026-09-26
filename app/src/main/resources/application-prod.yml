@@ -5,8 +5,10 @@ spring:
     # overhead (background workers/HA), leaving too little for direct per-connection
     # Hikari pools across cph + pdfWorker. prepareThreshold=0 disables server-side
     # prepared-statement caching, which doesn't survive PgBouncer's transaction-mode
-    # connection multiplexing.
-    url: jdbc:postgresql://${PGBOUNCER_HOST}:${PGBOUNCER_PORT:6432}/pranic_doc?prepareThreshold=0
+    # connection multiplexing. reWriteBatchedInserts=true lets the driver send a Hibernate
+    # JDBC insert batch (spring.jpa.properties.hibernate.jdbc.batch_size) as multi-row INSERTs,
+    # i.e. one network round trip per batch instead of one per row.
+    url: jdbc:postgresql://${PGBOUNCER_HOST}:${PGBOUNCER_PORT:6432}/pranic_doc?prepareThreshold=0&reWriteBatchedInserts=true
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver

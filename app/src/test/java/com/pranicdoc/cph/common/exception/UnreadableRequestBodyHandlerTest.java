@@ -46,7 +46,7 @@ class UnreadableRequestBodyHandlerTest {
         mockMvc.perform(post("/test/bind")
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
-                        .content("{\"patient\":{\"maritalStatus\":\"DIVORCED\"}}"))
+                        .content("{\"patient\":{\"maritalStatus\":\"SEPARATED\"}}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.title").value("Bad Request"))

@@ -180,38 +180,9 @@ export function TableInput({
     return cols;
   }, [displayKey, textCols, checkboxCols]);
 
-  if (readOnly) {
-    if (value.length === 0) {
-      return <p className="text-sm text-text-light/50 italic">No entries</p>;
-    }
-
-    return (
-      <>
-        <DataTable
-          columns={readOnlyColumns}
-          data={value}
-          enableSorting={false}
-          className="rounded-lg"
-          headerRowClassName="bg-background hover:bg-background"
-          headCellClassName="px-3 py-2 font-semibold tracking-wider"
-          cellClassName="px-3 py-2"
-          rowClassName="bg-white hover:bg-primary/5"
-          onRowClick={(row) => setSelectedRow(row.original)}
-        />
-
-        {selectedRow && (
-          <MedicationPopup
-            row={selectedRow}
-            displayKey={displayKey}
-            editableFields={editableFields}
-            onClose={() => setSelectedRow(null)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // ── Editable view ───────────────────────────────────────────────────────────
+  // Editable-view columns. Declared BEFORE the `readOnly` early return below: hooks must run in
+  // the same order every render, and `readOnly` can flip on a mounted table (e.g. a session
+  // leaving DRAFT). Calling this after the early return threw React error #300.
   // Stable across keystrokes (depends only on displayKey/editableFields, never on
   // value/onChange) — cell renderers pull the current updateCell/deleteRow off
   // table.options.meta (editableMeta above) instead of closing over them, so this
@@ -304,6 +275,37 @@ export function TableInput({
     // updateCell/deleteRow (recreated every render via value/onChange) so this array
     // stays referentially stable; current versions are read from meta at call time.
   }, [displayKey, editableFields]);
+
+  if (readOnly) {
+    if (value.length === 0) {
+      return <p className="text-sm text-text-light/50 italic">No entries</p>;
+    }
+
+    return (
+      <>
+        <DataTable
+          columns={readOnlyColumns}
+          data={value}
+          enableSorting={false}
+          className="rounded-lg"
+          headerRowClassName="bg-background hover:bg-background"
+          headCellClassName="px-3 py-2 font-semibold tracking-wider"
+          cellClassName="px-3 py-2"
+          rowClassName="bg-white hover:bg-primary/5"
+          onRowClick={(row) => setSelectedRow(row.original)}
+        />
+
+        {selectedRow && (
+          <MedicationPopup
+            row={selectedRow}
+            displayKey={displayKey}
+            editableFields={editableFields}
+            onClose={() => setSelectedRow(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-3">

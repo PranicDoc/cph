@@ -17,11 +17,23 @@ import java.util.Set;
  * in-app seed and the deploy-time backfill.
  *
  * <p>Grants cover the healer-facing surface only (patient / case / session /
- * pdf / scan / session-protocol / feedback / credit) plus read-only master
- * data — no admin resources (ROLES, GLOBAL_CONFIG, LEGAL_DOCUMENTS, ACCOUNTS,
+ * pdf / scan / session-protocol / feedback / credit) plus master data — no
+ * admin resources (ROLES, GLOBAL_CONFIG, LEGAL_DOCUMENTS, ACCOUNTS,
  * HEALER_REG, PACKAGES). It is a plain role: not protected by an
  * {@code is_system} flag (deferred), so an operator can still edit or delete
  * it via the Roles UI.
+ *
+ * <p><b>MASTER_DATA_PROTOCOLS is CREATE/UPDATE/DELETE, not read-only</b> —
+ * this is what lets a healer add/edit/remove their own private chakra/color
+ * associations on a protocol (see {@code MasterDataController}'s
+ * {@code /protocols/{id}/chakra-colors} endpoints). Every mutating handler
+ * behind this grant is ownership-checked in {@code MasterDataService}
+ * (system rows, healerId null, stay SUPADM-only via the non-grantable
+ * MASTER_DATA_PROTOCOLS:ADMIN override — see PD-40-04), so this grant cannot
+ * let a healer touch system data or another healer's rows. It does also
+ * unlock {@code POST /protocols/import} (bulk xlsx) and the
+ * {@code /protocol-mappings} CRUD for every healer, since both share this
+ * same resource — accepted, not an oversight.
  */
 public final class BaselineRole {
 
@@ -48,5 +60,8 @@ public final class BaselineRole {
             // Read-only reference data a healer needs to record scans / protocols.
             Map.entry(Resource.MASTER_DATA_CHAKRAS, Set.of(Operation.READ)),
             Map.entry(Resource.MASTER_DATA_COLORS, Set.of(Operation.READ)),
-            Map.entry(Resource.MASTER_DATA_PROTOCOLS, Set.of(Operation.READ)));
+            // CREATE/UPDATE/DELETE (not read-only) so a healer can self-serve their own
+            // protocol-chakra-color additions — see the class doc above.
+            Map.entry(Resource.MASTER_DATA_PROTOCOLS,
+                    Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE)));
 }

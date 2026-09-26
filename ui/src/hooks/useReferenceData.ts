@@ -1,28 +1,13 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { ChakraOption, ColorOption } from "../interfaces";
 import api from "../lib/axios";
+import { CHAKRA_QK, COLOR_QK } from "./admin/useMasterData";
 
 type ApiListResponse<T> = T[] | { data?: T[] };
 
-let colorsCache: ColorOption[] | null = null;
-let chakrasCache: ChakraOption[] | null = null;
-let fetchPromise: Promise<[ColorOption[], ChakraOption[]]> | null = null;
-
-const TARGET_CHAKRAS = [
-  "crown",
-  "forehead",
-  "ajna",
-  "throat",
-  "front heart",
-  "back heart",
-  "front solar plexus",
-  "back solar plexus",
-  "spleen",
-  "navel",
-  "meng mein",
-  "sex",
-  "basic",
-];
+// Stable empty arrays so consumers' effects/memos don't re-run on every render while loading.
+const EMPTY_COLORS: ColorOption[] = [];
+const EMPTY_CHAKRAS: ChakraOption[] = [];
 
 function unwrapList<T>(response: ApiListResponse<T>): T[] {
   if (Array.isArray(response)) {
@@ -54,71 +39,33 @@ function normalizeColor(item: any): ColorOption {
   };
 }
 
+/**
+ * Colors + chakras for the session wizard / closure form. Backed by TanStack Query under the
+ * same "master-colors" / "master-chakras" key prefixes the admin master-data hooks invalidate,
+ * so a wipe, import or edit refreshes this data too (the old module-level cache never did).
+ */
 export function useReferenceData() {
-  const [colors, setColors] = useState<ColorOption[]>(colorsCache ?? []);
-  const [chakras, setChakras] = useState<ChakraOption[]>(chakrasCache ?? []);
-  const [loading, setLoading] = useState(!colorsCache || !chakrasCache);
-  const [error, setError] = useState<Error | null>(null);
+  const colorsQuery = useQuery<ColorOption[]>({
+    queryKey: [...COLOR_QK, "reference"],
+    queryFn: () =>
+      api
+        .get<ApiListResponse<any>>("/api/v1/masterdata/colors")
+        .then((res) => unwrapList(res.data).map(normalizeColor).filter((color) => color.id)),
+  });
+  const chakrasQuery = useQuery<ChakraOption[]>({
+    queryKey: [...CHAKRA_QK, "reference"],
+    // Backend is the sole source of truth for which chakras exist — no client-side
+    // allowlist. Only a structurally invalid row (no id/name) is dropped.
+    queryFn: () =>
+      api
+        .get<ApiListResponse<any>>("/api/v1/masterdata/chakras")
+        .then((res) => unwrapList(res.data).map(normalizeChakra).filter((chakra) => chakra.id && chakra.name)),
+  });
 
-  useEffect(() => {
-    if (colorsCache && chakrasCache) {
-      setColors(colorsCache);
-      setChakras(chakrasCache);
-      setLoading(false);
-      return;
-    }
-
-    if (fetchPromise) {
-      fetchPromise
-        .then(([colorsData, chakrasData]) => {
-          setColors(colorsData);
-          setChakras(chakrasData);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err);
-          setLoading(false);
-          fetchPromise = null;
-        });
-      return;
-    }
-
-    setLoading(true);
-    fetchPromise = Promise.all([
-      api.get<ApiListResponse<any>>("/api/v1/masterdata/colors").then((res) =>
-        unwrapList(res.data)
-          .map(normalizeColor)
-          .filter((color) => color.id)
-      ),
-      api.get<ApiListResponse<any>>("/api/v1/masterdata/chakras").then((res) =>
-        unwrapList(res.data)
-          .map(normalizeChakra)
-          .filter((chakra) => {
-            if (!chakra.id || !chakra.name) return false;
-            const cleanName = chakra.name
-              .toLowerCase()
-              .replace(" chakra", "")
-              .trim();
-            return TARGET_CHAKRAS.includes(cleanName);
-          })
-      ),
-    ]);
-
-    fetchPromise
-      .then(([colorsData, chakrasData]) => {
-        colorsCache = colorsData;
-        chakrasCache = chakrasData;
-        setColors(colorsData);
-        setChakras(chakrasData);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch reference data:", err);
-        setError(err);
-        setLoading(false);
-        fetchPromise = null;
-      });
-  }, []);
-
-  return { colors, chakras, loading, error };
+  return {
+    colors: colorsQuery.data ?? EMPTY_COLORS,
+    chakras: chakrasQuery.data ?? EMPTY_CHAKRAS,
+    loading: colorsQuery.isPending || chakrasQuery.isPending,
+    error: (colorsQuery.error ?? chakrasQuery.error) as Error | null,
+  };
 }

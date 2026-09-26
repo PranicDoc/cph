@@ -16,6 +16,7 @@ import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.healing.service.NotificationService;
+import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +25,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -113,19 +116,33 @@ public class SessionService {
         if (isPostScanEmpty) throw new SessionIncompleteException("Post-scan is required");
     }
 
+    /**
+     * Every submitted reading must point at a real chakra_catalog row. Resolved with ONE
+     * {@code findAllById} query for the distinct ids, not one {@code existsById} per reading:
+     * with the DB ~240 ms away, a 2 x 25-reading scan was ~50 sequential round trips (~12 s)
+     * and, together with the commit, pushed POST /sessions/case past nginx's 30 s timeout.
+     */
     private void validateMasterDataReferences(CreateSessionRequest request) {
-        if (request.scans() != null) {
-            request.scans().forEach(scan -> {
-                if (scan.readings() != null) {
-                    scan.readings().forEach(reading -> validateChakraId(reading.chakraId()));
+        if (request.scans() == null) return;
+        Set<UUID> requested = new LinkedHashSet<>();
+        request.scans().forEach(scan -> {
+            if (scan.readings() == null) return;
+            scan.readings().forEach(reading -> {
+                if (reading.chakraId() == null) {
+                    throw new IllegalArgumentException("Invalid chakraId: null");
                 }
+                requested.add(reading.chakraId());
             });
-        }
-    }
+        });
+        if (requested.isEmpty()) return;
 
-    private void validateChakraId(UUID chakraId) {
-        if (!chakraCatalogRepository.existsById(chakraId)) {
-            throw new IllegalArgumentException("Invalid chakraId: " + chakraId);
+        Set<UUID> known = chakraCatalogRepository.findAllById(requested).stream()
+                .map(ChakraCatalog::getId)
+                .collect(Collectors.toSet());
+        for (UUID chakraId : requested) {
+            if (!known.contains(chakraId)) {
+                throw new IllegalArgumentException("Invalid chakraId: " + chakraId);
+            }
         }
     }
 

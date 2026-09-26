@@ -8,6 +8,7 @@ interface StepPostScanProps {
   value: ChakraDocEntry[];
   onChange: (data: ChakraDocEntry[]) => void;
   availableChakras: ChakraCatalogEntry[];
+  prefillChakras?: ChakraCatalogEntry[];
 }
 
 export function StepPostScan(props: StepPostScanProps) {

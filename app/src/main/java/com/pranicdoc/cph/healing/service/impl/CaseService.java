@@ -419,6 +419,12 @@ public class CaseService {
         if (caseUpdateRequest.medicalCondition() == null || caseUpdateRequest.medicalCondition().isBlank()) {
             throw new IllegalArgumentException("Chief complaint is required");
         }
+        // Self-registered patients complete their own case details, so the mandatory
+        // fields are enforced here too — the health form's checks are UI-only.
+        if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())
+                && (caseUpdateRequest.symptoms() == null || caseUpdateRequest.symptoms().isEmpty())) {
+            throw new IllegalArgumentException("At least one symptom is required");
+        }
         HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
         String role = securityContextUtil.getCurrentRole();

@@ -69,12 +69,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <ul>
  *   <li>Test 1 — every {@code @PreAuthorize} on the 9-controller cutover surface is
  *       exactly the bare {@code @rbacAuthz.hasPermission('RESOURCE','VERB')} form
- *       (D-02), with per-controller mapped/gated counts and grand totals of 58
- *       request-mapped methods and 53 gates.</li>
+ *       (D-02), with per-controller mapped/gated counts and grand totals of 60
+ *       request-mapped methods and 55 gates.</li>
  *   <li>Test 2 — exactly 5 request-mapped methods on the surface are ungated, and
  *       all 5 are the deliberately self-service {@link ConsentController} endpoints
  *       (T-30-08).</li>
- *   <li>Test 3 — all 53 gate literals resolve through {@link Resource#valueOf} +
+ *   <li>Test 3 — all 55 gate literals resolve through {@link Resource#valueOf} +
  *       {@link Operation#valueOf} + {@link Resource#supports} (D-10); an unknown or
  *       un-allow-listed pair fails the build (Pitfall 3).</li>
  *   <li>Test 4 — no {@code hasRole(} / {@code hasAnyRole(} survives in the
@@ -133,13 +133,17 @@ class LegacyEndpointCutoverSweepTest {
             new CutoverController(HealerController.class, 3, 3),
             new CutoverController(ConsentController.class, 6, 1),
             new CutoverController(ConsentTypeController.class, 5, 5),
-            new CutoverController(MasterDataController.class, 21, 21),
+            // 23 from Phase 40 + the 2 protocol->chakra->color relationship reads, + 4
+            // single-protocol chakra/color self-serve management endpoints (GET/POST/PUT/DELETE
+            // .../protocols/{id}/chakra-colors), + 2 import-job status reads added when the
+            // bulk import became async, + 1 SUPADM-only bulk-wipe endpoint (DELETE /wipe).
+            new CutoverController(MasterDataController.class, 30, 30),
             new CutoverController(RbacRoleController.class, 5, 5),
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 58;
-    private static final int EXPECTED_TOTAL_GATED = 53;
+    private static final int EXPECTED_TOTAL_MAPPED = 67;
+    private static final int EXPECTED_TOTAL_GATED = 62;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated
@@ -366,7 +370,7 @@ class LegacyEndpointCutoverSweepTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 53 gates on the surface, never an empty set")
+                .as("the allow-list check must run over all 61 gates on the surface, never an empty set")
                 .hasSize(EXPECTED_TOTAL_GATED);
 
         for (String literal : literals) {

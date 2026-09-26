@@ -19,14 +19,22 @@ import {
   useCreateProtocol,
   useUpdateProtocol,
   useDeleteProtocol,
-  useImportProtocols,
+  useSubmitProtocolImport,
+  useProtocolImportJobs,
+  useChakraColorGroupsForProtocol,
+  useAddProtocolChakraColors,
+  useUpdateProtocolChakraColor,
+  useDeleteProtocolChakraColor,
+  useWipeMasterData,
   type PranaColor,
   type Chakra,
   type Protocol,
   type PranaColorPayload,
   type ChakraPayload,
   type ProtocolPayload,
-  type ProtocolImportResult,
+  type ProtocolImportJobView,
+  type ProtocolChakraColorGroup,
+  type MasterDataType,
 } from "../../hooks/admin/useMasterData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +44,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SelectField, TextField, TextareaField } from "@/components/form/Field";
+import { MultiSelect } from "@/components/ui/multi-select/multi-select";
 import { cn } from "@/lib/utils";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -997,26 +1006,307 @@ function ProtocolTypeBadge({ protocolType }: { protocolType: string }) {
   );
 }
 
+// ── Protocol Chakras & Colors (self-serve, per-protocol) ──────────────────────
+// Lets a healer pick a protocol they can already see and add/edit/remove which
+// chakras (and each chakra's cleansing/energising colors) it addresses,
+// without a bulk xlsx upload. Additions are always the caller's own
+// (healerId = current healer per V38) and editable/deletable only by them
+// (or SUPADM) — system (bulk-imported) rows stay read-only for everyone else.
+
+function ChakraColorRow({
+  group,
+  colors,
+  canModify,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  group: ProtocolChakraColorGroup;
+  colors: PranaColor[];
+  canModify: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const colorLabel = (id: string) => colors.find((c) => c.id === id)?.name ?? id;
+  const colorHex = (id: string) => colors.find((c) => c.id === id)?.colorHex;
+
+  const colorList = (ids: string[]) =>
+    ids.length === 0 ? (
+      <span className="text-text-light">—</span>
+    ) : (
+      <div className="flex flex-wrap gap-1.5 mt-0.5">
+        {ids.map((id) => (
+          <span key={id} className="inline-flex items-center gap-1 text-xs text-text-light">
+            <ColorSwatch hex={colorHex(id)} />
+            {colorLabel(id)}
+          </span>
+        ))}
+      </div>
+    );
+
+  return (
+    <div className="border border-border rounded-lg p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-text text-sm">{group.chakraName}</span>
+          <SourceBadge healerId={group.healerId} />
+        </div>
+        {canModify ? (
+          <RowActions onEdit={onEdit} onDelete={onDelete} deleting={deleting} />
+        ) : (
+          <LockIcon />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+        <div>
+          <span className="text-text-light font-medium">Cleansing</span>
+          {colorList(group.cleansingColorIds)}
+        </div>
+        <div>
+          <span className="text-text-light font-medium">Energising</span>
+          {colorList(group.energisingColorIds)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChakraColorForm({
+  protocolId,
+  editing,
+  usedChakraIds,
+  onDone,
+}: {
+  protocolId: string;
+  /** null = adding a new chakra link; a group = editing that link's colors. */
+  editing: ProtocolChakraColorGroup | null;
+  /** Chakra ids already linked to this protocol (for the caller) — excluded from the add picker. */
+  usedChakraIds: string[];
+  onDone: () => void;
+}) {
+  const { data: chakras } = useChakras();
+  const { data: colors } = usePranaColors();
+  const addMutation = useAddProtocolChakraColors(protocolId);
+  const updateMutation = useUpdateProtocolChakraColor(protocolId);
+
+  const [chakraId, setChakraId] = useState(editing?.chakraId ?? "");
+  const [cleansing, setCleansing] = useState<string[]>(editing?.cleansingColorIds ?? []);
+  const [energising, setEnergising] = useState<string[]>(editing?.energisingColorIds ?? []);
+
+  const chakraOptions = (chakras ?? []).filter(
+    (c) => editing?.chakraId === c.id || !usedChakraIds.includes(c.id)
+  );
+  const colorIds = (colors ?? []).map((c) => c.id);
+  const colorLabel = (id: string) => (colors ?? []).find((c) => c.id === id)?.name ?? id;
+
+  const isPending = addMutation.isPending || updateMutation.isPending;
+
+  const handleSave = async () => {
+    if (!chakraId) return;
+    try {
+      if (editing) {
+        await updateMutation.mutateAsync({
+          protocolChakraId: editing.protocolChakraId,
+          cleansingColorIds: cleansing,
+          energisingColorIds: energising,
+        });
+      } else {
+        await addMutation.mutateAsync([
+          { chakraId, cleansingColorIds: cleansing, energisingColorIds: energising },
+        ]);
+      }
+      onDone();
+    } catch {
+      // error toast already shown by the hook
+    }
+  };
+
+  return (
+    <div className="border border-dashed border-border rounded-lg p-3 space-y-2.5">
+      <Field label="Chakra">
+        <select
+          value={chakraId}
+          onChange={(e) => setChakraId(e.target.value)}
+          disabled={!!editing}
+          className={cn(fieldCls, "w-full rounded-md bg-background")}
+        >
+          <option value="">Select a chakra…</option>
+          {chakraOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Cleansing colors">
+        <MultiSelect<string>
+          title="Cleansing colors"
+          options={colorIds}
+          value={cleansing}
+          onChange={setCleansing}
+          getOptionKey={(id) => id}
+          getOptionLabel={colorLabel}
+          placeholder="Select colors"
+        />
+      </Field>
+      <Field label="Energising colors">
+        <MultiSelect<string>
+          title="Energising colors"
+          options={colorIds}
+          value={energising}
+          onChange={setEnergising}
+          getOptionKey={(id) => id}
+          getOptionLabel={colorLabel}
+          placeholder="Select colors"
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          disabled={!chakraId || isPending}
+          onClick={handleSave}
+          className="flex-1 py-2 h-auto text-sm"
+        >
+          {isPending ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDone}
+          className="px-3 py-2 h-auto text-sm font-normal text-text"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ChakraColorSection({
+  protocolId,
+  isSuperAdmin,
+  currentHealerId,
+}: {
+  protocolId: string;
+  isSuperAdmin: boolean;
+  currentHealerId?: string;
+}) {
+  const { data: groups, isLoading } = useChakraColorGroupsForProtocol(protocolId);
+  const { data: colors } = usePranaColors();
+  const deleteMutation = useDeleteProtocolChakraColor(protocolId);
+  const [editing, setEditing] = useState<ProtocolChakraColorGroup | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProtocolChakraColorGroup | null>(null);
+
+  const canModify = (g: ProtocolChakraColorGroup) =>
+    isSuperAdmin || (!!g.healerId && g.healerId === currentHealerId);
+
+  return (
+    <div className="border-t border-border pt-4 mt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-semibold text-text">Chakras &amp; Colors</Label>
+        {editing === null && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setEditing("new")}
+            className="h-auto py-1.5 px-2.5 text-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Chakra
+          </Button>
+        )}
+      </div>
+
+      {isLoading && <p className="text-xs text-text-light">Loading…</p>}
+      {!isLoading && (groups ?? []).length === 0 && editing === null && (
+        <p className="text-xs text-text-light">No chakras linked yet. Add one below.</p>
+      )}
+
+      <div className="space-y-2">
+        {(groups ?? []).map((g) =>
+          editing !== "new" && editing?.protocolChakraId === g.protocolChakraId ? (
+            <ChakraColorForm
+              key={g.protocolChakraId}
+              protocolId={protocolId}
+              editing={editing}
+              usedChakraIds={[]}
+              onDone={() => setEditing(null)}
+            />
+          ) : (
+            <ChakraColorRow
+              key={g.protocolChakraId}
+              group={g}
+              colors={colors ?? []}
+              canModify={canModify(g)}
+              onEdit={() => setEditing(g)}
+              onDelete={() => setDeleteTarget(g)}
+              deleting={deleteMutation.isPending}
+            />
+          )
+        )}
+      </div>
+
+      {editing === "new" && (
+        <ChakraColorForm
+          protocolId={protocolId}
+          editing={null}
+          usedChakraIds={(groups ?? []).map((g) => g.chakraId)}
+          onDone={() => setEditing(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Remove chakra from protocol?"
+        description={
+          deleteTarget ? `"${deleteTarget.chakraName}" and its colors will be removed.` : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget.protocolChakraId, {
+              onSettled: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function ProtocolModal({
   initial,
+  isSuperAdmin,
   onClose,
 }: {
   initial?: Protocol;
+  isSuperAdmin: boolean;
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
+  // Tracks the protocol being edited, including the one just created in this same modal
+  // session — a fresh "Add Protocol" has no id yet, so chakras/colors can't attach to
+  // anything; once create succeeds, this flips the modal into edit mode in place (see
+  // onSubmit below) instead of closing, so the Chakras & Colors section can appear.
+  const [protocol, setProtocol] = useState<Protocol | undefined>(initial);
   const create = useCreateProtocol();
   const update = useUpdateProtocol();
+  const { user } = useAuth();
 
   const form = useForm({
     defaultValues: {
-      name: initial?.name ?? "",
-      sourceBook: initial?.sourceBook ?? "",
-      pageNumber: initial?.pageNumber?.toString() ?? "",
-      category: initial?.category ?? "",
-      description: initial?.description ?? "",
-      chapter: initial?.chapter ?? "",
-      protocolType: initial?.protocolType ?? "PROTOCOL",
+      name: protocol?.name ?? "",
+      sourceBook: protocol?.sourceBook ?? "",
+      pageNumber: protocol?.pageNumber?.toString() ?? "",
+      category: protocol?.category ?? "",
+      description: protocol?.description ?? "",
+      chapter: protocol?.chapter ?? "",
+      protocolType: protocol?.protocolType ?? "PROTOCOL",
     },
     onSubmit: async ({ value }) => {
       setError("");
@@ -1033,15 +1323,17 @@ function ProtocolModal({
         description: value.description,
         chapter: value.chapter,
         protocolType: value.protocolType as "PROTOCOL" | "SUPPLEMENTARY",
-        healerId: initial ? initial.healerId : null,
+        healerId: protocol ? protocol.healerId : null,
       };
       try {
-        if (initial) {
-          await update.mutateAsync({ id: initial.id, payload });
+        if (protocol) {
+          const updated = await update.mutateAsync({ id: protocol.id, payload });
+          setProtocol(updated);
+          onClose();
         } else {
-          await create.mutateAsync(payload);
+          const created = await create.mutateAsync(payload);
+          setProtocol(created);
         }
-        onClose();
       } catch {
         setError("Failed to save. Please try again.");
       }
@@ -1051,7 +1343,7 @@ function ProtocolModal({
   const isPending = create.isPending || update.isPending;
 
   return (
-    <ModalShell title={initial ? "Edit Protocol" : "Add Protocol"} onClose={onClose}>
+    <ModalShell title={protocol ? "Edit Protocol" : "Add Protocol"} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -1119,88 +1411,196 @@ function ProtocolModal({
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <ModalFooter
           isPending={isPending}
-          submitLabel={initial ? "Save Changes" : "Add Protocol"}
+          submitLabel={protocol ? "Save Changes" : "Add Protocol"}
           onClose={onClose}
         />
+        {!initial && protocol && (
+          <p className="text-xs text-text-light text-center pt-1">
+            Protocol created — add chakras &amp; colors below, then close when done.
+          </p>
+        )}
       </form>
-    </ModalShell>
-  );
-}
 
-function ImportProtocolsDialog({ onClose }: { onClose: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<ProtocolImportResult | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const importProtocols = useImportProtocols();
-
-  const handleUpload = async () => {
-    if (!file) return;
-    try {
-      const res = await importProtocols.mutateAsync(file);
-      setResult(res);
-    } catch {
-      // error toast already shown by the hook
-    }
-  };
-
-  return (
-    <ModalShell title="Import Protocols" onClose={onClose}>
-      {!result ? (
-        <div className="space-y-4">
-          <p className="text-sm text-text-light">
-            Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
-            Page, Category, Description, Chapter, Type.
-          </p>
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <div className="flex gap-2 pt-1">
-            <Button
-              type="button"
-              disabled={!file || importProtocols.isPending}
-              onClick={handleUpload}
-              className="flex-1 py-2.5 h-auto"
-            >
-              {importProtocols.isPending ? "Uploading…" : "Upload"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="px-4 py-2.5 h-auto font-normal text-text"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-text">
-            {result.totalRows} rows processed — {result.created} created,{" "}
-            {result.updated} updated, {result.skipped} skipped.
-          </p>
-          {result.errors.length > 0 && (
-            <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 space-y-1">
-              {result.errors.map((err, i) => (
-                <p key={i} className="text-xs text-red-500">
-                  {err}
-                </p>
-              ))}
-            </div>
-          )}
-          <Button onClick={onClose} className="w-full py-2.5 h-auto">
-            Done
-          </Button>
-        </div>
+      {/* Sibling to the form (not nested inside it) — its Save/Cancel buttons must never be
+          swept into the protocol name/book/page form's submit handler. Only shown once the
+          protocol exists (either passed in for editing, or just created above): chakras/colors
+          attach to a protocol id, so there's nothing to manage yet before that. */}
+      {protocol && (
+        <ChakraColorSection
+          protocolId={protocol.id}
+          isSuperAdmin={isSuperAdmin}
+          currentHealerId={user?.id}
+        />
       )}
     </ModalShell>
   );
 }
 
-function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+function ImportProtocolsDialog({
+  onClose,
+  onSubmitted,
+}: {
+  onClose: () => void;
+  /** Called after a successful submit, before closing — lets the caller switch to the Imports tab. */
+  onSubmitted: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const submitImport = useSubmitProtocolImport();
+  // submitImport.isPending only disables the button once React re-renders — two clicks fired
+  // back-to-back (a real double-click) can both fire before that lands, submitting the same
+  // file twice. This ref is checked/set synchronously, so the second click is dropped
+  // regardless of render timing.
+  const isSubmittingRef = useRef(false);
+
+  const handleUpload = async () => {
+    if (!file || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    try {
+      await submitImport.mutateAsync(file);
+      onSubmitted();
+      onClose();
+    } catch {
+      // error toast already shown by the hook
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  return (
+    <ModalShell title="Import Protocols" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-text-light">
+          Upload a .xlsx or .csv file with columns: Protocol/Technique Name, Book,
+          Page, Category, Description, Chapter, Type.
+        </p>
+        <p className="text-sm text-text-light">
+          Optionally also include Chakras Used, Cleansing Color and Energizing
+          Color columns to link the chakras and colors each protocol uses —
+          unrecognized chakra/color names are created automatically. This never
+          creates or edits a protocol: a row whose Protocol/Technique Name +
+          Page doesn't already match an existing protocol is skipped.
+        </p>
+        <p className="text-sm text-text-light">
+          The import runs in the background — you can keep working, submit
+          another import, and check progress any time in the Imports tab.
+        </p>
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.csv"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="button"
+            disabled={!file || submitImport.isPending}
+            onClick={handleUpload}
+            className="flex-1 py-2.5 h-auto"
+          >
+            {submitImport.isPending ? "Submitting…" : "Upload"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="px-4 py-2.5 h-auto font-normal text-text"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ── Imports Tab ────────────────────────────────────────────────────────────────
+
+function ImportJobStatusBadge({ status }: { status: ProtocolImportJobView["status"] }) {
+  const styles: Record<ProtocolImportJobView["status"], string> = {
+    QUEUED: "bg-gray-100 text-gray-600",
+    PROCESSING: "bg-blue-100 text-blue-700",
+    COMPLETED: "bg-green-100 text-green-700",
+    FAILED: "bg-red-100 text-red-700",
+  };
+  return <Badge className={cn("font-semibold px-2", styles[status])}>{status}</Badge>;
+}
+
+function ImportJobRow({ job }: { job: ProtocolImportJobView }) {
+  const [showErrors, setShowErrors] = useState(false);
+  return (
+    <div className="border border-border rounded-xl p-4 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-medium text-text truncate">{job.originalFilename ?? "—"}</p>
+          <p className="text-xs text-text-light">{new Date(job.createdAt).toLocaleString()}</p>
+        </div>
+        <ImportJobStatusBadge status={job.status} />
+      </div>
+      {job.status === "COMPLETED" && (
+        <p className="text-sm text-text-light">
+          {job.totalRows} rows — {job.created} created, {job.updated} updated, {job.skipped} skipped
+        </p>
+      )}
+      {job.status === "FAILED" && job.failureMessage && (
+        <p className="text-sm text-red-500">{job.failureMessage}</p>
+      )}
+      {job.errors.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowErrors((v) => !v)}
+            className="text-xs text-primary underline"
+          >
+            {showErrors ? "Hide" : "Show"} {job.errors.length} row error{job.errors.length === 1 ? "" : "s"}
+          </button>
+          {showErrors && (
+            <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 mt-2 space-y-1">
+              {job.errors.map((err, i) => (
+                <p key={i} className="text-xs text-red-500">{err}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportsTab() {
+  const { data, isLoading, isError } = useProtocolImportJobs();
+
+  return (
+    <div>
+      <p className="text-sm text-text-light mb-4">
+        Every protocol import you've submitted, newest first. Still-running imports
+        refresh automatically.
+      </p>
+      {isLoading && <p className="text-text-light text-sm">Loading…</p>}
+      {isError && <p className="text-red-500 text-sm">Failed to load import jobs.</p>}
+      {data && data.length === 0 && (
+        <p className="text-text-light text-sm">
+          No imports submitted yet — use Import on the Protocols tab.
+        </p>
+      )}
+      {data && data.length > 0 && (
+        <div className="space-y-3">
+          {data.map((job) => (
+            <ImportJobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProtocolsTab({
+  isSuperAdmin,
+  onNavigateToImports,
+}: {
+  isSuperAdmin: boolean;
+  onNavigateToImports: () => void;
+}) {
   const { data, isLoading, isError } = useProtocols();
   const deleteProtocol = useDeleteProtocol();
   const [modal, setModal] = useState<Protocol | null | "new">(null);
@@ -1353,10 +1753,19 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       )}
 
       {modal !== null && (
-        <ProtocolModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+        <ProtocolModal
+          initial={modal === "new" ? undefined : modal}
+          isSuperAdmin={isSuperAdmin}
+          onClose={() => setModal(null)}
+        />
       )}
 
-      {showImport && <ImportProtocolsDialog onClose={() => setShowImport(false)} />}
+      {showImport && (
+        <ImportProtocolsDialog
+          onClose={() => setShowImport(false)}
+          onSubmitted={onNavigateToImports}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -1378,9 +1787,68 @@ function ProtocolsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   );
 }
 
+// ── Bulk wipe (SUPADM only) ─────────────────────────────────────────────────────
+
+const WIPE_TYPE_OPTIONS: { label: string; value: MasterDataType }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Prana Colors", value: "COLORS" },
+  { label: "Chakras", value: "CHAKRAS" },
+  // { label: "Protocol Mappings", value: "MAPPINGS" },
+  { label: "Protocols", value: "PROTOCOLS" },
+];
+
+/** Rendered only for SUPADM by the caller — the backend also refuses everyone else regardless. */
+function WipeMasterDataControl() {
+  const [type, setType] = useState<MasterDataType>("ALL");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const wipe = useWipeMasterData();
+
+  const selectedLabel = WIPE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+
+  return (
+    <div className="mb-6 border border-red-200 bg-red-50 rounded-lg p-3 flex flex-wrap items-center gap-3">
+      <span className="text-sm text-red-700 font-medium">Danger zone —</span>
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as MasterDataType)}
+        className={cn(fieldCls, "rounded-md bg-background")}
+      >
+        {WIPE_TYPE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <Button
+        type="button"
+        variant="outline"
+        className="border-red-300 text-red-700 hover:bg-red-100"
+        onClick={() => setConfirmOpen(true)}
+      >
+        Delete master data
+      </Button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={type === "ALL" ? "Delete ALL master data?" : `Delete all ${selectedLabel}?`}
+        description={`This permanently removes every ${
+          type === "ALL" ? "prana color, chakra, protocol mapping, and protocol" : selectedLabel.toLowerCase()
+        } row — system and healer-owned alike. This cannot be undone from the UI.`}
+        confirmLabel="Delete"
+        destructive
+        loading={wipe.isPending}
+        onConfirm={() => {
+          wipe.mutate(type, { onSettled: () => setConfirmOpen(false) });
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-type Tab = "colors" | "chakras" | "mappings" | "protocols";
+type Tab = "colors" | "chakras" | "mappings" | "protocols" | "imports";
 
 export default function MasterDataPage() {
   const { user } = useAuth();
@@ -1390,8 +1858,9 @@ export default function MasterDataPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "colors", label: "Prana Colors" },
     { key: "chakras", label: "Chakras" },
-    { key: "mappings", label: "Protocol Mappings" },
+    // { key: "mappings", label: "Protocol Mappings" },
     { key: "protocols", label: "Protocols" },
+    { key: "imports", label: "Imports" },
   ];
 
   return (
@@ -1402,6 +1871,8 @@ export default function MasterDataPage() {
           Manage prana colors, chakras, and protocol color mappings.
         </p>
       </div>
+
+      {isSuperAdmin && <WipeMasterDataControl />}
 
       {/* Tab bar */}
       <div className="flex border-b border-border mb-6 overflow-x-auto">
@@ -1426,7 +1897,13 @@ export default function MasterDataPage() {
       {activeTab === "colors" && <PranaColorsTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "chakras" && <ChakrasTab isSuperAdmin={isSuperAdmin} />}
       {activeTab === "mappings" && <ProtocolMappingsTab isSuperAdmin={isSuperAdmin} />}
-      {activeTab === "protocols" && <ProtocolsTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "protocols" && (
+        <ProtocolsTab
+          isSuperAdmin={isSuperAdmin}
+          onNavigateToImports={() => setActiveTab("imports")}
+        />
+      )}
+      {activeTab === "imports" && <ImportsTab />}
     </div>
   );
 }

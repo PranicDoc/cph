@@ -74,7 +74,10 @@ class BaselineRoleSeederTest {
                 Map.entry(Resource.CREDIT_ACCOUNT_TRANSACTIONS, Set.of(Operation.READ, Operation.WRITE)),
                 Map.entry(Resource.MASTER_DATA_CHAKRAS, Set.of(Operation.READ)),
                 Map.entry(Resource.MASTER_DATA_COLORS, Set.of(Operation.READ)),
-                Map.entry(Resource.MASTER_DATA_PROTOCOLS, Set.of(Operation.READ)));
+                // CREATE/UPDATE/DELETE (not read-only) so a healer can self-serve their own
+                // protocol-chakra-color additions -- see BaselineRole's class doc.
+                Map.entry(Resource.MASTER_DATA_PROTOCOLS,
+                        Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE)));
 
         assertEquals(expected, persisted);
     }

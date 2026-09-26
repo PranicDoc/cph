@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.auth.service.HealerCacheService;
+import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
@@ -8,7 +9,7 @@ import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -84,8 +85,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       request.</li>
  * </ul>
  *
- * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 21
- * concrete requests asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
+ * <p><b>Task 1</b> — {@code supadmReachesEveryConvertedEndpoint} sweeps all 25
+ * concrete requests (21 from Phase 40, 2 protocol-&gt;chakra-&gt;color relationship
+ * reads added afterward, and 2 import-job status reads added when the bulk
+ * import became async) asserting "not 403" plus {@code verifyNoInteractions(lookupService)};
  * {@code newlyGatedReadEndpointsDenyAnUngrantedCaller} /
  * {@code ...AdmitAGrantedCaller} prove the D-09 read-leak closure endpoint by
  * endpoint (the 8 GETs that carried no {@code @PreAuthorize} before this phase);
@@ -126,7 +129,7 @@ class MasterDataControllerAuthorizationTest {
     @MockBean
     private MasterDataService masterDataService;
     @MockBean
-    private ProtocolImportService protocolImportService;
+    private ProtocolImportJobService protocolImportJobService;
 
     // ─── consumed by RbacAuthz ─────────────────────────────────────────────
     @MockBean
@@ -191,8 +194,8 @@ class MasterDataControllerAuthorizationTest {
     //  Task 1 — SUPADM sweep + D-09 deny/admit + resource/verb isolation
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** All 21 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
-    static Stream<Arguments> allTwentyOneEndpoints() {
+    /** All 25 concrete requests on the converted surface, {uuid} -> {@link #ROW_ID}. */
+    static Stream<Arguments> allConvertedEndpoints() {
         return Stream.of(
                 Arguments.of("GET", BASE + "/chakras"),
                 Arguments.of("GET", BASE + "/chakras/" + ROW_ID),
@@ -214,18 +217,23 @@ class MasterDataControllerAuthorizationTest {
                 Arguments.of("POST", BASE + "/protocols"),
                 Arguments.of("PUT", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID),
-                Arguments.of("MULTIPART", BASE + "/protocols/import"));
+                Arguments.of("MULTIPART", BASE + "/protocols/import"),
+                Arguments.of("GET", BASE + "/protocols/import-jobs"),
+                Arguments.of("GET", BASE + "/protocols/import-jobs/" + ROW_ID),
+                Arguments.of("GET", BASE + "/protocols/chakras?protocolIds=" + ROW_ID),
+                Arguments.of("GET", BASE + "/protocols/colors?protocolIds=" + ROW_ID + "&chakraIds=" + ROW_ID),
+                Arguments.of("DELETE", BASE + "/wipe?type=ALL"));
     }
 
     @Test
-    void task1SweepCoversExactly21Endpoints() {
-        assertThat(allTwentyOneEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 21 converted MasterDataController requests")
-                .isEqualTo(21L);
+    void task1SweepCoversExactly26Endpoints() {
+        assertThat(allConvertedEndpoints().count())
+                .as("the SUPADM sweep must supply exactly the 26 converted MasterDataController requests")
+                .isEqualTo(26L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
-    @MethodSource("allTwentyOneEndpoints")
+    @MethodSource("allConvertedEndpoints")
     void supadmReachesEveryConvertedEndpoint(String method, String path) throws Exception {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
@@ -476,5 +484,84 @@ class MasterDataControllerAuthorizationTest {
 
         mockMvc.perform(delete(BASE + "/chakras/" + ROW_ID).cookie(accessCookie()))
                 .andExpect(status().isForbidden());
+    }
+
+    // ─── Test D — bulk-wipe endpoint is unconditionally SUPADM-only ──────────
+    // Unlike the three PD-40-04 overrides above (which gate a per-row SYSTEM-vs-owned
+    // decision), wipeMasterData refuses every non-SUPADM caller outright, regardless of
+    // row ownership or which MASTER_DATA_PROTOCOLS verbs they hold.
+
+    @Test
+    void supadmCanWipeMasterData() throws Exception {
+        authenticateAs("SUPADM");
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        mockMvc.perform(delete(BASE + "/wipe?type=ALL").cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        var captor = forClass(Boolean.class);
+        verify(masterDataService).wipeMasterData(eq(MasterDataType.ALL), captor.capture());
+        assertThat(captor.getValue())
+                .as("SUPADM must receive the bulk-wipe authorization")
+                .isTrue();
+    }
+
+    /**
+     * The must-have truth for D-04's absolute variant: a non-SUPADM caller holding every
+     * GRANTABLE {@code MASTER_DATA_PROTOCOLS} verb (READ/CREATE/UPDATE/DELETE — enough to
+     * pass the {@code @PreAuthorize} gate) still never receives the wipe authorization,
+     * because {@code MASTER_DATA_PROTOCOLS} does not allow-list ADMIN — mirrors
+     * {@code nonSupadmWithEveryAllowListedVerb_neverReceivesTheOverride()}.
+     */
+    @Test
+    void nonSupadmWithEveryAllowListedVerb_neverReceivesWipeAuthorization() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), eq(Operation.READ)))
+                .thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), eq(Operation.CREATE)))
+                .thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), eq(Operation.UPDATE)))
+                .thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), eq(Operation.DELETE)))
+                .thenReturn(true);
+
+        mockMvc.perform(delete(BASE + "/wipe?type=ALL").cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        var captor = forClass(Boolean.class);
+        verify(masterDataService).wipeMasterData(eq(MasterDataType.ALL), captor.capture());
+        assertThat(captor.getValue())
+                .as("a non-SUPADM caller holding every GRANTABLE MASTER_DATA_PROTOCOLS verb must still "
+                        + "never receive the wipe authorization")
+                .isFalse();
+    }
+
+    @Test
+    void wipeDeniedForNonSupadmReturns403() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        // Gate admits: MASTER_DATA_PROTOCOLS:DELETE granted.
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_PROTOCOLS), eq(Operation.DELETE)))
+                .thenReturn(true);
+        // ...but the caller is not SUPADM, so the service refuses the whole operation outright.
+        doThrow(new AccessDeniedException("Master data can only be wiped by SUPADM"))
+                .when(masterDataService).wipeMasterData(eq(MasterDataType.ALL), eq(false));
+
+        mockMvc.perform(delete(BASE + "/wipe?type=ALL").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void wipeAcceptsASingleCategoryTypeParam() throws Exception {
+        authenticateAs("SUPADM");
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        mockMvc.perform(delete(BASE + "/wipe?type=PROTOCOLS").cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        verify(masterDataService).wipeMasterData(eq(MasterDataType.PROTOCOLS), eq(true));
     }
 }

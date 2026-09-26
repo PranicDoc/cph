@@ -37,6 +37,17 @@ spring:
         # same role into a single "WHERE id IN (...)" query instead of firing
         # one query per parent entity/collection.
         default_batch_fetch_size: 50
+        # Write-side counterpart of the above. The DB is a remote Aiven Postgres (~240 ms per
+        # round trip), so an un-batched flush of one session (2 scans x N readings, plus an
+        # Envers _aud row per entity) was ~110 sequential INSERTs and alone could exceed
+        # nginx's 30 s timeout. Batch them; ids are app-assigned UUIDs (no IDENTITY columns),
+        # so JDBC batching is not silently disabled. order_* group same-table statements
+        # so batches are actually contiguous.
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: true

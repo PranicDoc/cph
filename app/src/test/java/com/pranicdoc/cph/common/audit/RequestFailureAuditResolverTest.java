@@ -155,7 +155,7 @@ class RequestFailureAuditResolverTest {
         mockMvc.perform(post("/api/things/123")
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
-                        .content("{\"patient\":{\"maritalStatus\":\"DIVORCED\"}}"))
+                        .content("{\"patient\":{\"maritalStatus\":\"SEPARATED\"}}"))
                 .andExpect(status().isBadRequest());
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);

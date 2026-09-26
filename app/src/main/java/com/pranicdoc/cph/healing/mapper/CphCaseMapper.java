@@ -95,9 +95,13 @@ public abstract class CphCaseMapper {
     @Named("toMaritalStatus")
     public com.pranicdoc.common.dto.enums.MaritalStatus toMaritalStatus(
             com.pranicdoc.cph.common.enums.MaritalStatus ms) {
-        return ms != null
-                ? com.pranicdoc.common.dto.enums.MaritalStatus.valueOf(ms.name())
-                : null;
+        if (ms == null) return null;
+        // common-dtos (and the PDF template) only know SINGLE/MARRIED/OTHERS.
+        return switch (ms) {
+            case SINGLE -> com.pranicdoc.common.dto.enums.MaritalStatus.SINGLE;
+            case MARRIED -> com.pranicdoc.common.dto.enums.MaritalStatus.MARRIED;
+            case DIVORCED, WIDOWED, OTHERS -> com.pranicdoc.common.dto.enums.MaritalStatus.OTHERS;
+        };
     }
 
     // ── HPU snapshot builder ──────────────────────────────────────────────────

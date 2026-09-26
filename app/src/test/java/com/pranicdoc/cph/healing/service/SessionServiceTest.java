@@ -16,6 +16,7 @@ import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
+import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,7 +77,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(true);
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -102,7 +104,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(false);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of());
 
         assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
         verify(mapper, never()).toEntity(any());
@@ -123,7 +125,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -147,7 +149,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -189,7 +191,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
-        when(chakraCatalogRepository.existsById(chakraId)).thenReturn(true);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
@@ -224,6 +226,69 @@ class SessionServiceTest {
                 List.of(),
                 List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", ""))
         );
+    }
+
+    private ChakraCatalog chakra(UUID id) {
+        ChakraCatalog chakra = new ChakraCatalog();
+        chakra.setId(id);
+        return chakra;
+    }
+
+    @Test
+    void createValidatesAllChakrasWithASingleCatalogQuery() {
+        UUID caseId = UUID.randomUUID();
+        UUID colorId = UUID.randomUUID();
+        // 2 scans x 25 readings each over 25 distinct chakras (the size of a real submit).
+        List<UUID> chakraIds = new ArrayList<>();
+        List<ScanRequest.ChakraReadingRequest> readings = new ArrayList<>();
+        for (int i = 0; i < 25; i++) {
+            UUID id = UUID.randomUUID();
+            chakraIds.add(id);
+            readings.add(new ScanRequest.ChakraReadingRequest(id, "Chakra " + i, "N", "N", ""));
+        }
+        CreateSessionRequest request = new CreateSessionRequest(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                List.of(new ScanRequest(ScanType.PRE, "", readings), new ScanRequest(ScanType.POST, "", readings)),
+                List.of(),
+                List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", "")));
+        HealingSession session = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any()))
+                .thenReturn(chakraIds.stream().map(this::chakra).toList());
+        when(mapper.toEntity(request)).thenReturn(session);
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.create(request);
+
+        // One round trip for all 50 readings (each DB round trip is ~240 ms in prod), never per reading.
+        verify(chakraCatalogRepository, times(1)).findAllById(any());
+        verify(chakraCatalogRepository, never()).existsById(any());
+    }
+
+    @Test
+    void createRejectsWhenOnlySomeChakrasExist() {
+        UUID caseId = UUID.randomUUID();
+        UUID knownId = UUID.randomUUID();
+        UUID unknownId = UUID.randomUUID();
+        var readings = List.of(
+                new ScanRequest.ChakraReadingRequest(knownId, "Known", "N", "N", ""),
+                new ScanRequest.ChakraReadingRequest(unknownId, "Unknown", "N", "N", ""));
+        CreateSessionRequest request = new CreateSessionRequest(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                List.of(new ScanRequest(ScanType.PRE, "", readings), new ScanRequest(ScanType.POST, "", readings)),
+                List.of(),
+                List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", "")));
+
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(knownId)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
+        assertEquals("Invalid chakraId: " + unknownId, ex.getMessage());
+        verify(mapper, never()).toEntity(any());
     }
 
     private HealingCase healingCase(UUID caseId) {

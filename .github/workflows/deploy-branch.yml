@@ -1,11 +1,16 @@
 name: Deploy branch image to VM
 
-# Manually deploy an arbitrary branch's cph image to the production VM, gated by
-# the cph-vm-deploy approval environment. Mechanism: build the branch image
-# (tag ghcr.io/<owner>/cph:sha-<short>), snapshot the currently-live
-# ghcr.io/<owner>/cph:latest onto :vm-rollback, then retag :latest to the new
-# build. The VM's `docker compose pull cph` is unchanged — it just pulls the
-# moved :latest. Roll back with the "Roll back cph on VM" workflow.
+# Manually deploy an arbitrary branch's cph and/or cph-ui image to the
+# production VM, gated by the cph-vm-deploy approval environment. Select
+# which service(s) to deploy with the deploy_backend / deploy_ui checkboxes
+# (at least one must be checked); both can be checked to deploy together.
+#
+# Mechanism per selected service: build the branch image (tag
+# ghcr.io/<owner>/<image>:sha-<short>), snapshot the currently-live
+# ghcr.io/<owner>/<image>:latest onto :vm-rollback, then retag :latest to the
+# new build. The VM's `docker compose pull <service>` is unchanged — it just
+# pulls the moved :latest. Roll back the backend with the "Roll back cph on
+# VM" workflow (UI rollback: rerun this workflow with ui_image_tag=vm-rollback).
 #
 # Requires: GitHub Environment `cph-vm-deploy` (required reviewers); secrets
 # VM_HOST / VM_USER / VM_PASSWORD / GPR_KEY, and — for run_backfill —
@@ -18,12 +23,24 @@ on:
         description: "Branch / tag / SHA to build from (blank = the branch selected above)"
         type: string
         default: ""
+      deploy_backend:
+        description: "Deploy backend (cph)"
+        type: boolean
+        default: true
+      deploy_ui:
+        description: "Deploy UI (cph-ui)"
+        type: boolean
+        default: false
       image_tag:
-        description: "Existing GHCR tag to deploy WITHOUT building, e.g. sha-abc1234 (blank = build)"
+        description: "Backend: existing GHCR tag to deploy WITHOUT building, e.g. sha-abc1234 (blank = build)"
+        type: string
+        default: ""
+      ui_image_tag:
+        description: "UI: existing GHCR tag to deploy WITHOUT building, e.g. sha-abc1234 (blank = build)"
         type: string
         default: ""
       run_backfill:
-        description: "Run the Practitioner-role backfill after a healthy deploy"
+        description: "Run the Practitioner-role backfill after a healthy deploy (backend only)"
         type: boolean
         default: true
       auto_revert_on_failure:
@@ -36,9 +53,9 @@ permissions:
   packages: write
 
 jobs:
-  build:
-    name: Build branch image
-    if: ${{ inputs.image_tag == '' }}
+  build_backend:
+    name: Build backend image
+    if: ${{ inputs.deploy_backend && inputs.image_tag == '' }}
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
@@ -82,15 +99,20 @@ jobs:
           cache-from: type=gha,scope=cph
           cache-to: type=gha,mode=max,scope=cph
 
-  deploy:
-    name: Promote & deploy to VM
-    needs: [build]
-    if: ${{ always() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+  build_ui:
+    name: Build UI image
+    if: ${{ inputs.deploy_ui && inputs.ui_image_tag == '' }}
     runs-on: ubuntu-latest
-    environment: cph-vm-deploy
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Resolve image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cph" >> "$GITHUB_ENV"
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cph-ui" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,91 +124,191 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve target tag
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # Branch build — sha-<short> only, never :latest.
+          tags: type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ui
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
+          cache-from: type=gha,scope=cph-ui
+          cache-to: type=gha,mode=max,scope=cph-ui
+
+  deploy:
+    name: Promote & deploy to VM
+    needs: [build_backend, build_ui]
+    if: ${{ always() && (inputs.deploy_backend || inputs.deploy_ui) && (needs.build_backend.result == 'success' || needs.build_backend.result == 'skipped') && (needs.build_ui.result == 'success' || needs.build_ui.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: cph-vm-deploy
+    steps:
+      - name: Resolve image names
+        run: |
+          echo "BACKEND_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cph" >> "$GITHUB_ENV"
+          echo "UI_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cph-ui" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve target tags
         id: tag
         run: |
           set -euo pipefail
-          TAG="${{ inputs.image_tag != '' && inputs.image_tag || needs.build.outputs.image_tag }}"
-          if [ -z "$TAG" ]; then
-            echo "::error::could not determine an image tag to deploy (build skipped and no image_tag given?)"
-            exit 1
+          if [ "${{ inputs.deploy_backend }}" = "true" ]; then
+            BTAG="${{ inputs.image_tag != '' && inputs.image_tag || needs.build_backend.outputs.image_tag }}"
+            if [ -z "$BTAG" ]; then
+              echo "::error::could not determine a backend image tag to deploy (build skipped and no image_tag given?)"
+              exit 1
+            fi
+            echo "backend_tag=$BTAG" >> "$GITHUB_OUTPUT"
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "## Deploy \`$IMAGE:$TAG\` to the VM" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.deploy_ui }}" = "true" ]; then
+            UTAG="${{ inputs.ui_image_tag != '' && inputs.ui_image_tag || needs.build_ui.outputs.image_tag }}"
+            if [ -z "$UTAG" ]; then
+              echo "::error::could not determine a UI image tag to deploy (build skipped and no ui_image_tag given?)"
+              exit 1
+            fi
+            echo "ui_tag=$UTAG" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "## Deploy to the VM"
+            if [ "${{ inputs.deploy_backend }}" = "true" ]; then echo "- backend: \`$BACKEND_IMAGE:$BTAG\`"; fi
+            if [ "${{ inputs.deploy_ui }}" = "true" ]; then echo "- ui: \`$UI_IMAGE:$UTAG\`"; fi
+            true
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Snapshot current :latest -> :vm-rollback
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "$IMAGE:vm-rollback" "$IMAGE:latest"
-          echo "- snapshotted the current \`:latest\` onto \`:vm-rollback\` (rollback point)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.deploy_backend }}" = "true" ]; then
+            docker buildx imagetools create --tag "$BACKEND_IMAGE:vm-rollback" "$BACKEND_IMAGE:latest"
+            echo "- snapshotted backend's current \`:latest\` onto \`:vm-rollback\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ inputs.deploy_ui }}" = "true" ]; then
+            docker buildx imagetools create --tag "$UI_IMAGE:vm-rollback" "$UI_IMAGE:latest"
+            echo "- snapshotted UI's current \`:latest\` onto \`:vm-rollback\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Promote target -> :latest
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE:${{ steps.tag.outputs.tag }}"
-          DIGEST=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
-          echo "- \`:latest\` now points at \`${{ steps.tag.outputs.tag }}\` (\`$DIGEST\`)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.deploy_backend }}" = "true" ]; then
+            docker buildx imagetools create --tag "$BACKEND_IMAGE:latest" "$BACKEND_IMAGE:${{ steps.tag.outputs.backend_tag }}"
+            echo "- backend \`:latest\` now points at \`${{ steps.tag.outputs.backend_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ inputs.deploy_ui }}" = "true" ]; then
+            docker buildx imagetools create --tag "$UI_IMAGE:latest" "$UI_IMAGE:${{ steps.tag.outputs.ui_tag }}"
+            echo "- UI \`:latest\` now points at \`${{ steps.tag.outputs.ui_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Deploy on VM and wait for healthy
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_BACKEND: ${{ inputs.deploy_backend }}
+          DEPLOY_UI: ${{ inputs.deploy_ui }}
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           password: ${{ secrets.VM_PASSWORD }}
+          envs: DEPLOY_BACKEND,DEPLOY_UI
           script_stop: true
           script: |
             set -e
             cd /opt/pranicdoc
-            docker compose pull cph
-            docker compose up -d --no-deps cph
-            cid=$(docker compose ps -q cph)
-            if [ -z "$cid" ]; then echo "cph container not found after up" >&2; docker compose ps >&2; exit 1; fi
-            for i in $(seq 1 30); do
-              s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
-              echo "health[$i/30]: $s"
-              [ "$s" = healthy ] && exit 0
-              sleep 10
+            SERVICES=""
+            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
+            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
+            if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
+            docker compose pull $SERVICES
+            docker compose up -d --no-deps $SERVICES
+            for svc in $SERVICES; do
+              cid=$(docker compose ps -q "$svc")
+              if [ -z "$cid" ]; then echo "$svc container not found after up" >&2; docker compose ps >&2; exit 1; fi
+              ok=""
+              for i in $(seq 1 30); do
+                s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
+                echo "$svc health[$i/30]: $s"
+                if [ "$s" = healthy ]; then ok=1; break; fi
+                sleep 10
+              done
+              if [ -z "$ok" ]; then
+                echo "$svc did not become healthy within ~5 min" >&2
+                docker compose logs --tail=80 "$svc" >&2 || true
+                exit 1
+              fi
             done
-            echo "cph did not become healthy within ~5 min" >&2
-            docker compose logs --tail=80 cph >&2 || true
-            exit 1
 
       - name: Revert :latest -> :vm-rollback (deploy failed)
         if: ${{ failure() && inputs.auto_revert_on_failure }}
         run: |
           set -euo pipefail
           echo "::warning::deploy failed — reverting :latest to :vm-rollback"
-          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE:vm-rollback"
-          echo "- deploy failed; reverted \`:latest\` to \`:vm-rollback\` and redeploying" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.deploy_backend }}" = "true" ]; then
+            docker buildx imagetools create --tag "$BACKEND_IMAGE:latest" "$BACKEND_IMAGE:vm-rollback"
+            echo "- deploy failed; reverted backend \`:latest\` to \`:vm-rollback\` and redeploying" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ inputs.deploy_ui }}" = "true" ]; then
+            docker buildx imagetools create --tag "$UI_IMAGE:latest" "$UI_IMAGE:vm-rollback"
+            echo "- deploy failed; reverted UI \`:latest\` to \`:vm-rollback\` and redeploying" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Redeploy previous image on VM (deploy failed)
         if: ${{ failure() && inputs.auto_revert_on_failure }}
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_BACKEND: ${{ inputs.deploy_backend }}
+          DEPLOY_UI: ${{ inputs.deploy_ui }}
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           password: ${{ secrets.VM_PASSWORD }}
+          envs: DEPLOY_BACKEND,DEPLOY_UI
           script_stop: true
           script: |
             set -e
             cd /opt/pranicdoc
-            docker compose pull cph
-            docker compose up -d --no-deps cph
-            cid=$(docker compose ps -q cph)
-            if [ -z "$cid" ]; then echo "cph container not found after up" >&2; docker compose ps >&2; exit 1; fi
-            for i in $(seq 1 30); do
-              s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
-              echo "health[$i/30]: $s"
-              [ "$s" = healthy ] && exit 0
-              sleep 10
+            SERVICES=""
+            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
+            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
+            if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
+            docker compose pull $SERVICES
+            docker compose up -d --no-deps $SERVICES
+            for svc in $SERVICES; do
+              cid=$(docker compose ps -q "$svc")
+              if [ -z "$cid" ]; then echo "$svc container not found after up" >&2; docker compose ps >&2; exit 1; fi
+              ok=""
+              for i in $(seq 1 30); do
+                s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
+                echo "$svc health[$i/30]: $s"
+                if [ "$s" = healthy ]; then ok=1; break; fi
+                sleep 10
+              done
+              if [ -z "$ok" ]; then
+                echo "$svc did not become healthy within ~5 min after revert" >&2
+                docker compose logs --tail=80 "$svc" >&2 || true
+                exit 1
+              fi
             done
-            echo "cph did not become healthy within ~5 min after revert" >&2
-            docker compose logs --tail=80 cph >&2 || true
-            exit 1
 
   backfill:
     name: Practitioner-role backfill
     needs: [deploy]
-    if: ${{ needs.deploy.result == 'success' && inputs.run_backfill }}
+    if: ${{ needs.deploy.result == 'success' && inputs.run_backfill && inputs.deploy_backend }}
     uses: ./.github/workflows/backfill-practitioner-role.yml
     secrets: inherit

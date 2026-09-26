@@ -38,15 +38,21 @@ import static org.assertj.core.api.Assertions.fail;
  * annotations say.
  *
  * <ul>
- *   <li><b>Section A</b> — 21 independent literal pins, one per endpoint.</li>
+ *   <li><b>Section A</b> — 29 independent literal pins, one per endpoint (21 from Phase 40,
+ *       2 protocol-&gt;chakra-&gt;color relationship reads added afterward, 4 single-protocol
+ *       chakra/color management endpoints — GET/POST/PUT/DELETE {@code .../protocols/{id}/chakra-colors}
+ *       — added to let a healer self-serve their own chakra/color additions on a protocol, and
+ *       2 import-job status reads — GET {@code .../protocols/import-jobs} and GET {@code
+ *       .../protocols/import-jobs/{id}} — added when the bulk import became async).</li>
  *   <li><b>Section B</b> — anti-vacuous sweep: every request-mapped method carries
- *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 21}.</li>
+ *       a bare {@code @rbacAuthz.hasPermission('R','V')} gate, {@code inspected == 29}.</li>
  *   <li><b>Section C</b> — every named (resource, verb) pair is allow-listed.</li>
  *   <li><b>Section D</b> — PD-40-04: the master-data ADMIN override verb is
  *       intentionally non-grantable; adding it fails this test.</li>
- *   <li><b>Section E</b> — the 7 system-row override flags were re-sourced, not
- *       deleted: comment-stripped source has zero SUPADM literals and exactly 7
- *       {@code boolean isSuperAdmin}.</li>
+ *   <li><b>Section E</b> — the 9 system-row override flags were re-sourced, not
+ *       deleted: comment-stripped source has zero SUPADM literals and exactly 9
+ *       {@code boolean isSuperAdmin} (7 from Phase 40 plus 2 for the new PUT/DELETE
+ *       chakra-colors endpoints).</li>
  * </ul>
  */
 class MasterDataControllerAuthorizationContractTest {
@@ -68,7 +74,7 @@ class MasterDataControllerAuthorizationContractTest {
     private static final String PROTOCOLS_UPDATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')";
     private static final String PROTOCOLS_DELETE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 21 endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 29 endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getChakras",      CHAKRAS_READ},
             new String[]{"getChakraById",   CHAKRAS_READ},
@@ -90,7 +96,16 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"createProtocol",  PROTOCOLS_CREATE},
             new String[]{"updateProtocol",  PROTOCOLS_UPDATE},
             new String[]{"deleteProtocol",  PROTOCOLS_DELETE},
-            new String[]{"importProtocols", PROTOCOLS_CREATE});
+            new String[]{"importProtocols", PROTOCOLS_CREATE},
+            new String[]{"getImportJobs", PROTOCOLS_READ},
+            new String[]{"getImportJob", PROTOCOLS_READ},
+            new String[]{"getChakrasForProtocols",          PROTOCOLS_READ},
+            new String[]{"getColorsForProtocolsAndChakras", PROTOCOLS_READ},
+            new String[]{"getChakraColorGroupsForProtocol", PROTOCOLS_READ},
+            new String[]{"addProtocolChakraColors",         PROTOCOLS_CREATE},
+            new String[]{"updateProtocolChakraColor",       PROTOCOLS_UPDATE},
+            new String[]{"deleteProtocolChakraColor",       PROTOCOLS_DELETE},
+            new String[]{"wipeMasterData",                  PROTOCOLS_DELETE});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -120,7 +135,7 @@ class MasterDataControllerAuthorizationContractTest {
                 .isEqualTo(expected);
     }
 
-    // ─── Section A — 21 independent literal pins ──────────────────────────
+    // ─── Section A — 23 independent literal pins ──────────────────────────
 
     @Test @DisplayName("chakras: getChakras is gated MASTER_DATA_CHAKRAS:READ (D-09 newly gated)")
     void getChakras_isGatedByChakrasRead() { assertGate("getChakras", CHAKRAS_READ); }
@@ -182,8 +197,32 @@ class MasterDataControllerAuthorizationContractTest {
     @Test @DisplayName("protocols: deleteProtocol is gated MASTER_DATA_PROTOCOLS:DELETE")
     void deleteProtocol_isGatedByProtocolsDelete() { assertGate("deleteProtocol", PROTOCOLS_DELETE); }
 
-    @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:CREATE (bulk CSV creation)")
+    @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:CREATE (bulk CSV creation, now async submit)")
     void importProtocols_isGatedByProtocolsCreate() { assertGate("importProtocols", PROTOCOLS_CREATE); }
+
+    @Test @DisplayName("protocols: getImportJobs is gated MASTER_DATA_PROTOCOLS:READ (import job list)")
+    void getImportJobs_isGatedByProtocolsRead() { assertGate("getImportJobs", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: getImportJob is gated MASTER_DATA_PROTOCOLS:READ (single import job status)")
+    void getImportJob_isGatedByProtocolsRead() { assertGate("getImportJob", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: getChakrasForProtocols is gated MASTER_DATA_PROTOCOLS:READ (protocol->chakra relationship read)")
+    void getChakrasForProtocols_isGatedByProtocolsRead() { assertGate("getChakrasForProtocols", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: getColorsForProtocolsAndChakras is gated MASTER_DATA_PROTOCOLS:READ (protocol+chakra->color relationship read)")
+    void getColorsForProtocolsAndChakras_isGatedByProtocolsRead() { assertGate("getColorsForProtocolsAndChakras", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: getChakraColorGroupsForProtocol is gated MASTER_DATA_PROTOCOLS:READ (single-protocol manage view)")
+    void getChakraColorGroupsForProtocol_isGatedByProtocolsRead() { assertGate("getChakraColorGroupsForProtocol", PROTOCOLS_READ); }
+
+    @Test @DisplayName("protocols: addProtocolChakraColors is gated MASTER_DATA_PROTOCOLS:CREATE (self-serve chakra/color add)")
+    void addProtocolChakraColors_isGatedByProtocolsCreate() { assertGate("addProtocolChakraColors", PROTOCOLS_CREATE); }
+
+    @Test @DisplayName("protocols: updateProtocolChakraColor is gated MASTER_DATA_PROTOCOLS:UPDATE")
+    void updateProtocolChakraColor_isGatedByProtocolsUpdate() { assertGate("updateProtocolChakraColor", PROTOCOLS_UPDATE); }
+
+    @Test @DisplayName("protocols: deleteProtocolChakraColor is gated MASTER_DATA_PROTOCOLS:DELETE")
+    void deleteProtocolChakraColor_isGatedByProtocolsDelete() { assertGate("deleteProtocolChakraColor", PROTOCOLS_DELETE); }
 
     // ─── Section B — anti-vacuous sweep ──────────────────────────────────
 
@@ -229,16 +268,21 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 21 declared MasterDataController endpoints. "
-                        + "Eight of these (three chakra GETs, three colour GETs, two protocol GETs) were "
-                        + "ungated before this phase (D-09); a regression that drops one of those gates "
+                .as("the sweep must inspect exactly the 30 declared MasterDataController endpoints (21 from "
+                        + "Phase 40, the 2 protocol->chakra->color relationship reads added afterward, the "
+                        + "4 single-protocol chakra/color management endpoints -- GET/POST/PUT/DELETE "
+                        + ".../protocols/{id}/chakra-colors -- added to let a healer self-serve their own "
+                        + "chakra/color additions on a protocol, the 2 import-job status reads added when "
+                        + "the bulk import became async, and the 1 SUPADM-only bulk-wipe endpoint). "
+                        + "Eight of the original 21 (three chakra GETs, three colour GETs, two protocol GETs) were "
+                        + "ungated before Phase 40 (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(21);
+                .isEqualTo(30);
     }
 
-    // ─── Section C — allow-list validity for all 21 pairs ────────────────
+    // ─── Section C — allow-list validity for all 30 pairs ────────────────
 
     @Test
     void everyGateNamesAnAllowListedResourceVerbPair() {
@@ -321,10 +365,11 @@ class MasterDataControllerAuthorizationContractTest {
 
         int flagCount = countOccurrences(stripped, "boolean isSuperAdmin");
         assertThat(flagCount)
-                .as("all 7 system-row override flags must still be computed and passed to the service — "
-                        + "deleting them (or replacing with a literal true) would hand the override to every "
-                        + "caller who clears the coarse gate (T-40-21)")
-                .isEqualTo(7);
+                .as("all 10 SUPADM-only flags (7 from Phase 40 plus 2 for the PUT/DELETE chakra-colors "
+                        + "endpoints, plus 1 for the bulk-wipe endpoint) must still be computed and passed "
+                        + "to the service — deleting them (or replacing with a literal true) would hand the "
+                        + "override/operation to every caller who clears the coarse gate (T-40-21)")
+                .isEqualTo(10);
     }
 
     private static int countOccurrences(String haystack, String needle) {

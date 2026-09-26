@@ -1,18 +1,24 @@
 package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
+import com.pranicdoc.cph.masterdata.dto.MasterDataWipeResult;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorGroup;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorUpdateRequest;
+import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolColorMappingRequest;
-import com.pranicdoc.cph.masterdata.dto.ProtocolImportResult;
+import com.pranicdoc.cph.masterdata.dto.ProtocolImportJobView;
 import com.pranicdoc.cph.masterdata.dto.ProtocolRequest;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
-import com.pranicdoc.cph.masterdata.service.ProtocolImportService;
+import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
@@ -57,7 +63,7 @@ import java.util.UUID;
 public class MasterDataController {
 
     private final MasterDataService masterDataService;
-    private final ProtocolImportService protocolImportService;
+    private final ProtocolImportJobService protocolImportJobService;
     private final RbacAuthz rbacAuthz;
 
     @GetMapping("/chakras")
@@ -202,6 +208,28 @@ public class MasterDataController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getProtocolById(id)));
     }
 
+    // ── Protocol -> Chakra -> Color filtered read flow ─────────────────────
+    // Step 2: given selected protocol ids, return the distinct chakras they
+    // reference. Step 3: given selected protocol ids + chakra ids, return the
+    // (colorId, usageType) pairs for that combination. Both gated on the same
+    // MASTER_DATA_PROTOCOLS:READ verb as the rest of the protocol surface —
+    // this is protocol-relationship data, not a new resource.
+
+    @GetMapping("/protocols/chakras")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ChakraCatalog>>> getChakrasForProtocols(
+            @RequestParam List<UUID> protocolIds) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getChakrasForProtocols(protocolIds)));
+    }
+
+    @GetMapping("/protocols/colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorView>>> getColorsForProtocolsAndChakras(
+            @RequestParam List<UUID> protocolIds, @RequestParam List<UUID> chakraIds) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",
+                masterDataService.getColorsForProtocolsAndChakras(protocolIds, chakraIds)));
+    }
+
     @PostMapping("/protocols")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
     public ResponseEntity<ApiResponse<ProtocolCatalog>> createProtocol(@Valid @RequestBody ProtocolRequest req) {
@@ -226,11 +254,89 @@ public class MasterDataController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Protocol deleted", null));
     }
 
-    // importProtocols is bulk protocol creation from a CSV, so CREATE is the correct verb.
+    // Single bulk-wipe endpoint across all four master-data categories, gated on
+    // MASTER_DATA_PROTOCOLS:DELETE to admit the request, same as the rest of this
+    // cross-cutting protocol-mappings-style surface — but the operation itself is
+    // unconditionally SUPADM-only (not row-conditional like the PD-40-04 overrides
+    // above): MasterDataService.wipeMasterData throws AccessDeniedException outright
+    // for any caller where this in-body flag isn't true, regardless of what DELETE
+    // grants they hold. MASTER_DATA_PROTOCOLS does not allow-list the ADMIN verb
+    // (Resource.java), so this can only ever be true for SUPADM's RbacAuthz
+    // short-circuit — see updateChakra's comment for why that pair is permanently
+    // non-grantable.
+    @DeleteMapping("/wipe")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
+    public ResponseEntity<ApiResponse<MasterDataWipeResult>> wipeMasterData(
+            @RequestParam(defaultValue = "ALL") MasterDataType type) {
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Master data wiped", masterDataService.wipeMasterData(type, isSuperAdmin)));
+    }
+
+    // Async: submitting an import returns immediately (QUEUED) — the actual parse+upsert runs
+    // in the background (ProtocolImportAsyncRunner) and is tracked via the /import-jobs
+    // endpoints below, not returned in this response. importProtocols is bulk protocol
+    // creation from a CSV, so CREATE is the correct verb.
     @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
-    public ResponseEntity<ApiResponse<ProtocolImportResult>> importProtocols(
+    public ResponseEntity<ApiResponse<ProtocolImportJobView>> importProtocols(
             @RequestPart("file") MultipartFile file) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Import complete", protocolImportService.importFile(file)));
+        return ResponseEntity.accepted()
+                .body(new ApiResponse<>(true, "Import queued", protocolImportJobService.submitImport(file)));
+    }
+
+    @GetMapping("/protocols/import-jobs")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolImportJobView>>> getImportJobs() {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJobs()));
+    }
+
+    @GetMapping("/protocols/import-jobs/{id}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<ProtocolImportJobView>> getImportJob(@PathVariable UUID id) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJob(id)));
+    }
+
+    // ── Single-protocol chakra/color management ─────────────────────────────
+    // Distinct from the bulk /protocols/import xlsx path: lets a healer pick
+    // ONE protocol and add/edit/remove its chakras and colors directly,
+    // without a file. Additions are always the caller's own (healerId =
+    // current healer) and visible/editable only by them (or SUPADM) — same
+    // gate (MASTER_DATA_PROTOCOLS) as the rest of the protocol surface.
+
+    @GetMapping("/protocols/{protocolId}/chakra-colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> getChakraColorGroupsForProtocol(
+            @PathVariable UUID protocolId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",
+                masterDataService.getChakraColorGroupsForProtocol(protocolId)));
+    }
+
+    @PostMapping("/protocols/{protocolId}/chakra-colors")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> addProtocolChakraColors(
+            @PathVariable UUID protocolId, @Valid @RequestBody ProtocolChakraColorAddRequest req) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakras/colors added",
+                masterDataService.addProtocolChakraColors(protocolId, req)));
+    }
+
+    @PutMapping("/protocols/{protocolId}/chakra-colors/{protocolChakraId}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')")
+    public ResponseEntity<ApiResponse<List<ProtocolChakraColorGroup>>> updateProtocolChakraColor(
+            @PathVariable UUID protocolId, @PathVariable UUID protocolChakraId,
+            @Valid @RequestBody ProtocolChakraColorUpdateRequest req) {
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra colors updated",
+                masterDataService.updateProtocolChakraColor(protocolId, protocolChakraId, req, isSuperAdmin)));
+    }
+
+    @DeleteMapping("/protocols/{protocolId}/chakra-colors/{protocolChakraId}")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')")
+    public ResponseEntity<ApiResponse<Void>> deleteProtocolChakraColor(
+            @PathVariable UUID protocolId, @PathVariable UUID protocolChakraId) {
+        // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
+        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        masterDataService.deleteProtocolChakraColor(protocolId, protocolChakraId, isSuperAdmin);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra removed from protocol", null));
     }
 }

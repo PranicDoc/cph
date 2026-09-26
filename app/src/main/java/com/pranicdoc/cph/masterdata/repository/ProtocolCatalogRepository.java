@@ -3,6 +3,8 @@ package com.pranicdoc.cph.masterdata.repository;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,4 +28,21 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
 
     /** Upsert lookup for bulk import */
     Optional<ProtocolCatalog> findByNameAndSourceBookAndPageNumber(String name, String sourceBook, Integer pageNumber);
+
+    /**
+     * Lookup for chakra/color enrichment import (name + book, no page): may return more than
+     * one row, since a protocol can legitimately span multiple pages under the same name and
+     * book — name + sourceBook + pageNumber is the entity's actual unique key, not name + book
+     * alone.
+     */
+    List<ProtocolCatalog> findByNameAndSourceBook(String name, String sourceBook);
+
+    /**
+     * Physically removes every row — including already soft-deleted ones, which the entity's
+     * {@code @SQLRestriction} hides from JPQL/derived queries — via native SQL. Used only by
+     * the SUPADM master-data wipe.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM protocol_catalog", nativeQuery = true)
+    int hardDeleteAll();
 }

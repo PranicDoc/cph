@@ -461,6 +461,22 @@ class CaseServiceTest {
         verify(healingCaseMapper, never()).toEntity(any(), any());
     }
 
+    @Test
+    void updateCaseDetails_patientWithoutSymptoms_isRejectedBeforeAnyMutation() {
+        UUID caseId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+
+        // Self-registered patient submits a chief complaint but no symptoms.
+        CaseUpdateRequest request = buildUpdateRequest(caseId, "Migraine", null, null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> caseService.updateCaseDetails(request, null));
+        assertTrue(ex.getMessage().toLowerCase().contains("symptom"),
+                "missing symptoms must be rejected with a clear message, was: " + ex.getMessage());
+        verify(caseRepository, never()).findById(any());
+        verify(healingCaseMapper, never()).toEntity(any(), any());
+    }
+
     // --- closeCase (V31: CaseStatus.CONTINUED) ---
 
     private HealingCase buildCaseForClosure(UUID caseId) {

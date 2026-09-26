@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractDetail } from "../lib/utils";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientSessionSchema } from "./schemas/patientSessionSchema";
 import { TreatmentStep } from "../interfaces";
@@ -76,6 +78,9 @@ export default function PatientHealthForm() {
         setIsSubmitted(true);
       } catch (err) {
         console.error(err);
+        toast.error(extractDetail(err) || "Failed to submit your details — please try again", {
+          duration: 5000,
+        });
       } finally {
         setIsSubmitting(false);
       }

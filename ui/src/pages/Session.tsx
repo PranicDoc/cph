@@ -311,6 +311,9 @@ export default function Session() {
 
   // ---------- STEP 1 (placeholder for future step) ----------
   if (currentStep === 1) {
+    const step1Protocols = reconstructSelectedProtocols(
+      sessionData?.healingDetails?.protocolName || ""
+    );
     return (
       <div className="space-y-6">
         <SessionHeader healingSession={sessionData} />
@@ -319,6 +322,7 @@ export default function Session() {
             caseId={healingCaseId}
             symptoms={sessionData?.symptoms}
             onClose={goToPreviousStep}
+            protocolIds={step1Protocols.map((p) => p.id)}
           />
         )}
       </div>

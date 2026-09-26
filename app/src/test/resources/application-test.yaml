@@ -38,10 +38,14 @@ spring:
   # unconditionally, so every @SpringBootTest needs SOME host value even
   # though no test in this suite actually sends mail (pre-existing gap, same
   # class of issue as the app.jwt.secret / credit-service.base-url notes
-  # below).
+  # below). username is a second, separate @Value(no-default) eager field
+  # injection on InviteService (validated non-blank at bean-creation time) —
+  # same pre-existing gap, not previously hit because no @SpringBootTest in
+  # this suite had exercised bean creation successfully before now.
   mail:
     host: localhost
     port: 1025
+    username: test@example.com
   # GoogleTokenVerifier @Value-injects the OAuth client-id with no default —
   # same eager-field-injection class of gap as app.jwt.secret below; no test
   # exercises Google login, dummy values only.

@@ -35,4 +35,21 @@ describe("TableInput", () => {
     expect(input).toHaveValue("Paracetamol");
     expect(input).toHaveFocus();
   });
+
+  // Regression test for React error #300 ("Rendered fewer hooks than expected"): the editable
+  // columns useMemo used to sit AFTER the `if (readOnly) return`, so flipping readOnly on a
+  // mounted table (a session leaving DRAFT, or the reverse) changed the hook count between renders.
+  it("does not throw when readOnly flips on a mounted table (hook order stays stable)", () => {
+    const rows = [{ medicationName: "Aspirin" }];
+    const props = { value: rows, onChange: () => {}, displayKey: "medicationName" };
+    const { rerender } = render(<TableInput {...props} readOnly={false} />);
+    expect(screen.getByRole("textbox")).toHaveValue("Aspirin");
+
+    rerender(<TableInput {...props} readOnly />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Aspirin")).toBeInTheDocument();
+
+    rerender(<TableInput {...props} readOnly={false} />);
+    expect(screen.getByRole("textbox")).toHaveValue("Aspirin");
+  });
 });
