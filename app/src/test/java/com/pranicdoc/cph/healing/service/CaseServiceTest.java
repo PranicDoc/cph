@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.JobStatus;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.CaseClosureRequest;
@@ -70,6 +71,7 @@ class CaseServiceTest {
     @Mock private PdfJobRepository pdfJobRepository;
     @Mock private StorageService storageService;
     @Mock private NotificationService notificationService;
+    @Mock private com.pranicdoc.cph.healing.repository.QualitativeFeedbackRepository qualitativeFeedbackRepository;
     @Spy  private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     @Mock private CreditGateService creditGateService;
     // D-18: CaseService self-injects its own Spring proxy via ObjectProvider
@@ -596,7 +598,7 @@ class CaseServiceTest {
     }
 
     @Test
-    void closeCase_whenHealingContinued_setsStatusContinuedAndSkipsFinalFeedbackNotification() {
+    void closeCase_whenHealingContinued_setsStatusContinuedAndSendsFinalFeedbackNotification() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
         CaseClosureRequest request = new CaseClosureRequest("Feeling better, continuing treatment", true);
@@ -607,7 +609,48 @@ class CaseServiceTest {
                 "isHealingContinued=true must set status to CONTINUED, not CLOSED");
         assertTrue(healingCase.getClosure().getIsHealingContinued());
         verify(caseRepository).save(healingCase);
+        verify(notificationService).sendFinalFeedbackNotification(healingCase.getSessions().get(0));
+    }
+
+    @Test
+    void closeCase_whenLatestSessionAlreadyHasFinalFeedback_doesNotSendAnotherRequest() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        HealingSession last = healingCase.getSessions().get(0);
+        last.setId(UUID.randomUUID());
+        when(qualitativeFeedbackRepository
+                .existsByHealingSessionIdAndFeedbackType(last.getId(), FeedbackType.FINAL))
+                .thenReturn(true);
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Re-close, no new session", true));
+
         verify(notificationService, never()).sendFinalFeedbackNotification(any());
+    }
+
+    @Test
+    void closeCase_afterNewSessionLogged_sendsRequestForNewLatestSession() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        HealingSession first = healingCase.getSessions().get(0);
+        first.setId(UUID.randomUUID());
+        HealingSession second = HealingSession.builder()
+                .sessionNumber(2)
+                .sessionDate(LocalDate.now())
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+        second.setId(UUID.randomUUID());
+        healingCase.getSessions().add(second);
+        lenient().when(qualitativeFeedbackRepository
+                .existsByHealingSessionIdAndFeedbackType(first.getId(), FeedbackType.FINAL))
+                .thenReturn(true);
+        when(qualitativeFeedbackRepository
+                .existsByHealingSessionIdAndFeedbackType(second.getId(), FeedbackType.FINAL))
+                .thenReturn(false);
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Second closure", true));
+
+        verify(notificationService).sendFinalFeedbackNotification(second);
     }
 
     @Test
