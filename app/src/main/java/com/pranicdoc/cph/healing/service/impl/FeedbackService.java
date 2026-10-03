@@ -51,17 +51,30 @@ public class FeedbackService {
         feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
     }
 
-    /** WhatsApp path: the patient's interim or final comment on the case's latest session. */
+    /** WhatsApp path: the patient's interim or final comment on the case's latest session. A FINAL overwrites the earlier one. */
     @Auditable(action = "SAVE_QUALITATIVE_FEEDBACK")
     public void saveQualitativeFeedback(UUID caseId, QualitativeFeedbackRequest request) {
         HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
-        rejectSecondFinal(caseId, request.feedbackType());
-        saveComment(session, request.feedbackType(), request.feedbackText(), request.patientRemarks(),
-                session.getSessionDate(), FeedbackSource.WHATSAPP);
 
         if (request.feedbackType() == FeedbackType.FINAL) {
+            // One FINAL per case: a later submission (continued-healing re-close) overwrites it.
+            // Re-point to the latest session so the PDF's healing number/date are not stale;
+            // earlier text stays in Envers history.
+            QualitativeFeedback feedback = qualitativeFeedbackRepository
+                .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
+                .orElseGet(() -> QualitativeFeedback.builder().feedbackType(FeedbackType.FINAL).build());
+            feedback.setHealingSession(session);
+            feedback.setFeedbackText(request.feedbackText());
+            feedback.setPatientRemarks(request.patientRemarks());
+            feedback.setHealingDate(session.getSessionDate());
+            feedback.setSource(FeedbackSource.WHATSAPP);
+            qualitativeFeedbackRepository.save(feedback);
             feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
+            return;
         }
+
+        saveComment(session, request.feedbackType(), request.feedbackText(), request.patientRemarks(),
+                session.getSessionDate(), FeedbackSource.WHATSAPP);
     }
 
     /**
