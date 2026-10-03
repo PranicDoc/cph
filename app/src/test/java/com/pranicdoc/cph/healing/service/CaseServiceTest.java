@@ -654,6 +654,27 @@ class CaseServiceTest {
     }
 
     @Test
+    void closeCase_picksLatestSessionBySessionNumber_regardlessOfListOrder() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        HealingSession first = healingCase.getSessions().get(0);
+        first.setId(UUID.randomUUID());
+        HealingSession second = HealingSession.builder()
+                .sessionNumber(2)
+                .sessionDate(LocalDate.now())
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+        second.setId(UUID.randomUUID());
+        // sessions has no @OrderBy, so the DB can hand them back out of order
+        healingCase.getSessions().add(0, second);
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Out-of-order sessions", true));
+
+        verify(notificationService).sendFinalFeedbackNotification(second);
+    }
+
+    @Test
     void closeCase_whenHealingNotContinued_setsStatusClosedAndSendsFinalFeedbackNotification() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);

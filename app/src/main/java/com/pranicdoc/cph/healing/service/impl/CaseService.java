@@ -337,7 +337,11 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         int healingCount = sessions.size();
-        HealingSession lastSession = sessions.get(sessions.size() - 1);
+        // HealingCase.sessions has no @OrderBy; pick the latest by sessionNumber, the same rule
+        // SessionService.findLatestByCaseIdOrThrow (and so FeedbackService) uses.
+        HealingSession lastSession = sessions.stream()
+                .max(Comparator.comparingInt(HealingSession::getSessionNumber))
+                .orElseThrow();
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
                 .stream()
                 .map(QualitativeFeedback::getCreatedAt)
