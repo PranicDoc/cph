@@ -8,6 +8,7 @@ on:
   pull_request:
     branches: [main, master]
     paths:
+      - '.github/workflows/build-ui.yml'   # a change to this build itself is tested on its PR
       - 'ui/**'
   workflow_dispatch:
 
