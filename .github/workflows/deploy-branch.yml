@@ -1,7 +1,7 @@
 name: Deploy branch image to VM
 
 # Manually deploy an arbitrary branch's cph and/or cph-ui image to the
-# production VM, gated by the cph-vm-deploy approval environment. Select
+# production VM, gated by an approval comment (PranicDoc/infra approval.yml). Select
 # which service(s) to deploy with the deploy_backend / deploy_ui checkboxes
 # (at least one must be checked); both can be checked to deploy together.
 #
@@ -12,7 +12,7 @@ name: Deploy branch image to VM
 # pulls the moved :latest. Roll back the backend with the "Roll back cph on
 # VM" workflow (UI rollback: rerun this workflow with ui_image_tag=vm-rollback).
 #
-# Requires: GitHub Environment `cph-vm-deploy` (required reviewers); secrets
+# Requires: approval comment on the issue the approval job opens (PranicDoc/infra approval.yml); secrets
 # VM_HOST / VM_USER / VM_PASSWORD / GPR_KEY, and — for run_backfill —
 # APP_BASE_URL / SUPADM_USERNAME / SUPADM_PASSWORD.
 
@@ -88,12 +88,23 @@ jobs:
       tag_latest: false
     secrets: inherit
 
-  deploy:
-    name: Promote & deploy to VM
+  # Every VM deploy waits for an approval comment (PranicDoc/infra approval.yml).
+  approval:
     needs: [build_backend, build_ui]
     if: ${{ always() && (inputs.deploy_backend || inputs.deploy_ui) && (needs.build_backend.result == 'success' || needs.build_backend.result == 'skipped') && (needs.build_ui.result == 'success' || needs.build_ui.result == 'skipped') }}
+    permissions:
+      issues: write
+    uses: PranicDoc/infra/.github/workflows/approval.yml@main
+    with:
+      title: "Deploy branch ${{ inputs.ref || github.ref_name }} to the prod VM (backend: ${{ inputs.deploy_backend }}, ui: ${{ inputs.deploy_ui }})"
+      details: |
+        **Ref:** `${{ inputs.ref || github.ref_name }}` · **backend:** ${{ inputs.deploy_backend }} (${{ inputs.image_tag || needs.build_backend.outputs.image_tag || 'n/a' }}) · **ui:** ${{ inputs.deploy_ui }} (${{ inputs.ui_image_tag || needs.build_ui.outputs.image_tag || 'n/a' }})
+        Promotes the image(s) to `:latest`, deploys, and reverts automatically if unhealthy (auto_revert_on_failure: ${{ inputs.auto_revert_on_failure }}).
+  deploy:
+    name: Promote & deploy to VM
+    needs: [build_backend, build_ui, approval]
+    if: ${{ always() && needs.approval.result == 'success' && (inputs.deploy_backend || inputs.deploy_ui) && (needs.build_backend.result == 'success' || needs.build_backend.result == 'skipped') && (needs.build_ui.result == 'success' || needs.build_ui.result == 'skipped') }}
     runs-on: ubuntu-latest
-    environment: cph-vm-deploy
     steps:
       - name: Resolve image names
         run: |
@@ -161,42 +172,24 @@ jobs:
             echo "- UI \`:latest\` now points at \`${{ steps.tag.outputs.ui_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Compose services
+        id: svc
+        run: |
+          S=""
+          if [ "${{ inputs.deploy_backend }}" = "true" ]; then S="$S cph"; fi
+          if [ "${{ inputs.deploy_ui }}" = "true" ]; then S="$S ui"; fi
+          echo "json=$(jq -cn --arg s "$S" '{services: ($s | split(" ") | map(select(. != "")))}')" >> "$GITHUB_OUTPUT"
+
+      # Ansible (PranicDoc/infra ansible/playbooks/deploy.yml): pull, restart, wait for healthy.
       - name: Deploy on VM and wait for healthy
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          DEPLOY_BACKEND: ${{ inputs.deploy_backend }}
-          DEPLOY_UI: ${{ inputs.deploy_ui }}
+        uses: PranicDoc/infra/.github/actions/ansible-vm@main
         with:
+          playbook: deploy.yml
+          extra_vars: ${{ steps.svc.outputs.json }}
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
+          user: ${{ secrets.VM_USER }}
+          ssh_key: ${{ secrets.VM_SSH_KEY }}
           password: ${{ secrets.VM_PASSWORD }}
-          envs: DEPLOY_BACKEND,DEPLOY_UI
-          script_stop: true
-          script: |
-            set -e
-            cd /opt/pranicdoc
-            SERVICES=""
-            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
-            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
-            if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
-            docker compose pull $SERVICES
-            docker compose up -d --no-deps $SERVICES
-            for svc in $SERVICES; do
-              cid=$(docker compose ps -q "$svc")
-              if [ -z "$cid" ]; then echo "$svc container not found after up" >&2; docker compose ps >&2; exit 1; fi
-              ok=""
-              for i in $(seq 1 30); do
-                s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
-                echo "$svc health[$i/30]: $s"
-                if [ "$s" = healthy ]; then ok=1; break; fi
-                sleep 10
-              done
-              if [ -z "$ok" ]; then
-                echo "$svc did not become healthy within ~5 min" >&2
-                docker compose logs --tail=80 "$svc" >&2 || true
-                exit 1
-              fi
-            done
 
       - name: Revert :latest -> :vm-rollback (deploy failed)
         if: ${{ failure() && inputs.auto_revert_on_failure }}
@@ -214,41 +207,14 @@ jobs:
 
       - name: Redeploy previous image on VM (deploy failed)
         if: ${{ failure() && inputs.auto_revert_on_failure }}
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          DEPLOY_BACKEND: ${{ inputs.deploy_backend }}
-          DEPLOY_UI: ${{ inputs.deploy_ui }}
+        uses: PranicDoc/infra/.github/actions/ansible-vm@main
         with:
+          playbook: deploy.yml
+          extra_vars: ${{ steps.svc.outputs.json }}
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
+          user: ${{ secrets.VM_USER }}
+          ssh_key: ${{ secrets.VM_SSH_KEY }}
           password: ${{ secrets.VM_PASSWORD }}
-          envs: DEPLOY_BACKEND,DEPLOY_UI
-          script_stop: true
-          script: |
-            set -e
-            cd /opt/pranicdoc
-            SERVICES=""
-            if [ "$DEPLOY_BACKEND" = "true" ]; then SERVICES="$SERVICES cph"; fi
-            if [ "$DEPLOY_UI" = "true" ]; then SERVICES="$SERVICES ui"; fi
-            if [ -z "$SERVICES" ]; then echo "no services selected" >&2; exit 1; fi
-            docker compose pull $SERVICES
-            docker compose up -d --no-deps $SERVICES
-            for svc in $SERVICES; do
-              cid=$(docker compose ps -q "$svc")
-              if [ -z "$cid" ]; then echo "$svc container not found after up" >&2; docker compose ps >&2; exit 1; fi
-              ok=""
-              for i in $(seq 1 30); do
-                s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
-                echo "$svc health[$i/30]: $s"
-                if [ "$s" = healthy ]; then ok=1; break; fi
-                sleep 10
-              done
-              if [ -z "$ok" ]; then
-                echo "$svc did not become healthy within ~5 min after revert" >&2
-                docker compose logs --tail=80 "$svc" >&2 || true
-                exit 1
-              fi
-            done
 
   backfill:
     name: Practitioner-role backfill
