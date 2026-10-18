@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.notification.controller;
 
+import com.pranicdoc.cph.common.security.InternalApiKeyFilter;
 import com.pranicdoc.cph.notification.service.OutboxSweeper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -13,16 +14,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Controller + the key filter in front of it (the filter itself is covered by InternalApiKeyFilterTest). */
 class InternalNotificationControllerTest {
 
     private static final String PATH = "/api/v1/internal/notifications/sweep";
     private final OutboxSweeper sweeper = mock(OutboxSweeper.class);
+    private final MockMvc mvc = MockMvcBuilders
+            .standaloneSetup(new InternalNotificationController(sweeper))
+            .addFilters(new InternalApiKeyFilter("s3cret"))
+            .build();
 
     @Test
-    void runsSweepWithCorrectKey() throws Exception {
+    void runsSweepAndReturnsCounts() throws Exception {
         when(sweeper.sweep()).thenReturn(new OutboxSweeper.Result(1, 3, 2));
 
-        mvc("s3cret").perform(post(PATH).header("X-Internal-Key", "s3cret"))
+        mvc.perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deadLettered").value(1))
                 .andExpect(jsonPath("$.attempted").value(3))
@@ -30,21 +36,8 @@ class InternalNotificationControllerTest {
     }
 
     @Test
-    void rejectsWrongOrMissingKey() throws Exception {
-        MockMvc mvc = mvc("s3cret");
-
-        mvc.perform(post(PATH).header("X-Internal-Key", "nope")).andExpect(status().isUnauthorized());
+    void neverSweepsWithoutTheKey() throws Exception {
         mvc.perform(post(PATH)).andExpect(status().isUnauthorized());
         verify(sweeper, never()).sweep();
-    }
-
-    @Test
-    void endpointDoesNotExistWhenNoKeyIsConfigured() throws Exception {
-        mvc("").perform(post(PATH).header("X-Internal-Key", "")).andExpect(status().isNotFound());
-        verify(sweeper, never()).sweep();
-    }
-
-    private MockMvc mvc(String configuredKey) {
-        return MockMvcBuilders.standaloneSetup(new InternalNotificationController(sweeper, configuredKey)).build();
     }
 }

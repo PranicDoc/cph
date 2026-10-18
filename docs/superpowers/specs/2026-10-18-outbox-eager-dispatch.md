@@ -31,7 +31,14 @@ only runs while some request happens to be in flight, so WhatsApp messages go ou
      left, and stale-PROCESSING rows with retries left.
    - VM: triggered by `@Scheduled(cron)` (`app.notifications.sweep.scheduler-enabled=true`).
    - Cloud Run: triggered by Cloud Scheduler calling `POST /cph/api/v1/internal/notifications/sweep` with an
-     `X-Internal-Key` header (`app.internal.api-key`; the endpoint returns 404 when the key is unset).
+     `X-Internal-Key` header. `/api/v1/internal/**` has its own security filter chain
+     (`InternalApiSecurityConfig`, ordered first), where `InternalApiKeyFilter` checks the key against
+     `app.internal.api-key`. It answers 404 when the key is unset and 401 when the key is wrong.
+6. **Publish is best-effort**: if publishing the event throws, the error is logged and swallowed. The
+   caller's transaction still commits the row, and the sweeper sends it.
+7. **HTTP**: WhatsApp calls go through `common.http.RestTemplateService`. It offers get/post/put/delete
+   overloads (URL, body, headers, `HttpAuth` none/bearer/basic/apiKey) on top of a single `exchange`
+   method.
 
 Delivery is at-least-once: a crash after WhatsApp accepts a message but before the DB write means it is
 sent again.

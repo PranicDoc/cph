@@ -186,8 +186,9 @@ class LegacyEndpointCutoverSweepTest {
                         + "delivery");
         m.put(InternalNotificationController.class.getName(),
                 "machine-to-machine outbox sweep trigger (Cloud Scheduler) — no user or healerId "
-                        + "in play; permitAll in SecurityConfig and authenticated by X-Internal-Key "
-                        + "(404 when unconfigured), pinned in InternalNotificationControllerTest");
+                        + "in play; served by InternalApiSecurityConfig's own filter chain, where "
+                        + "InternalApiKeyFilter checks X-Internal-Key (404 when unconfigured), pinned in "
+                        + "InternalApiKeyFilterTest");
         m.put(BootstrapController.class.getName(),
                 "asserted open by HealerControllerGateSweepTest.bootstrapControllerBootstrapIsUngated"
                         + "AndAssignRoleStaysCoarseGated — bootstrap is permitAll and self-locks; "
