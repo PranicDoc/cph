@@ -7,12 +7,14 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
+import com.pranicdoc.cph.notification.event.OutboxCreatedEvent;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.notification.repository.OutboxRepository;
 import com.pranicdoc.cph.patient.service.PatientService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -27,6 +29,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final FeedbackLinkRepository feedbackLinkRepository;
     private final PhoneNumberFormatter phoneNumberFormatter;
     private final PatientService patientService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.feedback.url}")
     private String feedbackUrl;
@@ -50,7 +53,9 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
         NotificationOutbox outbox = getNotificationOutbox(session, patientNumber, isFinal);
-        outboxRepository.save(outbox);
+        NotificationOutbox saved = outboxRepository.save(outbox);
+        // Sent right after this transaction commits (OutboxDispatchListener); OutboxSweeper retries.
+        eventPublisher.publishEvent(new OutboxCreatedEvent(saved.getId()));
     }
 
     private NotificationOutbox getNotificationOutbox(HealingSession session, String patientNumber, boolean isFinal) {

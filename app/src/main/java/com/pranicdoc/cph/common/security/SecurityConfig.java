@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
+                        // Machine-to-machine (Cloud Scheduler); each controller checks X-Internal-Key itself.
+                        .requestMatchers("/api/v1/internal/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         // CR-01 (2026-09-02 ruling): the patient self-service case surface is

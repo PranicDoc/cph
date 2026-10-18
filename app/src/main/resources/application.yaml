@@ -131,6 +131,22 @@ app:
     access-token: ${WHATSAPP_ACCESS_TOKEN:placeholder-access-token}
     webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:placeholder-verify-token}
     app-secret: ${WHATSAPP_APP_SECRET:placeholder-app-secret}
+  # Outbox: send right after commit, sweep every 30 min for anything missed
+  # (docs/superpowers/specs/2026-10-18-outbox-eager-dispatch.md).
+  # Cloud Run sets APP_NOTIFICATIONS_DISPATCH=sync and
+  # APP_NOTIFICATIONS_SWEEP_SCHEDULER_ENABLED=false (Cloud Scheduler calls the endpoint instead).
+  notifications:
+    dispatch: async
+    max-retries: 3
+    pending-grace: 2m
+    stuck-after: 10m
+    sweep:
+      scheduler-enabled: true
+      cron: "0 */30 * * * *"
+      batch-size: 100
+  internal:
+    # Guards /api/v1/internal/**. Empty = those endpoints answer 404.
+    api-key: ${INTERNAL_API_KEY:}
 
 storage:
   provider: R2
