@@ -3,14 +3,13 @@ name: Roll back cph on VM
 # Put the VM back on the image that was running before the last
 # "Deploy branch image to VM" run (the ghcr.io/<owner>/cph:vm-rollback pointer),
 # or an explicit tag. Retags :latest to that image and redeploys via the VM's
-# unchanged `docker compose pull cph`. Gated by the cph-vm-deploy approval
-# environment; the run summary shows the exact target before you approve.
+# unchanged `docker compose pull cph`. Gated by an approval comment on the issue the
+# approval job opens (PranicDoc/infra approval.yml).
 #
 # :vm-rollback is NOT modified here, so repeated rollbacks are idempotent. To
 # move forward again, run "Deploy branch image to VM" (or merge to main).
 #
-# Requires: GitHub Environment `cph-vm-deploy`; secrets VM_HOST / VM_USER /
-# VM_PASSWORD.
+# Requires: secrets VM_HOST / VM_USER / VM_PASSWORD (or VM_SSH_KEY).
 
 on:
   workflow_dispatch:
@@ -25,10 +24,20 @@ permissions:
   packages: write
 
 jobs:
+  # Every VM deploy waits for an approval comment (PranicDoc/infra approval.yml).
+  approval:
+    permissions:
+      issues: write
+    uses: PranicDoc/infra/.github/workflows/approval.yml@main
+    with:
+      title: "Roll back cph on the prod VM to ${{ inputs.image_tag || ':vm-rollback' }}"
+      details: |
+        Retags `ghcr.io/pranicdoc/cph:latest` to `${{ inputs.image_tag || 'vm-rollback' }}` and redeploys cph on the prod VM.
+
   rollback:
     name: Promote rollback image & deploy
+    needs: approval
     runs-on: ubuntu-latest
-    environment: cph-vm-deploy
     steps:
       - name: Resolve image name
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cph" >> "$GITHUB_ENV"
@@ -78,26 +87,13 @@ jobs:
           DIGEST=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
           echo "- \`:latest\` now points at \`${{ steps.src.outputs.src }}\` (\`$DIGEST\`)" >> "$GITHUB_STEP_SUMMARY"
 
+      # Ansible (PranicDoc/infra ansible/playbooks/deploy.yml): pull, restart, wait for healthy.
       - name: Deploy on VM and wait for healthy
-        uses: appleboy/ssh-action@v1.2.0
+        uses: PranicDoc/infra/.github/actions/ansible-vm@main
         with:
+          playbook: deploy.yml
+          extra_vars: '{"services": ["cph"]}'
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
+          user: ${{ secrets.VM_USER }}
+          ssh_key: ${{ secrets.VM_SSH_KEY }}
           password: ${{ secrets.VM_PASSWORD }}
-          script_stop: true
-          script: |
-            set -e
-            cd /opt/pranicdoc
-            docker compose pull cph
-            docker compose up -d --no-deps cph
-            cid=$(docker compose ps -q cph)
-            if [ -z "$cid" ]; then echo "cph container not found after up" >&2; docker compose ps >&2; exit 1; fi
-            for i in $(seq 1 30); do
-              s=$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo missing)
-              echo "health[$i/30]: $s"
-              if [ "$s" = healthy ]; then exit 0; fi
-              sleep 10
-            done
-            echo "cph did not become healthy within ~5 min after rollback" >&2
-            docker compose logs --tail=80 cph >&2 || true
-            exit 1
