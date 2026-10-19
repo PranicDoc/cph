@@ -81,7 +81,7 @@ class SessionServiceTest {
         HealingSession session = completedSession(sessionDate, startTime, endTime);
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(true);
         when(mapper.toEntity(request)).thenReturn(session);
@@ -108,7 +108,7 @@ class SessionServiceTest {
         );
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of());
 
         assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
@@ -129,7 +129,7 @@ class SessionServiceTest {
                 LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -153,7 +153,7 @@ class SessionServiceTest {
                 LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase);
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -195,7 +195,7 @@ class SessionServiceTest {
         );
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(false);
 
@@ -260,7 +260,7 @@ class SessionServiceTest {
                 LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any()))
                 .thenReturn(chakraIds.stream().map(this::chakra).toList());
         when(mapper.toEntity(request)).thenReturn(session);
@@ -288,7 +288,7 @@ class SessionServiceTest {
                 List.of(new QualitativeFeedbackRequest(FeedbackType.INTERIM, "", "")));
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(knownId)));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
@@ -310,7 +310,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.empty());
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -372,7 +372,7 @@ class SessionServiceTest {
 
         when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.empty());
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(completedSessionWithReadings(
                 LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45)));
@@ -381,7 +381,7 @@ class SessionServiceTest {
         sessionService.create(request, key);
 
         InOrder inOrder = inOrder(caseService, sessionRepository);
-        inOrder.verify(caseService).lockForSessionNumbering(caseId);
+        inOrder.verify(caseService).findAndLockOrThrow(caseId);
         inOrder.verify(sessionRepository).findByClientRequestId(key);
         inOrder.verify(sessionRepository).findByHealingCaseIdOrderBySessionNumberAsc(caseId);
     }
@@ -399,7 +399,7 @@ class SessionServiceTest {
         third.setSessionNumber(3); // session 2 was soft-deleted
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of(first, third));
-        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
         when(mapper.toEntity(request)).thenReturn(completedSessionWithReadings(
                 LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45)));

@@ -43,6 +43,8 @@ import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.storage.service.StorageService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.*;
@@ -74,6 +76,7 @@ public class CaseService {
     private final MessageService messageService;
     private final PdfJobRepository pdfJobRepository;
     private final StorageService storageService;
+    private final EntityManager entityManager;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final CreditGateService creditGateService;
@@ -357,12 +360,17 @@ public class CaseService {
     }
 
     /**
-     * Takes a row lock on the case for the rest of the caller's transaction, so session
-     * numbering (count + 1) can't race. Call it before reading the case's existing sessions.
+     * {@link #findOrThrow} that also row-locks the case ({@code SELECT ... FOR UPDATE}) until the
+     * caller's transaction ends -- the same single query, no extra round trip. Session creation
+     * loads the case this way before numbering, so two concurrent submits for one case are
+     * serialised; other cases and plain reads are not blocked.
      */
-    public void lockForSessionNumbering(UUID caseId) {
-        caseRepository.lockById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+    public HealingCase findAndLockOrThrow(UUID id) {
+        HealingCase healingCase = entityManager.find(HealingCase.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (healingCase == null) {
+            throw new ResourceNotFoundException("HealingCase", id);
+        }
+        return healingCase;
     }
 
     @Transactional(readOnly = true)

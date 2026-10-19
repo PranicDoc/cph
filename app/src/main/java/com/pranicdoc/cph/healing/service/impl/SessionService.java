@@ -49,9 +49,8 @@ public class SessionService {
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
+        HealingCase healingCase = caseService.findAndLockOrThrow(caseId);
         caseService.requireConsent(caseId);
-        HealingCase healingCase = caseService.findOrThrow(caseId);
-        caseService.lockForSessionNumbering(caseId);
 
         // Determine next session number
         List<HealingSession> existing = sessionRepository
@@ -80,13 +79,13 @@ public class SessionService {
      * makes a retried submit safe: if a session was already created with that key, it is
      * returned unchanged instead of creating a duplicate (2026-09-21: a submit that hit the
      * nginx 504 had in fact committed, and the healer's resubmit made a second session 1).
-     * The case row lock is taken first so a concurrent retry waits for the original to commit
-     * and then finds it by key.
+     * The case is loaded with a row lock first (same query, no extra round trip), so a
+     * concurrent retry waits for the original to commit and then finds it by key.
      */
     @Auditable(action = "CREATE_SESSION")
     @Transactional
     public SessionResponse create(CreateSessionRequest sessionRequest, UUID idempotencyKey) {
-        caseService.lockForSessionNumbering(sessionRequest.caseId());
+        HealingCase healingCase = caseService.findAndLockOrThrow(sessionRequest.caseId());
         if (idempotencyKey != null) {
             Optional<HealingSession> replay = sessionRepository.findByClientRequestId(idempotencyKey);
             if (replay.isPresent()) {
@@ -102,7 +101,6 @@ public class SessionService {
         if(existing.isEmpty()) {
             caseService.requireConsent(sessionRequest.caseId());
         }
-        HealingCase healingCase = caseService.findOrThrow(sessionRequest.caseId());
         int nextNumber = nextSessionNumber(existing);
         validateMasterDataReferences(sessionRequest);
         HealingSession session = mapper.toEntity(sessionRequest);
