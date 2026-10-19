@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
@@ -15,6 +14,8 @@ import com.pranicdoc.cph.healing.dto.CaseUpdateRequest;
 import com.pranicdoc.cph.healing.dto.HealingDetailsRequest;
 import com.pranicdoc.cph.healing.dto.MedicationRequest;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapperImpl;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
@@ -61,6 +62,7 @@ class CaseServiceTest {
     @Mock private DeclarationMapper declarationMapper;
     @Mock private HealingCaseMapper healingCaseMapper;
     @Spy  private CphCaseMapper cphCaseMapper = new CphCaseMapperImpl();
+    @Mock private HealerProtocolUnderstandingRepository hpuRepository;
     @Mock private MessageService messageService;
     @Mock private PdfJobRepository pdfJobRepository;
     @Mock private StorageService storageService;
@@ -90,6 +92,16 @@ class CaseServiceTest {
     @BeforeEach
     void initSelfProxy() {
         lenient().when(self.getObject()).thenReturn(caseService);
+    }
+
+    /**
+     * CphCaseMapper field-injects its healer-protocol-understanding repository (Spring does it
+     * in the app); the spied mapper here needs one too. No case in this class has notes.
+     */
+    @BeforeEach
+    void initMapperRepositories() {
+        lenient().when(hpuRepository.findByHealingCaseId(any())).thenReturn(Optional.empty());
+        ReflectionTestUtils.setField(cphCaseMapper, "hpuRepository", hpuRepository);
     }
 
     @AfterEach
@@ -146,18 +158,15 @@ class CaseServiceTest {
         // include superclass fields, so set it via the inherited setter after build().
         UUID healerId = UUID.randomUUID();
         healingCase.setHealerId(healerId);
+        session.setHealingCase(healingCase);
+        healingCase.setDeclaration(declaration(healingCase));
 
         Patient patient = org.mockito.Mockito.mock(Patient.class);
-
-        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
-        // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
-        Healer healer = Healer.builder().build();
 
         // Wire mocks
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
         when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
-        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
         when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId))
@@ -204,16 +213,12 @@ class CaseServiceTest {
         // healerId is inherited from TenantEntity (post-26-03) — set via inherited setter.
         UUID healerId = UUID.randomUUID();
         healingCase.setHealerId(healerId);
+        healingCase.setDeclaration(declaration(healingCase));
         Patient patient = org.mockito.Mockito.mock(Patient.class);
-
-        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
-        // to source the credit-boundary clinic-shaped ownerId from the healer bridge.
-        Healer healer = Healer.builder().build();
 
         doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
         when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
-        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
         when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
         when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
         when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
@@ -242,15 +247,9 @@ class CaseServiceTest {
         UUID healerId = UUID.randomUUID();
         healingCase.setHealerId(healerId);
 
-        // 26-07 Task 2: postMessageToGeneratePdf looks up the case + its owning healer
-        // to source the credit-boundary clinic-shaped ownerId from the healer bridge,
-        // BEFORE the (mocked) credit-gate call that throws in this test.
-        Healer healer = Healer.builder().build();
-
         doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
         when(caseRepository.existsById(caseId)).thenReturn(true);
         when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
-        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
 
         assertThrows(InsufficientCreditsException.class,
                 () -> caseService.postMessageToGeneratePdf(caseId));
@@ -563,4 +562,15 @@ class CaseServiceTest {
         assertThrows(IllegalArgumentException.class, () -> caseService.closeCase(caseId, request));
         verify(caseRepository, never()).save(any());
     }
+
+    /** Cases reach PDF generation only after consent; the snapshot reads the healer signature. */
+    private static Declaration declaration(HealingCase healingCase) {
+        return Declaration.builder()
+                .healingCase(healingCase)
+                .patientConsent(true)
+                .healerDeclaration(true)
+                .healerSignature("Test Healer")
+                .build();
+    }
+
 }
