@@ -1,4 +1,5 @@
 import { FormSchema } from "../../components/DynamicFormEngine";
+import { EXERCISE_OPTIONS } from "../../lib/exercise";
 
 export const patientDemographicsSchema: FormSchema = [
   {
@@ -119,16 +120,12 @@ export const patientMedicalHistorySchema: FormSchema = [
       {
         name: "exercise",
         label: "Exercise Type",
-        type: "select",
+        type: "multiselect",
         required: true,
-        placeholder: "Select exercise type...",
-        options: [
-          { label: "None", value: "NONE" },
-          { label: "Walking", value: "WALKING" },
-          { label: "Yoga", value: "YOGA" },
-          { label: "Gym", value: "GYM" },
-          { label: "Sports", value: "SPORTS" },
-        ],
+        multiSelectPlaceholder: "Select exercise types...",
+        multiSelectOptions: EXERCISE_OPTIONS.map((o) => o.value),
+        getOptionKey: (v: string) => v,
+        getOptionLabel: (v: string) => EXERCISE_OPTIONS.find((o) => o.value === v)?.label ?? v,
       },
       {
         name: "exerciseFrequency",
