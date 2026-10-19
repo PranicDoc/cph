@@ -1,0 +1,21 @@
+name: Release
+
+# Step 1 of shipping: tag main's latest commit with the next version and publish a GitHub Release.
+# Requires green CI for that commit. Then run Deploy with the new tag.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version goes up
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      actions: read
+    uses: PranicDoc/infra/.github/workflows/release.yml@main
+    with:
+      bump: ${{ inputs.bump }}
