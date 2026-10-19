@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Skeleton } from "../components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import { exerciseLabels } from "../lib/exercise";
 
 // ---- Types ----
 
@@ -557,8 +558,14 @@ export default function CaseSummary() {
           <div className="grid sm:grid-cols-2 gap-x-8">
             <InfoRow label="General Health" value={fmt(data.medicalSnapshot.generalHealth)} />
             <InfoRow label="Diet" value={fmt(data.medicalSnapshot.diet)} />
-            <InfoRow label="Exercise" value={yesNo(data.medicalSnapshot.exercise === "YES" ? true : data.medicalSnapshot.exercise === "NO" ? false : undefined)} />
-            {data.medicalSnapshot.exercise === "YES" && (
+            <InfoRow
+              label="Exercise"
+              value={
+                exerciseLabels(data.medicalSnapshot.exercise).join(", ") ||
+                (data.medicalSnapshot.exercise ? "None" : "—")
+              }
+            />
+            {exerciseLabels(data.medicalSnapshot.exercise).length > 0 && (
               <InfoRow label="Exercise Frequency" value={fmt(data.medicalSnapshot.exerciseFrequency)} />
             )}
             <InfoRow label="Hypertension" value={yesNo(data.medicalSnapshot.hypertension)} />

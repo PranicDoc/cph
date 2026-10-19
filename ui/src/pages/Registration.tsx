@@ -14,6 +14,7 @@ import {
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
 import { Button } from "@/components/ui/button";
+import { serializeExercise } from "../lib/exercise";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
@@ -102,7 +103,7 @@ export default function Registration() {
     defaultValues: {
       generalHealth: null,
       diet: null,
-      exercise: null,
+      exercise: [] as string[],
       exerciseFrequency: null,
       hypertension: false,
       giIssues: false,
@@ -121,13 +122,13 @@ export default function Registration() {
             ...patientForm.state.values,
             firstName: patientForm.state.values.firstName.trim(),
             lastName: patientForm.state.values.lastName.trim(),
-            medicalHistory: value,
+            medicalHistory: { ...value, exercise: serializeExercise(value.exercise) },
           };
           const res = await api.post("/api/v1/patients/self-register", payload);
           setPatientId(res.data.id);
           toast.success("Patient registered");
         } else {
-          setPendingHistory(value);
+          setPendingHistory({ ...value, exercise: serializeExercise(value.exercise) });
         }
         setPatientFullName(
           patientForm.state.values.firstName.trim() +

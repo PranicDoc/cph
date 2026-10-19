@@ -68,6 +68,9 @@ export function ScanStep({
                 className={cn("rounded-md px-3", mode !== "voice" && "shadow-none")}
               >
                 Voice
+                <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold uppercase leading-none text-amber-800">
+                  Beta
+                </span>
               </Button>
             </div>
             {mode === "voice" && (
