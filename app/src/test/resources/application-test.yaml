@@ -59,6 +59,10 @@ spring:
             scope: [openid, email, profile]
 
 app:
+  # No Redis in tests: RateLimitConfig would otherwise open a Lettuce connection to
+  # localhost:6379 at startup (same switch application-localdev.yml uses).
+  ratelimit:
+    enabled: false
   # Test-only fixed values for @Value(no-default) properties that are only
   # ever given real values in application-prod.yml (via env vars) — every
   # @SpringBootTest needs SOME value here regardless of whether the feature

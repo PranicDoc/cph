@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.common.tenant;
 
+import com.pranicdoc.cph.support.TestRedisConfig;
+import org.springframework.context.annotation.Import;
 import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
 import com.pranicdoc.cph.patient.model.Patient;
 import jakarta.persistence.EntityManager;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * expose real patient PII.
  */
 @SpringBootTest
+@Import(TestRedisConfig.class)
 @ActiveProfiles("test")
 class TenantFilterIntegrationTest {
 

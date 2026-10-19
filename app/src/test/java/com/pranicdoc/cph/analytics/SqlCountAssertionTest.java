@@ -1,7 +1,10 @@
 package com.pranicdoc.cph.analytics;
 
+import com.pranicdoc.cph.support.TestRedisConfig;
+import org.springframework.context.annotation.Import;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.Role;
@@ -10,6 +13,7 @@ import com.pranicdoc.cph.common.enums.SessionStatus;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.healing.model.ChakraScan;
+import com.pranicdoc.cph.healing.model.Declaration;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingDetails;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -40,6 +44,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -68,6 +73,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * TenantDetails and would NPE inside SecurityContextUtil).
  */
 @SpringBootTest
+@Import(TestRedisConfig.class)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SqlCountAssertionTest {
@@ -92,6 +98,9 @@ class SqlCountAssertionTest {
     // healer bridge — the fixture below must persist a real Healer row.
     @Autowired
     private HealerRepository healerRepository;
+
+    @Autowired
+    private BaselineRoleAssigner baselineRoleAssigner;
 
     @MockBean
     private CreditService creditService;
@@ -136,6 +145,7 @@ class SqlCountAssertionTest {
         UUID healerId = UUID.randomUUID();
         when(creditService.getBalance(eq(OwnerType.HEALER), eq(healerId)))
                 .thenReturn(new BalanceCreditResponse(healerId, "HEALER", 42, false, false));
+        seedHealer(healerId);
 
         Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         stats.clear();
@@ -253,13 +263,7 @@ class SqlCountAssertionTest {
         // from the healer bridge — a real Healer row must exist or the request
         // 404s before reaching the PDF-generation logic under test. Healer no
         // longer carries a clinic-shaped bridge field (a7fcafe) — no value to seed.
-        Healer healer = Healer.builder()
-                .fullName("Test Healer")
-                .email("healer-" + healerId + "@test.local")
-                .role(Role.HEALER)
-                .build();
-        healer.setId(healerId);
-        healerRepository.save(healer);
+        seedHealer(healerId);
 
         // Patient has no public constructor/builder — only the static create()
         // factory, which reads the tenant value from TenantContext (normally
@@ -321,6 +325,18 @@ class SqlCountAssertionTest {
             healingCase.getSessions().add(session);
         }
 
+        // A real case reaches PDF generation only after consent, so it has a declaration;
+        // the snapshot reads the healer signature from it.
+        Declaration declaration = Declaration.builder()
+                .healingCase(healingCase)
+                .patientConsent(true)
+                .healerDeclaration(true)
+                .signedAt(Instant.now())
+                .patientSignature("Test Patient")
+                .healerSignature("Test Healer")
+                .build();
+        healingCase.setDeclaration(declaration);
+
         if (withTreatmentSteps) {
             HealingDetails details = new HealingDetails();
             details.setHealingCase(healingCase);
@@ -343,6 +359,22 @@ class SqlCountAssertionTest {
         // the persistence context closes on return and the MockMvc-driven
         // request below performs genuinely fresh loads.
         return caseRepository.save(healingCase);
+    }
+
+    /**
+     * A real, active healer with the baseline HEALER role, created the way the invite flow
+     * does it. JwtAuthFilter rejects tokens for healers that don't exist or aren't active
+     * (32ad9f8), and every endpoint is RBAC-gated, so a bare JWT is no longer enough.
+     */
+    private void seedHealer(UUID healerId) {
+        Healer healer = Healer.builder()
+                .fullName("Test Healer")
+                .email("healer-" + healerId + "@test.local")
+                .role(Role.HEALER)
+                .build();
+        healer.setId(healerId);
+        healerRepository.save(healer);
+        baselineRoleAssigner.assignTo(healerId);
     }
 
     private Cookie accessTokenCookie(UUID healerId) {
