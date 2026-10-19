@@ -152,6 +152,9 @@ class RoleAssignmentServiceAuditTest {
                 auditLogRepository, securityContextUtil, httpServletRequest, transactionManager, objectMapper);
 
         lenient().when(joinPoint.getTarget()).thenReturn(new Object());
+        // A Mockito mock of @Auditable returns false for auditPayload(); the real annotation
+        // defaults to true, which is what the payload assertions below are about.
+        lenient().when(auditable.auditPayload()).thenReturn(true);
 
         TransactionStatus status = mock(TransactionStatus.class);
         lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(status);
