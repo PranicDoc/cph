@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChakraDocEntry } from "../components/ChakraScan";
 import { useReferenceData } from "./useReferenceData";
@@ -38,6 +38,10 @@ export function useHealingSessionWizard({
     ChakraDocEntry[]
   >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // One Idempotency-Key per session submit, reused on retry and reset on success: a retry
+  // after a timeout (the first request may have committed) returns that session instead of
+  // creating a duplicate.
+  const idempotencyKeyRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
 
   const referenceData = useReferenceData();
@@ -57,6 +61,9 @@ export function useHealingSessionWizard({
     }
     if (step < FINAL_FORM_STEP) {
       setStep(step + 1);
+      return;
+    }
+    if (isSubmitting) {
       return;
     }
 
@@ -99,7 +106,13 @@ export function useHealingSessionWizard({
         patientRemarks: values.patientRemarks,
       });
 
-      await api.post("/api/v1/sessions/case", payload);
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = crypto.randomUUID();
+      }
+      await api.post("/api/v1/sessions/case", payload, {
+        headers: { "Idempotency-Key": idempotencyKeyRef.current },
+      });
+      idempotencyKeyRef.current = null;
       // Completing a session flips the case out of DRAFT server-side --
       // refetch so the Patients list/dashboard don't keep showing stale status.
       await queryClient.invalidateQueries({ queryKey: ["patients"] });
@@ -115,7 +128,7 @@ export function useHealingSessionWizard({
     } finally {
       setIsSubmitting(false);
     }
-  }, [caseId, form, postScanChakraData, preScanChakraData, queryClient, step]);
+  }, [caseId, form, isSubmitting, postScanChakraData, preScanChakraData, queryClient, step]);
 
   return {
     step,

@@ -9,11 +9,13 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * HealingSession — a single healing session within a case.
@@ -46,6 +48,15 @@ public class HealingSession extends TenantEntity {
 
     @Column(name = "end_time")
     private LocalTime endTime;
+
+    /**
+     * Idempotency-Key sent by the client on POST /sessions/case. A retried submit with the
+     * same key returns this session instead of creating a duplicate. Not audited: it is
+     * transport metadata, not clinical data.
+     */
+    @Column(name = "client_request_id", updatable = false)
+    @NotAudited
+    private UUID clientRequestId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
