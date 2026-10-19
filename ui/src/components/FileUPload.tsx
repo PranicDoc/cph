@@ -3,12 +3,15 @@ import { Upload, File as FileIcon, X, Download } from "lucide-react";
 import api from "../lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 interface FileUploadProps {
   value?: (File | string)[];
   onChange?: (files: (File | string)[]) => void;
   onBlur?: () => void;
   readOnly?: boolean;
+  /** Ask before removing a file (healer lab findings); the patient form removes immediately. */
+  confirmRemove?: boolean;
 }
 
 function formatSize(bytes: number): string {
@@ -21,10 +24,17 @@ function keyToFilename(key: string): string {
   return key.split("/").pop() ?? key;
 }
 
-export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: FileUploadProps) {
+export function FileUpload({
+  value = [],
+  onChange,
+  onBlur,
+  readOnly = false,
+  confirmRemove = false,
+}: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [pendingRemoveIdx, setPendingRemoveIdx] = useState<number | null>(null);
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming || !onChange) return;
@@ -39,6 +49,18 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
     if (!onChange) return;
     onChange(value.filter((v, i) => i !== idx) as (File | string)[]);
   };
+
+  const requestRemove = (idx: number) => {
+    if (confirmRemove) {
+      setPendingRemoveIdx(idx);
+    } else {
+      removeFile(idx);
+    }
+  };
+
+  const pendingItem = pendingRemoveIdx !== null ? value[pendingRemoveIdx] : undefined;
+  const pendingName =
+    pendingItem instanceof File ? pendingItem.name : pendingItem ? keyToFilename(pendingItem) : "";
 
   const downloadKey = async (key: string) => {
     setDownloading(key);
@@ -139,7 +161,7 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  onClick={() => removeFile(idx)}
+                  onClick={() => requestRemove(idx)}
                   className="h-auto w-auto p-0.5 text-text-light/50 hover:text-danger hover:bg-transparent flex-shrink-0 ml-2"
                   aria-label={`Remove ${file ? file.name : item}`}
                 >
@@ -150,6 +172,26 @@ export function FileUpload({ value = [], onChange, onBlur, readOnly = false }: F
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingRemoveIdx !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoveIdx(null);
+        }}
+        title="Delete lab finding?"
+        description={
+          <>
+            <span className="font-medium">{pendingName}</span> will be removed from this case when
+            you save.
+          </>
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (pendingRemoveIdx !== null) removeFile(pendingRemoveIdx);
+          setPendingRemoveIdx(null);
+        }}
+      />
     </div>
   );
 }

@@ -36,6 +36,7 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         label: "Lab Findings",
         type: "file",
         readOnly: !isDraft,
+        confirmRemove: true,
       },
     ],
   },
