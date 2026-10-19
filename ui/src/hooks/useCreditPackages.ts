@@ -9,6 +9,7 @@ export interface PackageResponse {
   currency: string;
   active: boolean;
   display_order: number;
+  validity_days: number | null;
 }
 
 export function useCreditPackages() {
