@@ -57,6 +57,8 @@ export type FieldConfig = {
   }>;
   createNewTag?: (input: string) => any;
   readOnly?: boolean;
+  /** file fields: confirm before a file is removed. */
+  confirmRemove?: boolean;
   enableToggle?: boolean;
   /** With enableToggle: once the toggle is switched on, the value must be filled in. */
   requiredWhenEnabled?: boolean;
@@ -206,6 +208,7 @@ export function DynamicField({
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
                 readOnly={fieldConfig.readOnly}
+                confirmRemove={fieldConfig.confirmRemove}
               />
             </div>
           );
