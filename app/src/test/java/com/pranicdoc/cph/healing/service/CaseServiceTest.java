@@ -232,6 +232,40 @@ class CaseServiceTest {
         verify(pdfJobRepository).save(any());
     }
 
+    /**
+     * Cases created before consent existed have no declaration row. Generating their PDF
+     * must still work (no healer signature), not fail with "Failed to serialize".
+     */
+    @Test
+    void postMessageToGeneratePdf_caseWithoutDeclaration_savesJobWithoutHealerSignature() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        HealingCase healingCase = HealingCase.builder()
+                .patientId(patientId)
+                .status(CaseStatus.ACTIVE)
+                .sessions(new ArrayList<>())
+                .symptoms(new ArrayList<>())
+                .medications(new ArrayList<>())
+                .build();
+        healingCase.setHealerId(UUID.randomUUID());
+        Patient patient = org.mockito.Mockito.mock(Patient.class);
+
+        doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
+        when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
+        when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
+        when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
+        ArgumentCaptor<PdfJobEntity> captor = ArgumentCaptor.forClass(PdfJobEntity.class);
+        when(pdfJobRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        caseService.postMessageToGeneratePdf(caseId);
+
+        JsonNode payload = new ObjectMapper().readTree(captor.getValue().getHealingCaseData());
+        assertTrue(payload.get("healerSign").isNull());
+    }
+
     @Test
     void postMessageToGeneratePdf_insufficient_throwsAndNeverSavesJob() {
         UUID caseId = UUID.randomUUID();

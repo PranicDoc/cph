@@ -622,7 +622,9 @@ public class CaseService {
         try {
             ObjectNode root = objectMapper.valueToTree(caseSnapshot);
             root.set("patient", objectMapper.valueToTree(patientSnapshot));
-            root.put("healerSign", healingCase.getDeclaration().getHealerSignature());
+            // Cases created before consent existed have no declaration: no signature then.
+            Declaration declaration = healingCase.getDeclaration();
+            root.put("healerSign", declaration != null ? declaration.getHealerSignature() : null);
             newJsonNode = root;
             healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {
