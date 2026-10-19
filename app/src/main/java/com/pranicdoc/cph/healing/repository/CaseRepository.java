@@ -21,6 +21,14 @@ import java.util.UUID;
 @Repository
 public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
 
+    /**
+     * Row-locks the case until the surrounding transaction ends. Session creation takes this
+     * lock before numbering, so two concurrent submits for one case are serialised and cannot
+     * both compute the same session_number.
+     */
+    @Query(value = "SELECT id FROM healing_case WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<UUID> lockById(@Param("id") UUID id);
+
     Page<HealingCase> findByPatientId(UUID patientId, Pageable pageable);
 
     Page<HealingCase> findByHealerId(UUID healerId, Pageable pageable);

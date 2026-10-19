@@ -46,8 +46,10 @@ public class SessionController {
      */
     @PreAuthorize("@rbacAuthz.hasPermission('SESSION','CREATE')")
     @PostMapping("/case")
-    public ResponseEntity<SessionResponse> create(@Valid @RequestBody CreateSessionRequest sessionRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(sessionRequest));
+    public ResponseEntity<SessionResponse> create(
+            @Valid @RequestBody CreateSessionRequest sessionRequest,
+            @RequestHeader(value = "Idempotency-Key", required = false) UUID idempotencyKey) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(sessionService.create(sessionRequest, idempotencyKey));
     }
 
     @PreAuthorize("@rbacAuthz.hasPermission('SESSION','READ')")

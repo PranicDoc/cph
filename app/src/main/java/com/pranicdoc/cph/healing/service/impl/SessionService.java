@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -49,11 +51,12 @@ public class SessionService {
     public SessionResponse create(UUID caseId) {
         caseService.requireConsent(caseId);
         HealingCase healingCase = caseService.findOrThrow(caseId);
+        caseService.lockForSessionNumbering(caseId);
 
         // Determine next session number
         List<HealingSession> existing = sessionRepository
                 .findByHealingCaseIdOrderBySessionNumberAsc(caseId);
-        int nextNumber = existing.size() + 1;
+        int nextNumber = nextSessionNumber(existing);
 
         HealingSession session = HealingSession.builder()
                 .healingCase(healingCase)
@@ -69,16 +72,42 @@ public class SessionService {
     @Auditable(action = "CREATE_SESSION")
     @Transactional
     public SessionResponse create(CreateSessionRequest sessionRequest) {
+        return create(sessionRequest, null);
+    }
+
+    /**
+     * Creates a completed session. {@code idempotencyKey} (the client's Idempotency-Key header)
+     * makes a retried submit safe: if a session was already created with that key, it is
+     * returned unchanged instead of creating a duplicate (2026-09-21: a submit that hit the
+     * nginx 504 had in fact committed, and the healer's resubmit made a second session 1).
+     * The case row lock is taken first so a concurrent retry waits for the original to commit
+     * and then finds it by key.
+     */
+    @Auditable(action = "CREATE_SESSION")
+    @Transactional
+    public SessionResponse create(CreateSessionRequest sessionRequest, UUID idempotencyKey) {
+        caseService.lockForSessionNumbering(sessionRequest.caseId());
+        if (idempotencyKey != null) {
+            Optional<HealingSession> replay = sessionRepository.findByClientRequestId(idempotencyKey);
+            if (replay.isPresent()) {
+                HealingSession original = replay.get();
+                if (!original.getHealingCase().getId().equals(sessionRequest.caseId())) {
+                    throw new IllegalArgumentException("Idempotency-Key was already used for a different case");
+                }
+                return toResponse(original);
+            }
+        }
         List<HealingSession> existing = sessionRepository
                 .findByHealingCaseIdOrderBySessionNumberAsc(sessionRequest.caseId());
         if(existing.isEmpty()) {
             caseService.requireConsent(sessionRequest.caseId());
         }
         HealingCase healingCase = caseService.findOrThrow(sessionRequest.caseId());
-        int nextNumber = existing.size() + 1;
+        int nextNumber = nextSessionNumber(existing);
         validateMasterDataReferences(sessionRequest);
         HealingSession session = mapper.toEntity(sessionRequest);
         session.setSessionNumber(nextNumber);
+        session.setClientRequestId(idempotencyKey);
         // TODO this is a basic validation, add few more checks comparing with the base data
         validatePrePostAndProtocolExists(session);
         session.setStatus(SessionStatus.COMPLETED);
@@ -185,6 +214,20 @@ public class SessionService {
             throw new ResourceNotFoundException("HealingSession for case", caseId);
         }
         return sessions.get(sessions.size() - 1);
+    }
+
+    /**
+     * Highest existing number + 1, not count + 1: once a session has been soft-deleted the
+     * count is lower than the highest number, and count + 1 would reuse a live number (which
+     * the unique (healing_case_id, session_number) index now rejects).
+     */
+    private static int nextSessionNumber(List<HealingSession> existing) {
+        return existing.stream()
+                .map(HealingSession::getSessionNumber)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0) + 1;
     }
 
     private SessionResponse toResponse(HealingSession s) {

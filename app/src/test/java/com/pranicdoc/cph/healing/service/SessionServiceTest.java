@@ -21,6 +21,8 @@ import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,11 +31,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -289,6 +294,120 @@ class SessionServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
         assertEquals("Invalid chakraId: " + unknownId, ex.getMessage());
         verify(mapper, never()).toEntity(any());
+    }
+
+    @Test
+    void createWithIdempotencyKeyStoresTheKeyOnTheNewSession() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        UUID colorId = UUID.randomUUID();
+        UUID key = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                chakraId, colorId);
+        HealingSession session = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.empty());
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        when(mapper.toEntity(request)).thenReturn(session);
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.create(request, key);
+
+        ArgumentCaptor<HealingSession> saved = ArgumentCaptor.forClass(HealingSession.class);
+        verify(sessionRepository).save(saved.capture());
+        assertEquals(key, saved.getValue().getClientRequestId());
+    }
+
+    @Test
+    void createWithAKeyAlreadyUsedReturnsTheOriginalSessionWithoutCreatingAnother() {
+        UUID caseId = UUID.randomUUID();
+        UUID key = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                UUID.randomUUID(), UUID.randomUUID());
+        HealingSession original = completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+        original.setHealingCase(healingCase(caseId));
+        original.setSessionNumber(1);
+        original.setClientRequestId(key);
+
+        when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.of(original));
+
+        SessionResponse response = sessionService.create(request, key);
+
+        assertEquals(original.getId(), response.id());
+        assertEquals(1, response.sessionNumber());
+        verify(sessionRepository, never()).save(any());
+        verify(notificationService, never()).sendFeedbackNotification(any(), anyBoolean());
+    }
+
+    @Test
+    void createRejectsAKeyAlreadyUsedForAnotherCase() {
+        UUID key = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                UUID.randomUUID(), LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                UUID.randomUUID(), UUID.randomUUID());
+        HealingSession other = completedSession(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+        other.setHealingCase(healingCase(UUID.randomUUID()));
+
+        when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.of(other));
+
+        assertThrows(IllegalArgumentException.class, () -> sessionService.create(request, key));
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void createLocksTheCaseBeforeCheckingTheKeyAndNumberingTheSession() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        UUID key = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                chakraId, UUID.randomUUID());
+
+        when(sessionRepository.findByClientRequestId(key)).thenReturn(Optional.empty());
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        when(mapper.toEntity(request)).thenReturn(completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45)));
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.create(request, key);
+
+        InOrder inOrder = inOrder(caseService, sessionRepository);
+        inOrder.verify(caseService).lockForSessionNumbering(caseId);
+        inOrder.verify(sessionRepository).findByClientRequestId(key);
+        inOrder.verify(sessionRepository).findByHealingCaseIdOrderBySessionNumberAsc(caseId);
+    }
+
+    @Test
+    void createNumbersAfterTheHighestLiveSessionNotTheCount() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        CreateSessionRequest request = request(
+                caseId, LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45),
+                chakraId, UUID.randomUUID());
+        HealingSession first = new HealingSession();
+        first.setSessionNumber(1);
+        HealingSession third = new HealingSession();
+        third.setSessionNumber(3); // session 2 was soft-deleted
+
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of(first, third));
+        when(caseService.findOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        when(mapper.toEntity(request)).thenReturn(completedSessionWithReadings(
+                LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45)));
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SessionResponse response = sessionService.create(request);
+
+        assertEquals(4, response.sessionNumber());
     }
 
     private HealingCase healingCase(UUID caseId) {

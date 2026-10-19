@@ -356,6 +356,15 @@ public class CaseService {
                 .orElseThrow(() -> new ResourceNotFoundException("HealingCase", id));
     }
 
+    /**
+     * Takes a row lock on the case for the rest of the caller's transaction, so session
+     * numbering (count + 1) can't race. Call it before reading the case's existing sessions.
+     */
+    public void lockForSessionNumbering(UUID caseId) {
+        caseRepository.lockById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+    }
+
     @Transactional(readOnly = true)
     public CaseSummaryResponse getCaseSummary(UUID healingCaseId) {
         HealingCase healingCase = findOrThrow(healingCaseId);

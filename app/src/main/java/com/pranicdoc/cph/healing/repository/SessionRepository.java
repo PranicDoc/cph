@@ -20,6 +20,8 @@ public interface SessionRepository extends JpaRepository<HealingSession, UUID> {
 
     List<HealingSession> findByHealingCaseIdOrderBySessionNumberAsc(UUID healingCaseId);
 
+    Optional<HealingSession> findByClientRequestId(UUID clientRequestId);
+
     Optional<HealingSession> findFirstByHealingCase_IdOrderBySessionDateDesc(UUID caseId);
 
     @Query("""
