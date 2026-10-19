@@ -1,0 +1,120 @@
+name: Deploy
+run-name: Deploy ${{ inputs.components }} ${{ inputs.tag || 'main HEAD' }} → ${{ inputs.target }} (${{ inputs.environment }})
+
+# Step 2 of shipping: build the chosen release (or main's latest commit) and deploy exactly that
+# version. Images are built here, not on merge; an already-built version is reused. Prod deploys
+# wait for an "approve" comment. Rollback = run Deploy again with an older tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z). Empty = latest commit on main
+        type: string
+        default: ""
+      target:
+        description: Where to deploy
+        type: choice
+        options: [vm, cloudrun]
+        default: vm
+      environment:
+        description: Environment (vm = prod, cloudrun = uat for now)
+        type: choice
+        options: [prod, uat]
+        default: prod
+      components:
+        description: What to deploy
+        type: choice
+        options: [both, backend, ui]
+        default: both
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: UI runs only on the VM
+        if: inputs.target == 'cloudrun' && inputs.components != 'backend'
+        run: |
+          echo "::error::ui has no Cloud Run service — choose components: backend for cloudrun"
+          exit 1
+      - run: echo "ok"
+
+  resolve:
+    needs: check
+    permissions:
+      contents: read
+      actions: read
+    uses: PranicDoc/infra/.github/workflows/resolve-release.yml@main
+    with:
+      tag: ${{ inputs.tag }}
+      target: ${{ inputs.target }}
+      environment: ${{ inputs.environment }}
+
+  build_backend:
+    needs: resolve
+    if: inputs.components != 'ui'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: PranicDoc/infra/.github/workflows/build-image.yml@main
+    with:
+      image_name: cph
+      context: app                 # Dockerfile lives in cph/app/
+      use_gpr_key: true            # common-dtos / storage-sdk come from GitHub Packages
+      ref: ${{ needs.resolve.outputs.sha }}
+      image_tag: ${{ needs.resolve.outputs.version }}
+      gar_environment: ${{ inputs.target == 'cloudrun' && 'uat' || '' }}
+    secrets: inherit
+
+  build_ui:
+    needs: resolve
+    if: inputs.components != 'backend'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: PranicDoc/infra/.github/workflows/build-image.yml@main
+    with:
+      image_name: cph-ui
+      context: ui
+      build_args: |
+        GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
+      ref: ${{ needs.resolve.outputs.sha }}
+      image_tag: ${{ needs.resolve.outputs.version }}
+    secrets: inherit
+
+  deploy_vm:
+    needs: [resolve, build_backend, build_ui]
+    # A skipped build (component not selected) is fine; a failed or cancelled one is not.
+    if: >-
+      always() && inputs.target == 'vm' && needs.resolve.result == 'success'
+      && needs.build_backend.result != 'failure' && needs.build_backend.result != 'cancelled'
+      && needs.build_ui.result != 'failure' && needs.build_ui.result != 'cancelled'
+    permissions:
+      contents: read
+      issues: write                # approval gate
+      packages: read               # the VM pulls with this run's token
+    uses: PranicDoc/infra/.github/workflows/deploy-vm.yml@main
+    with:
+      services: ${{ inputs.components == 'both' && 'cph ui' || (inputs.components == 'backend' && 'cph' || 'ui') }}
+      version: ${{ needs.resolve.outputs.version }}
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+
+  deploy_cloudrun:
+    needs: [resolve, build_backend]
+    if: inputs.target == 'cloudrun'
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    uses: PranicDoc/infra/.github/workflows/deploy-cloudrun.yml@main
+    with:
+      environment: ${{ inputs.environment }}
+      service: cph
+      image_name: cph
+      image_tag: ${{ needs.resolve.outputs.version }}
+      health_path: /cph/actuator/health
