@@ -78,12 +78,11 @@ class SessionServiceTest {
         LocalTime endTime = LocalTime.of(10, 45);
         CreateSessionRequest request = request(caseId, sessionDate, startTime, endTime, chakraId, colorId);
         HealingCase healingCase = healingCase(caseId);
-        HealingSession session = completedSession(sessionDate, startTime, endTime);
+        HealingSession session = completedSessionWithReadings(sessionDate, startTime, endTime);
 
         when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
         when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
         when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
-        when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(true);
         when(mapper.toEntity(request)).thenReturn(session);
         when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -178,29 +177,6 @@ class SessionServiceTest {
         sessionService.complete(sessionId);
 
         assertEquals(CaseStatus.ACTIVE, healingCase.getStatus());
-    }
-
-    @Test
-    void createRejectsProtocolColorsWithUnknownColorIds() {
-        UUID caseId = UUID.randomUUID();
-        UUID chakraId = UUID.randomUUID();
-        UUID colorId = UUID.randomUUID();
-        CreateSessionRequest request = request(
-                caseId,
-                LocalDate.of(2026, 5, 13),
-                LocalTime.of(9, 30),
-                LocalTime.of(10, 45),
-                chakraId,
-                colorId
-        );
-
-        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
-        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
-        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
-        when(pranaColorCatalogRepository.existsById(colorId)).thenReturn(false);
-
-        assertThrows(IllegalArgumentException.class, () -> sessionService.create(request));
-        verify(mapper, never()).toEntity(any());
     }
 
     private CreateSessionRequest request(

@@ -1,0 +1,26 @@
+name: CI
+
+# Build + test on every push to main and every PR. Uses the shared workflows in PranicDoc/infra,
+# so every repo is tested the same way. Pushes no images: images are built when deploying.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    uses: PranicDoc/infra/.github/workflows/ci-gradle.yml@main
+    with:
+      working_directory: app
+      java_version: "17"
+      use_gpr_key: true   # common-dtos / storage-sdk come from GitHub Packages
+    secrets: inherit
+
+  ui:
+    uses: PranicDoc/infra/.github/workflows/ci-node.yml@main
+    with:
+      working_directory: ui

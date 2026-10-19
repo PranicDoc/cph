@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.payments;
 
+import com.pranicdoc.cph.support.TestRedisConfig;
+import org.springframework.context.annotation.Import;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -24,17 +26,21 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@Import(TestRedisConfig.class)
 @ActiveProfiles("test")
 class CreditGateIntegrationTest {
 
     @RegisterExtension
     static WireMockExtension wireMock = WireMockExtension.newInstance()
-            .options(wireMockConfig().dynamicPort())
+            .options(wireMockConfig().dynamicPort().http2PlainDisabled(true))
             .build();
 
     @DynamicPropertySource
     static void overrideCreditServiceUrl(DynamicPropertyRegistry registry) {
         registry.add("creditservice.base-url", wireMock::baseUrl);
+        // CreditProxyConfig's RestClient (the one CreditServiceClient uses) reads the hyphenated
+        // key; without it calls go to the test profile's dummy port and fail open.
+        registry.add("credit-service.base-url", wireMock::baseUrl);
     }
 
     @Autowired
