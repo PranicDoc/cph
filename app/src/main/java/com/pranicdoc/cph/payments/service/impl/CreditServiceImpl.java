@@ -36,7 +36,8 @@ public class CreditServiceImpl implements CreditService {
 
     @Override
     public ApiResponse<String> getPackages() {
-        return ApiResponse.of(creditServiceRestClient.getPackages());
+        return ApiResponse.of(creditServiceRestClient.getPackages(
+                OwnerType.HEALER, securityContextUtil.getCurrentHealerId()));
     }
 
     @Override

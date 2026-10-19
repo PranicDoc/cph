@@ -120,7 +120,7 @@ class CreditProxyControllerTest {
         // Behavioural tests are about proxy forwarding, not authorization: authenticate as SUPADM
         // so RbacAuthz short-circuits to true and every request reaches the handler.
         lenient().when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
-        lenient().when(creditServiceClient.getPackages()).thenReturn("[{\"name\":\"FREE\",\"credits\":10}]");
+        lenient().when(creditServiceClient.getPackages(any(), any())).thenReturn("[{\"name\":\"FREE\",\"credits\":10}]");
         lenient().when(creditServiceClient.purchase(any(), any()))
                 .thenReturn("{\"purchase_reference\":\"uuid\",\"credits_added\":50}");
     }

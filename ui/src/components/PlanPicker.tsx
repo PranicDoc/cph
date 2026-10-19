@@ -107,6 +107,12 @@ export function PlanPicker({
         </p>
       </div>
 
+      {sorted.length === 0 && (
+        <p className="text-center text-text-light">
+          You are on our highest plan. Your plan stays active until it ends.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {sorted.map((pkg) => {
           const isFree = pkg.price_paise === 0;
@@ -130,7 +136,10 @@ export function PlanPicker({
                   </span>
                 )}
               </div>
-              <p className="text-text-light text-sm">{pkg.credits} credits</p>
+              <p className="text-text-light text-sm">
+                {pkg.credits} credits
+                {pkg.validity_days ? ` · valid ${pkg.validity_days} days` : ""}
+              </p>
               <p className="text-base sm:text-lg font-semibold text-primary">
                 {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
               </p>

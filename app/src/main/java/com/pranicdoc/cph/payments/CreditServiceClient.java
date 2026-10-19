@@ -37,9 +37,10 @@ public class CreditServiceClient {
                 .body(AccountResponse.class);
     }
 
-    public String getPackages() {
+    /** Packages this account may buy now: while a paid plan is active only higher plans come back. */
+    public String getPackages(OwnerType ownerType, UUID ownerId) {
         return restClient.get()
-                .uri("/credits/packages")
+                .uri("/credits/packages?ownerType={ownerType}&ownerId={ownerId}", ownerType, ownerId)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, resp) -> {
                     throw new ResponseStatusException(resp.getStatusCode(),
