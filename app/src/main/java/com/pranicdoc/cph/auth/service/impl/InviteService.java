@@ -13,6 +13,7 @@ import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
+import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
 import com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner;
@@ -55,6 +56,8 @@ public class InviteService {
     private final CookieUtil cookieUtil;
     private final CreditService creditService;
     private final BaselineRoleAssigner baselineRoleAssigner;
+    private final TransactionService transactionService;
+    private final WelcomeEmailSender welcomeEmailSender;
 
     @Value("${app.invite.url}")
     private String inviteUrl;
@@ -65,7 +68,9 @@ public class InviteService {
     // JavaMail has no implicit From — without setFrom() it synthesizes
     // <os-user>@<container-hostname> as the envelope sender, which most SMTP
     // relays (correctly) reject. Every outgoing message must set this explicitly.
-    @Value("${spring.mail.username}")
+    // Separate from the SMTP login (spring.mail.username): invites go out as hello@healingark.in,
+    // which the SMTP account must be allowed to send as.
+    @Value("${app.mail.from}")
     private String mailFromAddress;
 
     /**
@@ -86,7 +91,7 @@ public class InviteService {
         }
         if (StringUtils.isBlank(mailFromAddress)) {
             throw new IllegalStateException(
-                    "spring.mail.username must be set to a non-blank value — it's used as the "
+                    "app.mail.from must be set to a non-blank value — it's used as the "
                             + "From address for every outgoing invite email. Refusing to start.");
         }
     }
@@ -326,6 +331,12 @@ public class InviteService {
         baselineRoleAssigner.assignTo(saved.getId());
 
         setAuthCookies(response, saved);
+
+        // First activation through the registration link: welcome the healer once the account
+        // is committed. Async and fail-soft, so it can never delay or undo the activation.
+        String welcomeEmail = saved.getEmail();
+        String welcomeName = saved.getFullName();
+        transactionService.runAfterCommit(() -> welcomeEmailSender.sendWelcome(welcomeEmail, welcomeName));
 
         return toHealerResponse(saved);
     }

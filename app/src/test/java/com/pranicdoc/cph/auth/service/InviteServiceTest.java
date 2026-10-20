@@ -77,6 +77,12 @@ class InviteServiceTest {
     @Mock
     private HttpServletResponse httpServletResponse;
 
+    @Mock
+    private com.pranicdoc.cph.common.util.TransactionService transactionService;
+
+    @Mock
+    private com.pranicdoc.cph.auth.service.impl.WelcomeEmailSender welcomeEmailSender;
+
     private InviteService inviteService;
 
     private final UUID invitedByHealerId = UUID.randomUUID();
@@ -85,8 +91,9 @@ class InviteServiceTest {
     void setUp() {
         inviteService = new InviteService(inviteRepository, healerRepository,
                 mailSender, passwordEncoder, jwtService, cookieUtil, creditService,
-                baselineRoleAssigner);
+                baselineRoleAssigner, transactionService, welcomeEmailSender);
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
+        ReflectionTestUtils.setField(inviteService, "mailFromAddress", "hello@healingark.in");
         ReflectionTestUtils.setField(inviteService, "inviteExpiryHours", 72);
     }
 
@@ -301,6 +308,69 @@ class InviteServiceTest {
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
+    // ─── Sender address + welcome email ─────────────────────────
+
+    @Test
+    void inviteEmailIsSentFromTheConfiguredAddress() {
+        String email = "fromcheck@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.empty());
+        when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        inviteService.createInvite(email, invitedByHealerId);
+
+        ArgumentCaptor<SimpleMailMessage> mail = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(mail.capture());
+        assertEquals("hello@healingark.in", mail.getValue().getFrom());
+    }
+
+    private HealerInviteLink pendingInvite(String token, UUID inviteId, String email) {
+        return HealerInviteLink.builder()
+                .id(inviteId).token(token).email(email).role(Role.HEALER)
+                .source(HealerInviteLink.Source.ADMIN_INVITE)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+    }
+
+    @Test
+    void acceptInvite_sendsTheWelcomeEmailOnlyOnceTheActivationHasCommitted() {
+        String token = "welcome-token";
+        UUID inviteId = UUID.randomUUID();
+        HealerInviteLink invite = pendingInvite(token, inviteId, "welcome@example.com");
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq(token), eq(HealerInviteLink.Status.PENDING), any())).thenReturn(Optional.of(invite));
+        when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
+        when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
+        when(healerRepository.save(any(Healer.class))).thenAnswer(inv -> {
+            Healer h = inv.getArgument(0);
+            h.setId(UUID.randomUUID());
+            return h;
+        });
+
+        inviteService.acceptInvite(token, new AcceptInviteRequest("Asha Rao", "password1", "555-1234"),
+                httpServletResponse);
+
+        ArgumentCaptor<Runnable> afterCommit = ArgumentCaptor.forClass(Runnable.class);
+        verify(transactionService).runAfterCommit(afterCommit.capture());
+        verify(welcomeEmailSender, never()).sendWelcome(any(), any());   // not before commit
+        afterCommit.getValue().run();
+        verify(welcomeEmailSender).sendWelcome("welcome@example.com", "Asha Rao");
+    }
+
+    @Test
+    void acceptInvite_withAnInvalidLinkSendsNoWelcomeEmail() {
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(TokenExpiredException.class, () -> inviteService.acceptInvite("bad",
+                new AcceptInviteRequest("Asha Rao", "password1", "555-1234"), httpServletResponse));
+
+        verifyNoInteractions(transactionService, welcomeEmailSender);
+    }
+
     // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
 
     @Test
