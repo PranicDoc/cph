@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.notification.service;
 
+import com.pranicdoc.cph.notification.channel.NotificationMessage;
+import com.pranicdoc.cph.notification.channel.WhatsappChannel;
 import com.pranicdoc.cph.notification.config.NotificationProperties;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox.NotificationStatus;
@@ -27,7 +29,7 @@ import static org.mockito.Mockito.when;
 class OutboxDispatcherTest {
 
     private final OutboxRepository repository = mock(OutboxRepository.class);
-    private final WhatsappSender sender = mock(WhatsappSender.class);
+    private final WhatsappChannel sender = mock(WhatsappChannel.class);
     private final NotificationProperties properties = new NotificationProperties();
     private OutboxDispatcher dispatcher;
 
@@ -50,7 +52,7 @@ class OutboxDispatcherTest {
 
         assertThat(dispatcher.dispatch(id)).isFalse();
 
-        verify(sender, never()).send(anyString(), anyString());
+        verify(sender, never()).send(any(NotificationMessage.class));
         verify(repository, never()).save(any());
     }
 
@@ -60,14 +62,14 @@ class OutboxDispatcherTest {
 
         assertThat(dispatcher.dispatch(id)).isTrue();
 
-        verify(sender).send("+919999999999", "hello");
+        verify(sender).send(NotificationMessage.whatsapp("+919999999999", "hello"));
         assertThat(saved().getStatus()).isEqualTo(NotificationStatus.PROCESSED);
     }
 
     @Test
     void marksFailedAndCountsAttemptWhenSendFailsWithRetriesLeft() {
         when(repository.claim(eq(id), any(), any(), anyInt())).thenReturn(1);
-        doThrow(new RuntimeException("WhatsApp down")).when(sender).send(anyString(), anyString());
+        doThrow(new RuntimeException("WhatsApp down")).when(sender).send(any(NotificationMessage.class));
 
         assertThat(dispatcher.dispatch(id)).isFalse();
 
@@ -80,7 +82,7 @@ class OutboxDispatcherTest {
     void movesToDlqWhenLastRetryFails() {
         row.setRetryCount(2);
         when(repository.claim(eq(id), any(), any(), anyInt())).thenReturn(1);
-        doThrow(new RuntimeException("WhatsApp down")).when(sender).send(anyString(), anyString());
+        doThrow(new RuntimeException("WhatsApp down")).when(sender).send(any(NotificationMessage.class));
 
         dispatcher.dispatch(id);
 
