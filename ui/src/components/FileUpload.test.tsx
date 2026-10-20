@@ -56,3 +56,19 @@ describe("FileUpload remove", () => {
     expect(screen.queryByText("blood-report.pdf", { selector: "span" })).not.toBeInTheDocument();
   });
 });
+
+describe("FileUpload size limit", () => {
+  it("adds a normal photo but rejects one over 10 MB with a message", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const { container } = render(<Harness />);
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const small = new File([new Uint8Array(3 * 1024 * 1024)], "scan.png", { type: "image/png" });
+    const big = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "huge.png", { type: "image/png" });
+
+    await user.upload(input, [small, big]);
+
+    expect(screen.getByText("scan.png")).toBeInTheDocument();
+    expect(screen.queryByText("huge.png", { selector: "span" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("huge.png is larger than 10.0 MB");
+  });
+});

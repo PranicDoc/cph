@@ -14,6 +14,9 @@ interface FileUploadProps {
   confirmRemove?: boolean;
 }
 
+/** Matches the server's spring.servlet.multipart.max-file-size. */
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -35,12 +38,18 @@ export function FileUpload({
   const [dragOver, setDragOver] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [pendingRemoveIdx, setPendingRemoveIdx] = useState<number | null>(null);
+  const [rejected, setRejected] = useState<string[]>([]);
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming || !onChange) return;
     const existingFiles = value.filter((v): v is File => v instanceof File);
-    const newFiles = Array.from(incoming).filter(
-      (f) => !existingFiles.some((e) => e.name === f.name && e.size === f.size)
+    const all = Array.from(incoming);
+    const tooBig = all.filter((f) => f.size > MAX_FILE_BYTES);
+    setRejected(tooBig.map((f) => f.name));
+    const newFiles = all.filter(
+      (f) =>
+        f.size <= MAX_FILE_BYTES &&
+        !existingFiles.some((e) => e.name === f.name && e.size === f.size)
     );
     onChange([...value, ...newFiles]);
   };
@@ -140,6 +149,13 @@ export function FileUpload({
           onChange={(e) => addFiles(e.target.files)}
         />
       </div>
+
+      {rejected.length > 0 && (
+        <p role="alert" className="text-sm text-danger">
+          {rejected.join(", ")} {rejected.length > 1 ? "are" : "is"} larger than{" "}
+          {formatSize(MAX_FILE_BYTES)} and was not added.
+        </p>
+      )}
 
       {value.length > 0 && (
         <ul className="space-y-1.5">
