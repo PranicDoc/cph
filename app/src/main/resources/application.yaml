@@ -124,6 +124,10 @@ app:
     kafka: false
   feedback:
     token-expiry-hours: 48
+  mail:
+    # From address of every invite / welcome email. Independent of the SMTP login
+    # (spring.mail.username); that account must be allowed to send as this address.
+    from: ${APP_MAIL_FROM:hello@healingark.in}
   invite:
     token-expiry-hours: 72
   whatsapp:

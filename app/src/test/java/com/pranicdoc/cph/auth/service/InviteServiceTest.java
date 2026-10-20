@@ -22,9 +22,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import com.pranicdoc.cph.notification.channel.ChannelType;
+import com.pranicdoc.cph.notification.channel.NotificationMessage;
+import com.pranicdoc.cph.notification.service.NotificationSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -34,13 +34,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -57,7 +58,7 @@ class InviteServiceTest {
     private HealerRepository healerRepository;
 
     @Mock
-    private JavaMailSender mailSender;
+    private NotificationSender notificationSender;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -77,6 +78,7 @@ class InviteServiceTest {
     @Mock
     private HttpServletResponse httpServletResponse;
 
+
     private InviteService inviteService;
 
     private final UUID invitedByHealerId = UUID.randomUUID();
@@ -84,9 +86,11 @@ class InviteServiceTest {
     @BeforeEach
     void setUp() {
         inviteService = new InviteService(inviteRepository, healerRepository,
-                mailSender, passwordEncoder, jwtService, cookieUtil, creditService,
-                baselineRoleAssigner);
+                passwordEncoder, jwtService, cookieUtil, creditService,
+                baselineRoleAssigner, notificationSender);
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
+        // Delivery succeeds unless a test says otherwise (the invite reports emailSent from this).
+        lenient().when(notificationSender.sendNow(any(NotificationMessage.class))).thenReturn(true);
         ReflectionTestUtils.setField(inviteService, "inviteExpiryHours", 72);
     }
 
@@ -111,7 +115,7 @@ class InviteServiceTest {
         assertEquals("PENDING", response.status());
 
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(notificationSender, times(1)).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -143,7 +147,7 @@ class InviteServiceTest {
         assertEquals(Role.HEALER, captor.getValue().getRole());
         assertNotEquals(oldToken, existing.getToken());
         assertEquals(email, response.email());
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(notificationSender, times(1)).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -155,7 +159,7 @@ class InviteServiceTest {
                 () -> inviteService.createInvite(email, invitedByHealerId));
 
         verify(inviteRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -165,7 +169,7 @@ class InviteServiceTest {
         when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
                 .thenReturn(Optional.empty());
         when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
-        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
+        when(notificationSender.sendNow(any(NotificationMessage.class))).thenReturn(false);
 
         InviteResponse response = inviteService.createInvite(email, invitedByHealerId);
 
@@ -185,7 +189,7 @@ class InviteServiceTest {
         assertTrue(response.success());
         assertEquals("If that email is eligible, a verification link has been sent.", response.message());
         verify(inviteRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -201,7 +205,7 @@ class InviteServiceTest {
         assertTrue(response.success());
         assertEquals("If that email is eligible, a verification link has been sent.", response.message());
         verify(inviteRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -226,7 +230,7 @@ class InviteServiceTest {
         assertNull(saved.getInvitedByHealerId());
         assertEquals(Role.HEALER, saved.getRole());
         assertEquals(HealerInviteLink.Status.PENDING, saved.getStatus());
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(notificationSender, times(1)).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -258,7 +262,7 @@ class InviteServiceTest {
         // Only ONE save call — the existing row is mutated and re-saved, no second row inserted.
         verify(inviteRepository, times(1)).save(any(HealerInviteLink.class));
         assertNotEquals(oldToken, existing.getToken());
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(notificationSender, times(1)).sendNow(any(NotificationMessage.class));
     }
 
     /**
@@ -298,7 +302,86 @@ class InviteServiceTest {
                 "invariant message must name the survivor tier HEALER — got: " + ex.getMessage());
 
         verify(inviteRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
+    }
+
+    // ─── Sender address + welcome email ─────────────────────────
+
+    @Test
+    void inviteEmailCarriesTheActivationLinkAndGoesToTheInvitedAddress() {
+        String email = "fromcheck@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.empty());
+        when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        inviteService.createInvite(email, invitedByHealerId);
+
+        ArgumentCaptor<NotificationMessage> mail = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(notificationSender).sendNow(mail.capture());
+        assertEquals(ChannelType.EMAIL, mail.getValue().channel());
+        assertEquals(email, mail.getValue().recipient());
+        assertEquals("You're invited to HealingARK", mail.getValue().subject());
+        assertTrue(mail.getValue().body().contains("http://localhost:3000/accept-invite?token="));
+    }
+
+    @Test
+    void inviteReportsEmailNotSentWhenDeliveryFails() {
+        String email = "undelivered@example.com";
+        when(healerRepository.existsByEmail(email)).thenReturn(false);
+        when(inviteRepository.findByEmailAndStatus(email, HealerInviteLink.Status.PENDING))
+                .thenReturn(Optional.empty());
+        when(inviteRepository.save(any(HealerInviteLink.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(notificationSender.sendNow(any(NotificationMessage.class))).thenReturn(false);
+
+        assertFalse(inviteService.createInvite(email, invitedByHealerId).emailSent());
+    }
+
+    private HealerInviteLink pendingInvite(String token, UUID inviteId, String email) {
+        return HealerInviteLink.builder()
+                .id(inviteId).token(token).email(email).role(Role.HEALER)
+                .source(HealerInviteLink.Source.ADMIN_INVITE)
+                .status(HealerInviteLink.Status.PENDING)
+                .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
+                .build();
+    }
+
+    @Test
+    void acceptInvite_queuesTheWelcomeEmailAfterCommit() {
+        String token = "welcome-token";
+        UUID inviteId = UUID.randomUUID();
+        HealerInviteLink invite = pendingInvite(token, inviteId, "welcome@example.com");
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq(token), eq(HealerInviteLink.Status.PENDING), any())).thenReturn(Optional.of(invite));
+        when(inviteRepository.markAccepted(eq(inviteId), any())).thenReturn(1);
+        when(healerRepository.existsByEmail(invite.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("password1")).thenReturn("hashedPw");
+        when(healerRepository.save(any(Healer.class))).thenAnswer(inv -> {
+            Healer h = inv.getArgument(0);
+            h.setId(UUID.randomUUID());
+            return h;
+        });
+
+        inviteService.acceptInvite(token, new AcceptInviteRequest("Asha Rao", "password1", "555-1234"),
+                httpServletResponse);
+
+        ArgumentCaptor<NotificationMessage> welcome = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(notificationSender).sendAfterCommit(welcome.capture());
+        assertEquals(ChannelType.EMAIL, welcome.getValue().channel());
+        assertEquals("welcome@example.com", welcome.getValue().recipient());
+        assertTrue(welcome.getValue().body().startsWith("Dear Asha Rao,"));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
+    }
+
+    @Test
+    void acceptInvite_withAnInvalidLinkSendsNoWelcomeEmail() {
+        when(inviteRepository.findByTokenAndStatusAndExpiresAtAfter(any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(TokenExpiredException.class, () -> inviteService.acceptInvite("bad",
+                new AcceptInviteRequest("Asha Rao", "password1", "555-1234"), httpServletResponse));
+
+        verifyNoInteractions(notificationSender);
     }
 
     // ─── acceptInvite (SELF_SIGNUP) ─────────────────────────────
@@ -366,7 +449,7 @@ class InviteServiceTest {
 
         assertNotEquals(oldToken, invite.getToken());
         assertEquals("PENDING", response.status());
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(notificationSender, times(1)).sendNow(any(NotificationMessage.class));
     }
 
     @Test
@@ -428,7 +511,7 @@ class InviteServiceTest {
 
         assertEquals(HealerInviteLink.Status.REVOKED, invite.getStatus());
         assertEquals("REVOKED", response.status());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(notificationSender, never()).sendNow(any(NotificationMessage.class));
     }
 
     @Test

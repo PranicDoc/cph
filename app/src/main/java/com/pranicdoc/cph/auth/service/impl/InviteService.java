@@ -13,6 +13,8 @@ import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
+import com.pranicdoc.cph.notification.channel.NotificationMessage;
+import com.pranicdoc.cph.notification.service.NotificationSender;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
 import com.pranicdoc.cph.rbac.baseline.BaselineRoleAssigner;
@@ -25,9 +27,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,12 +48,12 @@ public class InviteService {
 
     private final HealerInviteLinkRepository inviteRepository;
     private final HealerRepository healerRepository;
-    private final JavaMailSender mailSender;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final CreditService creditService;
     private final BaselineRoleAssigner baselineRoleAssigner;
+    private final NotificationSender notificationSender;
 
     @Value("${app.invite.url}")
     private String inviteUrl;
@@ -62,20 +61,14 @@ public class InviteService {
     @Value("${app.invite.token-expiry-hours:72}")
     private int inviteExpiryHours;
 
-    // JavaMail has no implicit From — without setFrom() it synthesizes
-    // <os-user>@<container-hostname> as the envelope sender, which most SMTP
-    // relays (correctly) reject. Every outgoing message must set this explicitly.
-    @Value("${spring.mail.username}")
-    private String mailFromAddress;
-
     /**
      * Fail startup rather than silently ship broken invite emails. `@Value` alone
      * doesn't catch this: an env var explicitly set to an empty string (as opposed
      * to unset) resolves fine as far as Spring's placeholder resolver is concerned —
-     * it only errors when the key is missing from every property source. Blank
-     * inviteUrl/mailFromAddress produced exactly this kind of silent failure before
-     * (invite emails "succeeded" with a broken activation link or an unroutable
-     * sender), so refuse to come up at all rather than repeat it.
+     * it only errors when the key is missing from every property source. A blank
+     * inviteUrl produced exactly this kind of silent failure before (invite emails
+     * "succeeded" with a broken activation link), so refuse to come up at all rather
+     * than repeat it. (The sender address is validated by EmailChannel.)
      */
     @PostConstruct
     void validateMailConfig() {
@@ -83,11 +76,6 @@ public class InviteService {
             throw new IllegalStateException(
                     "app.invite.url must be set to a non-blank value — invite/self-signup "
                             + "emails need a real activation URL. Refusing to start.");
-        }
-        if (StringUtils.isBlank(mailFromAddress)) {
-            throw new IllegalStateException(
-                    "spring.mail.username must be set to a non-blank value — it's used as the "
-                            + "From address for every outgoing invite email. Refusing to start.");
         }
     }
 
@@ -327,6 +315,11 @@ public class InviteService {
 
         setAuthCookies(response, saved);
 
+        // First activation through the registration link: welcome the healer once the account
+        // is committed. Async and fail-soft, so it can never delay or undo the activation.
+        notificationSender.sendAfterCommit(
+                AccountMessages.welcome(saved.getEmail(), saved.getFullName(), inviteUrl));
+
         return toHealerResponse(saved);
     }
 
@@ -359,43 +352,22 @@ public class InviteService {
      * invite creation, the admin has Resend).
      */
     private boolean sendInviteEmail(String email, String token) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(mailFromAddress);
-            message.setTo(email);
-            message.setSubject("You're invited to PranicDoc");
-            message.setText(
-                    "You've been invited to join PranicDoc.\n\n"
-                            + "Click the link below to set up your account:\n"
-                            + inviteUrl + "?token=" + token + "\n\n"
-                            + "This link expires in 72 hours.");
-            mailSender.send(message);
-            return true;
-        } catch (MailException ex) {
-            // Don't let SMTP downtime block invite creation — the admin has Resend (D-06/Pitfall 3).
-            log.warn("Failed to send invite email to {}: {}", email, ex.getMessage());
-            return false;
-        }
+        return notificationSender.sendNow(NotificationMessage.email(email,
+                "You're invited to HealingARK",
+                "You've been invited to join HealingARK.\n\n"
+                        + "Click the link below to set up your account:\n"
+                        + inviteUrl + "?token=" + token + "\n\n"
+                        + "This link expires in 72 hours."));
     }
 
+    // Don't let SMTP downtime block the request - resubmitting /signup rotates the token.
     private boolean sendSelfSignupEmail(String email, String token) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(mailFromAddress);
-            message.setTo(email);
-            message.setSubject("Verify your email to complete PranicDoc registration");
-            message.setText(
-                    "You requested to register as a healer on PranicDoc.\n\n"
-                            + "Click the link below to verify your email and complete registration:\n"
-                            + inviteUrl + "?token=" + token + "\n\n"
-                            + "This link expires in 72 hours.");
-            mailSender.send(message);
-            return true;
-        } catch (MailException ex) {
-            // Don't let SMTP downtime block the request — resubmitting /signup rotates the token.
-            log.warn("Failed to send self-signup verification email to {}: {}", email, ex.getMessage());
-            return false;
-        }
+        return notificationSender.sendNow(NotificationMessage.email(email,
+                "Verify your email to complete HealingARK registration",
+                "You requested to register as a healer on HealingARK.\n\n"
+                        + "Click the link below to verify your email and complete registration:\n"
+                        + inviteUrl + "?token=" + token + "\n\n"
+                        + "This link expires in 72 hours."));
     }
 
     static InviteResponse toResponse(HealerInviteLink invite) {
