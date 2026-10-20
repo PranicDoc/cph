@@ -196,13 +196,31 @@ export const patientMedicalHistorySchema: FormSchema = [
   },
 ];
 
-export const consentDeclarationSchema = (patientName: string): FormSchema => [
+/**
+ * `onBehalf`: a healer is filling the form in for the patient. They must confirm they have the
+ * patient's consent to do so, and the signature is the patient's name, filled in automatically.
+ */
+export const consentDeclarationSchema = (
+  patientName: string,
+  { onBehalf = false }: { onBehalf?: boolean } = {}
+): FormSchema => [
   {
     title: "Patient Consent & Declaration",
     containerClassName:
       "bg-background p-6 rounded-xl border border-border space-y-6",
     fieldsContainerClassName: "space-y-4",
     fields: [
+      ...(onBehalf
+        ? [
+            {
+              name: "healerConsentAttestation",
+              label:
+                "I confirm that I have got the consent from the patient to fill in these details on their behalf.",
+              type: "checkbox" as const,
+              required: true,
+            },
+          ]
+        : []),
       {
         name: "consent1",
         label:
@@ -234,9 +252,10 @@ export const consentDeclarationSchema = (patientName: string): FormSchema => [
     fields: [
       {
         name: "patientSignature",
-        label: "Patient Signature (Type Full Name)",
+        label: onBehalf ? "Patient Signature (filled in automatically)" : "Patient Signature (Type Full Name)",
         type: "text",
         required: true,
+        readOnly: onBehalf,
         placeholder: "Enter patient's full name",
         validate: (value, _, __) => value != patientName ? "Signature mismatch" : undefined  
       },

@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -75,6 +76,12 @@ public class PatientService {
         UUID healerId = securityContextUtil.getCurrentHealerIdOrNull();
         if (healerId == null) throw new IllegalStateException("Missing healer context");
 
+        // The healer fills this form for the patient, so they must confirm the patient agreed to it.
+        if (!request.declaration().healerDeclaration()) {
+            throw new IllegalArgumentException(
+                    "Please confirm that you have the patient's consent to fill in their details");
+        }
+
         Patient patient = patientRepository.save(Patient.create(request.patient(), healerId));
 
         Declaration declaration = declarationMapper.toEntity(request.declaration());
@@ -107,6 +114,25 @@ public class PatientService {
         HealingCase savedCase = caseRepository.save(healingCase);
 
         return new PatientRegisterResponse(patient.getId(), savedCase.getId(), patient.getFirstName(), patient.getLastName());
+    }
+
+    /**
+     * Removes a self-registered patient whose registration could not be completed (the declaration
+     * step failed), so no half-registered record is left behind. Only an unclaimed patient (no healer)
+     * with no case is removed; runs in its own transaction so it survives the caller's rollback.
+     *
+     * @return true if the patient was removed
+     */
+    @Auditable(action = "DISCARD_SELF_REGISTERED_PATIENT")
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean discardUnclaimedSelfRegistered(UUID patientId) {
+        Patient patient = patientRepository.findById(patientId).orElse(null);
+        if (patient == null || patient.getHealerId() != null || caseRepository.existsByPatientId(patientId)) {
+            return false;
+        }
+        patient.softDelete();
+        patientRepository.save(patient);
+        return true;
     }
 
     @Transactional(readOnly = true)

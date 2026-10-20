@@ -25,6 +25,8 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
 
     Page<HealingCase> findByHealerId(UUID healerId, Pageable pageable);
 
+    boolean existsByPatientId(UUID patientId);
+
     boolean existsByPatientIdAndHealerIdAndStatus(UUID uuid, UUID currentHealerId, CaseStatus caseStatus);
 
     /**

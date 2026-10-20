@@ -42,6 +42,8 @@ import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
+import com.pranicdoc.cph.patient.service.PatientService;
+import lombok.extern.slf4j.Slf4j;
 import com.pranicdoc.storage.service.StorageService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -63,6 +65,7 @@ import java.util.*;
 import java.util.function.Predicate;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class CaseService {
@@ -93,6 +96,7 @@ public class CaseService {
     // circular-dependency error from injecting CaseService into itself.
     private final HealerCacheService healerService;
     private final ObjectProvider<CaseService> self;
+    private final PatientService patientService;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -102,6 +106,25 @@ public class CaseService {
     public CaseResponse create(CaseCreateRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         Patient patient = patientRepository.findById(request.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", request.patientId()));
+        try {
+            return createCase(patient, request, httpRequest, httpResponse);
+        } catch (RuntimeException e) {
+            // A patient registering themselves was created one step earlier; if the declaration step
+            // fails, remove that record (own transaction) instead of leaving a half-registered patient.
+            if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {
+                try {
+                    patientService.discardUnclaimedSelfRegistered(patient.getId());
+                } catch (RuntimeException cleanupFailure) {
+                    log.warn("Could not discard self-registered patient {} after a failed declaration: {}",
+                            patient.getId(), cleanupFailure.toString());
+                }
+            }
+            throw e;
+        }
+    }
+
+    private CaseResponse createCase(Patient patient, CaseCreateRequest request,
+                                    HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         boolean exists = caseRepository.existsByPatientIdAndHealerIdAndStatus(
                 request.patientId(),
                 securityContextUtil.getCurrentHealerId(),
