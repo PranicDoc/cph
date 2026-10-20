@@ -49,7 +49,7 @@ public class EmailChannel implements NotificationChannel {
             mail.setText(message.body());
             mailSender.send(mail);
         } catch (MailException ex) {
-            throw new NotificationDeliveryException("Email to " + message.recipient() + " failed: " + ex.getMessage(), ex);
+            throw new NotificationDeliveryException("Email to " + message.maskedRecipient() + " failed: " + ex.getMessage(), ex);
         }
     }
 }

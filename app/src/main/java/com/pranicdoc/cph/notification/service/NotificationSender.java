@@ -44,14 +44,14 @@ public class NotificationSender {
     public boolean sendNow(NotificationMessage message) {
         NotificationChannel channel = channels.get(message.channel());
         if (channel == null) {
-            log.warn("No {} channel is configured; message to {} not sent", message.channel(), message.recipient());
+            log.warn("No {} channel is configured; message to {} not sent", message.channel(), message.maskedRecipient());
             return false;
         }
         try {
             channel.send(message);
             return true;
         } catch (RuntimeException ex) {
-            log.warn("{} notification to {} failed: {}", message.channel(), message.recipient(), ex.getMessage());
+            log.warn("{} notification to {} failed: {}", message.channel(), message.maskedRecipient(), ex.getMessage());
             return false;
         }
     }

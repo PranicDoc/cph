@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.notification.service;
 
+import com.pranicdoc.cph.notification.channel.NotificationMessage;
+import com.pranicdoc.cph.notification.channel.WhatsappChannel;
 import com.pranicdoc.cph.notification.config.NotificationProperties;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox.NotificationStatus;
@@ -21,14 +23,14 @@ import java.util.UUID;
 public class OutboxDispatcher {
 
     private final OutboxRepository repository;
-    private final WhatsappSender sender;
+    private final WhatsappChannel whatsapp;
     private final TransactionTemplate tx;
     private final NotificationProperties properties;
 
-    public OutboxDispatcher(OutboxRepository repository, WhatsappSender sender,
+    public OutboxDispatcher(OutboxRepository repository, WhatsappChannel whatsapp,
                             TransactionTemplate tx, NotificationProperties properties) {
         this.repository = repository;
-        this.sender = sender;
+        this.whatsapp = whatsapp;
         this.tx = tx;
         this.properties = properties;
     }
@@ -54,7 +56,7 @@ public class OutboxDispatcher {
 
     private boolean send(NotificationOutbox row) {
         try {
-            sender.send(row.getPhoneNumber(), row.getPayload());
+            whatsapp.send(NotificationMessage.whatsapp(row.getPhoneNumber(), row.getPayload()));
             return true;
         } catch (Exception e) {
             // No phone number or payload in logs — both are patient data.
