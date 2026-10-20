@@ -80,6 +80,7 @@ class CaseServiceTest {
     // healer to source the credit-boundary clinic-shaped ownerId from the healer bridge.
     @Mock private HealerRepository healerRepository;
     @Mock private com.pranicdoc.cph.auth.service.HealerCacheService healerService;
+    @Mock private com.pranicdoc.cph.patient.service.PatientService patientService;
 
     @InjectMocks
     private CaseService caseService;
@@ -595,6 +596,52 @@ class CaseServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> caseService.closeCase(caseId, request));
         verify(caseRepository, never()).save(any());
+    }
+
+    // ─── create(): a failed declaration must not leave a self-registered patient behind ───
+
+    private com.pranicdoc.cph.healing.dto.CaseCreateRequest createRequest(UUID patientId) {
+        return new com.pranicdoc.cph.healing.dto.CaseCreateRequest(patientId,
+                new com.pranicdoc.cph.healing.dto.DeclarationRequest(true, false, "Wrong Name", null, null));
+    }
+
+    private void stubCreateWithMismatchedSignature(UUID patientId, String role) {
+        Patient patient = mock(Patient.class);
+        lenient().when(patient.getId()).thenReturn(patientId);
+        when(patient.getFirstName()).thenReturn("Asha");
+        when(patient.getLastName()).thenReturn("Rao");
+        when(patientRepository.findById(patientId)).thenReturn(Optional.of(patient));
+        UUID healerId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(securityContextUtil.getCurrentRole()).thenReturn(role);
+        when(healerService.getName(healerId)).thenReturn("Healer");
+        when(declarationMapper.toEntity(any())).thenReturn(
+                Declaration.builder().patientSignature("Wrong Name").patientConsent(true).build());
+    }
+
+    @Test
+    void create_selfRegisteredPatientWhoseDeclarationFails_isDiscardedAndTheErrorStillReachesTheUser() {
+        UUID patientId = UUID.randomUUID();
+        stubCreateWithMismatchedSignature(patientId, "PATIENT");
+
+        assertThrows(IllegalStateException.class, () -> caseService.create(createRequest(patientId),
+                mock(jakarta.servlet.http.HttpServletRequest.class),
+                mock(jakarta.servlet.http.HttpServletResponse.class)));
+
+        verify(patientService).discardUnclaimedSelfRegistered(patientId);
+        verify(caseRepository, never()).save(any());
+    }
+
+    @Test
+    void create_aHealersFailedCaseNeverDeletesThePatient() {
+        UUID patientId = UUID.randomUUID();
+        stubCreateWithMismatchedSignature(patientId, "HEALER");
+
+        assertThrows(IllegalStateException.class, () -> caseService.create(createRequest(patientId),
+                mock(jakarta.servlet.http.HttpServletRequest.class),
+                mock(jakarta.servlet.http.HttpServletResponse.class)));
+
+        verify(patientService, never()).discardUnclaimedSelfRegistered(any());
     }
 
     /** Cases reach PDF generation only after consent; the snapshot reads the healer signature. */

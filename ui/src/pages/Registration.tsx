@@ -15,6 +15,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
 import { Button } from "@/components/ui/button";
 import { serializeExercise } from "../lib/exercise";
+import { buildDeclaration } from "../lib/declaration";
 
 export default function Registration() {
   const [step, setStep] = useState(1);
@@ -153,16 +154,13 @@ export default function Registration() {
       consent1: false,
       consent2: false,
       consent3: false,
+      healerConsentAttestation: false,
       patientSignature: "",
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const declaration = {
-          patientConsent: value.consent1 && value.consent2 && value.consent3,
-          patientSignature: value.patientSignature,
-          signedAt: new Date().toISOString(),
-        };
+        const declaration = buildDeclaration(value, !isSelfRegister);
         if (isSelfRegister) {
           const res = await api.post(`/api/v1/cases`, {
             patientId,
@@ -186,16 +184,35 @@ export default function Registration() {
           navigate("/patients");
         }
       } catch (error) {
-        toast.error(
-          extractDetail(error) ||
-            "Failed to save declaration — please try again",
-          { duration: 5000 }
-        );
+        if (isSelfRegister && (error as { response?: unknown })?.response) {
+          // The server discards the half-registered patient when the declaration fails, so the
+          // saved patientId is gone: start the form again rather than retrying against it.
+          setPatientId(null);
+          setStep(1);
+          toast.error(
+            extractDetail(error) ||
+              "We couldn't complete your registration. Please fill in your details again.",
+            { duration: 6000 }
+          );
+        } else {
+          toast.error(
+            extractDetail(error) ||
+              "Failed to save declaration — please try again",
+            { duration: 5000 }
+          );
+        }
       } finally {
         setIsSubmitting(false);
       }
     },
   });
+
+  // A healer registering the patient: the signature is the patient's name, filled in automatically.
+  useEffect(() => {
+    if (step === 3 && !isSelfRegister && patientFullName) {
+      consentForm.setFieldValue("patientSignature", patientFullName);
+    }
+  }, [step, isSelfRegister, patientFullName]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -331,7 +348,7 @@ export default function Registration() {
           >
             <DynamicFormEngine
               form={consentForm}
-              schema={consentDeclarationSchema(patientFullName)}
+              schema={consentDeclarationSchema(patientFullName, { onBehalf: !isSelfRegister })}
             />
 
             <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">

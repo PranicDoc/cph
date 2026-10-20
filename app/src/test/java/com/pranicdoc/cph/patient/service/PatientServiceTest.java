@@ -15,6 +15,7 @@ import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
 import com.pranicdoc.cph.patient.dto.PatientRegisterRequest;
 import com.pranicdoc.cph.patient.dto.PatientRegisterResponse;
 import com.pranicdoc.cph.patient.dto.PatientSort;
+import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -145,7 +147,7 @@ class PatientServiceTest {
                 "7708680144", "Doctor", "No.34", "Perumal nagar",
                 "Coimbatore", "Tamil Nadu", "641042", historyRequest);
         DeclarationRequest declarationRequest = new DeclarationRequest(
-                true, false, "Santhosh G N", null, Instant.now().toString());
+                true, true, "Santhosh G N", null, Instant.now().toString());
 
         PatientRegisterResponse response = patientService.register(
                 new PatientRegisterRequest(patientRequest, declarationRequest));
@@ -164,5 +166,84 @@ class PatientServiceTest {
         assertEquals("DAILY", snapshot.getExerciseFrequency());
         assertEquals(Boolean.TRUE, snapshot.getStressDepressionAnxiety());
         assertEquals(Boolean.FALSE, snapshot.getHypertension());
+    }
+
+    private PatientRegisterRequest registerRequest(boolean healerDeclaration) {
+        PatientCreateRequest patientRequest = new PatientCreateRequest(
+                "Santhosh", "G N", null, null, null, "santhoshgn9@gmail.com",
+                "7708680144", "Doctor", "No.34", "Perumal nagar",
+                "Coimbatore", "Tamil Nadu", "641042", null);
+        return new PatientRegisterRequest(patientRequest, new DeclarationRequest(
+                true, healerDeclaration, "Santhosh G N", null, Instant.now().toString()));
+    }
+
+    @Test
+    void register_withoutTheHealersConsentConfirmation_isRejectedBeforeAnythingIsSaved() {
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        assertThrows(IllegalArgumentException.class, () -> patientService.register(registerRequest(false)));
+
+        verify(patientRepository, never()).save(any());
+        verify(caseRepository, never()).save(any());
+    }
+
+    @Test
+    void register_signatureThatIsNotThePatientsName_isRejected() {
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        when(patientRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(declarationMapper.toEntity(any(DeclarationRequest.class))).thenReturn(
+                Declaration.builder().patientSignature("Someone Else").patientConsent(true).build());
+
+        assertThrows(IllegalStateException.class, () -> patientService.register(registerRequest(true)));
+
+        // the registration is one transaction: the exception rolls the patient back, no case is written
+        verify(caseRepository, never()).save(any());
+    }
+
+    @Test
+    void discardUnclaimedSelfRegistered_deletesAPatientWithNoHealerAndNoCase() {
+        UUID id = UUID.randomUUID();
+        Patient patient = mock(Patient.class);
+        when(patient.getHealerId()).thenReturn(null);
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+        when(caseRepository.existsByPatientId(id)).thenReturn(false);
+
+        assertTrue(patientService.discardUnclaimedSelfRegistered(id));
+
+        verify(patient).softDelete();
+        verify(patientRepository).save(patient);
+    }
+
+    @Test
+    void discardUnclaimedSelfRegistered_leavesAPatientThatAlreadyHasACase() {
+        UUID id = UUID.randomUUID();
+        Patient patient = mock(Patient.class);
+        when(patient.getHealerId()).thenReturn(null);
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+        when(caseRepository.existsByPatientId(id)).thenReturn(true);
+
+        assertFalse(patientService.discardUnclaimedSelfRegistered(id));
+
+        verify(patient, never()).softDelete();
+    }
+
+    @Test
+    void discardUnclaimedSelfRegistered_neverDeletesAPatientOwnedByAHealer() {
+        UUID id = UUID.randomUUID();
+        Patient patient = mock(Patient.class);
+        when(patient.getHealerId()).thenReturn(healerId);
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+
+        assertFalse(patientService.discardUnclaimedSelfRegistered(id));
+
+        verify(patient, never()).softDelete();
+    }
+
+    @Test
+    void discardUnclaimedSelfRegistered_unknownPatientIsANoOp() {
+        UUID id = UUID.randomUUID();
+        when(patientRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertFalse(patientService.discardUnclaimedSelfRegistered(id));
     }
 }

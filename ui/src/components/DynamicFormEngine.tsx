@@ -303,7 +303,7 @@ export function DynamicField({
                 field={field}
                 type={type}
                 trimSpaces={trimSpaces}
-                disabled={isDisabled}
+                disabled={isDisabled || fieldConfig.readOnly}
                 className={className}
                 placeholder={isDisabled ? "Enable toggle to fill" : placeholder}
               />
