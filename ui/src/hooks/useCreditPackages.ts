@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/axios";
+import type { ValidityUnit } from "../lib/validity";
 
 export interface PackageResponse {
   id: string;
@@ -9,7 +10,8 @@ export interface PackageResponse {
   currency: string;
   active: boolean;
   display_order: number;
-  validity_days: number | null;
+  validity_value: number | null;
+  validity_unit: ValidityUnit | null;
 }
 
 export function useCreditPackages() {

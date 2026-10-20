@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../lib/axios";
 import { extractDetail } from "../../lib/utils";
+import type { ValidityUnit } from "../../lib/validity";
 
 export interface AdminPackage {
   id: string;
@@ -11,6 +12,8 @@ export interface AdminPackage {
   currency: string;
   active: boolean;
   display_order: number;
+  validity_value: number | null;
+  validity_unit: ValidityUnit | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +24,9 @@ export interface CreatePackagePayload {
   price_paise: number;
   currency?: string;
   display_order?: number;
+  /** 0 = never expires */
+  validity_value?: number;
+  validity_unit?: ValidityUnit;
 }
 
 export interface UpdatePackagePayload {
@@ -30,6 +36,8 @@ export interface UpdatePackagePayload {
   currency?: string;
   active?: boolean;
   display_order?: number;
+  validity_value?: number;
+  validity_unit?: ValidityUnit;
 }
 
 const QK = ["admin-packages"] as const;
