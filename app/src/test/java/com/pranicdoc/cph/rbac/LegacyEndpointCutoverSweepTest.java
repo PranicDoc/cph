@@ -15,6 +15,7 @@ import com.pranicdoc.cph.healing.controller.ProtocolController;
 import com.pranicdoc.cph.healing.controller.ScanController;
 import com.pranicdoc.cph.healing.controller.SessionController;
 import com.pranicdoc.cph.masterdata.controller.MasterDataController;
+import com.pranicdoc.cph.notification.controller.InternalNotificationController;
 import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
 import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
@@ -183,6 +184,11 @@ class LegacyEndpointCutoverSweepTest {
                         + "— Meta calls it with no JWT; it runs its own verify-token + HMAC "
                         + "X-Hub-Signature-256 checks, so a capability gate would reject every real "
                         + "delivery");
+        m.put(InternalNotificationController.class.getName(),
+                "machine-to-machine outbox sweep trigger (Cloud Scheduler) — no user or healerId "
+                        + "in play; served by InternalApiSecurityConfig's own filter chain, where "
+                        + "InternalApiKeyFilter checks X-Internal-Key (404 when unconfigured), pinned in "
+                        + "InternalApiKeyFilterTest");
         m.put(BootstrapController.class.getName(),
                 "asserted open by HealerControllerGateSweepTest.bootstrapControllerBootstrapIsUngated"
                         + "AndAssignRoleStaysCoarseGated — bootstrap is permitAll and self-locks; "

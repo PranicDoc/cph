@@ -7,18 +7,22 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.entity.NotificationOutbox;
+import com.pranicdoc.cph.notification.event.OutboxCreatedEvent;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.notification.repository.OutboxRepository;
 import com.pranicdoc.cph.patient.service.PatientService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -27,6 +31,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final FeedbackLinkRepository feedbackLinkRepository;
     private final PhoneNumberFormatter phoneNumberFormatter;
     private final PatientService patientService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.feedback.url}")
     private String feedbackUrl;
@@ -50,7 +55,21 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
         NotificationOutbox outbox = getNotificationOutbox(session, patientNumber, isFinal);
-        outboxRepository.save(outbox);
+        NotificationOutbox saved = outboxRepository.save(outbox);
+        publishSendNow(saved.getId());
+    }
+
+    /**
+     * Asks for the row to be sent right after this transaction commits (OutboxDispatchListener).
+     * Best-effort: a publish failure must not roll back the caller's transaction and lose the row —
+     * it stays PENDING and OutboxSweeper sends it within 30 min.
+     */
+    private void publishSendNow(UUID outboxId) {
+        try {
+            eventPublisher.publishEvent(new OutboxCreatedEvent(outboxId));
+        } catch (RuntimeException e) {
+            log.warn("Could not schedule immediate send for outbox {}; sweeper will send it: {}", outboxId, e.toString());
+        }
     }
 
     private NotificationOutbox getNotificationOutbox(HealingSession session, String patientNumber, boolean isFinal) {
