@@ -205,7 +205,7 @@ public class AuthService {
         }
 
         if (healerRepository.existsByProviderUserId(verified.sub())) {
-            throw new IllegalArgumentException("This Google account is already linked to another PranicDoc account.");
+            throw new IllegalArgumentException("This Google account is already linked to another HealingARK account.");
         }
 
         healer.setProviderUserId(verified.sub());
@@ -214,7 +214,7 @@ public class AuthService {
         } catch (DataIntegrityViolationException ex) {
             // Race: two concurrent link requests both passed the pre-check; the DB UNIQUE
             // constraint (uk_healer_provider_user_id) is the suspenders here.
-            throw new IllegalArgumentException("This Google account is already linked to another PranicDoc account.");
+            throw new IllegalArgumentException("This Google account is already linked to another HealingARK account.");
         }
     }
 
