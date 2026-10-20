@@ -131,7 +131,7 @@ class CreditProxyControllerAuthorizationTest {
         lenient().when(creditService.getPackages()).thenReturn(ApiResponse.of("[]"));
         lenient().when(creditService.purchase(any(), any())).thenReturn("{}");
         lenient().when(creditService.createAccount())
-                .thenReturn(new AccountResponse(UUID.randomUUID(), "HEALER", HEALER_ID, 0, 0, "FREE"));
+                .thenReturn(new AccountResponse(UUID.randomUUID(), "HEALER", HEALER_ID, 0, 0, "FREE", null));
     }
 
     private void authenticateAs(String role) {

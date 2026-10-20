@@ -9,6 +9,7 @@ export interface AdminAccount {
   free_balance: number;
   paid_balance: number;
   plan_tier: string;
+  plan_expires_at: string | null;
   payg_enabled: boolean;
   payg_bundle_key: string | null;
   created_at: string;

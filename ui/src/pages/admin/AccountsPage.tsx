@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { formatPlanEnd } from "../../lib/validity";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ type AccountRow = {
   free_balance: number;
   paid_balance: number;
   plan_tier: string;
+  plan_expires_at: string | null;
   payg_enabled: boolean;
   created_at: string;
 };
@@ -85,6 +87,15 @@ const accountColumns: ColumnDef<AccountRow, unknown>[] = [
     accessorKey: "plan_tier",
     header: "Tier",
     cell: (info) => <TierBadge tier={String(info.getValue())} />,
+  },
+  {
+    accessorKey: "plan_expires_at",
+    header: "Plan ends",
+    cell: (info) => (
+      <span className="text-text-light text-xs">
+        {formatPlanEnd(info.getValue() as string | null)}
+      </span>
+    ),
   },
   {
     accessorKey: "payg_enabled",
@@ -219,7 +230,10 @@ export default function AccountsPage() {
                     <div className="font-semibold text-text">{acc.payg_enabled ? "On" : "Off"}</div>
                   </div>
                 </div>
-                <p className="text-xs text-text-light mt-2">{new Date(acc.created_at).toLocaleDateString()}</p>
+                <p className="text-xs text-text-light mt-2">
+                  Plan ends: {formatPlanEnd(acc.plan_expires_at)}
+                </p>
+                <p className="text-xs text-text-light mt-1">{new Date(acc.created_at).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
