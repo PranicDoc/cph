@@ -75,7 +75,7 @@ export function useUpdatePackage() {
   });
 }
 
-export function useDeactivatePackage() {
+export function useDeletePackage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
