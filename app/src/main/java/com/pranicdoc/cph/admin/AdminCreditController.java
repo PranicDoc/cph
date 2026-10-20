@@ -75,6 +75,11 @@ public class AdminCreditController {
                 .uri("/credits/admin/packages")
                 .body(body)
                 .retrieve()
+                .onStatus(org.springframework.http.HttpStatusCode::isError, (req, resp) -> {
+                    throw UpstreamErrors.toException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                            objectMapper);
+                })
                 .body(String.class));
     }
 
@@ -85,17 +90,27 @@ public class AdminCreditController {
                 .uri("/credits/admin/packages/{id}", id)
                 .body(body)
                 .retrieve()
+                .onStatus(org.springframework.http.HttpStatusCode::isError, (req, resp) -> {
+                    throw UpstreamErrors.toException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                            objectMapper);
+                })
                 .body(String.class));
     }
 
-    // deactivatePackage is a soft deactivate, not a hard row delete; DELETE is
-    // still the correct verb — it is the removal-adjacent capability on PACKAGES.
+    // Hard delete; creditService answers 409 while an account is on the plan (disable it instead).
+    // Enable/disable is the PUT above with {"active": true|false}.
     @DeleteMapping("/packages/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('PACKAGES','DELETE')")
-    public ResponseEntity<String> deactivatePackage(@PathVariable UUID id) {
+    public ResponseEntity<String> deletePackage(@PathVariable UUID id) {
         return ResponseEntity.ok(creditServiceRestClient.delete()
                 .uri("/credits/admin/packages/{id}", id)
                 .retrieve()
+                .onStatus(org.springframework.http.HttpStatusCode::isError, (req, resp) -> {
+                    throw UpstreamErrors.toException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                            objectMapper);
+                })
                 .body(String.class));
     }
 

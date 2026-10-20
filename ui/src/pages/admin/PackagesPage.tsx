@@ -5,10 +5,11 @@ import {
   useAdminPackages,
   useCreatePackage,
   useUpdatePackage,
-  useDeactivatePackage,
+  useDeletePackage,
 } from "../../hooks/admin/useAdminPackages";
 import type { AdminPackage, CreatePackagePayload } from "../../hooks/admin/useAdminPackages";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -195,9 +196,40 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
 
 export default function PackagesPage() {
   const { data, isLoading, isError } = useAdminPackages();
-  const deactivate = useDeactivatePackage();
+  const remove = useDeletePackage();
+  const update = useUpdatePackage();
   const [modalPkg, setModalPkg] = useState<AdminPackage | null | "new">(null);
-  const [deactivatePkg, setDeactivatePkg] = useState<AdminPackage | null>(null);
+  const [deletePkg, setDeletePkg] = useState<AdminPackage | null>(null);
+
+  const rowActions = (pkg: AdminPackage) => (
+    <div className="flex items-center gap-1 justify-end">
+      <Switch
+        checked={pkg.active}
+        disabled={update.isPending}
+        onCheckedChange={(active) => update.mutate({ id: pkg.id, payload: { active } })}
+        aria-label={`${pkg.active ? "Disable" : "Enable"} ${pkg.name}`}
+      />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => setModalPkg(pkg)}
+        aria-label={`Edit ${pkg.name}`}
+        className="h-auto w-auto p-1.5 text-text-light"
+      >
+        <Pencil className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => setDeletePkg(pkg)}
+        disabled={remove.isPending}
+        aria-label={`Delete ${pkg.name}`}
+        className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
 
   const columns: ColumnDef<AdminPackage, unknown>[] = [
     {
@@ -250,32 +282,7 @@ export default function PackagesPage() {
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => {
-        const pkg = row.original;
-        return (
-          <div className="flex gap-1 justify-end">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setModalPkg(pkg)}
-              className="h-auto w-auto p-1.5 text-text-light"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
-            {pkg.active && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setDeactivatePkg(pkg)}
-                disabled={deactivate.isPending}
-                className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        );
-      },
+      cell: ({ row }) => rowActions(row.original),
     },
   ];
 
@@ -317,27 +324,7 @@ export default function PackagesPage() {
                     <span className="font-semibold text-text">{pkg.name}</span>
                     <StatusBadge active={pkg.active} />
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setModalPkg(pkg)}
-                      className="h-auto w-auto p-1.5 text-text-light"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    {pkg.active && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setDeactivatePkg(pkg)}
-                        disabled={deactivate.isPending}
-                        className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+                  {rowActions(pkg)}
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs mt-3">
                   <div className="bg-muted/50 rounded-lg px-2 py-1.5 text-center">
@@ -367,21 +354,21 @@ export default function PackagesPage() {
       )}
 
       <ConfirmDialog
-        open={deactivatePkg !== null}
-        onOpenChange={(open) => !open && setDeactivatePkg(null)}
-        title="Deactivate package?"
+        open={deletePkg !== null}
+        onOpenChange={(open) => !open && setDeletePkg(null)}
+        title="Delete package?"
         description={
-          deactivatePkg
-            ? `"${deactivatePkg.name}" will no longer be offered to healers and clinics.`
+          deletePkg
+            ? `"${deletePkg.name}" will be removed permanently. To only stop offering it, use the switch to disable it instead.`
             : undefined
         }
-        confirmLabel="Deactivate"
+        confirmLabel="Delete permanently"
         destructive
-        loading={deactivate.isPending}
+        loading={remove.isPending}
         onConfirm={() => {
-          if (deactivatePkg) {
-            deactivate.mutate(deactivatePkg.id, {
-              onSettled: () => setDeactivatePkg(null),
+          if (deletePkg) {
+            remove.mutate(deletePkg.id, {
+              onSettled: () => setDeletePkg(null),
             });
           }
         }}

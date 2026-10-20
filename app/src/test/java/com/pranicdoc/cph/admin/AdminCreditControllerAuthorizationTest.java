@@ -106,7 +106,7 @@ class AdminCreditControllerAuthorizationTest {
             new String[]{"listAllPackages", LIST_ALL_PACKAGES},
             new String[]{"createPackage", CREATE_PACKAGE},
             new String[]{"updatePackage", UPDATE_PACKAGE},
-            new String[]{"deactivatePackage", DEACTIVATE_PACKAGE},
+            new String[]{"deletePackage", DEACTIVATE_PACKAGE},
             new String[]{"listConfig", LIST_CONFIG},
             new String[]{"updateConfig", UPDATE_CONFIG},
             new String[]{"listAccounts", LIST_ACCOUNTS},
@@ -162,8 +162,8 @@ class AdminCreditControllerAuthorizationTest {
     }
 
     @Test
-    void deactivatePackage_isGatedByPackagesDelete() {
-        assertThat(preAuthorizeValueOf(AdminCreditController.class, "deactivatePackage"))
+    void deletePackage_isGatedByPackagesDelete() {
+        assertThat(preAuthorizeValueOf(AdminCreditController.class, "deletePackage"))
                 .isEqualTo(DEACTIVATE_PACKAGE);
     }
 
