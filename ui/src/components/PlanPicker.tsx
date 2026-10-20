@@ -9,6 +9,7 @@ import { useCreditAccount } from "../hooks/useCreditAccount";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { formatPlanEnd, formatValidity } from "../lib/validity";
 
 interface PlanPickerProps {
   ownerId: string;
@@ -107,6 +108,12 @@ export function PlanPicker({
         </p>
       </div>
 
+      {account?.plan_expires_at && (
+        <p className="text-center text-sm text-text-light">
+          Your {account.plan_tier} plan is active until {formatPlanEnd(account.plan_expires_at)}.
+        </p>
+      )}
+
       {sorted.length === 0 && (
         <p className="text-center text-text-light">
           You are on our highest plan. Your plan stays active until it ends.
@@ -138,7 +145,7 @@ export function PlanPicker({
               </div>
               <p className="text-text-light text-sm">
                 {pkg.credits} credits
-                {pkg.validity_days ? ` · valid ${pkg.validity_days} days` : ""}
+                {pkg.validity_value ? ` · valid ${formatValidity(pkg.validity_value, pkg.validity_unit)}` : ""}
               </p>
               <p className="text-base sm:text-lg font-semibold text-primary">
                 {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}

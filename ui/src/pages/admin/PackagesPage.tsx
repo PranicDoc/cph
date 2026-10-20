@@ -16,6 +16,14 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { TextField } from "@/components/form/Field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VALIDITY_UNITS, formatValidity, type ValidityUnit } from "../../lib/validity";
 
 const EMPTY_FORM: CreatePackagePayload = { name: "", credits: 0, price_paise: 0, currency: "INR", display_order: 0 };
 
@@ -32,6 +40,8 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
           price_paise: String(initial.price_paise),
           currency: initial.currency ?? "INR",
           display_order: String(initial.display_order),
+          validity_value: String(initial.validity_value ?? 0),
+          validity_unit: (initial.validity_unit ?? "DAYS") as ValidityUnit,
         }
       : {
           name: EMPTY_FORM.name,
@@ -39,6 +49,8 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
           price_paise: String(EMPTY_FORM.price_paise),
           currency: EMPTY_FORM.currency ?? "INR",
           display_order: String(EMPTY_FORM.display_order),
+          validity_value: "0",
+          validity_unit: "DAYS" as ValidityUnit,
         },
     onSubmit: async ({ value }) => {
       setError("");
@@ -48,6 +60,8 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
         price_paise: parseInt(value.price_paise, 10) || 0,
         currency: value.currency,
         display_order: parseInt(value.display_order, 10) || 0,
+        validity_value: parseInt(value.validity_value, 10) || 0,
+        validity_unit: value.validity_unit,
       };
       try {
         initial
@@ -129,6 +143,41 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
               />
             </div>
           </div>
+          <div>
+            <Label className="block text-xs text-text-light mb-1">Plan validity</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <form.Field
+                name="validity_value"
+                children={(field) => (
+                  <TextField field={field} type="number" className="border px-3 py-2.5" />
+                )}
+              />
+              <form.Field
+                name="validity_unit"
+                children={(field) => (
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) => field.handleChange(v as ValidityUnit)}
+                  >
+                    <SelectTrigger className="h-auto border px-3 py-2.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VALIDITY_UNITS.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>
+                          {u.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <p className="text-xs text-text-light mt-0.5">
+              How long a purchase stays active; 0 means it never expires by date. Unused paid credits are
+              forfeited when it ends. Applies to new purchases only.
+            </p>
+          </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="submit" disabled={isPending} className="flex-1 py-2.5 h-auto">
@@ -183,6 +232,15 @@ export default function PackagesPage() {
       accessorKey: "display_order",
       header: () => <div className="text-right">Order</div>,
       cell: (info) => <div className="text-right">{Number(info.getValue())}</div>,
+    },
+    {
+      id: "validity",
+      header: "Validity",
+      cell: ({ row }) => (
+        <span className="text-text-light">
+          {formatValidity(row.original.validity_value, row.original.validity_unit)}
+        </span>
+      ),
     },
     {
       accessorKey: "active",
@@ -295,6 +353,9 @@ export default function PackagesPage() {
                     <div className="font-semibold text-text">{pkg.display_order}</div>
                   </div>
                 </div>
+                <p className="text-xs text-text-light mt-2">
+                  Validity: {formatValidity(pkg.validity_value, pkg.validity_unit)}
+                </p>
               </div>
             ))}
           </div>

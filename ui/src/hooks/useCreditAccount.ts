@@ -8,6 +8,7 @@ export interface CreditAccount {
   free_balance: number;
   paid_balance: number;
   plan_tier: string;
+  plan_expires_at?: string | null;
 }
 
 // POST /api/credits/account is an idempotent find-or-create scoped to the

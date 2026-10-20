@@ -12,5 +12,6 @@ public record AccountResponse(
         @JsonProperty("owner_id") UUID ownerId,
         @JsonProperty("free_balance") int freeBalance,
         @JsonProperty("paid_balance") int paidBalance,
-        @JsonProperty("plan_tier") String planTier
+        @JsonProperty("plan_tier") String planTier,
+        @JsonProperty("plan_expires_at") java.time.Instant planExpiresAt
 ) {}
