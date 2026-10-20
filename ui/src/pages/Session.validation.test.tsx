@@ -100,3 +100,37 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     expect(api.patch).not.toHaveBeenCalled();
   });
 });
+
+describe("Session step 0 — an already filled protocol is shown when the case is edited", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps a stored protocol name that is not in the catalog (e.g. Headache) and counts it as a protocol", async () => {
+    (api.get as any).mockResolvedValue({
+      data: {
+        ...draftCase,
+        medicalCondition: "Neck pain for 5 days",
+        healingDetails: { protocolName: "Headache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
+      },
+    });
+    renderSession();
+
+    expect((await screen.findAllByText("Headache")).length).toBeGreaterThan(0);
+    const startButton = screen.getByRole("button", { name: /start session/i });
+    expect(startButton).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("shows a catalog protocol with its book and page", async () => {
+    (api.get as any).mockResolvedValue({
+      data: {
+        ...draftCase,
+        medicalCondition: "Toothache",
+        healingDetails: { protocolName: "Toothache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
+      },
+    });
+    renderSession();
+
+    expect(await screen.findByText(/Toothache — Advanced Pranic Healing, p\.76/)).toBeInTheDocument();
+  });
+});

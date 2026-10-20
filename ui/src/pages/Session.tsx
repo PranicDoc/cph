@@ -9,6 +9,7 @@ import { sessionStep0Errors } from "./schemas/sessionValidation";
 import { SessionHeader } from "./SessionHeader";
 import { HealingSession, TreatmentStep } from "../interfaces";
 import { useProtocols, type Protocol } from "../hooks/admin/useMasterData";
+import { isLegacyProtocol, reconstructSelectedProtocols as reconstructFromCatalog } from "../lib/protocolSelection";
 import { FieldDisplay } from "../components/FieldDisplay";
 import { HealingSessionWizard } from "../components/HealingSession";
 import {
@@ -75,16 +76,11 @@ export default function Session() {
     [protocols, sessionData?.status]
   );
 
-  // Best-effort: reconstruct which catalog protocols a comma-joined legacy
-  // protocolName string refers to, by exact name match. Names that don't
-  // match anything (pre-catalog free text) simply won't pre-select a chip.
-  const reconstructSelectedProtocols = (protocolNameCsv: string): Protocol[] => {
-    if (!protocolNameCsv) return [];
-    const names = protocolNameCsv.split(",").map((n) => n.trim()).filter(Boolean);
-    return names
-      .map((name) => protocols.find((p) => p.name === name))
-      .filter((p): p is Protocol => !!p);
-  };
+  // Rebuild the multi-select from the stored comma-joined protocolName. A name that is not in the
+  // catalog is kept as a "legacy" chip (never dropped), so an already-filled protocol shows up
+  // when the case is edited and is not erased when it is saved again.
+  const reconstructSelectedProtocols = (protocolNameCsv: string): Protocol[] =>
+    reconstructFromCatalog(protocolNameCsv, protocols);
 
   // Persist edit mode per step (only step 0 for now)
   const stepEditModeRef = useRef<Record<number, boolean>>({ 0: false });
@@ -142,6 +138,7 @@ export default function Session() {
           psychotherapyPg: [],
         };
         selectedProtocols.forEach((p) => {
+          if (isLegacyProtocol(p)) return; // free-text name: no book/page to record
           buckets[bookToField(p.sourceBook)].push(String(p.pageNumber));
         });
 
@@ -241,7 +238,7 @@ export default function Session() {
   // the case data above is first mapped into the form — re-derive the
   // multi-select's value once the catalog arrives so pre-selection isn't lost.
   useEffect(() => {
-    if (!sessionData?.healingDetails?.protocolName || protocols.length === 0) return;
+    if (!sessionData?.healingDetails?.protocolName) return;
     const reconstructed = reconstructSelectedProtocols(sessionData.healingDetails.protocolName);
     if (reconstructed.length > 0) {
       sessionForm.setFieldValue("healingDetails.selectedProtocols", reconstructed);
@@ -322,7 +319,7 @@ export default function Session() {
             caseId={healingCaseId}
             symptoms={sessionData?.symptoms}
             onClose={goToPreviousStep}
-            protocolIds={step1Protocols.map((p) => p.id)}
+            protocolIds={step1Protocols.filter((p) => !isLegacyProtocol(p)).map((p) => p.id)}
           />
         )}
       </div>
