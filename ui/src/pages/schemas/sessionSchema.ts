@@ -107,7 +107,7 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         multiSelectOptions: protocols,
         getOptionKey: (p: Protocol) => p.id,
         getOptionLabel: (p: Protocol) => p.name,
-        renderBadge: (p: Protocol) => `${p.name} — ${p.sourceBook}, p.${p.pageNumber}`,
+        renderBadge: (p: Protocol) => (p.sourceBook ? `${p.name} — ${p.sourceBook}, p.${p.pageNumber}` : p.name),
       },
       {
         name: "healingDetails.detailedProtocol",
