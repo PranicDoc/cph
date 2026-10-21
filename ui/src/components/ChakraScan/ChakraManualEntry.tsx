@@ -357,7 +357,7 @@ export function ChakraManualEntry({
       )}
 
       {isNewView && (
-        <p className="text-xs text-text-light">
+        <p className="mb-2 text-xs text-text-light">
           Energy: D depleted, N normal, C congested. Activation: U under, N normal, O over.
         </p>
       )}
