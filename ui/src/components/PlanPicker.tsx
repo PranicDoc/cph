@@ -9,6 +9,7 @@ import { useCreditAccount } from "../hooks/useCreditAccount";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../ui-version";
 import { formatPlanEnd, formatValidity } from "../lib/validity";
 
 interface PlanPickerProps {
@@ -24,6 +25,7 @@ export function PlanPicker({
   onComplete,
   onSkip,
 }: PlanPickerProps) {
+  const { isNewView } = useUiVersion();
   const { data: packages, isLoading, error } = useCreditPackages();
   const { data: account } = useCreditAccount();
   const { mutate: purchase, isPending } = usePurchasePackage();
@@ -96,9 +98,9 @@ export function PlanPicker({
 
   return (
     <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <CreditCard className="w-6 h-6 text-primary" />
+      <div className={isNewView ? "space-y-1 text-left" : "text-center space-y-2"}>
+        <div className={isNewView ? "flex items-center gap-2" : "flex items-center justify-center gap-2"}>
+          {!isNewView && <CreditCard className="w-6 h-6 text-primary" />}
           <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">
             Choose a Plan
           </h2>
@@ -109,7 +111,7 @@ export function PlanPicker({
       </div>
 
       {account?.plan_expires_at && (
-        <p className="text-center text-sm text-text-light">
+        <p className={isNewView ? "text-sm text-text-light" : "text-center text-sm text-text-light"}>
           Your {account.plan_tier} plan is active until {formatPlanEnd(account.plan_expires_at)}.
         </p>
       )}

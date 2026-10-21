@@ -1,3 +1,5 @@
+import { useUiVersion } from "../ui-version";
+import { BrandMark } from "../ui-new/components/BrandMark";
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -150,6 +152,7 @@ interface ErrorStateProps {
  * `extractDetail(error)` (RFC7807 `detail` from an API error) > the variant's base message.
  */
 export default function ErrorState({ variant, title, message, error, actions }: ErrorStateProps) {
+  const { isNewView } = useUiVersion();
   const config = VARIANTS[variant];
   const Icon = config.icon;
   const resolvedMessage = message ?? extractDetail(error) ?? config.message;
@@ -158,6 +161,12 @@ export default function ErrorState({ variant, title, message, error, actions }: 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-card border border-border rounded-2xl shadow-lg p-8 text-center space-y-6">
+        {isNewView && (
+          <div className="flex items-center gap-2.5 text-left">
+            <BrandMark size={32} />
+            <span className="text-base font-semibold">HealingARK</span>
+          </div>
+        )}
         <div className="flex flex-col items-center justify-center space-y-4">
           <div className="bg-danger/10 p-4 rounded-full">
             <Icon className="h-12 w-12 text-danger" aria-hidden="true" />

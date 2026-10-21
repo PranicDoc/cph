@@ -1,3 +1,4 @@
+import { useUiVersion } from "../ui-version";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useParams } from "react-router-dom";
@@ -29,6 +30,7 @@ type PatientFormValues = {
 };
 
 export default function PatientHealthForm() {
+  const { isNewView } = useUiVersion();
   const { caseId } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -145,6 +147,15 @@ export default function PatientHealthForm() {
   }
 
   return (
+    <div className={isNewView ? "hlx" : undefined}>
+    {isNewView && (
+      <div className="page-head" style={{ marginBottom: 16 }}>
+        <div>
+          <h1>Your health details</h1>
+          <p className="muted" style={{ marginTop: 6 }}>Your healer will review these before the session.</p>
+        </div>
+      </div>
+    )}
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -152,7 +163,7 @@ export default function PatientHealthForm() {
       }}
       className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
     >
-      <h2 className="text-xl font-semibold">Your Health Details</h2>
+      {!isNewView && <h2 className="text-xl font-semibold">Your Health Details</h2>}
       <DynamicFormEngine form={form} schema={patientSessionSchema} />
       <div className="flex justify-end pt-4 border-t border-border">
         <Button
@@ -164,5 +175,6 @@ export default function PatientHealthForm() {
         </Button>
       </div>
     </form>
+    </div>
   );
 }
