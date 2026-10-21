@@ -9,10 +9,11 @@ import { Skeleton } from "../components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { exerciseLabels } from "../lib/exercise";
+import NewCaseSummary from "../ui-new/pages/NewCaseSummary";
 
 // ---- Types ----
 
-interface ChakraReading {
+export interface ChakraReading {
   id: string;
   chakraName: string;
   energyLevel: string;
@@ -20,28 +21,28 @@ interface ChakraReading {
   notes?: string;
 }
 
-interface ChakraScan {
+export interface ChakraScan {
   id: string;
   scanType: "PRE" | "POST";
   notes?: string;
   readings: ChakraReading[];
 }
 
-interface SymptomFeedback {
+export interface SymptomFeedback {
   id: string;
   caseSymptomId: string;
   rating: number;
   notes?: string;
 }
 
-interface QualitativeFeedback {
+export interface QualitativeFeedback {
   id: string;
   feedbackType: "INTERIM" | "FINAL";
   feedbackText?: string;
   patientRemarks?: string;
 }
 
-interface HealingSession {
+export interface HealingSession {
   id: string;
   sessionNumber: number;
   sessionDate: string;
@@ -53,7 +54,7 @@ interface HealingSession {
   qualitativeFeedbacks: QualitativeFeedback[];
 }
 
-interface CaseSymptom {
+export interface CaseSymptom {
   id: string;
   symptomName: string;
   description?: string;
@@ -63,7 +64,7 @@ interface CaseSymptom {
   resolved: boolean;
 }
 
-interface CaseMedication {
+export interface CaseMedication {
   id: string;
   medicationName: string;
   dosage?: string;
@@ -73,7 +74,7 @@ interface CaseMedication {
   notes?: string;
 }
 
-interface CaseClosure {
+export interface CaseClosure {
   closureDate?: string;
   additionalComments?: string;
   healingCount?: number;
@@ -81,7 +82,7 @@ interface CaseClosure {
   lastFeedbackDate?: string;
 }
 
-interface CaseMedicalSnapshot {
+export interface CaseMedicalSnapshot {
   generalHealth?: string;
   diet?: string;
   exercise?: string;
@@ -96,7 +97,7 @@ interface CaseMedicalSnapshot {
   additionalNotes?: string;
 }
 
-interface CaseSummaryData {
+export interface CaseSummaryData {
   patientFirstName: string;
   patientLastName: string;
   dob?: string;
@@ -126,10 +127,10 @@ interface CaseSummaryData {
 
 const fmt = (val: string | undefined | null) => val || "—";
 
-const yesNo = (val: boolean | undefined | null) =>
+export const yesNo = (val: boolean | undefined | null) =>
   val === true ? "Yes" : val === false ? "No" : "—";
 
-const formatDate = (val: string | undefined | null) => {
+export const formatDate = (val: string | undefined | null) => {
   if (!val) return "—";
   try {
     return new Date(val).toLocaleDateString("en-IN", {
@@ -142,7 +143,7 @@ const formatDate = (val: string | undefined | null) => {
   }
 };
 
-const formatTime = (val: string | undefined | null) => {
+export const formatTime = (val: string | undefined | null) => {
   if (!val) return "—";
   return val.substring(0, 5);
 };
@@ -399,7 +400,7 @@ function SessionCard({
   );
 }
 
-function LabFindingsList({ keys }: { keys: string[] }) {
+export function LabFindingsList({ keys }: { keys: string[] }) {
   const [loading, setLoading] = useState<string | null>(null);
 
   if (!keys.length) return <span className="text-sm text-text-light">—</span>;
@@ -480,6 +481,8 @@ export default function CaseSummary() {
   }
 
   const patientName = `${data.patientFirstName} ${data.patientLastName}`;
+
+  if (isNewView) return <NewCaseSummary data={data} onBack={() => navigate(-1)} />;
 
   return (
     <div className={isNewView ? "hlx hl-cols" : "space-y-6 pb-12"}>
