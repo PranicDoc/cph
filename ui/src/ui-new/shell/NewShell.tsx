@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useUiVersion } from "../../ui-version";
 import type { SidebarNavItem } from "../../components/Sidebar";
 import { BrandMark } from "../components/BrandMark";
+import { GlobalSearch } from "./GlobalSearch";
 
 export interface ShellNavItem extends SidebarNavItem {
   /** Heading the item sits under in the sidebar. Items without one come first. */
@@ -175,6 +176,7 @@ export function NewShell({ items, groupOrder, sectionLabel }: NewShellProps) {
             <span className="font-semibold">{current?.label}</span>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <GlobalSearch items={items} variant="bar" />
             <ThemeButton />
             <UserProfileIcon />
           </div>
@@ -183,6 +185,7 @@ export function NewShell({ items, groupOrder, sectionLabel }: NewShellProps) {
         <header className="hl-mhead hl-glass flex md:hidden">
           <BrandMark size={32} />
           <span className="flex-1 truncate font-semibold">{current?.label ?? "HealingARK"}</span>
+          <GlobalSearch items={items} variant="icon" />
           <ThemeButton />
           <UserProfileIcon />
         </header>

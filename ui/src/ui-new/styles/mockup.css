@@ -348,3 +348,26 @@ html[data-ui="new"] .hlx.hl-cols > :first-child { column-span: all; }
 html[data-ui="new"] .hlx { min-width: 0; max-width: 100%; }
 html[data-ui="new"] .hlx > * { min-width: 0; max-width: 100%; }
 html[data-ui="new"] .hlx section > .grid2 > *, html[data-ui="new"] .hlx .grid2 > * { min-width: 0; overflow-x: auto; }
+
+/* two-up grids that collapse to one column on phones; chart headers wrap */
+html[data-ui="new"] .hlx .hl-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+html[data-ui="new"] .hlx .hl-2col > * { min-width: 0; }
+@media (max-width: 767px) {
+  html[data-ui="new"] .hlx .hl-2col { grid-template-columns: minmax(0, 1fr); }
+  html[data-ui="new"] .hlx .hl-2col [class*="justify-between"] { flex-wrap: wrap; gap: 8px; }
+}
+
+/* phones: form footers stack, two-up form grids go single column */
+@media (max-width: 767px) {
+  html[data-ui="new"] .hlx form [class*="sm:flex-row"] { flex-direction: column; align-items: stretch; }
+  html[data-ui="new"] .hlx form .sm\:w-auto { width: 100%; }
+  html[data-ui="new"] .hlx form .flex.w-full { flex-direction: column; }
+  html[data-ui="new"] .hlx form .flex-1 { flex: none; width: 100%; }
+  html[data-ui="new"] .hlx form .grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+  html[data-ui="new"] .hlx [class*="sm:flex-row"] > button, html[data-ui="new"] .hlx [class*="sm:flex-row"] > .flex > button { width: 100%; }
+}
+/* case summary: label and value stay on one line */
+html[data-ui="new"] .hlx .hl-sumhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+html[data-ui="new"] .hlx .hl-sumhead h1 { white-space: nowrap; }
+html[data-ui="new"] .hlx .hl-sumrow { flex-direction: row !important; align-items: baseline !important; gap: 16px !important; }
+html[data-ui="new"] .hlx .hl-sumrow > :first-child { width: 42% !important; flex: none; }

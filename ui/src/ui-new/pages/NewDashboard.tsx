@@ -89,7 +89,7 @@ export default function NewDashboard() {
 
       <section>
         <h3 className="ongr" style={{ margin: "4px 4px 12px" }}>Work queue</h3>
-        <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+        <div className="hl-2col">
           <UpcomingSessionsTable healerId={healerId} />
           <PendingReportsTable healerId={healerId} />
         </div>
@@ -100,7 +100,7 @@ export default function NewDashboard() {
 
       <section key={`trends-${periodKey}`}>
         <h3 className="ongr" style={{ margin: "4px 4px 12px" }}>Trends</h3>
-        <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+        <div className="hl-2col">
           <SessionTrendChart healerId={healerId} initialPeriod={initialPeriod} />
           <PatientGrowthChart healerId={healerId} initialPeriod={initialPeriod} />
         </div>
@@ -108,7 +108,7 @@ export default function NewDashboard() {
 
       <section key={`insights-${periodKey}`}>
         <h3 className="ongr" style={{ margin: "4px 4px 12px" }}>Insights</h3>
-        <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+        <div className="hl-2col">
           <TopSymptomsChart healerId={healerId} initialPeriod={initialPeriod} />
           <TopProtocolsChart healerId={healerId} initialPeriod={initialPeriod} />
         </div>

@@ -160,7 +160,7 @@ function SectionHeading({ icon, label }: { icon: React.ReactNode; label: string 
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border last:border-0">
+    <div className="hl-sumrow flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border last:border-0">
       <span className="text-xs font-medium text-text-light w-40 shrink-0">{label}</span>
       <span className="text-sm text-text">{value}</span>
     </div>
@@ -494,11 +494,13 @@ export default function CaseSummary() {
             <ArrowLeft className="w-4 h-4" />
             Back to Patients
           </Button>
-          <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
-          <p className="text-sm text-text-light">
-            {patientName} · Opened {formatDate(data.caseCreatedAt)}
-            {data.closure?.closureDate && ` · Closed ${formatDate(data.closure.closureDate)}`}
-          </p>
+          <div className={isNewView ? "hl-sumhead" : "contents"}>
+            <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
+            <p className="text-sm text-text-light">
+              {patientName} · Opened {formatDate(data.caseCreatedAt)}
+              {data.closure?.closureDate && ` · Closed ${formatDate(data.closure.closureDate)}`}
+            </p>
+          </div>
         </div>
 
         {/* TODO: wire up once pdfWorker supports DocumentType.SUMMARY_DOC */}
