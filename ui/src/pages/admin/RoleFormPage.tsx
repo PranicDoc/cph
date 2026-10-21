@@ -32,6 +32,8 @@ import {
 } from "@/hooks/admin/useRbacRoles";
 import { extractDetail } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../../ui-version";
+import { PermissionsPicker } from "../../ui-new/admin/PermissionsPicker";
 
 function isSelfLockout(error: unknown): boolean {
   const data = (
@@ -71,6 +73,7 @@ function normalizeSnapshot(
  * as a top alert banner plus inline field errors, never a disabled button.
  */
 export default function RoleFormPage() {
+  const { isNewView } = useUiVersion();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -298,7 +301,14 @@ export default function RoleFormPage() {
     ? `Admin / Roles & Permissions / ${roleQuery.data?.name ?? "…"}`
     : "Admin / Roles & Permissions";
 
-  const heading = (
+  const heading = isNewView ? (
+    <div className="page-head" style={{ marginBottom: 16 }}>
+      <div>
+        <h1>{isEdit ? "Edit role" : "New role"}</h1>
+        <p className="muted" style={{ marginTop: 6 }}>Name the role, then choose what it can do.</p>
+      </div>
+    </div>
+  ) : (
     <div className="mb-4">
       <div className="mb-1.5 text-xs text-text-light">{breadcrumb}</div>
       <h1 className="text-xl font-bold text-text md:text-2xl">
@@ -362,7 +372,7 @@ export default function RoleFormPage() {
   const addedCount = Object.keys(grants).length;
 
   return (
-    <div>
+    <div className={isNewView ? "hlx" : undefined}>
       {heading}
       {tabs}
 
@@ -459,6 +469,11 @@ export default function RoleFormPage() {
               </div>
             </div>
             <div className="flex flex-1 px-4 py-4 sm:px-5">
+              {isNewView ? (
+                <div className="hlx" style={{ width: "100%" }}>
+                  <PermissionsPicker catalog={catalog} value={grants} onChange={applyGrants} disabled={activeMutation.isPending} />
+                </div>
+              ) : (
               <PermissionToggleGrid
                 catalog={catalog}
                 value={grants}
@@ -468,6 +483,7 @@ export default function RoleFormPage() {
                 baseline={isEdit ? baselineGrants : undefined}
                 disabled={activeMutation.isPending}
               />
+              )}
             </div>
           </div>
 
