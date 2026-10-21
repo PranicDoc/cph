@@ -45,7 +45,7 @@ describe("AdminShell", () => {
       "Legal Documents",
     ]);
     expect(within(side).getAllByRole("heading").map((h) => h.textContent)).toEqual(["Access", "Content"]);
-    expect(screen.getByText("Super admin")).toBeInTheDocument();
+    expect(screen.queryByText("Super admin")).not.toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Admin")).toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe("AdminShell", () => {
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     const labels = within(side).getAllByRole("link").map((l) => l.textContent?.trim());
     expect(labels).toEqual(["Accounts", "Healer Reg.", "Master Data", "Legal Documents"]);
-    expect(screen.getByText("Admin", { selector: "div" })).toBeInTheDocument();
+    expect(screen.queryByText("Admin", { selector: "div" })).not.toBeInTheDocument();
   });
 });
 

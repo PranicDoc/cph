@@ -9,11 +9,6 @@ export default function AdminShell() {
   const { user } = useAuth();
   const items = adminNavItems.filter((item) => item.roles.includes(user?.role ?? ""));
   return (
-    <NewShell
-      items={items}
-      groupOrder={GROUP_ORDER}
-      sectionLabel="Admin"
-      roleLabel={user?.role === "SUPADM" ? "Super admin" : "Admin"}
-    />
+    <NewShell items={items} groupOrder={GROUP_ORDER} sectionLabel="Admin" />
   );
 }

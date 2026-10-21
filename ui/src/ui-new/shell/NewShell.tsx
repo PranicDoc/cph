@@ -20,8 +20,6 @@ interface NewShellProps {
   groupOrder?: string[];
   /** Shown before the page name in the breadcrumb (e.g. "Admin"). */
   sectionLabel?: string;
-  /** Shown under the user's name in the sidebar. */
-  roleLabel: string;
 }
 
 const MAX_TABS = 5;
@@ -124,7 +122,7 @@ function MobileTabs({ items, pathname }: { items: ShellNavItem[]; pathname: stri
  * floating tab bar on phones. It only supplies chrome; the page is whatever the route renders
  * into the Outlet, so routes, data and permissions are exactly the classic ones.
  */
-export function NewShell({ items, groupOrder, sectionLabel, roleLabel }: NewShellProps) {
+export function NewShell({ items, groupOrder, sectionLabel }: NewShellProps) {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const name = user?.fullName ?? "";
@@ -161,7 +159,6 @@ export function NewShell({ items, groupOrder, sectionLabel, roleLabel }: NewShel
           <span className="hl-avatar" aria-hidden="true">{initials(name)}</span>
           <div className="min-w-0">
             <div className="truncate text-[13.5px] font-semibold">{name}</div>
-            <div className="text-xs opacity-80">{roleLabel}</div>
           </div>
         </div>
       </aside>

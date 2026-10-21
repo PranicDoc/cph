@@ -36,7 +36,7 @@ function renderShell(path: string, props: Partial<React.ComponentProps<typeof Ne
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route
-          element={<NewShell items={healerItems} roleLabel="Healer" {...props} />}
+          element={<NewShell items={healerItems} {...props} />}
         >
           <Route path="*" element={<div>PAGE CONTENT</div>} />
         </Route>
@@ -73,14 +73,14 @@ describe("NewShell", () => {
     expect(within(side).getByRole("link", { name: /dashboard/i })).not.toHaveAttribute("aria-current");
   });
 
-  it("shows the signed-in user and role at the bottom of the sidebar", () => {
+  it("shows the signed-in user's name, and no role, at the bottom of the sidebar", () => {
     renderShell("/");
     expect(screen.getByText("Asha Rao")).toBeInTheDocument();
-    expect(screen.getByText("Healer")).toBeInTheDocument();
+    expect(screen.queryByText("Healer")).not.toBeInTheDocument();
   });
 
   it("shows a section crumb before the page name when asked to", () => {
-    renderShell("/admin/accounts", { items: adminItems, sectionLabel: "Admin", roleLabel: "Super admin" });
+    renderShell("/admin/accounts", { items: adminItems, sectionLabel: "Admin" });
     const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(crumbs).getByText("Admin")).toBeInTheDocument();
     expect(within(crumbs).getByText("Accounts")).toBeInTheDocument();
@@ -90,7 +90,6 @@ describe("NewShell", () => {
     renderShell("/admin/accounts", {
       items: adminItems,
       groupOrder: ["", "Access", "Content"],
-      roleLabel: "Super admin",
     });
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     const headings = within(side).getAllByRole("heading").map((h) => h.textContent);
@@ -113,7 +112,7 @@ describe("NewShell", () => {
   });
 
   it("keeps four tabs and a More button when there are more than five items", async () => {
-    renderShell("/admin/accounts", { items: adminItems, roleLabel: "Super admin" });
+    renderShell("/admin/accounts", { items: adminItems });
     const tabs = screen.getByRole("navigation", { name: "Main" });
     expect(within(tabs).getAllByRole("link")).toHaveLength(4);
     await userEvent.click(within(tabs).getByRole("button", { name: /more/i }));
