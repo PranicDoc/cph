@@ -385,3 +385,5 @@ html[data-ui="new"] .hlx.hl-cols > .grid { display: contents; }
 html[data-ui="new"] .hlx.hl-cols > .grid > * { break-inside: avoid; margin: 0 0 16px; }
 html[data-ui="new"] .hlx.hl-cols .hl-sumhead { column-span: all; }
 @media (max-width: 767px) { html[data-ui="new"] .hlx.hl-cols { columns: 1; } }
+/* auto side margins in the flex column would shrink full-width blocks (the session wizard) */
+html[data-ui="new"] .hlx > .mx-auto:not([class*="max-w"]) { width: 100%; margin-left: 0; margin-right: 0; }
