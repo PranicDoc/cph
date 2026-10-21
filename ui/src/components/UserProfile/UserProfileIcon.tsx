@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfileIconProps } from "./types/user-profile";
-import { CreditCard, LogOut, Settings } from "lucide-react";
+import { CreditCard, LogOut, MessageSquare, Settings, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { useUiVersion, type ThemeChoice } from "../../ui-version";
 import { PlanPicker } from "../PlanPicker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -26,6 +30,8 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+const FEEDBACK_HREF = "mailto:hello@healingark.in?subject=New%20view%20feedback";
+
 // ── Component ──
 export function UserProfileIcon({
   onSettings,
@@ -33,6 +39,16 @@ export function UserProfileIcon({
 }: UserProfileIconProps) {
   const { user, logout } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { isNewView, canSwitch, setUiVersion, theme, setTheme } = useUiVersion();
+
+  const switchView = () => {
+    if (isNewView) {
+      void setUiVersion("classic");
+    } else {
+      void setUiVersion("new");
+      toast.success("New view is on. You can switch back anytime from your profile menu.");
+    }
+  };
 
   if (!user) return null;
 
@@ -90,6 +106,25 @@ export function UserProfileIcon({
                 Settings
               </DropdownMenuItem>
             )}
+            {canSwitch && (
+              <DropdownMenuItem onSelect={switchView}>
+                <Sparkles className="w-4 h-4 text-gray-400" />
+                <span className="flex-1">
+                  {isNewView ? "Switch to classic view" : "Try the new view"}
+                </span>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  {isNewView ? "Beta" : "New"}
+                </span>
+              </DropdownMenuItem>
+            )}
+            {canSwitch && isNewView && (
+              <DropdownMenuItem asChild>
+                <a href={FEEDBACK_HREF}>
+                  <MessageSquare className="w-4 h-4 text-gray-400" />
+                  Share feedback
+                </a>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               variant="destructive"
               onSelect={() => logout()}
@@ -98,6 +133,22 @@ export function UserProfileIcon({
               Logout
             </DropdownMenuItem>
           </DropdownMenuGroup>
+          {canSwitch && isNewView && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+                Theme
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={theme}
+                onValueChange={(v) => setTheme(v as ThemeChoice)}
+              >
+                <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

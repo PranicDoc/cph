@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { UiVersionProvider } from "./ui-version";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -119,8 +120,10 @@ export default function App() {
   return (
     <AuthProvider>
       <PatientProvider>
-        <RouterProvider router={router} />
-        <Toaster position="top-right" richColors duration={3000} closeButton />
+        <UiVersionProvider>
+          <RouterProvider router={router} />
+          <Toaster position="top-right" richColors duration={3000} closeButton />
+        </UiVersionProvider>
       </PatientProvider>
     </AuthProvider>
   );

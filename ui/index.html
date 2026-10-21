@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HealingARK</title>
+    <script>
+      /* Apply the saved view and theme before first paint (no flash). Mirrors
+         ui-version/storage.ts: classic unless this browser chose "new" and the new view is on. */
+      (function () {
+        try {
+          var flag = "%VITE_NEW_VIEW%";
+          var on = flag === "off" ? false : flag === "on" || "%DEV%" === "true";
+          var root = document.documentElement;
+          if (on && localStorage.getItem("hl.ui.version") === "new") {
+            var theme = localStorage.getItem("hl.ui.theme");
+            if (theme !== "light" && theme !== "system") theme = "dark";
+            if (theme === "system") theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            root.dataset.ui = "new";
+            root.dataset.theme = theme;
+          } else {
+            root.dataset.ui = "classic";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script src="https://accounts.google.com/gsi/client" async></script>
   </head>
   <body>
