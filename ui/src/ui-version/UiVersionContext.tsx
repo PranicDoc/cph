@@ -148,8 +148,17 @@ export function UiVersionProvider({ children }: { children: ReactNode }) {
   return <UiVersionContext.Provider value={value}>{children}</UiVersionContext.Provider>;
 }
 
+/** Used when no provider is mounted (isolated component tests): the classic view, nothing to switch. */
+const CLASSIC_ONLY: UiVersionContextValue = {
+  uiVersion: "classic",
+  isNewView: false,
+  canSwitch: false,
+  setUiVersion: async () => {},
+  theme: "dark",
+  resolvedTheme: "dark",
+  setTheme: () => {},
+};
+
 export function useUiVersion(): UiVersionContextValue {
-  const ctx = useContext(UiVersionContext);
-  if (!ctx) throw new Error("useUiVersion must be used inside UiVersionProvider");
-  return ctx;
+  return useContext(UiVersionContext) ?? CLASSIC_ONLY;
 }

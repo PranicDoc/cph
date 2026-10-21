@@ -4,7 +4,8 @@ import { Activity, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import ErrorState from "../components/ErrorState";
-import LegalCenterShell from "../components/legal/LegalCenterShell";
+import ClassicLegalCenterShell from "../components/legal/LegalCenterShell";
+import { versioned } from "../ui-version";
 import { DocumentTabs } from "../components/legal/DocumentTabs";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -13,6 +14,9 @@ import {
 } from "../hooks/legal/useOutstandingConsents";
 import { formatConsentTypeLabel } from "../lib/consentLabels";
 import { extractDetail } from "../lib/utils";
+
+// The new view has its own chrome for this screen; everything inside it is shared.
+const LegalCenterShell = versioned(ClassicLegalCenterShell, () => import("../ui-new/shell/NewLegalCenterShell"));
 
 /**
  * The `/legal-center` screen (REG-01/REG-02): mounts Phase 33's

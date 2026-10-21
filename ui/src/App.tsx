@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UiVersionProvider } from "./ui-version";
+import { UiVersionProvider, versioned } from "./ui-version";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -45,6 +45,12 @@ import AcceptInvite from "./pages/AcceptInvite";
 import Signup from "./pages/Signup";
 import LegalCenter from "./pages/LegalCenter";
 
+// Each shell has a classic and a new-view version; the profile menu switches between them.
+// Same routes either way, only the chrome differs (see docs/superpowers/plans/2026-10-21-new-view-dual-ui.md).
+const HealerLayout = versioned(Layout, () => import("./ui-new/shell/HealerShell"));
+const AdminLayoutRoute = versioned(AdminLayout, () => import("./ui-new/shell/AdminShell"));
+const PublicLayout = versioned(PublicShell, () => import("./ui-new/shell/NewPublicShell"));
+
 // react-router v7 data router. The route tree below is the exact same JSX
 // tree that previously lived inside the declarative router element pair — it
 // is only wrapped in createRoutesFromElements + createBrowserRouter so that
@@ -60,7 +66,7 @@ const router = createBrowserRouter(
       <Route path="/oauth2/success" element={<OAuth2Success />} />
 
       {/* Public pages — minimal branded shell, no nav */}
-      <Route element={<PublicShell />}>
+      <Route element={<PublicLayout />}>
         <Route path="/self-register" element={<Registration />} />
         <Route
           path="/self-register/:healerId/:uuid"
@@ -74,7 +80,7 @@ const router = createBrowserRouter(
 
       {/* Protected healer routes */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={<HealerLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="patients" element={<Patients />} />
           <Route path="registration" element={<Registration />} />
@@ -91,7 +97,7 @@ const router = createBrowserRouter(
 
       {/* Admin routes — ADMIN + SUPADM only */}
       <Route element={<AdminRoute />}>
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<AdminLayoutRoute />}>
           <Route index element={<AccountsPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route
