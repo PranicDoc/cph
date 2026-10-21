@@ -1,7 +1,7 @@
+import { AuthLogo } from "../components/AuthLogo";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Activity } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { acceptInviteSchema } from "./schemas/AuthSchema";
@@ -63,9 +63,7 @@ export default function AcceptInvite() {
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <Activity className="w-8 h-8 text-white" />
-          </div>
+          <AuthLogo />
         </div>
         <h2 className="mt-6 text-center text-2xl font-semibold text-text">
           Set Up Your Account

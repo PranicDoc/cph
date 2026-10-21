@@ -334,6 +334,91 @@ html[data-ui="new"] [data-slot="table-row"]:hover { background: var(--hl-primary
   html[data-ui="new"] [data-slot="table-row"] { display: block; position: relative; padding: 12px 16px; border-bottom: 1px solid var(--hl-hair); }
   html[data-ui="new"] [data-slot="table-cell"] { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; text-align: right; white-space: normal; }
   html[data-ui="new"] [data-slot="table-cell"][data-label]:not([data-label=""])::before { content: attr(data-label); color: var(--color-text-light); font-size: 12.5px; font-weight: 550; text-align: left; flex: none; }
+  html[data-ui="new"] [data-slot="table-cell"]:empty { display: none; }
   html[data-ui="new"] [data-slot="table-cell"]:first-child { display: block; text-align: left; padding-bottom: 8px; font-weight: 600; }
   html[data-ui="new"] [data-slot="table-cell"]:first-child::before { display: none; }
 }
+
+/* ───────── Dark theme: remap hard-coded light palette utilities used inside pages ─────────
+   Many pages use fixed Tailwind colours (bg-red-50, text-gray-600 ...). On the dark ground they
+   would be pale blocks with dark text, so the same classes are re-tinted here, dark only. */
+html[data-ui="new"][data-theme="dark"] .bg-white,
+html[data-ui="new"][data-theme="dark"] .bg-gray-50,
+html[data-ui="new"][data-theme="dark"] .bg-gray-100,
+html[data-ui="new"][data-theme="dark"] .bg-gray-50\/50,
+html[data-ui="new"][data-theme="dark"] .bg-gray-100\/80 { background-color: rgba(255, 255, 255, 0.06); }
+html[data-ui="new"][data-theme="dark"] .border-gray-100,
+html[data-ui="new"][data-theme="dark"] .border-gray-200,
+html[data-ui="new"][data-theme="dark"] .divide-gray-100 > * + * { border-color: rgba(255, 255, 255, 0.1); }
+html[data-ui="new"][data-theme="dark"] .text-gray-300,
+html[data-ui="new"][data-theme="dark"] .text-gray-400 { color: rgba(236, 232, 248, 0.5); }
+html[data-ui="new"][data-theme="dark"] .text-gray-500,
+html[data-ui="new"][data-theme="dark"] .text-gray-600 { color: rgba(236, 232, 248, 0.68); }
+html[data-ui="new"][data-theme="dark"] .text-gray-700,
+html[data-ui="new"][data-theme="dark"] .text-gray-800,
+html[data-ui="new"][data-theme="dark"] .text-gray-900 { color: rgba(246, 244, 252, 0.92); }
+html[data-ui="new"][data-theme="dark"] .bg-red-50,
+html[data-ui="new"][data-theme="dark"] .bg-red-100 { background-color: rgba(248, 113, 113, 0.14); }
+html[data-ui="new"][data-theme="dark"] .border-red-200,
+html[data-ui="new"][data-theme="dark"] .border-red-300 { border-color: rgba(248, 113, 113, 0.32); }
+html[data-ui="new"][data-theme="dark"] .text-red-400,
+html[data-ui="new"][data-theme="dark"] .text-red-500,
+html[data-ui="new"][data-theme="dark"] .text-red-600,
+html[data-ui="new"][data-theme="dark"] .text-red-700 { color: #fca5a5; }
+html[data-ui="new"][data-theme="dark"] .bg-green-100,
+html[data-ui="new"][data-theme="dark"] .bg-emerald-50 { background-color: rgba(52, 211, 153, 0.16); }
+html[data-ui="new"][data-theme="dark"] .text-green-500,
+html[data-ui="new"][data-theme="dark"] .text-green-600,
+html[data-ui="new"][data-theme="dark"] .text-green-700,
+html[data-ui="new"][data-theme="dark"] .text-emerald-500,
+html[data-ui="new"][data-theme="dark"] .text-emerald-600 { color: #6ee7b7; }
+html[data-ui="new"][data-theme="dark"] .bg-amber-50,
+html[data-ui="new"][data-theme="dark"] .bg-amber-100,
+html[data-ui="new"][data-theme="dark"] .bg-yellow-100,
+html[data-ui="new"][data-theme="dark"] .bg-orange-100 { background-color: rgba(251, 191, 36, 0.16); }
+html[data-ui="new"][data-theme="dark"] .text-amber-500,
+html[data-ui="new"][data-theme="dark"] .text-amber-600,
+html[data-ui="new"][data-theme="dark"] .text-amber-700,
+html[data-ui="new"][data-theme="dark"] .text-amber-800,
+html[data-ui="new"][data-theme="dark"] .text-yellow-700,
+html[data-ui="new"][data-theme="dark"] .text-orange-700 { color: #fcd34d; }
+html[data-ui="new"][data-theme="dark"] .bg-blue-100,
+html[data-ui="new"][data-theme="dark"] .bg-sky-50 { background-color: rgba(96, 165, 250, 0.16); }
+html[data-ui="new"][data-theme="dark"] .text-blue-700,
+html[data-ui="new"][data-theme="dark"] .text-sky-700,
+html[data-ui="new"][data-theme="dark"] .text-indigo-700 { color: #93c5fd; }
+html[data-ui="new"][data-theme="dark"] .border-sky-200 { border-color: rgba(96, 165, 250, 0.3); }
+html[data-ui="new"][data-theme="dark"] .bg-purple-100,
+html[data-ui="new"][data-theme="dark"] .bg-purple-200,
+html[data-ui="new"][data-theme="dark"] .bg-violet-50,
+html[data-ui="new"][data-theme="dark"] .bg-violet-100 { background-color: rgba(167, 139, 250, 0.18); }
+html[data-ui="new"][data-theme="dark"] .text-purple-600,
+html[data-ui="new"][data-theme="dark"] .text-purple-700,
+html[data-ui="new"][data-theme="dark"] .text-violet-500,
+html[data-ui="new"][data-theme="dark"] .text-violet-600,
+html[data-ui="new"][data-theme="dark"] .text-violet-700,
+html[data-ui="new"][data-theme="dark"] .text-violet-800 { color: #c4b5fd; }
+html[data-ui="new"][data-theme="dark"] .border-violet-100,
+html[data-ui="new"][data-theme="dark"] .border-violet-200,
+html[data-ui="new"][data-theme="dark"] .border-violet-300 { border-color: rgba(167, 139, 250, 0.3); }
+html[data-ui="new"][data-theme="dark"] .text-primary-dark { color: var(--color-text); }
+
+/* ───────── Patient banner (session screens) ───────── */
+html[data-ui="new"] .hl-banner { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; border-radius: 16px; }
+html[data-ui="new"] .hl-banner-avatar { flex: none; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-weight: 650; font-size: 16px; background: var(--hl-primary-soft); color: var(--hl-accent-text); }
+html[data-ui="new"] .hl-banner-main { flex: 1; min-width: 0; }
+html[data-ui="new"] .hl-banner-title { font-size: 19px; font-weight: 650; line-height: 1.25; color: var(--color-text); }
+html[data-ui="new"] .hl-banner-sub { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 3px; font-size: 13.5px; color: var(--color-text-light); }
+html[data-ui="new"] .hl-banner-sub > span { white-space: nowrap; }
+html[data-ui="new"] .hl-banner-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; list-style: none; padding: 0; }
+html[data-ui="new"] .hl-chip { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 550; white-space: nowrap; background: var(--hl-primary-soft); color: var(--hl-accent-text); }
+html[data-ui="new"] .hl-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 11.5px; font-weight: 650; letter-spacing: 0.03em; white-space: nowrap; }
+html[data-ui="new"] .hl-badge-ok { background: color-mix(in srgb, var(--color-success) 18%, transparent); color: var(--color-success); }
+html[data-ui="new"] .hl-badge-warn { background: color-mix(in srgb, var(--color-warning) 18%, transparent); color: var(--color-warning); }
+html[data-ui="new"] .hl-badge-off { background: var(--hl-hair); color: var(--color-text-light); }
+@media (max-width: 767px) { html[data-ui="new"] .hl-banner { padding: 14px; gap: 12px; } html[data-ui="new"] .hl-banner-avatar { width: 40px; height: 40px; } }
+
+/* Standalone pages (login, sign-up, invite, patient pages) keep the page ground visible. */
+html[data-ui="new"] .bg-background.min-h-screen { background: transparent; }
+html[data-ui="new"] .bg-card.shadow { border-radius: 16px; }
+html[data-ui="new"] .hl-canvas .min-h-screen { min-height: calc(100dvh - 190px); }
