@@ -28,6 +28,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
 
+const ProtocolStrip = lazy(() => import("../ui-new/session/ProtocolStrip"));
 const NewSessionView = lazy(() => import("../ui-new/session/NewSessionView"));
 const BeforeYouContinue = lazy(() => import("../ui-new/session/BeforeYouContinue").then((m) => ({ default: m.BeforeYouContinue })));
 
@@ -320,6 +321,11 @@ export default function Session() {
     return (
       <div className={frame}>
         <SessionHeader healingSession={sessionData} />
+        {isNewView && (
+          <Suspense fallback={null}>
+            <ProtocolStrip protocols={step1Protocols} />
+          </Suspense>
+        )}
         {healingCaseId && (
           <HealingSessionWizard
             caseId={healingCaseId}

@@ -151,7 +151,16 @@ export default function Profile() {
   return (
     <div className={isNewView ? "hlx hl-cols" : "max-w-2xl mx-auto space-y-5"}>
 
-      {/* ── Hero banner ── */}
+      {isNewView && (
+        <div className="page-head">
+          <div>
+            <h1>Profile</h1>
+            <p className="muted" style={{ marginTop: 6 }}>Your details and plan.</p>
+          </div>
+        </div>
+      )}
+      {!isNewView && (
+        <>
       <div className="bg-gradient-to-r from-primary-dark to-primary rounded-2xl p-6 flex items-center gap-5">
         {user.avatarUrl ? (
           <img
@@ -178,6 +187,9 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+        </>
+      )}
 
       {/* ── Personal Information ── */}
       <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">

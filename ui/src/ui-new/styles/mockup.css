@@ -377,3 +377,11 @@ html[data-ui="new"] .hlx .badge.bad { background: var(--danger-soft); color: var
 /* dropdowns inside forms must sit above the rows below them */
 html[data-ui="new"] .hlx form [class*="z-20"], html[data-ui="new"] .hlx form [class*="z-30"] { z-index: 60; }
 html[data-ui="new"] .hlx form.bg-card, html[data-ui="new"] .hlx form .bg-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* popups opened from form fields are solid, never see-through */
+html[data-ui="new"][data-theme="dark"] .hlx form [class*="z-20"].bg-white, html[data-ui="new"][data-theme="dark"] .hlx form [class*="z-30"].bg-white { background-color: #241c3a; }
+html[data-ui="new"][data-theme="light"] .hlx form [class*="z-20"].bg-white, html[data-ui="new"][data-theme="light"] .hlx form [class*="z-30"].bg-white { background-color: #ffffff; }
+/* case summary: the info grid dissolves so every card flows into the two columns */
+html[data-ui="new"] .hlx.hl-cols > .grid { display: contents; }
+html[data-ui="new"] .hlx.hl-cols > .grid > * { break-inside: avoid; margin: 0 0 16px; }
+html[data-ui="new"] .hlx.hl-cols .hl-sumhead { column-span: all; }
+@media (max-width: 767px) { html[data-ui="new"] .hlx.hl-cols { columns: 1; } }

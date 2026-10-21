@@ -482,7 +482,7 @@ export default function CaseSummary() {
   const patientName = `${data.patientFirstName} ${data.patientLastName}`;
 
   return (
-    <div className={isNewView ? "hlx" : "space-y-6 pb-12"}>
+    <div className={isNewView ? "hlx hl-cols" : "space-y-6 pb-12"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
