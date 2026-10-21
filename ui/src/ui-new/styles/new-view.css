@@ -489,3 +489,6 @@ html[data-ui="new"] .hl-cmdk-empty { padding: 18px 12px; color: var(--color-text
   html[data-ui="new"] .bg-background.min-h-screen { padding-left: 16px; padding-right: 16px; }
   html[data-ui="new"] .bg-card.shadow { padding-left: 20px; padding-right: 20px; }
 }
+/* inputs drawn inside another field (tag input, search boxes) stay borderless */
+html[data-ui="new"] [data-slot="input"].border-0 { border-width: 0; background: transparent; border-radius: 0; box-shadow: none; }
+html[data-ui="new"] .border-2.rounded-lg.flex-wrap:has(> [data-slot="input"].border-0) { border-width: 1px; border-color: var(--hl-hair-strong); border-radius: 0.75rem; background: var(--hl-field); }
