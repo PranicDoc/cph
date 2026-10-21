@@ -76,6 +76,11 @@ function DataTableRowInner<T>({
       {row.getVisibleCells().map((cell) => (
         <TableCell
           key={cell.id}
+          data-label={
+            typeof cell.column.columnDef.header === "string"
+              ? cell.column.columnDef.header
+              : undefined
+          }
           className={cn(
             "text-text whitespace-normal",
             cellPadding,

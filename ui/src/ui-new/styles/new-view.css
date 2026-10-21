@@ -247,3 +247,93 @@ html[data-ui="new"] .hl-pubmain { margin: 6px auto 48px; padding: 0 14px; max-wi
   html[data-ui="new"][data-theme="light"] .hl-canvas { padding: 4px; }
   html[data-ui="new"] .hl-pubhead { margin: 10px 12px; }
 }
+
+/* ───────── Shared components in the new view ───────── */
+html[data-ui="new"] {
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --shadow-sm: var(--hl-shadow);
+  --shadow-md: var(--hl-shadow);
+  --shadow-lg: var(--hl-shadow-sheet);
+  --shadow-xl: var(--hl-shadow-sheet);
+}
+
+/* Panels: the translucent card colour gets the glass blur. */
+html[data-ui="new"] .bg-card {
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-ui="new"] .bg-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--color-popover); }
+}
+
+/* Dialogs and drawers are glass sheets; bottom sheets on phones. */
+html[data-ui="new"] [data-slot="dialog-overlay"],
+html[data-ui="new"] [data-slot="alert-dialog-overlay"],
+html[data-ui="new"] [data-slot="drawer-overlay"] { background: var(--hl-scrim); }
+html[data-ui="new"] [data-slot="dialog-content"],
+html[data-ui="new"] [data-slot="alert-dialog-content"],
+html[data-ui="new"] [data-slot="drawer-content"] {
+  background: var(--hl-glass-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow: var(--hl-shadow-sheet);
+  border: 0;
+  border-radius: 1.5rem;
+  color: var(--color-text);
+}
+@media (max-width: 639px) {
+  html[data-ui="new"] [data-slot="dialog-content"],
+  html[data-ui="new"] [data-slot="alert-dialog-content"] {
+    top: auto; bottom: 0; left: 0; right: 0; translate: none; transform: none;
+    max-width: 100%; width: 100%; border-radius: 1.5rem 1.5rem 0 0;
+  }
+}
+
+/* Menus, selects and popovers. */
+html[data-ui="new"] [data-slot="dropdown-menu-content"],
+html[data-ui="new"] [data-slot="select-content"],
+html[data-ui="new"] [data-slot="popover-content"] {
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  border: 1px solid var(--hl-hair);
+  border-radius: 1rem;
+  box-shadow: var(--hl-shadow-sheet);
+}
+html[data-ui="new"] [data-slot="dropdown-menu-item"][data-highlighted],
+html[data-ui="new"] [data-slot="select-item"][data-highlighted] { background: var(--hl-primary-soft); color: var(--hl-accent-text); }
+
+/* Form controls. */
+html[data-ui="new"] [data-slot="input"],
+html[data-ui="new"] [data-slot="textarea"],
+html[data-ui="new"] [data-slot="select-trigger"] {
+  background: var(--hl-field);
+  border-color: var(--hl-hair-strong);
+  border-radius: 0.75rem;
+  color: var(--color-text);
+}
+html[data-ui="new"] [data-slot="input"]::placeholder,
+html[data-ui="new"] [data-slot="textarea"]::placeholder { color: var(--color-text-light); opacity: 0.8; }
+html[data-ui="new"] [data-slot="button"] { border-radius: 0.75rem; }
+html[data-ui="new"] [data-slot="badge"] { border-radius: 999px; }
+
+/* Tables: header row tinted, hairline rows, hover tint. */
+html[data-ui="new"] [data-slot="table-head"] { color: var(--color-text-light); font-size: 12.5px; font-weight: 600; }
+html[data-ui="new"] [data-slot="table-header"] tr { background: var(--hl-primary-soft); }
+html[data-ui="new"] [data-slot="table-row"] { border-color: var(--hl-hair); }
+html[data-ui="new"] [data-slot="table-row"]:hover { background: var(--hl-primary-soft); }
+
+/* Phones: every table becomes a list of cards (cells carry data-label where the column has a text header). */
+@media (max-width: 767px) {
+  html[data-ui="new"] [data-slot="table-container"] { overflow: visible; }
+  html[data-ui="new"] [data-slot="table"],
+  html[data-ui="new"] [data-slot="table-body"] { display: block; }
+  html[data-ui="new"] [data-slot="table-header"] { display: none; }
+  html[data-ui="new"] [data-slot="table-row"] { display: block; position: relative; padding: 12px 16px; border-bottom: 1px solid var(--hl-hair); }
+  html[data-ui="new"] [data-slot="table-cell"] { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; text-align: right; white-space: normal; }
+  html[data-ui="new"] [data-slot="table-cell"][data-label]:not([data-label=""])::before { content: attr(data-label); color: var(--color-text-light); font-size: 12.5px; font-weight: 550; text-align: left; flex: none; }
+  html[data-ui="new"] [data-slot="table-cell"]:first-child { display: block; text-align: left; padding-bottom: 8px; font-weight: 600; }
+  html[data-ui="new"] [data-slot="table-cell"]:first-child::before { display: none; }
+}
