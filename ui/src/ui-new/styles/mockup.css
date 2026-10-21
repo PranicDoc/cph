@@ -327,3 +327,11 @@ html[data-ui="new"] [data-slot="dialog-content"].hl-rsheet {
 @media (max-width: 767px) {
   html[data-ui="new"] [data-slot="dialog-content"].hl-rsheet { top: 56px; right: 0; left: 0; bottom: 0; width: auto; max-width: none; border-radius: 24px 24px 0 0; }
 }
+
+/* centred glass dialog for small forms (consent forms, publish version ...), bottom sheet on phones */
+html[data-ui="new"] [data-slot="dialog-content"].hl-cdialog { padding: 0; width: 520px; max-width: calc(100vw - 24px); border-radius: 24px; max-height: calc(100vh - 40px); overflow-y: auto; }
+html[data-ui="new"] .hlx .tabs > a { cursor: pointer; }
+html[data-ui="new"] .hlx .tabs button { height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); font: inherit; font-weight: 550; white-space: nowrap; cursor: pointer; }
+html[data-ui="new"] .hlx .tabs button.on { background: var(--primary-soft); color: var(--accent-text); font-weight: 600; }
+html[data-ui="new"][data-theme="light"] .hlx .page-head .ongr, html[data-ui="new"][data-theme="light"] .hlx .ongr { color: rgba(255,255,255,.92); }
+html[data-ui="new"][data-theme="light"] .hlx .hl-mdbody p.text-text-light:not([data-slot="table-container"] *) { color: rgba(255,255,255,.92); }

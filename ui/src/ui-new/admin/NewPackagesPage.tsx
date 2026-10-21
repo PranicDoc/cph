@@ -254,7 +254,7 @@ export default function NewPackagesPage() {
               </tbody>
             </table>
           </div>
-          <p className="small muted" style={{ padding: "0 4px", maxWidth: "70ch" }}>
+          <p className="small ongr" style={{ padding: "0 4px", maxWidth: "70ch" }}>
             Disable a package to stop offering it without losing it; delete removes it permanently and is blocked while any account is on that plan.
           </p>
         </>

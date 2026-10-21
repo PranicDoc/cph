@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useUiVersion } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Trash2, Lock, Upload } from "lucide-react";
@@ -1862,6 +1863,51 @@ export default function MasterDataPage() {
     { key: "protocols", label: "Protocols" },
     { key: "imports", label: "Imports" },
   ];
+
+  const { isNewView } = useUiVersion();
+  const body = (
+    <>
+      {activeTab === "colors" && <PranaColorsTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "chakras" && <ChakrasTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "mappings" && <ProtocolMappingsTab isSuperAdmin={isSuperAdmin} />}
+      {activeTab === "protocols" && (
+        <ProtocolsTab
+          isSuperAdmin={isSuperAdmin}
+          onNavigateToImports={() => setActiveTab("imports")}
+        />
+      )}
+      {activeTab === "imports" && <ImportsTab />}
+    </>
+  );
+
+  if (isNewView) {
+    return (
+      <div className="hlx">
+        <div className="page-head">
+          <div>
+            <h1>Master data</h1>
+            <p className="muted" style={{ marginTop: 6 }}>Colours, chakras and protocols used in every case.</p>
+          </div>
+        </div>
+        {isSuperAdmin && <WipeMasterDataControl />}
+        <div className="tabs glass" role="tablist" aria-label="Master data">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              className={activeTab === tab.key ? "on" : ""}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="hl-mdbody">{body}</div>
+      </div>
+    );
+  }
 
   return (
     <div>

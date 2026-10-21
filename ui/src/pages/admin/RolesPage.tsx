@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { versioned } from "../../ui-version";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -47,7 +48,7 @@ function relative(iso: string): string {
   }
 }
 
-export default function RolesPage() {
+function ClassicRolesPage() {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
 
@@ -466,3 +467,6 @@ export default function RolesPage() {
     </div>
   );
 }
+
+const RolesPage = versioned(ClassicRolesPage, () => import("../../ui-new/admin/NewRolesPage"));
+export default RolesPage;

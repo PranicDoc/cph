@@ -88,7 +88,7 @@ export default function NewTransactionsPage() {
             </table>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
-            <span className="small muted num">
+            <span className="small num ongr">
               Showing {from}-{to} of {data.totalElements}
             </span>
             <div style={{ display: "flex", gap: 8 }}>
