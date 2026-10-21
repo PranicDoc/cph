@@ -98,7 +98,7 @@ class HealerControllerGateSweepTest {
             Pattern.compile("^@rbacAuthz\\.hasPermission\\('([A-Z_]+)','([A-Z]+)'\\)$");
 
     /**
-     * The 7 {@code AuthController} routes that are {@code permitAll} in
+     * The 8 {@code AuthController} routes that are {@code permitAll} in
      * {@code SecurityConfig} — reached before any principal exists.
      */
     private static final Set<String> AUTH_PERMIT_ALL_ROUTES = Set.of(
@@ -110,7 +110,7 @@ class HealerControllerGateSweepTest {
      * locked for {@code ConsentController}.
      */
     private static final Set<String> AUTH_SELF_SERVICE_ROUTES = Set.of(
-            "getCurrentUser", "getCurrentHealer", "updateProfile", "changePassword",
+            "getCurrentUser", "getCurrentHealer", "updateProfile", "updateUiVersion", "changePassword",
             "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
     // ─── Phase 42 seven-controller healer surface (added by plan 42-11) ──────
@@ -290,17 +290,17 @@ class HealerControllerGateSweepTest {
                 .as("AuthController request-mapped method count — an added or removed endpoint must "
                         + "redden the build rather than silently escape this open-list (anti-vacuous "
                         + "guard T-42-Assurance-O1)")
-                .isEqualTo(14);
+                .isEqualTo(15);
 
         TreeSet<String> ungated = ungatedMethodNames(AuthController.class);
         assertThat(ungated)
                 .as("every AuthController request-mapped method must carry NO @PreAuthorize — D-07: "
                         + "openness is proven by annotation absence plus this named allow-list, never "
                         + "a @PreAuthorize(\"permitAll()\") marker annotation")
-                .hasSize(14)
+                .hasSize(15)
                 .containsExactlyInAnyOrder(
                         "login", "refresh", "logout", "acceptInvite", "signup", "initSession",
-                        "initFeedbackSession", "getCurrentUser", "getCurrentHealer", "updateProfile",
+                        "initFeedbackSession", "getCurrentUser", "getCurrentHealer", "updateProfile", "updateUiVersion",
                         "changePassword", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
         assertThat(AUTH_PERMIT_ALL_ROUTES)
@@ -311,11 +311,11 @@ class HealerControllerGateSweepTest {
                 .allMatch(ungated::contains);
 
         assertThat(AUTH_SELF_SERVICE_ROUTES)
-                .as("self-service 7 — every authenticated principal must reach their own identity "
-                        + "and profile without a grant, the same posture Phase 40 locked for "
+                .as("self-service 8 — every authenticated principal must reach their own identity, "
+                        + "profile and UI preference (classic / new view) without a grant, the same posture Phase 40 locked for "
                         + "ConsentController's self-service endpoints; gating /me or /profile would "
                         + "break a freshly-onboarded healer who holds no grants at all (T-42-DoS-O2)")
-                .hasSize(7)
+                .hasSize(8)
                 .allMatch(ungated::contains);
 
         TreeSet<String> union = new TreeSet<>(AUTH_PERMIT_ALL_ROUTES);
