@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { useParams, Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminTransactions } from "../../hooks/admin/useAdminTransactions";
@@ -91,7 +92,7 @@ const transactionColumns: ColumnDef<TransactionRow, unknown>[] = [
   },
 ];
 
-export default function TransactionsPage() {
+function ClassicTransactionsPage() {
   const { ownerType, ownerId } = useParams<{ ownerType: string; ownerId: string }>();
   const [page, setPage] = useState(0);
   const { data, isLoading, isError } = useAdminTransactions(ownerType ?? "", ownerId ?? "", page);
@@ -171,3 +172,6 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+const TransactionsPage = versioned(ClassicTransactionsPage, () => import("../../ui-new/admin/NewTransactionsPage"));
+export default TransactionsPage;

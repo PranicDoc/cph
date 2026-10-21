@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "react-day-picker/style.css";
 @import "./ui-new/styles/new-view.css";
+@import "./ui-new/styles/mockup.css";
 
 @theme {
   --color-primary: #6C3FC5;

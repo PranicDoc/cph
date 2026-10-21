@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -194,7 +195,7 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
   );
 }
 
-export default function PackagesPage() {
+function ClassicPackagesPage() {
   const { data, isLoading, isError } = useAdminPackages();
   const remove = useDeletePackage();
   const update = useUpdatePackage();
@@ -376,3 +377,7 @@ export default function PackagesPage() {
     </div>
   );
 }
+
+
+const PackagesPage = versioned(ClassicPackagesPage, () => import("../../ui-new/admin/NewPackagesPage"));
+export default PackagesPage;
