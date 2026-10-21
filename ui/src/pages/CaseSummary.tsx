@@ -1,3 +1,4 @@
+import { useUiVersion } from "../ui-version";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -439,6 +440,7 @@ function LabFindingsList({ keys }: { keys: string[] }) {
 // ---- Main Page ----
 
 export default function CaseSummary() {
+  const { isNewView } = useUiVersion();
   const { healingCaseId } = useParams<{ healingCaseId: string }>();
   const navigate = useNavigate();
 
@@ -480,7 +482,7 @@ export default function CaseSummary() {
   const patientName = `${data.patientFirstName} ${data.patientLastName}`;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className={isNewView ? "hlx" : "space-y-6 pb-12"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">

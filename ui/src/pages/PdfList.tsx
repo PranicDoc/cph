@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Search, Download } from "lucide-react";
 import api from "../lib/axios";
+import { useUiVersion } from "../ui-version";
 
 type PDFJob = ComputedPatient & {
   healingCaseId: string;
@@ -15,6 +16,7 @@ type PDFJob = ComputedPatient & {
 };
 
 export function PdfList() {
+  const { isNewView } = useUiVersion();
   const [pdfJobs, setPdfJobs] = useState<
     { healingCaseId: string; fileUrl: string; completedAt: string }[]
   >([]);
@@ -215,7 +217,7 @@ export function PdfList() {
     [data, localFilter]
   );
 
-  return (
+  const card = (
     <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
       {/* Search Header */}
       <div className="p-4 border-b border-border flex items-center gap-3">
@@ -245,8 +247,8 @@ export function PdfList() {
               : "No PDFs generated yet."
           }
           className="rounded-none border-0"
-          headerRowClassName="bg-primary hover:bg-primary"
-          headCellClassName="px-6 py-4 font-semibold text-white text-sm normal-case tracking-normal"
+          headerRowClassName={isNewView ? undefined : "bg-primary hover:bg-primary"}
+          headCellClassName={isNewView ? "px-6 py-4 font-semibold text-sm normal-case tracking-normal" : "px-6 py-4 font-semibold text-white text-sm normal-case tracking-normal"}
           cellClassName="px-6 py-4"
           rowClassName="hover:bg-primary/5"
         />
@@ -262,6 +264,19 @@ export function PdfList() {
           </div>
         )}
       </div>
+    </div>
+  );
+
+  if (!isNewView) return card;
+  return (
+    <div className="hlx">
+      <div className="page-head">
+        <div>
+          <h1>PDF reports</h1>
+          <p className="muted" style={{ marginTop: 6 }}>Download the reports generated for your cases.</p>
+        </div>
+      </div>
+      {card}
     </div>
   );
 }

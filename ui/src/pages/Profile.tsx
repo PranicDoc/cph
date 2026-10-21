@@ -4,6 +4,7 @@ import {
   CreditCard, Pencil, CheckCircle2, X, Lock,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useUiVersion } from "../ui-version";
 import { PlanPicker } from "../components/PlanPicker";
 import { Skeleton } from "../components/ui/skeleton";
 import {
@@ -45,6 +46,7 @@ function ReadField({
 }
 
 export default function Profile() {
+  const { isNewView } = useUiVersion();
   const { user } = useAuth();
   const { data: profile, isLoading } = useHealerProfile();
   const updateMutation = useUpdateProfile();
@@ -147,7 +149,7 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className={isNewView ? "hlx hl-cols" : "max-w-2xl mx-auto space-y-5"}>
 
       {/* ── Hero banner ── */}
       <div className="bg-gradient-to-r from-primary-dark to-primary rounded-2xl p-6 flex items-center gap-5">

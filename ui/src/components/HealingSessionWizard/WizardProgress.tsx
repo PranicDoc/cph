@@ -1,9 +1,14 @@
+import { useUiVersion } from "../../ui-version";
+
 interface WizardProgressProps {
   step: number;
   totalSteps?: number;
 }
 
 export function WizardProgress({ step, totalSteps = 4 }: WizardProgressProps) {
+  const { isNewView } = useUiVersion();
+  // The new-view header already draws the progress bars.
+  if (isNewView) return null;
   return (
     <div className="flex gap-2">
       {Array.from({ length: totalSteps }, (_, index) => {

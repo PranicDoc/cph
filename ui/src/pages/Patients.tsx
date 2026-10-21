@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useUiVersion } from "../ui-version";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ const getStoredDefaultSort = (): PatientSortOption => {
 };
 
 export default function Patients() {
+  const { isNewView } = useUiVersion();
   const [openPopup, setOpenPopup] = useState<boolean>(false);
   const [generatedLink, setGeneratedLink] = useState<string>("");
   const [search, setSearch] = useState<string>("");
@@ -188,7 +190,11 @@ export default function Patients() {
     CONTINUED: "bg-warning/10 text-warning",
   };
 
-  const renderStatusPill = (status?: string) => (
+  const NEW_PILL: Record<string, string> = { DRAFT: "off", ACTIVE: "ok", CLOSED: "", CONTINUED: "warn" };
+  const renderStatusPill = (status?: string) =>
+    isNewView ? (
+      <span className={`badge ${NEW_PILL[status ?? ""] ?? "off"}`}>{status || "-"}</span>
+    ) : (
     <span
       className={`px-2 py-1 rounded-md text-xs font-semibold ${
         STATUS_PILL_STYLES[status ?? ""] ?? "bg-muted text-text-light"
@@ -196,7 +202,7 @@ export default function Patients() {
     >
       {status || "—"}
     </span>
-  );
+    );
 
   const renderActions = (
     patient: ComputedPatient,
@@ -326,7 +332,7 @@ export default function Patients() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={isNewView ? "hlx" : "space-y-6"}>
       <Dialog open={openPopup} onOpenChange={setOpenPopup}>
         <DialogContent className="w-full max-w-md space-y-4 gap-0">
           <DialogTitle className="text-lg font-semibold text-primary-dark">
@@ -381,12 +387,12 @@ export default function Patients() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className={isNewView ? "page-head" : "flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"}>
         <div>
           <h1 className="text-2xl font-bold text-primary-dark">
             Patients Directory
           </h1>
-          <p className="text-text-light text-sm">
+          <p className={isNewView ? "muted" : "text-text-light text-sm"} style={isNewView ? { marginTop: 6 } : undefined}>
             Manage and view all registered patients.
           </p>
         </div>

@@ -311,6 +311,7 @@ html[data-ui="new"] [data-slot="textarea"],
 html[data-ui="new"] [data-slot="select-trigger"] {
   background: var(--hl-field);
   border-color: var(--hl-hair-strong);
+  border-width: 1px;
   border-radius: 0.75rem;
   color: var(--color-text);
 }

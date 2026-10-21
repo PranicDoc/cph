@@ -335,3 +335,16 @@ html[data-ui="new"] .hlx .tabs button { height: 36px; padding: 0 14px; border: 0
 html[data-ui="new"] .hlx .tabs button.on { background: var(--primary-soft); color: var(--accent-text); font-weight: 600; }
 html[data-ui="new"][data-theme="light"] .hlx .page-head .ongr, html[data-ui="new"][data-theme="light"] .hlx .ongr { color: rgba(255,255,255,.92); }
 html[data-ui="new"][data-theme="light"] .hlx .hl-mdbody p.text-text-light:not([data-slot="table-container"] *) { color: rgba(255,255,255,.92); }
+html[data-ui="new"] .hlx .hl-banner-title { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+html[data-ui="new"] .hlx .bg-card { background: var(--glass-strong); border-color: var(--hair); border-radius: 16px; box-shadow: var(--shadow); }
+html[data-ui="new"] .hlx .bg-card [data-slot="table-container"] { background: transparent; }
+html[data-ui="new"][data-theme="light"] .hl-canvas .hlx .bg-card { background: var(--glass-strong); border-color: var(--hair); box-shadow: var(--shadow); }
+html[data-ui="new"][data-theme="light"] .hl-canvas .hlx [data-slot="table-container"] { background: transparent; box-shadow: none; }
+
+/* Profile: cards flow into two columns like the mockup; the banner spans both */
+html[data-ui="new"] .hlx.hl-cols { display: block; columns: 2 380px; column-gap: 16px; }
+html[data-ui="new"] .hlx.hl-cols > * { break-inside: avoid; margin: 0 0 16px; }
+html[data-ui="new"] .hlx.hl-cols > :first-child { column-span: all; }
+html[data-ui="new"] .hlx { min-width: 0; max-width: 100%; }
+html[data-ui="new"] .hlx > * { min-width: 0; max-width: 100%; }
+html[data-ui="new"] .hlx section > .grid2 > *, html[data-ui="new"] .hlx .grid2 > * { min-width: 0; overflow-x: auto; }
