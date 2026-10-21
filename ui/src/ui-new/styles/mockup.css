@@ -373,3 +373,7 @@ html[data-ui="new"] .hlx .hl-sumrow { flex-direction: row !important; align-item
 html[data-ui="new"] .hlx .hl-sumrow > :first-child { width: 42% !important; flex: none; }
 html[data-ui="new"] .hlx .sl-track { position: relative; }
 html[data-ui="new"] .hlx .badge.bad { background: var(--danger-soft); color: var(--danger); }
+
+/* dropdowns inside forms must sit above the rows below them */
+html[data-ui="new"] .hlx form [class*="z-20"], html[data-ui="new"] .hlx form [class*="z-30"] { z-index: 60; }
+html[data-ui="new"] .hlx form.bg-card, html[data-ui="new"] .hlx form .bg-card { -webkit-backdrop-filter: none; backdrop-filter: none; }

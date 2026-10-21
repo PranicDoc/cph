@@ -6,8 +6,7 @@ import { DateRangeFilter } from "../../components/DateRangeFilter";
 import type { ChartPeriod } from "../../types/chart";
 import { SessionTrendChart } from "../../components/SessionTrendChart";
 import { PatientGrowthChart } from "../../components/PatientGrowthChart";
-import { TopSymptomsChart } from "../../components/TopSymptomsChart";
-import { TopProtocolsChart } from "../../components/TopProtocolsChart";
+import { TopProtocolsList, TopSymptomsList } from "../dashboard/RankedCard";
 import { CreditUsageChart } from "../../components/CreditUsageChart";
 import { UpcomingSessionsTable } from "../../components/UpcomingSessionsTable";
 import { PendingReportsTable } from "../../components/PendingReportsTable";
@@ -109,8 +108,8 @@ export default function NewDashboard() {
       <section key={`insights-${periodKey}`}>
         <h3 className="ongr" style={{ margin: "4px 4px 12px" }}>Insights</h3>
         <div className="hl-2col">
-          <TopSymptomsChart healerId={healerId} initialPeriod={initialPeriod} />
-          <TopProtocolsChart healerId={healerId} initialPeriod={initialPeriod} />
+          <TopSymptomsList healerId={healerId} initialPeriod={initialPeriod} />
+          <TopProtocolsList healerId={healerId} initialPeriod={initialPeriod} />
         </div>
       </section>
 

@@ -480,3 +480,12 @@ html[data-ui="new"] .hl-cmdk-row { display: flex; align-items: center; gap: 12px
 html[data-ui="new"] .hl-cmdk-row[aria-selected="true"] { background: var(--hl-primary-soft); color: var(--hl-accent-text); }
 html[data-ui="new"] .hl-cmdk-hint { margin-left: auto; font-size: 12px; color: var(--color-text-light); white-space: nowrap; }
 html[data-ui="new"] .hl-cmdk-empty { padding: 18px 12px; color: var(--color-text-light); }
+
+/* Phones: the tab bar is fixed to the bottom edge (it never drifts), content leaves room under it;
+   standalone auth cards keep a gutter so the glass never touches the screen edge. */
+@media (max-width: 767px) {
+  html[data-ui="new"] .hl-mtabs { position: fixed; left: 12px; right: 12px; bottom: 12px; }
+  html[data-ui="new"] .hl-main-col { padding-bottom: 96px; }
+  html[data-ui="new"] .bg-background.min-h-screen { padding-left: 16px; padding-right: 16px; }
+  html[data-ui="new"] .bg-card.shadow { padding-left: 20px; padding-right: 20px; }
+}
