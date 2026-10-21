@@ -371,3 +371,5 @@ html[data-ui="new"] .hlx .hl-sumhead { display: flex; flex-wrap: wrap; align-ite
 html[data-ui="new"] .hlx .hl-sumhead h1 { white-space: nowrap; }
 html[data-ui="new"] .hlx .hl-sumrow { flex-direction: row !important; align-items: baseline !important; gap: 16px !important; }
 html[data-ui="new"] .hlx .hl-sumrow > :first-child { width: 42% !important; flex: none; }
+html[data-ui="new"] .hlx .sl-track { position: relative; }
+html[data-ui="new"] .hlx .badge.bad { background: var(--danger-soft); color: var(--danger); }
