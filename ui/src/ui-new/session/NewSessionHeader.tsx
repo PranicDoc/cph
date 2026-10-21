@@ -27,7 +27,7 @@ export default function NewSessionHeader({ healingSession }: { healingSession: H
       </div>
       <div className="hl-banner-main">
         <h1 className="hl-banner-title">
-          Healing session, {selectedPatient?.firstName} {selectedPatient?.lastName}
+          {selectedPatient?.firstName} {selectedPatient?.lastName}
         </h1>
         <p className="hl-banner-sub">
           <span>Age {selectedPatient?.age}</span>

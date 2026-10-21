@@ -7,13 +7,24 @@ import type { ShellNavItem } from "./NewShell";
 
 type Result = { key: string; label: string; hint: string; icon: ShellNavItem["icon"] | typeof User; go: () => void; kind: "Pages" | "Patients" };
 
+/** The app wraps every route in PatientProvider; isolated renders (tests) do not, and just lose patient results. */
+function useOptionalPatient() {
+  try {
+    return usePatient();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * "Search or jump to": opens with the topbar button or Ctrl/Cmd + K. Finds pages of this app and
  * (for healers) patients from the list the app already loads, so it adds no new request.
  */
 export function GlobalSearch({ items, variant }: { items: ShellNavItem[]; variant: "bar" | "icon" }) {
   const navigate = useNavigate();
-  const { patients, selectPatient } = usePatient();
+  const ctx = useOptionalPatient();
+  const patients = ctx?.patients;
+  const selectPatient = ctx?.selectPatient ?? (() => {});
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

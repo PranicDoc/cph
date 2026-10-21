@@ -15,7 +15,6 @@ export function WizardHeader({ step, totalSteps = 4 }: WizardHeaderProps) {
         <div className="surface" style={{ padding: "16px 20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
             <strong>{stepLabel}</strong>
-            <span className="small muted">Healing session</span>
           </div>
           <div style={{ display: "flex", gap: 8 }} role="presentation">
             {Array.from({ length: totalSteps }, (_, i) => (
