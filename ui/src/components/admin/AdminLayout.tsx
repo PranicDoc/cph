@@ -35,7 +35,7 @@ export default function AdminLayout() {
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <Activity className="w-6 h-6 text-white" />
               </div>
-              <span>HealingDoc</span>
+              <span>HealingARK</span>
             </Link>
           </div>
           <UserProfileIcon />
