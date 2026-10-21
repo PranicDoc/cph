@@ -1,0 +1,168 @@
+/*
+ * HealingARK "new view" tokens and materials. Everything here is scoped to html[data-ui="new"]
+ * (set by UiVersionProvider / the script in index.html), so the classic view cannot change.
+ *
+ * The Tailwind theme colours are CSS variables on :root; overriding the same variables here
+ * restyles every shared shadcn component (buttons, inputs, dialogs, menus) in the new view.
+ * Spec: ui/design/DESIGN.md. Dark is the default theme.
+ */
+@import "@fontsource-variable/inter";
+
+html[data-ui="new"] {
+  --hl-ground: linear-gradient(160deg, #8A66DA 0%, #7B57CC 50%, #6B45BE 100%);
+  --hl-glass: rgba(255, 255, 255, 0.55);
+  --hl-glass-strong: rgba(255, 255, 255, 0.8);
+  --hl-glass-edge: rgba(255, 255, 255, 0.75);
+  --hl-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 12px 34px rgba(56, 36, 112, 0.1), 0 2px 6px rgba(56, 36, 112, 0.05);
+  --hl-shadow-sheet: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 30px 80px rgba(40, 24, 90, 0.22), 0 6px 16px rgba(40, 24, 90, 0.08);
+  --hl-scrim: rgba(36, 26, 70, 0.28);
+  --hl-field: rgba(255, 255, 255, 0.92);
+  --hl-hair: rgba(45, 43, 53, 0.1);
+  --hl-hair-strong: rgba(45, 43, 53, 0.18);
+  --hl-primary-soft: rgba(108, 63, 197, 0.14);
+  --hl-ring: rgba(108, 63, 197, 0.34);
+  --hl-accent-text: #5b30b0;
+
+  --color-primary: #6c3fc5;
+  --color-primary-light: #8b6ad6;
+  --color-primary-dark: #5e34b3;
+  --color-background: #efe9fa;
+  --color-card: rgba(255, 255, 255, 0.8);
+  --color-text: #1d1b26;
+  --color-text-light: #5c5870;
+  --color-border: rgba(45, 43, 53, 0.14);
+  --color-success: #17703d;
+  --color-warning: #9a5200;
+  --color-danger: #c4271b;
+
+  --color-foreground: #1d1b26;
+  --color-card-foreground: #1d1b26;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1d1b26;
+  --color-secondary: #efe9fa;
+  --color-secondary-foreground: #1d1b26;
+  --color-muted: #efe9fa;
+  --color-muted-foreground: #5c5870;
+  --color-accent: #e6dcf7;
+  --color-accent-foreground: #1d1b26;
+  --color-destructive: #c4271b;
+  --color-input: rgba(45, 43, 53, 0.18);
+  --color-ring: rgba(108, 63, 197, 0.34);
+  --secondary: #efe9fa;
+  --foreground: #1d1b26;
+  --radius: 0.75rem;
+
+  color-scheme: light;
+}
+
+html[data-ui="new"][data-theme="dark"] {
+  --hl-ground:
+    radial-gradient(620px 420px at 8% 4%, rgba(124, 77, 224, 0.5), transparent 70%),
+    radial-gradient(560px 480px at 96% 16%, rgba(64, 104, 255, 0.26), transparent 70%),
+    radial-gradient(520px 380px at 70% 100%, rgba(46, 196, 182, 0.12), transparent 70%), #0c0914;
+  --hl-glass: rgba(30, 23, 48, 0.52);
+  --hl-glass-strong: rgba(36, 28, 58, 0.78);
+  --hl-glass-edge: rgba(255, 255, 255, 0.12);
+  --hl-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 14px 40px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --hl-shadow-sheet: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 34px 90px rgba(0, 0, 0, 0.65), 0 8px 20px rgba(0, 0, 0, 0.35);
+  --hl-scrim: rgba(4, 2, 12, 0.55);
+  --hl-field: rgba(255, 255, 255, 0.06);
+  --hl-hair: rgba(255, 255, 255, 0.09);
+  --hl-hair-strong: rgba(255, 255, 255, 0.18);
+  --hl-primary-soft: rgba(150, 110, 240, 0.18);
+  --hl-ring: rgba(170, 135, 255, 0.45);
+  --hl-accent-text: #c2abff;
+
+  --color-primary: #7c4de0;
+  --color-primary-light: #8c61ea;
+  --color-primary-dark: #4e2a9e;
+  --color-background: #1b1430;
+  --color-card: rgba(36, 28, 58, 0.78);
+  --color-text: #f3f1fa;
+  --color-text-light: #b5b0cb;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-success: #5bd98a;
+  --color-warning: #ffb454;
+  --color-danger: #ff8a80;
+
+  --color-foreground: #f3f1fa;
+  --color-card-foreground: #f3f1fa;
+  --color-popover: #241c3a;
+  --color-popover-foreground: #f3f1fa;
+  --color-secondary: #2a2145;
+  --color-secondary-foreground: #f3f1fa;
+  --color-muted: #2a2145;
+  --color-muted-foreground: #b5b0cb;
+  --color-accent: #33284f;
+  --color-accent-foreground: #f3f1fa;
+  --color-destructive: #ff8a80;
+  --color-input: rgba(255, 255, 255, 0.18);
+  --color-ring: rgba(170, 135, 255, 0.45);
+  --secondary: #2a2145;
+  --foreground: #f3f1fa;
+
+  color-scheme: dark;
+}
+
+html[data-ui="new"] body {
+  font-family: "Inter Variable", "Inter", -apple-system, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.006em;
+  background: var(--hl-ground);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Materials: glass for navigation and top layers, more opaque surfaces for data. */
+html[data-ui="new"] .hl-glass {
+  background: var(--hl-glass);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7);
+  backdrop-filter: blur(30px) saturate(1.7);
+  box-shadow: var(--hl-shadow);
+}
+
+html[data-ui="new"] .hl-surface {
+  background: var(--hl-glass-strong);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--hl-shadow);
+  border-radius: 1rem;
+}
+
+html[data-ui="new"] .hl-sheet {
+  background: var(--hl-glass-strong);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow: var(--hl-shadow-sheet);
+  border-radius: 1.5rem;
+}
+
+/* No backdrop-filter support, or the user asked for less transparency: opaque fills. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-ui="new"] .hl-glass,
+  html[data-ui="new"] .hl-surface,
+  html[data-ui="new"] .hl-sheet {
+    background: var(--color-popover);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-ui="new"] .hl-glass,
+  html[data-ui="new"] .hl-surface,
+  html[data-ui="new"] .hl-sheet {
+    background: var(--color-popover);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+html[data-ui="new"] :focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--hl-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-ui="new"] * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

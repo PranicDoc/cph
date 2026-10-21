@@ -8,6 +8,8 @@ import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -19,7 +21,13 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
@@ -54,6 +62,25 @@ class AuthControllerTest {
     @MockBean
     private HealerCacheService healerCacheService;
 
+
+    private static final String ACCESS_TOKEN = "access-token";
+
+    private static Cookie accessCookie() {
+        return new Cookie("accessToken", ACCESS_TOKEN);
+    }
+
+    /** Makes the JWT filter accept {@link #accessCookie()} as a signed-in healer. */
+    private void signIn() throws Exception {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(UUID.randomUUID().toString());
+        when(claims.get("role", String.class)).thenReturn("HEALER");
+        when(jwtService.isTokenValid(ACCESS_TOKEN)).thenReturn(true);
+        when(jwtService.extractTokenType(ACCESS_TOKEN)).thenReturn("ACCESS");
+        when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
+        when(healerCacheService.isActive(any())).thenReturn(true);
+        when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
+
     @Test
     void changePassword_unauthenticated_returns401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/change-password")
@@ -85,5 +112,43 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateUiVersion_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(put("/api/v1/auth/ui-version")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"uiVersion\":\"NEW\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateUiVersion_validChoice_returns200() throws Exception {
+        signIn();
+        mockMvc.perform(put("/api/v1/auth/ui-version")
+                        .cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"uiVersion\":\"NEW\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateUiVersion_unknownValue_returns400() throws Exception {
+        signIn();
+        mockMvc.perform(put("/api/v1/auth/ui-version")
+                        .cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"uiVersion\":\"FUTURE\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateUiVersion_missingValue_returns400() throws Exception {
+        signIn();
+        mockMvc.perform(put("/api/v1/auth/ui-version")
+                        .cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -9,6 +9,7 @@ import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.dto.SignupRequest;
+import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -111,6 +112,16 @@ public class AuthController {
     @PutMapping("/profile")
     public ResponseEntity<HealerResponse> updateProfile(@Valid @RequestBody HealerRequest request) {
         return ResponseEntity.ok(authService.updateProfile(request));
+    }
+
+    /**
+     * Choose between the classic UI and the new view. Stored on the account so the
+     * choice follows the user to any device.
+     * PUT /api/v1/auth/ui-version
+     */
+    @PutMapping("/ui-version")
+    public ResponseEntity<HealerResponse> updateUiVersion(@Valid @RequestBody UiVersionRequest request) {
+        return ResponseEntity.ok(authService.updateUiVersion(request));
     }
 
     @PostMapping("/change-password")

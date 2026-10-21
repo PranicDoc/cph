@@ -12,6 +12,9 @@ COPY . .
 # VITE_* env vars are baked at build time; override via build args if needed
 ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# New view (redesign): set to "on" to show "Try the new view" in the profile menu, "off" to force classic.
+ARG VITE_NEW_VIEW=
+ENV VITE_NEW_VIEW=${VITE_NEW_VIEW}
 
 # Google Identity Services client ID (Profile page's link/unlink-Google flow,
 # vite.config.ts's `define` reads this via loadEnv's empty-prefix merge of

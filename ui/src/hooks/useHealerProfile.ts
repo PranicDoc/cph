@@ -15,6 +15,8 @@ export interface HealerProfile {
   createdAt: string;
   hasPassword: boolean;
   hasGoogleLinked: boolean;
+  /** Which web UI the user chose in the profile menu. */
+  uiVersion?: "CLASSIC" | "NEW";
 }
 
 export function useHealerProfile() {

@@ -2,6 +2,7 @@ package com.pranicdoc.cph.auth.model;
 
 import com.pranicdoc.cph.common.enums.HealingLevel;
 import com.pranicdoc.cph.common.enums.Role;
+import com.pranicdoc.cph.common.enums.UiVersion;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -62,6 +63,12 @@ public class Healer extends BaseEntity {
     @Column(name = "active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /** The web UI this user chose in the profile menu; follows them across devices. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ui_version", nullable = false, length = 10)
+    @Builder.Default
+    private UiVersion uiVersion = UiVersion.CLASSIC;
 
     enum AuthProvider{
         LOCAL, GOOGLE

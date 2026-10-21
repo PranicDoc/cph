@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "react-day-picker/style.css";
+@import "./ui-new/styles/new-view.css";
 
 @theme {
   --color-primary: #6C3FC5;
