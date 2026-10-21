@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
@@ -15,6 +15,9 @@ import { ColorPropertySelector } from "./ColorPropertySelector";
 import { useReferenceData } from "@/hooks/useReferenceData";
 import { MultiSelect } from "../ui/multi-select/multi-select";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
+import { useUiVersion } from "../../ui-version";
+
+const ProtocolUnderstanding = lazy(() => import("../../ui-new/closure/ProtocolUnderstanding"));
 
 type ClosureFormProps = {
   comments: string;
@@ -66,6 +69,7 @@ const ClosureForm = ({
   closeMutation,
   healingCaseId,
 }: ClosureFormProps) => {
+  const { isNewView } = useUiVersion();
   const [currentStep, setCurrentStep] = useState(1);
   const [hpuTableData, setHpuTableData] = useState<HPUTable[]>([]);
   const { data: supplementaryProtocols = [], isLoading: protocolsLoading } =
@@ -249,7 +253,18 @@ const ClosureForm = ({
   return (
     <>
       <div className="space-y-4 py-2 max-h-[65vh] md:max-h-[80vh] overflow-y-auto">
-        {currentStep == 1 ? (
+        {currentStep == 1 && isNewView ? (
+          <Suspense fallback={null}>
+            <ProtocolUnderstanding
+              rows={hpuTableData}
+              colors={allColors}
+              colorsLoading={colorsLoading}
+              getProperties={fetchPropertiesForColor}
+              getColorHex={fetchColorHex}
+              onChange={updateRow}
+            />
+          </Suspense>
+        ) : currentStep == 1 ? (
           <>
             <div className="hidden md:block">
               <DataTable

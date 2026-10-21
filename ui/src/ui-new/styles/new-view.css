@@ -422,3 +422,33 @@ html[data-ui="new"] .hl-badge-off { background: var(--hl-hair); color: var(--col
 html[data-ui="new"] .bg-background.min-h-screen { background: transparent; }
 html[data-ui="new"] .bg-card.shadow { border-radius: 16px; }
 html[data-ui="new"] .hl-canvas .min-h-screen { min-height: calc(100dvh - 190px); }
+
+/* ───────── Close case: protocol understanding (accordion + colour chips) ───────── */
+html[data-ui="new"] .hl-acc { display: flex; flex-direction: column; gap: 8px; }
+html[data-ui="new"] .hl-acc-item { border: 1px solid var(--hl-hair); border-radius: 14px; background: var(--hl-field); overflow: hidden; }
+html[data-ui="new"] .hl-acc-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 10px 14px; text-align: left; color: var(--color-text); }
+html[data-ui="new"] .hl-acc-name { font-weight: 650; flex: none; }
+html[data-ui="new"] .hl-acc-sum { flex: 1; min-width: 0; font-size: 12.5px; color: var(--color-text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-ui="new"] .hl-acc-chev { margin-left: auto; flex: none; width: 18px; height: 18px; color: var(--color-text-light); transition: transform 0.15s; }
+html[data-ui="new"] .hl-acc-item[data-open="true"] .hl-acc-chev { transform: rotate(180deg); }
+html[data-ui="new"] .hl-acc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 14px 14px; }
+html[data-ui="new"] .hl-cpanel { border: 1px solid var(--hl-hair); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+html[data-ui="new"] .hl-cpanel-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 13.5px; }
+html[data-ui="new"] .hl-cpanel-count { font-size: 12px; font-weight: 500; color: var(--color-text-light); white-space: nowrap; }
+html[data-ui="new"] .hl-cpanel-empty { font-size: 12.5px; color: var(--color-text-light); }
+html[data-ui="new"] .hl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html[data-ui="new"] .hl-chip-toggle { gap: 6px; border: 1px solid var(--hl-hair-strong); background: transparent; color: var(--color-text); cursor: pointer; transition: background 0.12s; }
+html[data-ui="new"] .hl-chip-toggle:hover { background: var(--hl-primary-soft); }
+html[data-ui="new"] .hl-chip-toggle[data-on="true"] { background: var(--hl-primary-soft); border-color: var(--hl-ring); color: var(--hl-accent-text); }
+html[data-ui="new"] .hl-swatch { width: 10px; height: 10px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.18); flex: none; }
+html[data-ui="new"] .hl-cgroup { border-top: 1px solid var(--hl-hair); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+html[data-ui="new"] .hl-cgroup-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+html[data-ui="new"] .hl-cgroup-head .hl-cpanel-count { margin-left: auto; }
+@media (max-width: 767px) { html[data-ui="new"] .hl-acc-body { grid-template-columns: 1fr; } html[data-ui="new"] .hl-acc-sum { display: none; } }
+html[data-ui="new"] .hl-chips-scroll { max-height: 148px; overflow-y: auto; padding-right: 2px; }
+
+/* Tailwind v4's default border colour is currentColor (a white line in dark mode). Give every
+   border without an explicit colour the hairline; colour utilities (border-primary ...) still win. */
+@layer base {
+  html[data-ui="new"] *, html[data-ui="new"] ::before, html[data-ui="new"] ::after { border-color: var(--hl-hair-strong); }
+}

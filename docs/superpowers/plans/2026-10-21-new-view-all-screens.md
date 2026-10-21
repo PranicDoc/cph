@@ -1,6 +1,6 @@
 # New view: all remaining screens in one PR (tracker)
 
-Owner decision 2026-10-21: instead of 8 more PRs, do ALL remaining screens in one PR (branch `feature/new-view-screens`, stacked on #54 -> #53), review it once, then merge the three. No role label under the user's name (done in #54).
+Owner decision 2026-10-21: instead of 8 more PRs, do ALL remaining screens in one PR: #54 (branch `feature/new-view-shells`, now on main; #53 merged). No role label under the user's name (done in #54).
 
 Spec: `ui/design/DESIGN.md`. Mockups: `ui/design/mockups/index.html`. Plan: `2026-10-21-new-view-dual-ui.md`.
 
@@ -24,30 +24,30 @@ Spec: `ui/design/DESIGN.md`. Mockups: `ui/design/mockups/index.html`. Plan: `202
 | Screen | Classic file | Status |
 |---|---|---|
 | Shells (healer, admin, public, Legal Center) | `ui-new/shell/*` | done (#54) |
-| Packages + edit sheet | `pages/admin/PackagesPage.tsx` | todo |
-| Accounts | `pages/admin/AccountsPage.tsx` | todo |
-| Transactions | `pages/admin/TransactionsPage.tsx` | todo |
-| Roles, Role form, many-permissions picker | `RolesPage.tsx`, `RoleFormPage.tsx` | todo |
-| Healer invites | `HealerRegistrationPage.tsx` | todo |
-| Master data | `MasterDataPage.tsx` (1,900 lines) | todo |
-| Legal documents | `LegalDocumentsPage.tsx` | todo |
-| Global config | `GlobalConfigPage.tsx` | todo |
-| Login | `pages/Login.tsx` | todo |
-| Dashboard | `pages/Dashboard.tsx` | todo |
-| Patients | `pages/Patients.tsx` | todo |
-| Session view / edit | `pages/Session.tsx`, `SessionHeader.tsx` | todo |
-| Wizard scans + voice + preview | `components/HealingSessionWizard/*` | todo |
-| PDFs | `pages/PdfList.tsx` | todo |
-| Profile | `pages/Profile.tsx` | todo |
-| Registration (4 steps) | `pages/Registration.tsx` | todo |
-| Case summary | `pages/CaseSummary.tsx` | todo |
-| Close-case dialog (protocol understanding) | `pages/Closure.tsx`, `components/closure/*` | todo |
-| Upgrade plan dialog | `components/PlanPicker.tsx` | todo |
-| Patient feedback (+ states) | `pages/Feedback.tsx` | todo (slider decision) |
-| Health form | `pages/PatientHealthForm.tsx` | todo |
-| Legal Center | `pages/LegalCenter.tsx` | todo |
-| Accept invite, Sign-up | `AcceptInvite.tsx`, `Signup.tsx` | todo |
-| Error pages | `components/ErrorState.tsx` | todo |
-| Shared states (confirm, toasts, empty, skeleton) | `components/ui/*` | todo |
+| Packages + edit sheet | `pages/admin/PackagesPage.tsx` | done (global reskin) |
+| Accounts | `pages/admin/AccountsPage.tsx` | done |
+| Transactions | `pages/admin/TransactionsPage.tsx` | done |
+| Roles, Role form, many-permissions picker | `RolesPage.tsx`, `RoleFormPage.tsx` | done |
+| Healer invites | `HealerRegistrationPage.tsx` | done |
+| Master data | `MasterDataPage.tsx` (1,900 lines) | done |
+| Legal documents | `LegalDocumentsPage.tsx` | done |
+| Global config | `GlobalConfigPage.tsx` | done |
+| Login | `pages/Login.tsx` | done |
+| Dashboard | `pages/Dashboard.tsx` | done |
+| Patients | `pages/Patients.tsx` | done |
+| Session view / edit | `pages/Session.tsx`, `SessionHeader.tsx` | done |
+| Wizard scans + voice + preview | `components/HealingSessionWizard/*` | done |
+| PDFs | `pages/PdfList.tsx` | done |
+| Profile | `pages/Profile.tsx` | done |
+| Registration (4 steps) | `pages/Registration.tsx` | done |
+| Case summary | `pages/CaseSummary.tsx` | done |
+| Close-case dialog (protocol understanding) | `pages/Closure.tsx`, `components/closure/*` | done |
+| Upgrade plan dialog | `components/PlanPicker.tsx` | done (global reskin) |
+| Patient feedback (+ states) | `pages/Feedback.tsx` | done (emoji scale kept; slider deferred until the rating mapping is decided) |
+| Health form | `pages/PatientHealthForm.tsx` | done |
+| Legal Center | `pages/LegalCenter.tsx` | done |
+| Accept invite, Sign-up | `AcceptInvite.tsx`, `Signup.tsx` | done |
+| Error pages | `components/ErrorState.tsx` | done |
+| Shared states (confirm, toasts, empty, skeleton) | `components/ui/*` | done |
 
 Mark a row done only after it was looked at rendered (dark, light, 390 px) and `tsc --noEmit` + `vitest run` are green.
