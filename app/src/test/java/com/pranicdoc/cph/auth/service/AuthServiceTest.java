@@ -1,10 +1,14 @@
 package com.pranicdoc.cph.auth.service;
 
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
+import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.common.enums.Role;
+import com.pranicdoc.cph.common.enums.UiVersion;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -184,5 +188,27 @@ class AuthServiceTest {
         verify(jwtService).generateFeedbackSessionToken(healerId.toString(), caseId);
         verify(cookieUtil).setSelfRegSessionCookie(any(), eq(sentinel));
         verify(jwtService, never()).generateSelfRegToken(anyString());
+    }
+
+    @Test
+    void newHealer_defaultsToTheClassicView() {
+        assertEquals(UiVersion.CLASSIC, Healer.builder().build().getUiVersion());
+    }
+
+    @Test
+    void updateUiVersion_savesTheChoiceOnTheCurrentHealerAndReturnsIt() {
+        UUID healerId = UUID.randomUUID();
+        Healer healer = Healer.builder().fullName("Asha Rao").email("asha@example.com").role(Role.HEALER).build();
+        healer.setId(healerId);
+
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
+        when(healerRepository.save(healer)).thenReturn(healer);
+
+        HealerResponse response = authService.updateUiVersion(new UiVersionRequest(UiVersion.NEW));
+
+        assertEquals(UiVersion.NEW, healer.getUiVersion());
+        assertEquals(UiVersion.NEW, response.uiVersion());
+        verify(healerRepository).save(healer);
     }
 }

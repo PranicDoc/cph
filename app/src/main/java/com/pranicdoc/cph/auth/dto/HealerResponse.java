@@ -2,6 +2,7 @@ package com.pranicdoc.cph.auth.dto;
 
 import com.pranicdoc.cph.common.enums.HealingLevel;
 import com.pranicdoc.cph.common.enums.Role;
+import com.pranicdoc.cph.common.enums.UiVersion;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -16,5 +17,6 @@ public record HealerResponse(
         boolean active,
         Instant createdAt,
         boolean hasPassword,
-        boolean hasGoogleLinked
+        boolean hasGoogleLinked,
+        UiVersion uiVersion
 ) {}

@@ -3,6 +3,7 @@ package com.pranicdoc.cph.auth.service.impl;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.model.Healer;
@@ -159,6 +160,16 @@ public class AuthService {
         return toResponse(saved);
     }
 
+    // ─── Choose the web UI (classic / new view) ──────────────────
+
+    @Auditable(action = "UPDATE_UI_VERSION")
+    public HealerResponse updateUiVersion(UiVersionRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+        healer.setUiVersion(request.uiVersion());
+        return toResponse(healerRepository.save(healer));
+    }
+
     // ─── Change current healer password ─────────────────────────
 
     @Auditable(action = "CHANGE_PASSWORD", auditPayload = false)
@@ -256,7 +267,8 @@ public class AuthService {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
-                h.getPasswordHash() != null, h.getProviderUserId() != null
+                h.getPasswordHash() != null, h.getProviderUserId() != null,
+                h.getUiVersion()
         );
     }
 }

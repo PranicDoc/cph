@@ -342,7 +342,8 @@ public class InviteService {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
-                h.getPasswordHash() != null, h.getProviderUserId() != null
+                h.getPasswordHash() != null, h.getProviderUserId() != null,
+                h.getUiVersion()
         );
     }
 
