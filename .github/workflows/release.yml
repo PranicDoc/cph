@@ -10,6 +10,10 @@ on:
         type: choice
         options: [patch, minor, major]
         default: patch
+      allow_rerelease:
+        description: Release again even if main's latest commit already has a version (e.g. to rebuild with new build settings)
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -19,3 +23,4 @@ jobs:
     uses: PranicDoc/infra/.github/workflows/release.yml@main
     with:
       bump: ${{ inputs.bump }}
+      allow_rerelease: ${{ inputs.allow_rerelease }}
