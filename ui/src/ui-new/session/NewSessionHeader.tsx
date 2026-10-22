@@ -35,16 +35,16 @@ export default function NewSessionHeader({ healingSession }: { healingSession: H
           <span>Session {sessionCount}</span>
           {lastVisit && <span>Last visit {lastVisit} ago</span>}
         </p>
-        {chips.length > 0 && (
-          <ul className="hl-banner-chips" aria-label="Conditions">
-            {chips.map((c) => (
-              <li key={c} className="hl-chip">
-                {c}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+      {chips.length > 0 && (
+        <ul className="hl-banner-chips" aria-label="Conditions">
+          {chips.map((c) => (
+            <li key={c} className="hl-chip">
+              {c}
+            </li>
+          ))}
+        </ul>
+      )}
       {status && <span className={`hl-badge hl-badge-${STATUS_TONE[status] ?? "off"}`}>{status}</span>}
     </section>
   );
