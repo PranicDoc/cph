@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, Info } from "lucide-react";
+import { useUiVersion } from "../../ui-version";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DEFAULT_SCAN_ENTRY_MODE, type ScanEntryMode } from "@/config/scanEntryConfig";
@@ -32,6 +33,7 @@ export function ScanStep({
   availableChakras,
   prefillChakras,
 }: ScanStepProps) {
+  const { isNewView } = useUiVersion();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mode, setMode] = useState<ScanEntryMode>(DEFAULT_SCAN_ENTRY_MODE);
 
@@ -42,6 +44,61 @@ export function ScanStep({
   function handleTranscript(transcript: string) {
     const updated = parseChakraTranscript(transcript, availableChakras, value);
     onChange(updated);
+  }
+
+  const preview = (
+    <ScanPreviewDialog
+      open={previewOpen}
+      onClose={() => setPreviewOpen(false)}
+    >
+      <ScanPreviewTable data={value} />
+    </ScanPreviewDialog>
+  );
+
+  if (isNewView) {
+    return (
+      <>
+        <div className="card-h" style={{ paddingBottom: 14, borderBottom: "1px solid var(--hair)", flexWrap: "wrap", gap: 10 }}>
+          <h2>{title}</h2>
+          <div className="seg" role="group" aria-label="Scan entry mode">
+            <button type="button" className={mode === "manual" ? "on" : undefined} aria-pressed={mode === "manual"} onClick={() => setMode("manual")}>
+              Manual
+            </button>
+            <button type="button" className={mode === "voice" ? "on" : undefined} aria-pressed={mode === "voice"} onClick={() => setMode("voice")}>
+              Voice <span className="badge warn" style={{ height: 18, padding: "0 6px", fontSize: 10.5 }}>Beta</span>
+            </button>
+          </div>
+        </div>
+        {mode === "manual" ? (
+          <div style={{ marginTop: 16 }}>
+            <ChakraManualEntry
+              value={value}
+              onChange={onChange}
+              availableChakras={availableChakras}
+              prefillChakras={prefillChakras}
+            />
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "16px 0", padding: "14px 16px", borderRadius: 12, background: "var(--primary-soft)" }}>
+              <Info className="ico" aria-hidden="true" style={{ color: "var(--accent-text)", flex: "none" }} />
+              <div className="small">
+                Press the microphone button below and clearly dictate the scanned chakra details. Once
+                recording is complete, you can preview the extracted information before proceeding.
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
+              <VoiceRecorder onTranscript={handleTranscript} />
+              <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen(true)}>
+                <Eye className="ico" aria-hidden="true" />
+                Preview
+              </button>
+            </div>
+          </>
+        )}
+        {preview}
+      </>
+    );
   }
 
   return (
@@ -117,12 +174,7 @@ export function ScanStep({
           </div>
         )}
       </div>
-      <ScanPreviewDialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-      >
-        <ScanPreviewTable data={value} />
-      </ScanPreviewDialog>
+      {preview}
     </>
   );
 }
