@@ -137,14 +137,15 @@ class LegacyEndpointCutoverSweepTest {
             // 23 from Phase 40 + the 2 protocol->chakra->color relationship reads, + 4
             // single-protocol chakra/color self-serve management endpoints (GET/POST/PUT/DELETE
             // .../protocols/{id}/chakra-colors), + 2 import-job status reads added when the
-            // bulk import became async, + 1 SUPADM-only bulk-wipe endpoint (DELETE /wipe).
-            new CutoverController(MasterDataController.class, 30, 30),
+            // bulk import became async, + 1 SUPADM-only bulk-wipe endpoint (DELETE /wipe), + 1
+            // paged protocol search read (GET /protocols/page).
+            new CutoverController(MasterDataController.class, 31, 31),
             new CutoverController(RbacRoleController.class, 5, 5),
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 67;
-    private static final int EXPECTED_TOTAL_GATED = 62;
+    private static final int EXPECTED_TOTAL_MAPPED = 68;
+    private static final int EXPECTED_TOTAL_GATED = 63;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated
@@ -376,7 +377,7 @@ class LegacyEndpointCutoverSweepTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 61 gates on the surface, never an empty set")
+                .as("the allow-list check must run over all 63 gates on the surface, never an empty set")
                 .hasSize(EXPECTED_TOTAL_GATED);
 
         for (String literal : literals) {
