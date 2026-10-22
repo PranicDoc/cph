@@ -99,7 +99,7 @@ export function FileUpload({
                   variant="link"
                   onClick={() => downloadKey(item)}
                   disabled={downloading === item}
-                  className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs justify-start"
+                  className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs justify-start max-sm:shrink max-sm:min-w-0 max-sm:max-w-full"
                 >
                   {keyToFilename(item)}
                 </Button>

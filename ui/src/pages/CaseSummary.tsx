@@ -426,10 +426,10 @@ export function LabFindingsList({ keys }: { keys: string[] }) {
             variant="link"
             onClick={() => download(key)}
             disabled={loading === key}
-            className="h-auto p-0 gap-2 text-sm font-normal"
+            className="h-auto p-0 gap-2 text-sm font-normal max-sm:shrink max-sm:min-w-0 max-sm:max-w-full"
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate max-w-xs">{fileName(key)}</span>
+            <span className="truncate max-w-xs max-sm:max-w-full max-sm:min-w-0">{fileName(key)}</span>
             {loading === key && <span className="text-xs text-text-light">Opening...</span>}
           </Button>
         </li>

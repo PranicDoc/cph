@@ -15,20 +15,20 @@ import {
 function CardTitle({ icon, children, right }: { icon: ReactNode; children: ReactNode; right?: ReactNode }) {
   return (
     <div className="card-h">
-      <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="avatar" style={{ width: 30, height: 30, borderRadius: 10 }} aria-hidden="true">{icon}</span>
-        {children}
+      <h2 className="hl-trunc-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="avatar" style={{ width: 30, height: 30, borderRadius: 10, flex: "none" }} aria-hidden="true">{icon}</span>
+        <span className="hl-trunc">{children}</span>
       </h2>
       {right}
     </div>
   );
 }
 
-function Item({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+function Item({ label, children, wide, truncate }: { label: string; children: ReactNode; wide?: boolean; truncate?: boolean }) {
   return (
-    <div style={wide ? { gridColumn: "1 / -1" } : undefined}>
+    <div style={{ minWidth: 0, ...(wide ? { gridColumn: "1 / -1" } : {}) }}>
       <div className="small muted" style={{ fontWeight: 550, marginBottom: 4 }}>{label}</div>
-      <div>{children ?? "—"}</div>
+      <div className={truncate ? "hl-trunc" : undefined} title={truncate && typeof children === "string" ? children : undefined}>{children ?? "—"}</div>
     </div>
   );
 }
@@ -68,7 +68,7 @@ function SessionBlock({ session, data, open, onToggle }: { session: HealingSessi
   return (
     <div style={{ borderTop: "1px solid var(--hair)", padding: "14px 0" }}>
       <button type="button" aria-expanded={open} onClick={onToggle} style={{ all: "unset", cursor: "pointer", display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <span style={{ fontWeight: 600 }}>
+        <span className="hl-trunc" style={{ fontWeight: 600 }}>
           Session {session.sessionNumber}
           <span className="small muted" style={{ fontWeight: 400 }}> · {formatDate(session.sessionDate)}{session.startTime ? `, ${formatTime(session.startTime)}–${formatTime(session.endTime)}` : ""}</span>
         </span>
@@ -125,9 +125,9 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
   return (
     <div className="hlx">
       <div className="page-head">
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1>Case summary</h1>
-          <p className="muted" style={{ marginTop: 6 }}>
+          <p className="muted hl-trunc" style={{ marginTop: 6 }} title={name}>
             {name} · Opened {formatDate(data.caseCreatedAt)}
             {closed && ` · Closed ${formatDate(data.closure?.closureDate)}`}
           </p>
@@ -140,7 +140,7 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
           <div className="surface card">
             <CardTitle icon={<User style={{ width: 16, height: 16 }} />}>Patient information</CardTitle>
             <div className="row2" style={{ gap: "18px 24px" }}>
-              <Item label="Full name">{name}</Item>
+              <Item label="Full name" truncate>{name}</Item>
               <Item label="Date of birth">{formatDate(data.dob)}</Item>
               <Item label="Gender">{data.gender || "—"}</Item>
               <Item label="Marital status">{data.maritalStatus || "—"}</Item>
