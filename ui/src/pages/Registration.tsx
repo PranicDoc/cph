@@ -303,7 +303,7 @@ export default function Registration() {
               schema={patientDemographicsSchema}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -344,7 +344,7 @@ export default function Registration() {
               schema={patientMedicalHistorySchema}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -383,7 +383,7 @@ export default function Registration() {
               schema={consentDeclarationSchema(patientFullName, { onBehalf: !isSelfRegister })}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -400,7 +400,11 @@ export default function Registration() {
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
                     className="px-6 py-2.5 h-auto"
                   >
-                    {isSubmitting ? "Saving..." : "Complete Registration"}
+                    {isSubmitting
+                      ? "Saving..."
+                      : isNewView && !isSelfRegister
+                        ? "Sign & continue"
+                        : "Complete Registration"}
                   </Button>
                 )}
               />
