@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../lib/axios";
 import { extractDetail } from "../../lib/utils";
+import type { SpringPageResponse } from "../../types/pagination";
 
 // -- Interfaces -------------------------------------------------------------------------
 
@@ -271,6 +272,18 @@ export function useProtocols(type?: "PROTOCOL" | "SUPPLEMENTARY") {
       api
         .get("/api/v1/masterdata/protocols", { params: type ? { type } : {} })
         .then((r) => r.data.data ?? r.data),
+  });
+}
+
+/** One page of the protocol catalog, searched on the server by name, book or chapter. */
+export function useProtocolsPage(query: string, page: number, size = 50) {
+  return useQuery<SpringPageResponse<Protocol>>({
+    queryKey: [...PROTOCOL_QK, "page", query, page, size],
+    queryFn: () =>
+      api
+        .get("/api/v1/masterdata/protocols/page", { params: { q: query || undefined, page, size } })
+        .then((r) => r.data.data),
+    placeholderData: keepPreviousData,
   });
 }
 

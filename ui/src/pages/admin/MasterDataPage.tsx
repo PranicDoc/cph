@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUiVersion } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -8,7 +8,7 @@ import {
   usePranaColors,
   useChakras,
   useProtocolMappings,
-  useProtocols,
+  useProtocolsPage,
   useCreateColor,
   useUpdateColor,
   useDeleteColor,
@@ -1595,6 +1595,9 @@ function ImportsTab() {
   );
 }
 
+/** Rows per page on the Protocols tab (paged and searched on the server). */
+const PROTOCOL_PAGE_SIZE = 50;
+
 function ProtocolsTab({
   isSuperAdmin,
   onNavigateToImports,
@@ -1602,24 +1605,30 @@ function ProtocolsTab({
   isSuperAdmin: boolean;
   onNavigateToImports: () => void;
 }) {
-  const { data, isLoading, isError } = useProtocols();
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
+  // Search runs on the server: wait for a pause in typing, then start again from page one.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(search.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const { data: pageData, isLoading, isError } = useProtocolsPage(query, page, PROTOCOL_PAGE_SIZE);
+  const data = pageData?.content;
   const deleteProtocol = useDeleteProtocol();
   const [modal, setModal] = useState<Protocol | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Protocol | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [search, setSearch] = useState("");
 
   const canModify = (item: Protocol) => isSuperAdmin || !!item.healerId;
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return data ?? [];
-    return (data ?? []).filter((p) =>
-      [p.name, p.sourceBook, p.chapter]
-        .filter(Boolean)
-        .some((field) => String(field).toLowerCase().includes(query))
-    );
-  }, [data, search]);
+  const filtered = data ?? [];
+  const total = pageData?.totalElements ?? 0;
+  const first = total === 0 ? 0 : page * PROTOCOL_PAGE_SIZE + 1;
+  const lastShown = Math.min((page + 1) * PROTOCOL_PAGE_SIZE, total);
 
   const columns: ColumnDef<Protocol, unknown>[] = [
     {
@@ -1677,7 +1686,7 @@ function ProtocolsTab({
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="md-tab-head flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <p className="text-sm text-text-light">
           Bulk-imported protocol catalog. Only "Protocol" type entries appear in the
           session form's dropdown.
@@ -1750,6 +1759,22 @@ function ProtocolsTab({
               </div>
             ))}
           </div>
+
+          {total > 0 && (
+            <div className="flex items-center justify-between gap-3 mt-4 px-1">
+              <span className="text-sm text-text-light tabular-nums">
+                Showing {first}–{lastShown} of {total}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="h-9 px-3">
+                  Previous
+                </Button>
+                <Button variant="outline" disabled={pageData?.last ?? true} onClick={() => setPage((p) => p + 1)} className="h-9 px-3">
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 

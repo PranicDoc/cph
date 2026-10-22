@@ -518,3 +518,7 @@ html[data-ui="new"] .hlx .md-swatch { width: 22px; height: 22px; border-radius: 
   html[data-ui="new"] .hlx .hl-trunc { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html[data-ui="new"] .hlx .hl-trunc-row, html[data-ui="new"] .hlx .card-h > h2 { min-width: 0; }
 }
+/* phones: master data tab actions stay compact square icon buttons instead of stretching off screen */
+@media (max-width: 767px) {
+  html[data-ui="new"] .hlx div.md-tab-head > .flex > button { width: 40px; height: 40px; padding: 0; flex: none; }
+}

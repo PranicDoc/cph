@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.masterdata.service;
 
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
@@ -29,11 +30,14 @@ import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolColorMappingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -196,6 +200,23 @@ public class MasterDataService {
     }
 
     // ── Protocols ────────────────────────────────────────────────────────────
+
+    /** Largest page the protocol list hands out in one request. */
+    static final int MAX_PROTOCOL_PAGE_SIZE = 100;
+
+    /**
+     * One page of protocols, ordered by book, page and name, matching {@code query} in the name,
+     * book or chapter (case-insensitive; blank matches all). Same visibility as
+     * {@link #getAllProtocols}: system rows, plus the healer's own when {@code healerId} is set.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<ProtocolCatalog> searchProtocols(UUID healerId, ProtocolType type, String query, int page, int size) {
+        String trimmed = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String pattern = trimmed.isEmpty() ? "" : "%" + trimmed + "%";
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PROTOCOL_PAGE_SIZE),
+                Sort.by("sourceBook", "pageNumber", "name"));
+        return PageResponse.from(protocolRepo.search(healerId, type, pattern, pageable));
+    }
 
     @Transactional(readOnly = true)
     public List<ProtocolCatalog> getAllProtocols(UUID healerId, ProtocolType type) {

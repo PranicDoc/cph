@@ -214,6 +214,7 @@ class MasterDataControllerAuthorizationTest {
                 Arguments.of("DELETE", BASE + "/protocol-mappings/" + ROW_ID),
                 Arguments.of("GET", BASE + "/protocols"),
                 Arguments.of("GET", BASE + "/protocols/" + ROW_ID),
+                Arguments.of("GET", BASE + "/protocols/page?q=blue&page=0&size=50"),
                 Arguments.of("POST", BASE + "/protocols"),
                 Arguments.of("PUT", BASE + "/protocols/" + ROW_ID),
                 Arguments.of("DELETE", BASE + "/protocols/" + ROW_ID),
@@ -228,8 +229,8 @@ class MasterDataControllerAuthorizationTest {
     @Test
     void task1SweepCoversExactly26Endpoints() {
         assertThat(allConvertedEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 26 converted MasterDataController requests")
-                .isEqualTo(26L);
+                .as("the SUPADM sweep must supply exactly the 27 converted MasterDataController requests")
+                .isEqualTo(27L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")

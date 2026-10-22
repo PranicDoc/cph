@@ -268,18 +268,19 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 30 declared MasterDataController endpoints (21 from "
+                .as("the sweep must inspect exactly the 31 declared MasterDataController endpoints (21 from "
                         + "Phase 40, the 2 protocol->chakra->color relationship reads added afterward, the "
                         + "4 single-protocol chakra/color management endpoints -- GET/POST/PUT/DELETE "
                         + ".../protocols/{id}/chakra-colors -- added to let a healer self-serve their own "
                         + "chakra/color additions on a protocol, the 2 import-job status reads added when "
-                        + "the bulk import became async, and the 1 SUPADM-only bulk-wipe endpoint). "
+                        + "the bulk import became async, the 1 SUPADM-only bulk-wipe endpoint, and the 1 paged "
+                        + "protocol search read). "
                         + "Eight of the original 21 (three chakra GETs, three colour GETs, two protocol GETs) were "
                         + "ungated before Phase 40 (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(30);
+                .isEqualTo(31);
     }
 
     // ─── Section C — allow-list validity for all 30 pairs ────────────────
