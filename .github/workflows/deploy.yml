@@ -86,6 +86,7 @@ jobs:
       context: ui
       build_args: |
         GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
+        VITE_NEW_VIEW=${{ vars.VITE_NEW_VIEW }}
       ref: ${{ needs.resolve.outputs.sha }}
       image_tag: ${{ needs.resolve.outputs.version }}
     secrets: inherit
