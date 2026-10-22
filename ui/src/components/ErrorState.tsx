@@ -1,3 +1,5 @@
+import { useUiVersion } from "../ui-version";
+import { BrandMark } from "../ui-new/components/BrandMark";
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -132,6 +134,29 @@ const DEFAULT_ACTIONS: Record<ErrorStateVariant, ReactNode> = {
   ),
 };
 
+const CONTACT_HEALER_HREF =
+  "mailto:?subject=New%20Feedback%20Link%20Request&body=Hi%2C%20my%20feedback%20link%20has%20expired.%20Could%20you%20please%20send%20me%20a%20new%20one%3F";
+
+/** New-view default actions (sentence case, mockup buttons); the destinations match DEFAULT_ACTIONS. */
+function newViewActions(variant: ErrorStateVariant): ReactNode {
+  const back = (
+    <button type="button" className="btn btn-secondary" onClick={() => window.history.back()}>
+      Go back
+    </button>
+  );
+  switch (variant) {
+    case "forbidden":
+    case "notFound":
+      return <>{back}<Link to="/" className="btn btn-primary">Go to dashboard</Link></>;
+    case "expired":
+      return <>{back}<a href={CONTACT_HEALER_HREF} className="btn btn-primary"><Mail className="ico" aria-hidden="true" />Contact healer</a></>;
+    case "inviteExpired":
+      return <>{back}<Link to="/login" className="btn btn-primary">Go to login</Link></>;
+    default:
+      return back;
+  }
+}
+
 interface ErrorStateProps {
   variant: ErrorStateVariant;
   /** Overrides the variant's base title. */
@@ -150,10 +175,38 @@ interface ErrorStateProps {
  * `extractDetail(error)` (RFC7807 `detail` from an API error) > the variant's base message.
  */
 export default function ErrorState({ variant, title, message, error, actions }: ErrorStateProps) {
+  const { isNewView } = useUiVersion();
   const config = VARIANTS[variant];
   const Icon = config.icon;
   const resolvedMessage = message ?? extractDetail(error) ?? config.message;
   const resolvedActions = actions === undefined ? DEFAULT_ACTIONS[variant] : actions;
+
+  if (isNewView) {
+    const newActions = actions === undefined ? newViewActions(variant) : actions;
+    return (
+      <div className="hlx min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <section className="surface" style={{ width: 420, maxWidth: "100%", padding: 34, borderRadius: 24, boxShadow: "var(--shadow-sheet)" }}>
+          <div className="brand" style={{ padding: "0 0 22px" }}>
+            <BrandMark size={32} />
+            <span className="brand-name">HealingARK</span>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div className="avatar" style={{ width: 60, height: 60, margin: "0 auto 14px", background: "var(--warn-soft)", color: "var(--warn)" }}>
+              <Icon style={{ width: 28, height: 28 }} aria-hidden="true" />
+            </div>
+            <span className="badge warn">{config.badge}</span>
+            <h1 style={{ fontSize: 22, margin: "12px 0 8px" }}>{title ?? config.title}</h1>
+            <p className="muted">{resolvedMessage}</p>
+            {newActions && (
+              <div style={{ marginTop: 22, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                {newActions}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">

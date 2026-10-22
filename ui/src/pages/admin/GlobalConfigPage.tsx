@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { useAdminGlobalConfig, useUpdateGlobalConfig } from "../../hooks/admin/useAdminGlobalConfig";
 import type { CreditConfigEntry } from "../../hooks/admin/useAdminGlobalConfig";
 import { Pencil, Check, X } from "lucide-react";
@@ -65,7 +66,7 @@ function ConfigCard({ entry }: { entry: CreditConfigEntry }) {
   );
 }
 
-export default function GlobalConfigPage() {
+function ClassicGlobalConfigPage() {
   const { data, isLoading, isError } = useAdminGlobalConfig();
 
   return (
@@ -88,3 +89,6 @@ export default function GlobalConfigPage() {
     </div>
   );
 }
+
+const GlobalConfigPage = versioned(ClassicGlobalConfigPage, () => import("../../ui-new/admin/NewGlobalConfigPage"));
+export default GlobalConfigPage;

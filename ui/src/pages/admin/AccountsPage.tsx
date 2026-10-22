@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
@@ -124,7 +125,7 @@ const accountColumns: ColumnDef<AccountRow, unknown>[] = [
   },
 ];
 
-export default function AccountsPage() {
+function ClassicAccountsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [ownerTypeFilter, setOwnerTypeFilter] = useState<string>("");
@@ -244,3 +245,6 @@ export default function AccountsPage() {
     </div>
   );
 }
+
+const AccountsPage = versioned(ClassicAccountsPage, () => import("../../ui-new/admin/NewAccountsPage"));
+export default AccountsPage;

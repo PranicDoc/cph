@@ -1,5 +1,6 @@
+import { useUiVersion } from "../ui-version";
 import { useMemo, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface TableInputProps {
   editableFields?: Record<string, EditableFieldConfig>;
   createNewTag?: (input: string) => any;
   readOnly?: boolean;
+  /** New view: the field label, shown on one row with the add button. */
+  label?: string;
 }
 
 function camelToLabel(key: string): string {
@@ -93,7 +96,9 @@ export function TableInput({
   editableFields,
   createNewTag,
   readOnly = false,
+  label,
 }: TableInputProps) {
+  const { isNewView } = useUiVersion();
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
 
   const addRow = () => {
@@ -304,6 +309,56 @@ export function TableInput({
           />
         )}
       </>
+    );
+  }
+
+  if (isNewView) {
+    const fields = Object.entries(editableFields ?? {});
+    const addLabel = placeholder ?? (displayKey.toLowerCase().includes("medic") ? "Add medicine" : "Add row");
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: label ? "space-between" : "flex-end", marginBottom: 4 }}>
+          {label && <label className="lbl" style={{ margin: 0 }}>{label}</label>}
+          <button type="button" className="btn btn-ghost" onClick={addRow}>
+            <Plus className="ico" /> {addLabel}
+          </button>
+        </div>
+        {value.map((row: any, idx: number) => (
+          <div key={idx} className="medrow">
+            <input
+              className="input"
+              aria-label={camelToLabel(displayKey)}
+              placeholder={camelToLabel(displayKey)}
+              value={row[displayKey] ?? ""}
+              onChange={(e) => updateCell(idx, displayKey, e.target.value)}
+            />
+            {fields.map(([key, cfg]) =>
+              cfg.type === "checkbox-group" && cfg.options ? (
+                <div key={key} style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  {cfg.options.map((opt) => (
+                    <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <Checkbox checked={!!row[opt.value]} onCheckedChange={(c) => updateCell(idx, opt.value, c === true)} />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <input
+                  key={key}
+                  className="input"
+                  aria-label={cfg.label}
+                  placeholder={cfg.placeholder ?? cfg.label}
+                  value={row[key] ?? ""}
+                  onChange={(e) => updateCell(idx, key, e.target.value)}
+                />
+              )
+            )}
+            <button type="button" className="icon-btn danger" aria-label="Delete row" onClick={() => deleteRow(idx)}>
+              <Trash2 className="ico" />
+            </button>
+          </div>
+        ))}
+      </div>
     );
   }
 

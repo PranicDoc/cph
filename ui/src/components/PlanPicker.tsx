@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CreditCard, CheckCircle2 } from "lucide-react";
+import { CreditCard, CheckCircle2, X } from "lucide-react";
 import {
   useCreditPackages,
   type PackageResponse,
@@ -9,6 +9,7 @@ import { useCreditAccount } from "../hooks/useCreditAccount";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../ui-version";
 import { formatPlanEnd, formatValidity } from "../lib/validity";
 
 interface PlanPickerProps {
@@ -16,6 +17,8 @@ interface PlanPickerProps {
   ownerType: string;
   onComplete: () => void;
   onSkip?: () => void;
+  /** New view in a dialog: draws the dialog header and a Close footer. */
+  onClose?: () => void;
 }
 
 export function PlanPicker({
@@ -23,7 +26,9 @@ export function PlanPicker({
   ownerType,
   onComplete,
   onSkip,
+  onClose,
 }: PlanPickerProps) {
+  const { isNewView } = useUiVersion();
   const { data: packages, isLoading, error } = useCreditPackages();
   const { data: account } = useCreditAccount();
   const { mutate: purchase, isPending } = usePurchasePackage();
@@ -65,6 +70,76 @@ export function PlanPicker({
     );
   };
 
+  if (isNewView && onClose) {
+    const sortedPkgs = [...(packages ?? [])].sort((a, b) => a.display_order - b.display_order);
+    return (
+      <>
+        <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "22px 24px 16px", borderBottom: "1px solid var(--hair)" }}>
+          <div>
+            <h2>Choose a plan</h2>
+            <p className="muted" style={{ marginTop: 4 }}>Select a credit plan to start generating patient PDFs.</p>
+          </div>
+          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
+            <X className="ico" />
+          </button>
+        </header>
+        <div className="stack" style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "20px 24px" }}>
+          {isLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><Spinner size="lg" /></div>
+          ) : error ? (
+            <p className="muted" style={{ textAlign: "center" }}>Failed to load plans. Please try again.</p>
+          ) : (
+            <>
+              {account?.plan_expires_at && (
+                <div className="small muted" style={{ textAlign: "center" }}>
+                  Your {account.plan_tier} plan is active until{" "}
+                  {new Date(account.plan_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
+                </div>
+              )}
+              {sortedPkgs.length === 0 && (
+                <p className="muted" style={{ textAlign: "center" }}>You are on our highest plan. Your plan stays active until it ends.</p>
+              )}
+              <div className="plans">
+                {sortedPkgs.map((pkg) => {
+                  const isFree = pkg.price_paise === 0;
+                  const isCurrent = isCurrentPlan(pkg);
+                  const busy = selectedPkgId === pkg.id && isPending;
+                  return (
+                    <div key={pkg.id} className="surface card" style={{ display: "flex", flexDirection: "column", gap: 10, boxShadow: isCurrent ? "0 0 0 2px var(--primary)" : undefined }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{pkg.name}</div>
+                        {isCurrent && <span className="badge">Current</span>}
+                      </div>
+                      <div className="small muted">
+                        {pkg.credits} credits{pkg.validity_value ? ` · valid ${formatValidity(pkg.validity_value, pkg.validity_unit)}` : ""}
+                      </div>
+                      <div className="num" style={{ fontSize: 20, fontWeight: 650 }}>
+                        {isFree ? "Free" : `₹${(pkg.price_paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+                      </div>
+                      <div style={{ flex: 1 }} />
+                      <button
+                        type="button"
+                        className={isCurrent ? "btn btn-secondary" : "btn btn-primary"}
+                        style={{ width: "100%" }}
+                        disabled={isPending || isCurrent}
+                        onClick={() => handleSelectPlan(pkg)}
+                      >
+                        {busy ? "Processing…" : isCurrent ? "Current plan" : isFree ? "Get started free" : "Select plan"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+        <footer style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 24px", borderTop: "1px solid var(--hair)" }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
+        </footer>
+      </>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -96,9 +171,9 @@ export function PlanPicker({
 
   return (
     <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <CreditCard className="w-6 h-6 text-primary" />
+      <div className={isNewView ? "space-y-1 text-left" : "text-center space-y-2"}>
+        <div className={isNewView ? "flex items-center gap-2" : "flex items-center justify-center gap-2"}>
+          {!isNewView && <CreditCard className="w-6 h-6 text-primary" />}
           <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">
             Choose a Plan
           </h2>
@@ -109,7 +184,7 @@ export function PlanPicker({
       </div>
 
       {account?.plan_expires_at && (
-        <p className="text-center text-sm text-text-light">
+        <p className={isNewView ? "text-sm text-text-light" : "text-center text-sm text-text-light"}>
           Your {account.plan_tier} plan is active until {formatPlanEnd(account.plan_expires_at)}.
         </p>
       )}

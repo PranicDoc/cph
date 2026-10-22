@@ -16,8 +16,10 @@ import { usePatient } from "../context/PatientContext";
 import { Button } from "@/components/ui/button";
 import { serializeExercise } from "../lib/exercise";
 import { buildDeclaration } from "../lib/declaration";
+import { useUiVersion } from "../ui-version";
 
 export default function Registration() {
+  const { isNewView } = useUiVersion();
   const [step, setStep] = useState(1);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientFullName, setPatientFullName] = useState<string>("");
@@ -214,8 +216,35 @@ export default function Registration() {
     }
   }, [step, isSelfRegister, patientFullName]);
 
+  const stepTitle =
+    step === 1 ? "Personal details" : step === 2 ? "Medical history" : step === 3 ? "Consent" : "Complete";
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={isNewView ? "hlx" : "max-w-4xl mx-auto space-y-6"}>
+      {isNewView ? (
+        <>
+          <div className="page-head">
+            <div>
+              <h1>New patient registration</h1>
+              <p className="muted" style={{ marginTop: 6 }}>
+                Step {step} of 4: {stepTitle.toLowerCase()}.
+              </p>
+            </div>
+          </div>
+          <div className="surface" style={{ padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <strong>Step {step} of 4</strong>
+              <span className="small muted">{stepTitle}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[1, 2, 3, 4].map((n) => (
+                <div key={n} style={{ height: 6, flex: 1, borderRadius: 99, background: step >= n ? "var(--primary)" : "var(--hair-strong)" }} />
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="bg-primary text-white p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-xl font-bold flex items-center gap-2">
           👤 New Patient Registration
@@ -256,6 +285,9 @@ export default function Registration() {
         ></div>
       </div>
 
+        </>
+      )}
+
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
         {step === 1 && (
           <form
@@ -271,7 +303,7 @@ export default function Registration() {
               schema={patientDemographicsSchema}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -312,7 +344,7 @@ export default function Registration() {
               schema={patientMedicalHistorySchema}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -351,7 +383,7 @@ export default function Registration() {
               schema={consentDeclarationSchema(patientFullName, { onBehalf: !isSelfRegister })}
             />
 
-            <div className="flex justify-end gap-4 pt-6 border-t border-border mt-8">
+            <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
               <Button
                 type="button"
                 variant="outline"
@@ -368,7 +400,11 @@ export default function Registration() {
                     disabled={!canSubmit || isSubmitting || isFormSubmitting}
                     className="px-6 py-2.5 h-auto"
                   >
-                    {isSubmitting ? "Saving..." : "Complete Registration"}
+                    {isSubmitting
+                      ? "Saving..."
+                      : isNewView && !isSelfRegister
+                        ? "Sign & continue"
+                        : "Complete Registration"}
                   </Button>
                 )}
               />

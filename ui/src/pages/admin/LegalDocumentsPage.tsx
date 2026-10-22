@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -349,7 +350,7 @@ function AddConsentTypeModal({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function LegalDocumentsPage() {
+function ClassicLegalDocumentsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
 
@@ -469,3 +470,6 @@ export default function LegalDocumentsPage() {
     </div>
   );
 }
+
+const LegalDocumentsPage = versioned(ClassicLegalDocumentsPage, () => import("../../ui-new/admin/NewLegalDocumentsPage"));
+export default LegalDocumentsPage;

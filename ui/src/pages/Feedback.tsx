@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
+import { useUiVersion } from "../ui-version";
+import { SeveritySlider, severityToRating } from "../ui-new/components/SeveritySlider";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +27,7 @@ interface Symptom {
 }
 
 export default function PatientFeedback() {
+  const { isNewView } = useUiVersion();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -139,7 +142,7 @@ export default function PatientFeedback() {
       const symptomPayload = Object.entries(symptomRatings).map(
         ([caseSymptomId, emojiRating]) => ({
           caseSymptomId,
-          rating: emojiRating * 2,
+          rating: isNewView ? severityToRating(emojiRating) : emojiRating * 2,
           notes: "",
         })
       );
@@ -199,7 +202,7 @@ export default function PatientFeedback() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-10 pt-8 px-4">
+    <div className={isNewView ? "hlx mx-auto max-w-3xl px-4 pb-10 pt-8" : "max-w-3xl mx-auto space-y-8 pb-10 pt-8 px-4"}>
       <div>
         <h1 className="text-2xl font-bold text-primary-dark">
           Healing Feedback
@@ -239,6 +242,13 @@ export default function PatientFeedback() {
                     </h3>
                   </div>
 
+                  {isNewView ? (
+                    <SeveritySlider
+                      label={symptom.name}
+                      value={symptomRatings[symptom.caseSymptomId]}
+                      onChange={(v) => handleSymptomRatingChange(symptom.caseSymptomId, v)}
+                    />
+                  ) : (
                   <div className="flex flex-wrap justify-between gap-2">
                     {EMOJI_SCALE.map((item) => (
                       <Button
@@ -265,6 +275,7 @@ export default function PatientFeedback() {
                       </Button>
                     ))}
                   </div>
+                  )}
                 </div>
               ))}
             </div>

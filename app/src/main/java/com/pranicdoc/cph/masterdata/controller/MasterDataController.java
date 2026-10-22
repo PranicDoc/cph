@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.masterdata.controller;
 
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
@@ -200,6 +201,19 @@ public class MasterDataController {
             @RequestParam(required = false) UUID healerId,
             @RequestParam(required = false) ProtocolType type) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Success", masterDataService.getAllProtocols(healerId, type)));
+    }
+
+    /** Paged, searchable protocol list for the master data screen (the full list above feeds dropdowns). */
+    @GetMapping("/protocols/page")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    public ResponseEntity<ApiResponse<PageResponse<ProtocolCatalog>>> searchProtocols(
+            @RequestParam(required = false) UUID healerId,
+            @RequestParam(required = false) ProtocolType type,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Success",
+                masterDataService.searchProtocols(healerId, type, q, page, size)));
     }
 
     @GetMapping("/protocols/{id}")

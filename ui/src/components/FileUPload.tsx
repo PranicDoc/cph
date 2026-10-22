@@ -4,6 +4,7 @@ import api from "../lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { useUiVersion } from "../ui-version";
 
 interface FileUploadProps {
   value?: (File | string)[];
@@ -34,6 +35,7 @@ export function FileUpload({
   readOnly = false,
   confirmRemove = false,
 }: FileUploadProps) {
+  const { isNewView } = useUiVersion();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function FileUpload({
                   variant="link"
                   onClick={() => downloadKey(item)}
                   disabled={downloading === item}
-                  className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs justify-start"
+                  className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary truncate max-w-xs justify-start max-sm:shrink max-sm:min-w-0 max-sm:max-w-full"
                 >
                   {keyToFilename(item)}
                 </Button>
@@ -119,6 +121,81 @@ export function FileUpload({
           );
         })}
       </ul>
+    );
+  }
+
+  const confirmDialog = (
+    <ConfirmDialog
+      open={pendingRemoveIdx !== null}
+      onOpenChange={(open) => {
+        if (!open) setPendingRemoveIdx(null);
+      }}
+      title="Delete lab finding?"
+      description={
+        <>
+          <span className="font-medium">{pendingName}</span> will be removed from this case when
+          you save.
+        </>
+      }
+      confirmLabel="Delete"
+      destructive
+      onConfirm={() => {
+        if (pendingRemoveIdx !== null) removeFile(pendingRemoveIdx);
+        setPendingRemoveIdx(null);
+      }}
+    />
+  );
+
+  if (isNewView) {
+    return (
+      <div>
+        <div
+          role="button"
+          tabIndex={0}
+          className="dropzone"
+          onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); }
+          }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
+          onBlur={onBlur}
+          style={{ padding: 18, cursor: "pointer", borderColor: dragOver ? "var(--primary)" : undefined }}
+        >
+          <Upload className="ico" aria-hidden="true" style={{ width: 22, height: 22, display: "block", margin: "0 auto" }} />
+          <div style={{ marginTop: 6, color: "var(--text)", fontWeight: 550 }}>Drop lab reports or browse</div>
+          <div className="small">PDF or image, up to {MAX_FILE_BYTES / (1024 * 1024)} MB each</div>
+          <input ref={inputRef} type="file" multiple hidden onChange={(e) => addFiles(e.target.files)} />
+        </div>
+        {rejected.length > 0 && (
+          <p role="alert" className="help" style={{ color: "var(--danger)" }}>
+            {rejected.join(", ")} {rejected.length > 1 ? "are" : "is"} larger than{" "}
+            {formatSize(MAX_FILE_BYTES)} and was not added.
+          </p>
+        )}
+        {value.length > 0 && (
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {value.map((item, idx) => {
+              const name = item instanceof File ? item.name : keyToFilename(item);
+              return (
+                <span key={idx} className="chip" style={{ maxWidth: "100%" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => requestRemove(idx)}
+                    aria-label={`Remove ${name}`}
+                    style={{ border: 0, background: "transparent", padding: 0, color: "inherit", display: "inline-flex", cursor: "pointer" }}
+                  >
+                    <X style={{ width: 13, height: 13 }} />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+        {confirmDialog}
+      </div>
     );
   }
 
@@ -189,25 +266,7 @@ export function FileUpload({
         </ul>
       )}
 
-      <ConfirmDialog
-        open={pendingRemoveIdx !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingRemoveIdx(null);
-        }}
-        title="Delete lab finding?"
-        description={
-          <>
-            <span className="font-medium">{pendingName}</span> will be removed from this case when
-            you save.
-          </>
-        }
-        confirmLabel="Delete"
-        destructive
-        onConfirm={() => {
-          if (pendingRemoveIdx !== null) removeFile(pendingRemoveIdx);
-          setPendingRemoveIdx(null);
-        }}
-      />
+      {confirmDialog}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../../ui-version";
+import { formatElapsed } from "../../ui-new/lib/elapsed";
 
 interface VoiceRecorderProps {
   onTranscript: (transcript: string) => void;
@@ -54,6 +56,15 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
 
   // Explicitly track if we have recorded words so React triggers the popup
   const [hasSavedText, setHasSavedText] = useState(false);
+  const { isNewView } = useUiVersion();
+  // Seconds since the current recording started; only shown in the new view.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!isRecording) return;
+    setElapsed(0);
+    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [isRecording]);
 
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const accumulatedRef = useRef("");
@@ -160,8 +171,39 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
     }
   }
 
+  const button = isNewView ? (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+      <button
+        type="button"
+        onClick={toggle}
+        className="btn btn-primary"
+        style={{
+          width: 84,
+          height: 84,
+          borderRadius: "50%",
+          padding: 0,
+          background: isRecording ? "var(--warn)" : undefined,
+          boxShadow: "0 0 0 10px var(--ring), 0 10px 30px rgba(108,63,197,.4)",
+        }}
+        aria-label={isRecording ? "Stop recording" : "Start voice recording"}
+      >
+        {isRecording ? <MicOff style={{ width: 32, height: 32 }} /> : <Mic style={{ width: 32, height: 32 }} />}
+      </button>
+      <div style={{ fontWeight: 600 }} aria-live="polite">
+        {isRecording ? (
+          <>Listening… <span className="num muted">{formatElapsed(elapsed)}</span></>
+        ) : hasSavedText ? (
+          "Recording saved"
+        ) : (
+          "Tap to start"
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
+      {button ?? (
       <div className="relative inline-flex flex-col items-center">
         <Button
           type="button"
@@ -178,6 +220,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
           {isRecording ? <MicOff size={36} /> : <Mic size={36} />}
         </Button>
       </div>
+      )}
 
       <Dialog
         open={showPrompt && !isRecording}

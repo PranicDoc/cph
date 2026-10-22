@@ -1,5 +1,6 @@
 import { Users, Calendar, CreditCard, FileText, RefreshCw } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
+import { versioned } from "../ui-version";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardSummary } from "../hooks/useDashboardSummary";
 import { KpiCard, KpiCardSkeleton } from "../components/KpiCard";
@@ -22,7 +23,7 @@ function getGreeting(firstName?: string): string {
   return firstName ? `${prefix}, ${firstName}` : "Dashboard";
 }
 
-export default function Dashboard() {
+function ClassicDashboard() {
   const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useDashboardSummary();
 
@@ -146,3 +147,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
+const Dashboard = versioned(ClassicDashboard, () => import("../ui-new/pages/NewDashboard"));
+export default Dashboard;

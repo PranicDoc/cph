@@ -1,7 +1,9 @@
+import { useUiVersion } from "../ui-version";
+import { BrandMark } from "../ui-new/components/BrandMark";
+import { AuthLogo } from "../components/AuthLogo";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Activity } from "lucide-react";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { acceptInviteSchema } from "./schemas/AuthSchema";
@@ -10,6 +12,7 @@ import ErrorState from "../components/ErrorState";
 import { Button } from "@/components/ui/button";
 
 export default function AcceptInvite() {
+  const { isNewView } = useUiVersion();
   const navigate = useNavigate();
   const { login } = useAuth();
   const [searchParams] = useSearchParams();
@@ -61,19 +64,28 @@ export default function AcceptInvite() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      {!isNewView && (
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <Activity className="w-8 h-8 text-white" />
-          </div>
+          <AuthLogo />
         </div>
         <h2 className="mt-6 text-center text-2xl font-semibold text-text">
           Set Up Your Account
         </h2>
       </div>
+      )}
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-card py-8 px-4 shadow sm:rounded-xl sm:px-10 border border-border">
+          {isNewView && (
+            <div className="mb-6">
+              <div className="mb-5 flex items-center gap-2.5">
+                <BrandMark size={32} />
+                <span className="text-base font-semibold">HealingARK</span>
+              </div>
+              <h2 className="text-[22px] font-semibold">Set up your account</h2>
+            </div>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();

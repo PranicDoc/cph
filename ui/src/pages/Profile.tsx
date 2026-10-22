@@ -4,19 +4,20 @@ import {
   CreditCard, Pencil, CheckCircle2, X, Lock,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { PlanPicker } from "../components/PlanPicker";
+import { useUiVersion } from "../ui-version";
+import { UpgradePlanDialog } from "../components/UpgradePlanDialog";
 import { Skeleton } from "../components/ui/skeleton";
 import {
   useHealerProfile, useUpdateProfile, useChangePassword,
   useLinkGoogle, useUnlinkGoogle,
 } from "../hooks/useHealerProfile";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import NewProfile from "../ui-new/pages/NewProfile";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
@@ -45,6 +46,7 @@ function ReadField({
 }
 
 export default function Profile() {
+  const { isNewView } = useUiVersion();
   const { user } = useAuth();
   const { data: profile, isLoading } = useHealerProfile();
   const updateMutation = useUpdateProfile();
@@ -146,10 +148,63 @@ export default function Profile() {
 
   if (!user) return null;
 
+  const dialogs = (
+    <>
+      <ConfirmDialog
+        open={confirmingUnlink}
+        onOpenChange={setConfirmingUnlink}
+        title="Unlink Google account?"
+        description="You will no longer be able to sign in with Google."
+        confirmLabel={unlinkGoogleMutation.isPending ? "Unlinking…" : "Confirm Unlink"}
+        destructive
+        loading={unlinkGoogleMutation.isPending}
+        onConfirm={handleConfirmUnlink}
+      />
+
+      {/* ── Upgrade modal ── */}
+      <UpgradePlanDialog open={showUpgrade} onOpenChange={setShowUpgrade} ownerId={user.id} />
+    </>
+  );
+
+  if (isNewView) {
+    return (
+      <>
+        <NewProfile
+          page={{
+            isLoading,
+            displayName,
+            displayEmail,
+            displayPhone,
+            displayLevel,
+            hasPassword: profile?.hasPassword !== false,
+            hasGoogleLinked: !!profile?.hasGoogleLinked,
+            editing,
+            draft,
+            setDraft,
+            enterEdit,
+            cancelEdit,
+            saveEdit,
+            savingProfile: updateMutation.isPending,
+            pwEditing,
+            setPwEditing,
+            pwDraft,
+            setPwDraft,
+            savePw,
+            cancelPwEdit,
+            savingPw: changePwMutation.isPending,
+            linkGoogle: handleLinkGoogle,
+            linkingGoogle: linkGoogleMutation.isPending,
+            askUnlinkGoogle: () => setConfirmingUnlink(true),
+            openUpgrade: () => setShowUpgrade(true),
+          }}
+        />
+        {dialogs}
+      </>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-
-      {/* ── Hero banner ── */}
       <div className="bg-gradient-to-r from-primary-dark to-primary rounded-2xl p-6 flex items-center gap-5">
         {user.avatarUrl ? (
           <img
@@ -525,35 +580,7 @@ export default function Profile() {
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={confirmingUnlink}
-        onOpenChange={setConfirmingUnlink}
-        title="Unlink Google account?"
-        description="You will no longer be able to sign in with Google."
-        confirmLabel={unlinkGoogleMutation.isPending ? "Unlinking…" : "Confirm Unlink"}
-        destructive
-        loading={unlinkGoogleMutation.isPending}
-        onConfirm={handleConfirmUnlink}
-      />
-
-      {/* ── Upgrade modal ── */}
-      {user && (
-        <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
-          <DialogContent className="w-full sm:max-w-3xl gap-0 rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col p-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:max-w-full">
-            <DialogTitle className="sr-only">Upgrade Plan</DialogTitle>
-            <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 bg-border rounded-full" />
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8">
-              <PlanPicker
-                ownerId={user.id}
-                ownerType="HEALER"
-                onComplete={() => setShowUpgrade(false)}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {dialogs}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useUiVersion } from "../ui-version";
 import { useForm } from "@tanstack/react-form";
 import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
@@ -26,6 +27,10 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
+
+const ProtocolStrip = lazy(() => import("../ui-new/session/ProtocolStrip"));
+const NewSessionView = lazy(() => import("../ui-new/session/NewSessionView"));
+const BeforeYouContinue = lazy(() => import("../ui-new/session/BeforeYouContinue").then((m) => ({ default: m.BeforeYouContinue })));
 
 const scanReadingColumns: ColumnDef<
   { id?: string; chakraName: string; energyLevel?: string; activationLevel?: string },
@@ -62,6 +67,8 @@ type SessionFormValues = {
 };
 
 export default function Session() {
+  const { isNewView } = useUiVersion();
+  const frame = isNewView ? "hlx" : "space-y-6";
   const { healingCaseId } = useParams();
   const { selectPatient } = usePatient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -312,8 +319,13 @@ export default function Session() {
       sessionData?.healingDetails?.protocolName || ""
     );
     return (
-      <div className="space-y-6">
+      <div className={frame}>
         <SessionHeader healingSession={sessionData} />
+        {isNewView && (
+          <Suspense fallback={null}>
+            <ProtocolStrip protocols={step1Protocols} />
+          </Suspense>
+        )}
         {healingCaseId && (
           <HealingSessionWizard
             caseId={healingCaseId}
@@ -327,6 +339,25 @@ export default function Session() {
   }
 
   // ---------- VIEW MODE (step 0) ----------
+  if (!isEdit && isNewView) {
+    return (
+      <div className="hlx">
+        <SessionHeader healingSession={sessionData} />
+        <Suspense fallback={null}>
+          <NewSessionView
+            sessionData={sessionData}
+            protocols={reconstructSelectedProtocols(sessionData.healingDetails?.protocolName || "")}
+            canEdit={sessionData.status !== "CLOSED"}
+            onEdit={toggleEdit}
+            onBack={() => navigate("/patients")}
+            onNext={handleNextAction}
+            nextLabel={getNextButtonLabel()}
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
   if (!isEdit) {
     return (
       <div className="space-y-6">
@@ -467,10 +498,7 @@ export default function Session() {
   }
 
   // ---------- EDIT MODE (step 0) ----------
-  return (
-    <div className="space-y-6">
-      <SessionHeader healingSession={sessionData} />
-
+  const editForm = (
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -490,7 +518,7 @@ export default function Session() {
           }
           goToNextStep();
         }}
-        className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
+        className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
       >
         <DynamicFormEngine form={sessionForm} schema={schema} />
 
@@ -512,7 +540,7 @@ export default function Session() {
               onClick={() => navigate("/patients")}
               className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
             >
-              Back to Patients
+              {isNewView ? "Back to patients" : "Back to Patients"}
             </Button>
 
             {sessionData.status !== "DRAFT" && (
@@ -554,6 +582,28 @@ export default function Session() {
           />
         </div>
       </form>
+  );
+
+  return (
+    <div className={frame}>
+      <SessionHeader healingSession={sessionData} />
+      {isNewView ? (
+        <div className="grid2" style={{ alignItems: "start" }}>
+          {editForm}
+          <div className="stk">
+            <sessionForm.Subscribe
+              selector={(state: any) => state.values}
+              children={(values: any) => (
+                <Suspense fallback={null}>
+                  <BeforeYouContinue values={values} />
+                </Suspense>
+              )}
+            />
+          </div>
+        </div>
+      ) : (
+        editForm
+      )}
     </div>
   );
 }

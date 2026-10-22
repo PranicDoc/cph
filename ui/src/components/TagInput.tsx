@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../ui-version";
 
 interface TagInputProps {
   value: any[];
@@ -31,6 +32,7 @@ export function TagInput({
   editableFields,
   createNewTag,
 }: TagInputProps) {
+  const { isNewView } = useUiVersion();
   const [input, setInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -213,11 +215,42 @@ export function TagInput({
         </Label>
       )}
       <div
-        className="border-2 border-border rounded-lg p-2 flex flex-wrap gap-2 min-h-[48px] items-center focus-within:border-primary transition-all duration-200 bg-white cursor-text"
+        className={
+          isNewView
+            ? "input flex flex-wrap gap-2 items-center cursor-text"
+            : "border-2 border-border rounded-lg p-2 flex flex-wrap gap-2 min-h-[48px] items-center focus-within:border-primary transition-all duration-200 bg-white cursor-text"
+        }
+        style={isNewView ? { height: "auto", minHeight: 44, padding: "6px 8px" } : undefined}
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((item, idx) => {
           const display = getDisplayText(item);
+          if (isNewView) {
+            return (
+              <span
+                key={getLogicText(item) + idx}
+                className="chip on"
+                style={editableFields ? { cursor: "pointer" } : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPopover(idx, item);
+                }}
+              >
+                {display}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTag(item);
+                  }}
+                  aria-label={`Remove ${display}`}
+                  style={{ border: 0, background: "transparent", padding: 0, color: "inherit", display: "inline-flex", cursor: "pointer" }}
+                >
+                  <X style={{ width: 13, height: 13 }} />
+                </button>
+              </span>
+            );
+          }
           return (
             <Badge
               key={getLogicText(item) + idx}

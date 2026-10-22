@@ -1,3 +1,4 @@
+import { useUiVersion } from "../ui-version";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useParams } from "react-router-dom";
@@ -29,6 +30,7 @@ type PatientFormValues = {
 };
 
 export default function PatientHealthForm() {
+  const { isNewView } = useUiVersion();
   const { caseId } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -131,6 +133,22 @@ export default function PatientHealthForm() {
     return <div className="p-6 text-center text-text-light">Loading...</div>;
   }
 
+  if ((isSubmitted || caseStatus !== "DRAFT") && isNewView) {
+    return (
+      <div className="hlx">
+        <section className="surface card" style={{ maxWidth: 520, margin: "40px auto", textAlign: "center", padding: 34 }}>
+          <div className="avatar" style={{ width: 60, height: 60, margin: "0 auto 14px", background: "var(--success-soft)", color: "var(--success)" }}>
+            <CheckCircle2 style={{ width: 28, height: 28 }} aria-hidden="true" />
+          </div>
+          <h2 style={{ fontSize: 22, marginBottom: 8 }}>Details submitted</h2>
+          <p className="muted">
+            Your health details have been submitted. Your healer will review them before the session.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
   if (isSubmitted || caseStatus !== "DRAFT") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 px-4">
@@ -145,14 +163,23 @@ export default function PatientHealthForm() {
   }
 
   return (
+    <div className={isNewView ? "hlx" : undefined}>
+    {isNewView && (
+      <div className="page-head" style={{ marginBottom: 16 }}>
+        <div>
+          <h1>Your health details</h1>
+          <p className="muted" style={{ marginTop: 6 }}>Your healer will review these before the session.</p>
+        </div>
+      </div>
+    )}
     <form
       onSubmit={(e) => {
         e.preventDefault();
         form.handleSubmit();
       }}
-      className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
+      className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
     >
-      <h2 className="text-xl font-semibold">Your Health Details</h2>
+      {!isNewView && <h2 className="text-xl font-semibold">Your Health Details</h2>}
       <DynamicFormEngine form={form} schema={patientSessionSchema} />
       <div className="flex justify-end pt-4 border-t border-border">
         <Button
@@ -160,9 +187,10 @@ export default function PatientHealthForm() {
           disabled={isSubmitting}
           className="px-6 py-2.5 h-auto gap-2"
         >
-          {isSubmitting ? "Submitting..." : "Submit My Details"}
+          {isSubmitting ? "Submitting..." : isNewView ? "Submit my details" : "Submit My Details"}
         </Button>
       </div>
     </form>
+    </div>
   );
 }

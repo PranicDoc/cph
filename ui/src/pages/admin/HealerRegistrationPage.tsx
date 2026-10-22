@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { versioned } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ChevronRight, ChevronLeft, UserPlus } from "lucide-react";
@@ -52,7 +53,7 @@ function HealerStatusBadge({ active }: { active: boolean }) {
   );
 }
 
-export default function HealerRegistrationPage() {
+function ClassicHealerRegistrationPage() {
   const { user } = useAuth();
   const isSupadm = user?.role === "SUPADM";
 
@@ -434,3 +435,6 @@ export default function HealerRegistrationPage() {
     </div>
   );
 }
+
+const HealerRegistrationPage = versioned(ClassicHealerRegistrationPage, () => import("../../ui-new/admin/NewHealerRegistrationPage"));
+export default HealerRegistrationPage;

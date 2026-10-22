@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../../ui-version";
 import {
   Table,
   TableBody,
@@ -147,6 +148,7 @@ export function ChakraManualEntry({
   availableChakras = CHAKRA_CATALOG,
   prefillChakras,
 }: ChakraManualEntryProps) {
+  const { isNewView } = useUiVersion();
   const [rows, setRows] = useState<Row[]>(() => entriesToRows(value));
 
   useEffect(() => {
@@ -352,6 +354,12 @@ export function ChakraManualEntry({
             })}
           </div>
         </>
+      )}
+
+      {isNewView && (
+        <p className="mb-2 text-xs text-text-light">
+          Energy: D depleted, N normal, C congested. Activation: U under, N normal, O over.
+        </p>
       )}
 
       <Button type="button" variant="outline" onClick={addRow} className="gap-1.5">

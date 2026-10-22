@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Design language (dark)</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="../hl.css"><style>body{margin:0}</style></head><body>
+<div class="hl dark" style="width: 760px; height: 1060px; padding: 36px 36px 32px">
+  <div class="ground"></div>
+  <div style="position: relative; display: flex; flex-direction: column; gap: 26px; height: 100%">
+
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div class="brand" style="padding: 0">
+        <div class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18a7.5 7.5 0 0115 0"/><path d="M12 6.5v3.5"/></svg></div>
+        <span class="brand-name">HealingARK</span>
+      </div>
+      <span class="badge">Dark mode</span>
+    </div>
+
+    <div>
+      <h1>Calm, trustworthy, premium</h1>
+      <p class="muted" style="margin-top: 8px; max-width: 58ch">Glass is reserved for the layers that float: navigation, sheets and the top bar. Data lives on a quieter, more opaque surface so every number stays readable.</p>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 12px">Colour (existing violet brand)</h3>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+        <div class="surface" style="padding: 10px"><div style="height: 40px; border-radius: 8px; background: var(--primary)"></div><div class="small" style="margin-top: 8px; font-weight: 600">Primary</div><div class="small muted num">#6C3FC5</div></div>
+        <div class="surface" style="padding: 10px"><div style="height: 40px; border-radius: 8px; background: var(--primary-soft)"></div><div class="small" style="margin-top: 8px; font-weight: 600">Primary soft</div><div class="small muted">selection, hover</div></div>
+        <div class="surface" style="padding: 10px"><div style="height: 40px; border-radius: 8px; background: var(--success-soft); display: grid; place-items: center; color: var(--success); font-weight: 650">Ok</div><div class="small" style="margin-top: 8px; font-weight: 600">Success</div><div class="small muted">active, paid</div></div>
+        <div class="surface" style="padding: 10px"><div style="height: 40px; border-radius: 8px; background: var(--warn-soft); display: grid; place-items: center; color: var(--warn); font-weight: 650">Due</div><div class="small" style="margin-top: 8px; font-weight: 600">Warning</div><div class="small muted">expiring</div></div>
+      </div>
+      <p class="small muted" style="margin-top: 10px">Text is one ink and one quiet ink; accent text is a deeper violet in light and a lighter violet in dark so contrast holds (4.5:1 or better).</p>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 12px">Type (Inter, one family)</h3>
+      <div class="surface" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: 28px; font-weight: 600; letter-spacing: -0.022em">Credit packages</span><span class="small muted">Page title 28 / 600</span></div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: 18px; font-weight: 600; letter-spacing: -0.014em">Plan validity</span><span class="small muted">Section 18 / 600</span></div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between"><span>Unused paid credits are forfeited when a plan ends.</span><span class="small muted">Body 14 / 400</span></div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between"><span class="num" style="font-weight: 500">1,000 credits · ₹4,999</span><span class="small muted">Tabular figures in data</span></div>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 12px">Glass layers</h3>
+      <div style="position: relative; height: 150px; border-radius: 20px; overflow: hidden">
+        <div style="position: absolute; inset: 0; background: radial-gradient(260px 160px at 18% 30%, var(--glow1), transparent 70%), radial-gradient(240px 150px at 85% 80%, var(--glow2), transparent 70%)"></div>
+        <div class="glass" style="position: absolute; left: 16px; top: 16px; width: 200px; height: 118px; border-radius: 16px; padding: 14px"><div style="font-weight: 600">Navigation</div><div class="small muted">blur 30 · glass 55%</div></div>
+        <div class="surface" style="position: absolute; left: 236px; top: 30px; width: 200px; height: 104px; padding: 14px"><div style="font-weight: 600">Data surface</div><div class="small muted">blur 18 · 80% opaque</div></div>
+        <div class="sheet" style="position: absolute; left: 456px; top: 12px; width: 200px; height: 126px; border-radius: 20px; padding: 14px"><div style="font-weight: 600">Sheet</div><div class="small muted">blur 40 · lifted shadow</div></div>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 12px">Controls</h3>
+      <div class="surface" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+          <button class="btn btn-primary" type="button">Save changes</button>
+          <button class="btn btn-secondary" type="button">Cancel</button>
+          <button class="btn btn-ghost" type="button">Reset</button>
+          <button class="btn btn-danger" type="button">Delete</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <div><label class="lbl" for="f1">Default</label><input id="f1" class="input" placeholder="Package name" type="text"></div>
+          <div><label class="lbl" for="f2">Focused</label><input id="f2" class="input focus" value="PRO" type="text"></div>
+          <div><label class="lbl" for="f3">Error</label><input id="f3" class="input error" value="-5" type="text"><div class="err">Credits must be at least 1</div></div>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap">
+          <div class="switch on" role="img" aria-label="Switch on"></div><span class="small">Enabled</span>
+          <div class="switch" role="img" aria-label="Switch off"></div><span class="small">Disabled</span>
+          <span class="badge ok"><span class="dot"></span>Active</span>
+          <span class="badge warn">Ends in 3 days</span>
+          <span class="badge off">Disabled</span>
+          <div class="seg"><button class="on" type="button">All</button><button type="button">Healer</button><button type="button">Clinic</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body></html>

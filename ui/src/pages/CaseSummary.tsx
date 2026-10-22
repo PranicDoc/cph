@@ -1,3 +1,4 @@
+import { useUiVersion } from "../ui-version";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -8,10 +9,11 @@ import { Skeleton } from "../components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { exerciseLabels } from "../lib/exercise";
+import NewCaseSummary from "../ui-new/pages/NewCaseSummary";
 
 // ---- Types ----
 
-interface ChakraReading {
+export interface ChakraReading {
   id: string;
   chakraName: string;
   energyLevel: string;
@@ -19,28 +21,28 @@ interface ChakraReading {
   notes?: string;
 }
 
-interface ChakraScan {
+export interface ChakraScan {
   id: string;
   scanType: "PRE" | "POST";
   notes?: string;
   readings: ChakraReading[];
 }
 
-interface SymptomFeedback {
+export interface SymptomFeedback {
   id: string;
   caseSymptomId: string;
   rating: number;
   notes?: string;
 }
 
-interface QualitativeFeedback {
+export interface QualitativeFeedback {
   id: string;
   feedbackType: "INTERIM" | "FINAL";
   feedbackText?: string;
   patientRemarks?: string;
 }
 
-interface HealingSession {
+export interface HealingSession {
   id: string;
   sessionNumber: number;
   sessionDate: string;
@@ -52,7 +54,7 @@ interface HealingSession {
   qualitativeFeedbacks: QualitativeFeedback[];
 }
 
-interface CaseSymptom {
+export interface CaseSymptom {
   id: string;
   symptomName: string;
   description?: string;
@@ -62,7 +64,7 @@ interface CaseSymptom {
   resolved: boolean;
 }
 
-interface CaseMedication {
+export interface CaseMedication {
   id: string;
   medicationName: string;
   dosage?: string;
@@ -72,7 +74,7 @@ interface CaseMedication {
   notes?: string;
 }
 
-interface CaseClosure {
+export interface CaseClosure {
   closureDate?: string;
   additionalComments?: string;
   healingCount?: number;
@@ -80,7 +82,7 @@ interface CaseClosure {
   lastFeedbackDate?: string;
 }
 
-interface CaseMedicalSnapshot {
+export interface CaseMedicalSnapshot {
   generalHealth?: string;
   diet?: string;
   exercise?: string;
@@ -95,7 +97,7 @@ interface CaseMedicalSnapshot {
   additionalNotes?: string;
 }
 
-interface CaseSummaryData {
+export interface CaseSummaryData {
   patientFirstName: string;
   patientLastName: string;
   dob?: string;
@@ -125,10 +127,10 @@ interface CaseSummaryData {
 
 const fmt = (val: string | undefined | null) => val || "—";
 
-const yesNo = (val: boolean | undefined | null) =>
+export const yesNo = (val: boolean | undefined | null) =>
   val === true ? "Yes" : val === false ? "No" : "—";
 
-const formatDate = (val: string | undefined | null) => {
+export const formatDate = (val: string | undefined | null) => {
   if (!val) return "—";
   try {
     return new Date(val).toLocaleDateString("en-IN", {
@@ -141,7 +143,7 @@ const formatDate = (val: string | undefined | null) => {
   }
 };
 
-const formatTime = (val: string | undefined | null) => {
+export const formatTime = (val: string | undefined | null) => {
   if (!val) return "—";
   return val.substring(0, 5);
 };
@@ -159,7 +161,7 @@ function SectionHeading({ icon, label }: { icon: React.ReactNode; label: string 
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border last:border-0">
+    <div className="hl-sumrow flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border last:border-0">
       <span className="text-xs font-medium text-text-light w-40 shrink-0">{label}</span>
       <span className="text-sm text-text">{value}</span>
     </div>
@@ -398,7 +400,7 @@ function SessionCard({
   );
 }
 
-function LabFindingsList({ keys }: { keys: string[] }) {
+export function LabFindingsList({ keys }: { keys: string[] }) {
   const [loading, setLoading] = useState<string | null>(null);
 
   if (!keys.length) return <span className="text-sm text-text-light">—</span>;
@@ -424,10 +426,10 @@ function LabFindingsList({ keys }: { keys: string[] }) {
             variant="link"
             onClick={() => download(key)}
             disabled={loading === key}
-            className="h-auto p-0 gap-2 text-sm font-normal"
+            className="h-auto p-0 gap-2 text-sm font-normal max-sm:shrink max-sm:min-w-0 max-sm:max-w-full"
           >
             <Download className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate max-w-xs">{fileName(key)}</span>
+            <span className="truncate max-w-xs max-sm:max-w-full max-sm:min-w-0">{fileName(key)}</span>
             {loading === key && <span className="text-xs text-text-light">Opening...</span>}
           </Button>
         </li>
@@ -439,6 +441,7 @@ function LabFindingsList({ keys }: { keys: string[] }) {
 // ---- Main Page ----
 
 export default function CaseSummary() {
+  const { isNewView } = useUiVersion();
   const { healingCaseId } = useParams<{ healingCaseId: string }>();
   const navigate = useNavigate();
 
@@ -479,8 +482,10 @@ export default function CaseSummary() {
 
   const patientName = `${data.patientFirstName} ${data.patientLastName}`;
 
+  if (isNewView) return <NewCaseSummary data={data} onBack={() => navigate(-1)} />;
+
   return (
-    <div className="space-y-6 pb-12">
+    <div className={isNewView ? "hlx hl-cols" : "space-y-6 pb-12"}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
@@ -492,11 +497,13 @@ export default function CaseSummary() {
             <ArrowLeft className="w-4 h-4" />
             Back to Patients
           </Button>
-          <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
-          <p className="text-sm text-text-light">
-            {patientName} · Opened {formatDate(data.caseCreatedAt)}
-            {data.closure?.closureDate && ` · Closed ${formatDate(data.closure.closureDate)}`}
-          </p>
+          <div className={isNewView ? "hl-sumhead" : "contents"}>
+            <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
+            <p className="text-sm text-text-light">
+              {patientName} · Opened {formatDate(data.caseCreatedAt)}
+              {data.closure?.closureDate && ` · Closed ${formatDate(data.closure.closureDate)}`}
+            </p>
+          </div>
         </div>
 
         {/* TODO: wire up once pdfWorker supports DocumentType.SUMMARY_DOC */}
