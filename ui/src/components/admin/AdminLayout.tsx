@@ -5,6 +5,8 @@ import { useAuth } from "../../context/AuthContext";
 import UserProfileIcon from "../UserProfile";
 import Sidebar from "../Sidebar";
 import { adminNavItems } from "../../config/adminNavItems";
+import { useMyPermissions } from "../../hooks/useMyPermissions";
+import { visibleNavItems } from "../../lib/adminAccess";
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout() {
@@ -12,10 +14,10 @@ export default function AdminLayout() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
 
+  const { data: permissions } = useMyPermissions();
+
   // Transactions are a drill-down from Accounts, not a top-level nav item.
-  const filteredItems = adminNavItems.filter((item) =>
-    item.roles.includes(user?.role ?? "")
-  );
+  const filteredItems = visibleNavItems(permissions, adminNavItems);
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
-const { mockUseAuth, mockUseUiVersion, mockToastSuccess } = vi.hoisted(() => ({
+const { mockUseAuth, mockUseUiVersion, mockToastSuccess, mockUseMyPermissions } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockUseUiVersion: vi.fn(),
   mockToastSuccess: vi.fn(),
+  mockUseMyPermissions: vi.fn(),
 }));
 
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => mockUseAuth() }));
 vi.mock("../../ui-version", () => ({ useUiVersion: () => mockUseUiVersion() }));
 vi.mock("sonner", () => ({ toast: { success: mockToastSuccess, error: vi.fn() } }));
 vi.mock("../PlanPicker", () => ({ PlanPicker: () => <div>plan picker</div> }));
+vi.mock("../../hooks/useMyPermissions", () => ({ useMyPermissions: () => mockUseMyPermissions() }));
 
 import { UserProfileIcon } from "./UserProfileIcon";
 
@@ -34,9 +37,13 @@ function view(overrides: Record<string, unknown> = {}) {
   });
 }
 
-async function openMenu() {
+async function openMenu(path = "/") {
   const user = userEvent.setup();
-  render(<UserProfileIcon />);
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <UserProfileIcon />
+    </MemoryRouter>
+  );
   await user.click(screen.getByRole("button"));
   return user;
 }
@@ -48,6 +55,7 @@ describe("UserProfileIcon, view switch", () => {
       user: { id: "1", fullName: "Asha Rao", email: "asha@example.com" },
       logout: vi.fn(),
     });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: {} } });
   });
 
   it("offers 'Try the new view' in the classic view and switches when chosen", async () => {
@@ -93,5 +101,38 @@ describe("UserProfileIcon, view switch", () => {
     await openMenu();
     await screen.findByRole("menuitem", { name: /upgrade plan/i });
     expect(screen.queryByRole("menuitem", { name: /new view/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("UserProfileIcon, admin entry", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { id: "1", fullName: "Asha Rao", email: "asha@example.com", role: "HEALER" },
+      logout: vi.fn(),
+    });
+    view();
+  });
+
+  it("links a healer whose roles grant master data to the admin screen they can open", async () => {
+    mockUseMyPermissions.mockReturnValue({
+      data: { grants: { MASTER_DATA_PROTOCOLS: ["READ"] } },
+    });
+    await openMenu();
+    const admin = await screen.findByRole("menuitem", { name: /admin/i });
+    expect(admin).toHaveAttribute("href", "/admin/master-data");
+  });
+
+  it("has no admin entry without any admin permission, or when already in the admin area", async () => {
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { PATIENT: ["READ"] } } });
+    await openMenu();
+    expect(screen.queryByRole("menuitem", { name: /admin/i })).toBeNull();
+  });
+
+  it("hides the admin entry inside the admin area", async () => {
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } } });
+    await openMenu("/admin/accounts");
+    await screen.findByRole("menuitem", { name: /logout/i });
+    expect(screen.queryByRole("menuitem", { name: /^admin$/i })).toBeNull();
   });
 });

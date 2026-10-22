@@ -9,7 +9,11 @@ import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -76,5 +80,25 @@ public class RolePermissionLookupService {
         return roleIds.stream()
                 .flatMap(roleId -> rolePermissionRepository.findAllByRoleId(roleId).stream())
                 .anyMatch(grant -> grant.getResource() == resource && grant.getOperation() == operation);
+    }
+
+    /**
+     * Every (resource, operation) pair {@code healerId} holds, as the union across all their
+     * roles — the same data {@link #hasPermission} checks one pair against. Used to tell the UI
+     * which screens to show; it decides nothing on the server.
+     */
+    public Map<Resource, Set<Operation>> effectiveGrants(UUID healerId) {
+        Map<Resource, Set<Operation>> grants = new EnumMap<>(Resource.class);
+        if (healerId == null) {
+            return grants;
+        }
+        userRoleRepository.findAllByPrincipalTypeAndPrincipalId(PRINCIPAL_TYPE_HEALER, healerId).stream()
+                .map(UserRole::getRoleId)
+                .distinct()
+                .flatMap(roleId -> rolePermissionRepository.findAllByRoleId(roleId).stream())
+                .forEach(grant -> grants
+                        .computeIfAbsent(grant.getResource(), r -> EnumSet.noneOf(Operation.class))
+                        .add(grant.getOperation()));
+        return grants;
     }
 }

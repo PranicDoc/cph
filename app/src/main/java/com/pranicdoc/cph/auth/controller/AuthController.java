@@ -13,6 +13,8 @@ import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.rbac.dto.MyPermissionsResponse;
+import com.pranicdoc.cph.rbac.service.MyPermissionsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -29,6 +31,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final InviteService inviteService;
+    private final MyPermissionsService myPermissionsService;
 
     /**
      * Activate an invited healer's account: sets full name + password, marks the
@@ -102,6 +105,16 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(authentication.getPrincipal());
+    }
+
+    /**
+     * What the signed-in user may do (SUPADM flag, or their grants), so the UI can show
+     * only the admin screens they can use. Every request is still checked on the server.
+     * GET /api/v1/auth/me/permissions
+     */
+    @GetMapping("/me/permissions")
+    public ResponseEntity<MyPermissionsResponse> getMyPermissions() {
+        return ResponseEntity.ok(myPermissionsService.current());
     }
 
     @GetMapping("/profile")

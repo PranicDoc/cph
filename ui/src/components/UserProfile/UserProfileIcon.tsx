@@ -1,10 +1,14 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfileIconProps } from "./types/user-profile";
-import { CreditCard, LogOut, MessageSquare, Settings, Sparkles } from "lucide-react";
+import { CreditCard, LogOut, MessageSquare, Settings, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useUiVersion, type ThemeChoice } from "../../ui-version";
 import { UpgradePlanDialog } from "../UpgradePlanDialog";
+import { useMyPermissions } from "../../hooks/useMyPermissions";
+import { adminNavItems } from "../../config/adminNavItems";
+import { firstAdminPath } from "../../lib/adminAccess";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +43,10 @@ export function UserProfileIcon({
   const { user, logout } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isNewView, canSwitch, setUiVersion, theme, setTheme } = useUiVersion();
+  const { data: permissions } = useMyPermissions();
+  const { pathname } = useLocation();
+  // Anyone whose roles open at least one admin screen gets a way in (no longer tied to the ADMIN role).
+  const adminPath = pathname.startsWith("/admin") ? null : firstAdminPath(permissions, adminNavItems);
 
   const switchView = () => {
     if (isNewView) {
@@ -99,6 +107,14 @@ export function UserProfileIcon({
               <CreditCard className="w-4 h-4 text-gray-400" />
               Upgrade Plan
             </DropdownMenuItem>
+            {adminPath && (
+              <DropdownMenuItem asChild>
+                <Link to={adminPath}>
+                  <ShieldCheck className="w-4 h-4 text-gray-400" />
+                  Admin
+                </Link>
+              </DropdownMenuItem>
+            )}
             {onSettings && (
               <DropdownMenuItem onSelect={() => onSettings()}>
                 <Settings className="w-4 h-4 text-gray-400" />

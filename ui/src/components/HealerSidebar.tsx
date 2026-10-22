@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { healerNavItems } from "../config/healerNavItems";
+import { useMyPermissions } from "../hooks/useMyPermissions";
+import { visibleNavItems } from "../lib/adminAccess";
 
 interface HealerSidebarProps {
   isOpen: boolean;
@@ -11,10 +13,11 @@ interface HealerSidebarProps {
 
 export default function HealerSidebar({ isOpen, onClose }: HealerSidebarProps) {
   const { pathname } = useLocation();
+  const { data: permissions } = useMyPermissions();
 
   const navContent = (
     <nav className="flex flex-col gap-1 p-3">
-      {healerNavItems.map(({ label, path, icon: Icon, exact }) => {
+      {visibleNavItems(permissions, healerNavItems).map(({ label, path, icon: Icon, exact }) => {
         const isActive = exact ? pathname === path : pathname.startsWith(path);
         return (
           <Link

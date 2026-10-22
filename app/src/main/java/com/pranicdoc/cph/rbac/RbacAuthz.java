@@ -51,6 +51,15 @@ public class RbacAuthz {
      * always compile-time string literals baked into an annotation in this
      * codebase — never request-derived data.
      */
+    /** True for SUPADM, who passes every {@link #hasPermission} check; false when no role is on the context. */
+    public boolean isSuperAdmin() {
+        try {
+            return ROLE_SUPADM.equals(securityContextUtil.getCurrentRole());
+        } catch (IllegalStateException noRoleInContext) {
+            return false;
+        }
+    }
+
     public boolean hasPermission(String resourceKey, String verb) {
         try {
             if (ROLE_SUPADM.equals(securityContextUtil.getCurrentRole())) {
