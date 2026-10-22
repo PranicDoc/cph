@@ -499,3 +499,7 @@ html[data-ui="new"] .hlx .session-form .bg-background.rounded-xl { background: t
 html[data-ui="new"] .hlx .session-form h3 { display: none; }
 /* plan cards: as many columns as fit (4 plans on desktop, 1 on phones) */
 html[data-ui="new"] .hlx div.plans { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+/* data tables: sentence-case headers like the mockup tables */
+html[data-ui="new"] [data-slot="table-head"] { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; }
+/* master data colour swatches are rounded squares */
+html[data-ui="new"] .hlx .md-swatch { width: 22px; height: 22px; border-radius: 7px; border: 0; box-shadow: 0 0 0 1px var(--hl-hair-strong) inset; }

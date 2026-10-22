@@ -66,7 +66,7 @@ function SourceBadge({ healerId }: { healerId?: string | null }) {
 function ColorSwatch({ hex }: { hex?: string }) {
   return (
     <span
-      className="inline-block w-5 h-5 rounded-full border border-border flex-shrink-0"
+      className="md-swatch inline-block w-5 h-5 rounded-full border border-border flex-shrink-0"
       style={{ backgroundColor: hex ?? "#ccc" }}
     />
   );
