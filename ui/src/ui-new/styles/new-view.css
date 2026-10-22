@@ -168,7 +168,10 @@ html[data-ui="new"] :focus-visible {
 }
 
 /* ───────── App shell (ui-new/shell) ───────── */
-html[data-ui="new"] .hl-shell { display: flex; min-height: 100vh; }
+/* overflow-x: clip keeps a too-wide page element from widening the layout viewport on phones;
+   otherwise every fixed element (dialogs, the More sheet, the tab bar) sizes to the wider page
+   and spills off-screen. clip, not hidden, so sticky headers/tab bar keep working. */
+html[data-ui="new"] .hl-shell { display: flex; min-height: 100vh; overflow-x: clip; }
 
 html[data-ui="new"] .hl-side {
   width: 244px;
@@ -238,7 +241,7 @@ html[data-ui="new"] .hl-mtab { flex: 1; min-width: 0; display: flex; flex-direct
 html[data-ui="new"] .hl-mtab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-ui="new"] .hl-mtab[aria-current="page"], html[data-ui="new"] .hl-mtab.is-active { background: var(--hl-primary-soft); color: var(--hl-accent-text); }
 
-html[data-ui="new"] .hl-public { min-height: 100vh; }
+html[data-ui="new"] .hl-public { min-height: 100vh; overflow-x: clip; }
 html[data-ui="new"] .hl-pubhead { display: flex; align-items: center; gap: 10px; margin: 14px; height: 56px; padding: 0 16px; border-radius: 16px; }
 html[data-ui="new"] .hl-pubmain { margin: 6px auto 48px; padding: 0 14px; max-width: 48rem; }
 
