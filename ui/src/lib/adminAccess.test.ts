@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Users } from "lucide-react";
-import { adminItemForPath, canSeeAdminItem, firstAdminPath, visibleAdminItems, type MyPermissions } from "./adminAccess";
+import { adminItemForPath, canSeeNavItem, firstAdminPath, visibleNavItems, type MyPermissions } from "./adminAccess";
 import type { AdminNavItem } from "../config/adminNavItems";
+import type { SidebarNavItem } from "../components/Sidebar";
 
 const items: AdminNavItem[] = [
   { label: "Accounts", path: "/admin/accounts", icon: Users, anyOf: ["CREDIT_ACCOUNTS"] },
@@ -9,30 +10,31 @@ const items: AdminNavItem[] = [
   { label: "Roles", path: "/admin/roles", icon: Users, anyOf: ["ROLES"] },
 ];
 
-const seeder: MyPermissions = { superAdmin: false, grants: { MASTER_DATA_PROTOCOLS: ["READ", "CREATE"], PATIENT: ["READ"] } };
-const supadm: MyPermissions = { superAdmin: true, grants: {} };
-const healer: MyPermissions = { superAdmin: false, grants: { PATIENT: ["READ", "CREATE"] } };
+const seeder: MyPermissions = { grants: { MASTER_DATA_PROTOCOLS: ["READ", "CREATE"], PATIENT: ["READ"] } };
+const everything: MyPermissions = { grants: { CREDIT_ACCOUNTS: ["READ"], MASTER_DATA_COLORS: ["READ"], ROLES: ["READ", "ADMIN"] } };
+const healer: MyPermissions = { grants: { PATIENT: ["READ", "CREATE"] } };
 
-describe("admin access by permission", () => {
+describe("navigation by permission", () => {
   it("shows an item when any of its resources can be read", () => {
-    expect(canSeeAdminItem(seeder, items[1])).toBe(true);
-    expect(canSeeAdminItem(seeder, items[0])).toBe(false);
+    expect(canSeeNavItem(seeder, items[1])).toBe(true);
+    expect(canSeeNavItem(seeder, items[0])).toBe(false);
   });
 
   it("needs READ, not just some other verb", () => {
-    const writeOnly: MyPermissions = { superAdmin: false, grants: { ROLES: ["CREATE"] } };
-    expect(canSeeAdminItem(writeOnly, items[2])).toBe(false);
+    expect(canSeeNavItem({ grants: { ROLES: ["CREATE"] } }, items[2])).toBe(false);
   });
 
-  it("shows everything to the super admin and nothing without permissions", () => {
-    expect(visibleAdminItems(supadm, items)).toHaveLength(3);
-    expect(visibleAdminItems(healer, items)).toEqual([]);
-    expect(visibleAdminItems(undefined, items)).toEqual([]);
+  it("always shows items that need no permission, and hides gated ones until permissions load", () => {
+    const dashboard: SidebarNavItem = { label: "Dashboard", path: "/", icon: Users };
+    const patients: SidebarNavItem = { label: "Patients", path: "/patients", icon: Users, anyOf: ["PATIENT"] };
+    expect(visibleNavItems(undefined, [dashboard, patients])).toEqual([dashboard]);
+    expect(visibleNavItems(healer, [dashboard, patients])).toEqual([dashboard, patients]);
+    expect(visibleNavItems({ grants: {} }, [dashboard, patients])).toEqual([dashboard]);
   });
 
-  it("lands on the first screen the user can open", () => {
+  it("lands on the first admin screen the user can open", () => {
     expect(firstAdminPath(seeder, items)).toBe("/admin/master-data");
-    expect(firstAdminPath(supadm, items)).toBe("/admin/accounts");
+    expect(firstAdminPath(everything, items)).toBe("/admin/accounts");
     expect(firstAdminPath(healer, items)).toBeNull();
   });
 

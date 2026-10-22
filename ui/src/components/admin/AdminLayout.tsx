@@ -6,7 +6,7 @@ import UserProfileIcon from "../UserProfile";
 import Sidebar from "../Sidebar";
 import { adminNavItems } from "../../config/adminNavItems";
 import { useMyPermissions } from "../../hooks/useMyPermissions";
-import { visibleAdminItems } from "../../lib/adminAccess";
+import { visibleNavItems } from "../../lib/adminAccess";
 import { Button } from "@/components/ui/button";
 
 export default function AdminLayout() {
@@ -17,7 +17,7 @@ export default function AdminLayout() {
   const { data: permissions } = useMyPermissions();
 
   // Transactions are a drill-down from Accounts, not a top-level nav item.
-  const filteredItems = visibleAdminItems(permissions, adminNavItems);
+  const filteredItems = visibleNavItems(permissions, adminNavItems);
 
   return (
     <div className="min-h-screen flex flex-col">

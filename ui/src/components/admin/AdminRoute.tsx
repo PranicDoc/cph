@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Activity } from "lucide-react";
 import { useMyPermissions } from "../../hooks/useMyPermissions";
 import { adminNavItems } from "../../config/adminNavItems";
-import { adminItemForPath, canSeeAdminItem, firstAdminPath } from "../../lib/adminAccess";
+import { adminItemForPath, canSeeNavItem, firstAdminPath } from "../../lib/adminAccess";
 
 function Loading() {
   return (
@@ -36,7 +36,7 @@ export default function AdminRoute() {
 
   const item = adminItemForPath(pathname, adminNavItems);
   if (!item) return pathname === "/admin" || pathname === "/admin/" ? <Navigate to={first} replace /> : <Outlet />;
-  if (!canSeeAdminItem(permissions, item)) return <Navigate to="/forbidden" replace />;
+  if (!canSeeNavItem(permissions, item)) return <Navigate to="/forbidden" replace />;
 
   return <Outlet />;
 }

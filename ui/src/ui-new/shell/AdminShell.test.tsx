@@ -35,7 +35,7 @@ describe("AdminShell", () => {
 
   it("shows a super admin every admin page, grouped, with the Admin crumb", () => {
     mockUseAuth.mockReturnValue({ user: { fullName: "Root", role: "SUPADM" } });
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: true, grants: {} } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } } });
     renderAt("/admin/packages", <AdminShell />);
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     expect(within(side).getAllByRole("link").map((l) => l.textContent?.trim())).toEqual([
@@ -56,7 +56,6 @@ describe("AdminShell", () => {
     mockUseAuth.mockReturnValue({ user: { fullName: "Ops", role: "ADMIN" } });
     mockUseMyPermissions.mockReturnValue({
       data: {
-        superAdmin: false,
         grants: {
           CREDIT_ACCOUNTS: ["READ"],
           HEALER_REG: ["READ", "CREATE"],
@@ -78,8 +77,18 @@ describe("HealerShell", () => {
   it("shows the four healer pages", () => {
     mockUseUiVersion.mockReturnValue({ resolvedTheme: "dark", setTheme: vi.fn() });
     mockUseAuth.mockReturnValue({ user: { fullName: "Asha Rao", role: "HEALER" } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { PATIENT: ["READ"], PDF: ["READ"] } } });
     renderAt("/patients", <HealerShell />);
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     expect(within(side).getAllByRole("link").map((l) => l.textContent?.trim())).toEqual(["Dashboard", "Patients", "PDFs", "Profile"]);
+  });
+
+  it("hides pages the user may not read, even from the menu", () => {
+    mockUseUiVersion.mockReturnValue({ resolvedTheme: "dark", setTheme: vi.fn() });
+    mockUseAuth.mockReturnValue({ user: { fullName: "Asha Rao", role: "HEALER" } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { PATIENT: ["READ"], PDF: ["CREATE"] } } });
+    renderAt("/patients", <HealerShell />);
+    const side = screen.getByRole("navigation", { name: "Sidebar" });
+    expect(within(side).getAllByRole("link").map((l) => l.textContent?.trim())).toEqual(["Dashboard", "Patients", "Profile"]);
   });
 });

@@ -2,7 +2,7 @@ import { Users, Package, Sliders, Database, UserPlus, FileText, ShieldCheck } fr
 import type { SidebarNavItem } from "../components/Sidebar";
 
 export interface AdminNavItem extends SidebarNavItem {
-  /** Shown to users who may READ any of these RBAC resources (the super admin sees everything). */
+  /** Admin screens always name the resources that open them (READ on any of them). */
   anyOf: string[];
   /** Sidebar heading in the new view; the classic sidebar ignores it. */
   group?: string;

@@ -6,7 +6,7 @@ import { Outlet, useParams, type RouteObject } from "react-router-dom";
 
 import { renderWithDataRouter } from "./test/renderWithDataRouter";
 import { adminNavItems } from "./config/adminNavItems";
-import { visibleAdminItems, type MyPermissions } from "./lib/adminAccess";
+import { visibleNavItems, type MyPermissions } from "./lib/adminAccess";
 
 /**
  * Wave-5 join point (plan 38-10): the four role routes are registered inside
@@ -86,7 +86,7 @@ describe("role route resolution", () => {
 
 /** Mirrors AdminLayout's filter: the items a user's permissions open. */
 function visibleFor(permissions: MyPermissions) {
-  return visibleAdminItems(permissions, adminNavItems);
+  return visibleNavItems(permissions, adminNavItems);
 }
 
 describe("adminNavItems — Roles entry", () => {
@@ -111,12 +111,12 @@ describe("adminNavItems — Roles entry", () => {
   });
 
   it("is excluded without ROLES READ and included with it or for the super admin", () => {
-    const accountsOnly = { superAdmin: false, grants: { CREDIT_ACCOUNTS: ["READ"] } };
-    const roleReader = { superAdmin: false, grants: { ROLES: ["READ"] } };
+    const accountsOnly = { grants: { CREDIT_ACCOUNTS: ["READ"] } };
+    const roleReader = { grants: { ROLES: ["READ"] } };
     expect(visibleFor(accountsOnly).some((item) => item.path === "/admin/roles")).toBe(false);
     expect(visibleFor(roleReader).some((item) => item.path === "/admin/roles")).toBe(true);
     expect(
-      visibleFor({ superAdmin: true, grants: {} }).some((item) => item.path === "/admin/roles")
+      visibleFor({ grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } }).some((item) => item.path === "/admin/roles")
     ).toBe(true);
   });
 });

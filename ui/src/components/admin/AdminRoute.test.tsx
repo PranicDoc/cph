@@ -27,7 +27,7 @@ function at(path: string) {
   );
 }
 
-const seeder = { superAdmin: false, grants: { MASTER_DATA_PROTOCOLS: ["READ", "CREATE"] } };
+const seeder = { grants: { MASTER_DATA_PROTOCOLS: ["READ", "CREATE"] } };
 
 describe("AdminRoute, opened by permissions", () => {
   beforeEach(() => {
@@ -53,13 +53,13 @@ describe("AdminRoute, opened by permissions", () => {
   });
 
   it("refuses the admin area to a user with no admin permission", () => {
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: false, grants: { PATIENT: ["READ"] } }, isLoading: false, isError: false });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { PATIENT: ["READ"] } }, isLoading: false, isError: false });
     at("/admin/master-data");
     expect(screen.getByText("forbidden")).toBeInTheDocument();
   });
 
-  it("lets the super admin in everywhere", () => {
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: true, grants: {} }, isLoading: false, isError: false });
+  it("lets a user holding every admin grant in everywhere", () => {
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } }, isLoading: false, isError: false });
     at("/admin/accounts");
     expect(screen.getByText("accounts")).toBeInTheDocument();
   });

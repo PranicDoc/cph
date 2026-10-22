@@ -11,6 +11,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.UUID;
@@ -28,18 +29,21 @@ class MyPermissionsServiceTest {
     @InjectMocks private MyPermissionsService service;
 
     @Test
-    void superAdminIsFlaggedWithoutReadingGrants() {
+    void superAdminGetsEverySupportedVerbOfEveryResourceWithoutReadingGrants() {
         when(rbacAuthz.isSuperAdmin()).thenReturn(true);
 
         MyPermissionsResponse me = service.current();
 
-        assertThat(me.superAdmin()).isTrue();
-        assertThat(me.grants()).isEmpty();
+        assertThat(me.grants()).hasSize(Resource.values().length);
+        assertThat(me.grants().get("MASTER_DATA_PROTOCOLS"))
+                .containsExactlyInAnyOrderElementsOf(Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations().stream()
+                        .map(Operation::name).toList());
+        assertThat(Arrays.stream(Resource.values()).map(Resource::name)).allMatch(me.grants()::containsKey);
         verifyNoInteractions(lookupService);
     }
 
     @Test
-    void otherRolesGetTheirEffectiveGrantsAsNames() {
+    void otherUsersGetTheirEffectiveGrantsAsNames() {
         UUID healerId = UUID.randomUUID();
         when(rbacAuthz.isSuperAdmin()).thenReturn(false);
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
@@ -48,7 +52,6 @@ class MyPermissionsServiceTest {
 
         MyPermissionsResponse me = service.current();
 
-        assertThat(me.superAdmin()).isFalse();
         assertThat(me.grants()).containsOnlyKeys("MASTER_DATA_PROTOCOLS");
         assertThat(me.grants().get("MASTER_DATA_PROTOCOLS")).containsExactly("READ", "CREATE");
     }

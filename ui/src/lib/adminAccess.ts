@@ -1,25 +1,28 @@
 import type { AdminNavItem } from "../config/adminNavItems";
+import type { SidebarNavItem } from "../components/Sidebar";
 
-/** GET /api/v1/auth/me/permissions: the super admin flag, or the user's grants across all their roles. */
+/** GET /api/v1/auth/me/permissions: resource name to the verbs the user holds across all their roles. */
 export interface MyPermissions {
-  superAdmin: boolean;
   grants: Record<string, string[]>;
 }
 
-/** An admin screen is shown when the user may READ any of the resources it lists. */
-export function canSeeAdminItem(perms: MyPermissions | undefined, item: AdminNavItem): boolean {
+/**
+ * A menu item is shown when it needs no permission, or when the user may READ any of the
+ * resources it lists. Gated items stay hidden until the permissions have loaded.
+ */
+export function canSeeNavItem(perms: MyPermissions | undefined, item: SidebarNavItem): boolean {
+  if (!item.anyOf?.length) return true;
   if (!perms) return false;
-  if (perms.superAdmin) return true;
   return item.anyOf.some((resource) => perms.grants[resource]?.includes("READ"));
 }
 
-export function visibleAdminItems(perms: MyPermissions | undefined, items: AdminNavItem[]): AdminNavItem[] {
-  return items.filter((item) => canSeeAdminItem(perms, item));
+export function visibleNavItems<T extends SidebarNavItem>(perms: MyPermissions | undefined, items: T[]): T[] {
+  return items.filter((item) => canSeeNavItem(perms, item));
 }
 
-/** Where "/admin" takes the user: the first screen they can open, or null when there is none. */
+/** Where "/admin" takes the user: the first admin screen they can open, or null when there is none. */
 export function firstAdminPath(perms: MyPermissions | undefined, items: AdminNavItem[]): string | null {
-  return visibleAdminItems(perms, items)[0]?.path ?? null;
+  return visibleNavItems(perms, items)[0]?.path ?? null;
 }
 
 /** The menu item a path belongs to, including nested pages (e.g. a role's edit page under Roles). */

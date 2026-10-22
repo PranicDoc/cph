@@ -55,7 +55,7 @@ describe("UserProfileIcon, view switch", () => {
       user: { id: "1", fullName: "Asha Rao", email: "asha@example.com" },
       logout: vi.fn(),
     });
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: false, grants: {} } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: {} } });
   });
 
   it("offers 'Try the new view' in the classic view and switches when chosen", async () => {
@@ -116,7 +116,7 @@ describe("UserProfileIcon, admin entry", () => {
 
   it("links a healer whose roles grant master data to the admin screen they can open", async () => {
     mockUseMyPermissions.mockReturnValue({
-      data: { superAdmin: false, grants: { MASTER_DATA_PROTOCOLS: ["READ"] } },
+      data: { grants: { MASTER_DATA_PROTOCOLS: ["READ"] } },
     });
     await openMenu();
     const admin = await screen.findByRole("menuitem", { name: /admin/i });
@@ -124,13 +124,13 @@ describe("UserProfileIcon, admin entry", () => {
   });
 
   it("has no admin entry without any admin permission, or when already in the admin area", async () => {
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: false, grants: { PATIENT: ["READ"] } } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { PATIENT: ["READ"] } } });
     await openMenu();
     expect(screen.queryByRole("menuitem", { name: /admin/i })).toBeNull();
   });
 
   it("hides the admin entry inside the admin area", async () => {
-    mockUseMyPermissions.mockReturnValue({ data: { superAdmin: true, grants: {} } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } } });
     await openMenu("/admin/accounts");
     await screen.findByRole("menuitem", { name: /logout/i });
     expect(screen.queryByRole("menuitem", { name: /^admin$/i })).toBeNull();

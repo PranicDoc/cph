@@ -4,10 +4,13 @@ import { Activity, Menu } from "lucide-react";
 import UserProfileIcon from "./UserProfile";
 import Sidebar from "./Sidebar";
 import { healerNavItems } from "../config/healerNavItems";
+import { useMyPermissions } from "../hooks/useMyPermissions";
+import { visibleNavItems } from "../lib/adminAccess";
 import { Button } from "@/components/ui/button";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: permissions } = useMyPermissions();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,7 +40,7 @@ export default function Layout() {
 
       <div className="flex flex-1 max-w-7xl w-full mx-auto">
         <Sidebar
-          items={healerNavItems}
+          items={visibleNavItems(permissions, healerNavItems)}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
