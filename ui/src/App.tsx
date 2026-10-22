@@ -95,7 +95,7 @@ const router = createBrowserRouter(
         <Route path="/legal-center" element={<LegalCenter />} />
       </Route>
 
-      {/* Admin routes — ADMIN + SUPADM only */}
+      {/* Admin routes — opened by RBAC permissions (AdminRoute), not by role */}
       <Route element={<AdminRoute />}>
         <Route path="/admin" element={<AdminLayoutRoute />}>
           <Route index element={<AccountsPage />} />

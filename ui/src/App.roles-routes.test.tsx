@@ -5,7 +5,8 @@ import { screen } from "@testing-library/react";
 import { Outlet, useParams, type RouteObject } from "react-router-dom";
 
 import { renderWithDataRouter } from "./test/renderWithDataRouter";
-import { adminNavItems, type AdminNavItem } from "./config/adminNavItems";
+import { adminNavItems } from "./config/adminNavItems";
+import { visibleAdminItems, type MyPermissions } from "./lib/adminAccess";
 
 /**
  * Wave-5 join point (plan 38-10): the four role routes are registered inside
@@ -17,7 +18,7 @@ import { adminNavItems, type AdminNavItem } from "./config/adminNavItems";
  *  1. The four role route *path patterns* resolve to their intended screen and
  *     expose `:id` as the `id` param — exercised against stub elements mounted
  *     with the exact relative path strings that App.tsx uses.
- *  2. `adminNavItems` gates the Roles entry to SUPADM only and orders it
+ *  2. `adminNavItems` shows the Roles entry only with ROLES READ (or to the super admin) and orders it
  *     immediately after `/admin/legal-documents` (the nav-gating regression
  *     guard for T-38-10 — the nav entry is discoverability, not access control).
  *
@@ -83,19 +84,19 @@ describe("role route resolution", () => {
 
 // --- (2) nav gating + ordering --------------------------------------------
 
-/** Mirrors AdminLayout's filter: `adminNavItems.filter(i => i.roles.includes(role))`. */
-function visibleFor(role: string): AdminNavItem[] {
-  return adminNavItems.filter((item) => item.roles.includes(role));
+/** Mirrors AdminLayout's filter: the items a user's permissions open. */
+function visibleFor(permissions: MyPermissions) {
+  return visibleAdminItems(permissions, adminNavItems);
 }
 
 describe("adminNavItems — Roles entry", () => {
-  it("has exactly one /admin/roles entry, SUPADM-only", () => {
+  it("has exactly one /admin/roles entry, opened by ROLES", () => {
     const rolesEntries = adminNavItems.filter(
       (item) => item.path === "/admin/roles"
     );
     expect(rolesEntries).toHaveLength(1);
     expect(rolesEntries[0].label).toBe("Roles & Permissions");
-    expect(rolesEntries[0].roles).toEqual(["SUPADM"]);
+    expect(rolesEntries[0].anyOf).toEqual(["ROLES"]);
   });
 
   it("sits immediately after the Legal Documents entry", () => {
@@ -109,12 +110,13 @@ describe("adminNavItems — Roles entry", () => {
     expect(rolesIdx).toBe(legalIdx + 1);
   });
 
-  it("is excluded from an ADMIN's nav and included in a SUPADM's nav", () => {
+  it("is excluded without ROLES READ and included with it or for the super admin", () => {
+    const accountsOnly = { superAdmin: false, grants: { CREDIT_ACCOUNTS: ["READ"] } };
+    const roleReader = { superAdmin: false, grants: { ROLES: ["READ"] } };
+    expect(visibleFor(accountsOnly).some((item) => item.path === "/admin/roles")).toBe(false);
+    expect(visibleFor(roleReader).some((item) => item.path === "/admin/roles")).toBe(true);
     expect(
-      visibleFor("ADMIN").some((item) => item.path === "/admin/roles")
-    ).toBe(false);
-    expect(
-      visibleFor("SUPADM").some((item) => item.path === "/admin/roles")
+      visibleFor({ superAdmin: true, grants: {} }).some((item) => item.path === "/admin/roles")
     ).toBe(true);
   });
 });
