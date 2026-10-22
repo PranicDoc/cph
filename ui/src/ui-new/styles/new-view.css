@@ -503,3 +503,13 @@ html[data-ui="new"] .hlx div.plans { grid-template-columns: repeat(auto-fit, min
 html[data-ui="new"] [data-slot="table-head"] { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; }
 /* master data colour swatches are rounded squares */
 html[data-ui="new"] .hlx .md-swatch { width: 22px; height: 22px; border-radius: 7px; border: 0; box-shadow: 0 0 0 1px var(--hl-hair-strong) inset; }
+/* phones: session form gets more width; medicine row = name / dose + delete / timing on one line */
+@media (max-width: 767px) {
+  html[data-ui="new"] .hlx .session-form { padding: 16px; }
+  html[data-ui="new"] .hlx div.medrow { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; }
+  html[data-ui="new"] .hlx div.medrow > input:first-child { grid-column: 1 / -1; grid-row: 1; }
+  html[data-ui="new"] .hlx div.medrow > input:nth-child(2) { grid-column: 1; grid-row: 2; }
+  html[data-ui="new"] .hlx div.medrow > button { grid-column: 2; grid-row: 2; justify-self: end; }
+  html[data-ui="new"] .hlx div.medrow > div { grid-column: 1 / -1; grid-row: 3; flex-wrap: nowrap !important; justify-content: space-between; gap: 6px !important; font-size: 13px; }
+  html[data-ui="new"] .hlx div.medrow > div label { gap: 6px !important; }
+}
