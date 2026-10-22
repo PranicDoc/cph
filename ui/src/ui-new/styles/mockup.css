@@ -330,6 +330,9 @@ html[data-ui="new"] [data-slot="dialog-content"].hl-rsheet {
 
 /* centred glass dialog for small forms (consent forms, publish version ...), bottom sheet on phones */
 html[data-ui="new"] [data-slot="dialog-content"].hl-cdialog { padding: 0; width: 520px; max-width: calc(100vw - 24px); border-radius: 24px; max-height: calc(100vh - 40px); overflow-y: auto; }
+@media (max-width: 639px) {
+  html[data-ui="new"] [data-slot="dialog-content"].hl-cdialog { width: 100%; max-width: 100%; border-radius: 24px 24px 0 0; }
+}
 html[data-ui="new"] .hlx .tabs > a { cursor: pointer; }
 html[data-ui="new"] .hlx .tabs button { height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); font: inherit; font-weight: 550; white-space: nowrap; cursor: pointer; }
 html[data-ui="new"] .hlx .tabs button.on { background: var(--primary-soft); color: var(--accent-text); font-weight: 600; }
