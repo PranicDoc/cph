@@ -4,10 +4,9 @@ import type { UserProfileIconProps } from "./types/user-profile";
 import { CreditCard, LogOut, MessageSquare, Settings, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useUiVersion, type ThemeChoice } from "../../ui-version";
-import { PlanPicker } from "../PlanPicker";
+import { UpgradePlanDialog } from "../UpgradePlanDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -152,21 +151,7 @@ export function UserProfileIcon({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
-        <DialogContent className="w-full sm:max-w-3xl gap-0 rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col p-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:max-w-full">
-          <DialogTitle className="sr-only">Upgrade Plan</DialogTitle>
-          <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 bg-border rounded-full" />
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8">
-            <PlanPicker
-              ownerId={user?.id ?? ""}
-              ownerType="HEALER"
-              onComplete={() => setShowUpgradeModal(false)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <UpgradePlanDialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal} ownerId={user?.id ?? ""} />
     </>
   );
 }
