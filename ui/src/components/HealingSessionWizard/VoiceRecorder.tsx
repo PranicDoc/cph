@@ -187,7 +187,7 @@ export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
         }}
         aria-label={isRecording ? "Stop recording" : "Start voice recording"}
       >
-        {isRecording ? <MicOff size={32} /> : <Mic size={32} />}
+        {isRecording ? <MicOff style={{ width: 32, height: 32 }} /> : <Mic style={{ width: 32, height: 32 }} />}
       </button>
       <div style={{ fontWeight: 600 }} aria-live="polite">
         {isRecording ? (
