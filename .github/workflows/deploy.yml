@@ -26,6 +26,10 @@ on:
         type: choice
         options: [both, backend, ui]
         default: both
+      env_vars:
+        description: "Optional env vars, KEY=value pairs separated by ; (e.g. LOG_LEVEL=info;FEATURE_X=true). Shown on this run page, so no real secrets"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -102,6 +106,7 @@ jobs:
       services: ${{ inputs.components == 'both' && 'cph ui' || (inputs.components == 'backend' && 'cph' || 'ui') }}
       version: ${{ needs.resolve.outputs.version }}
       environment: ${{ inputs.environment }}
+      env_vars: ${{ inputs.env_vars }}
     secrets: inherit
 
   deploy_cloudrun:
@@ -118,3 +123,4 @@ jobs:
       image_name: cph
       image_tag: ${{ needs.resolve.outputs.version }}
       health_path: /cph/actuator/health
+      env_vars: ${{ inputs.env_vars }}
