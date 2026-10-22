@@ -226,9 +226,9 @@ export function DynamicField({
           }
           return (
             <div className={wrapperClassName}>
-              {!isNewView && <Label className="block text-sm font-semibold mb-2">{label}</Label>}
+              {(!isNewView || fieldConfig.readOnly) && <Label className="block text-sm font-semibold mb-2">{label}</Label>}
               <TableInput
-                label={isNewView ? label : undefined}
+                label={isNewView && !fieldConfig.readOnly ? label : undefined}
                 value={field.state.value ?? []}
                 onChange={field.handleChange}
                 placeholder={fieldConfig.placeholder}

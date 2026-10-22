@@ -492,3 +492,8 @@ html[data-ui="new"] .hl-cmdk-empty { padding: 18px 12px; color: var(--color-text
 /* inputs drawn inside another field (tag input, search boxes) stay borderless */
 html[data-ui="new"] [data-slot="input"].border-0 { border-width: 0; background: transparent; border-radius: 0; box-shadow: none; }
 html[data-ui="new"] .border-2.rounded-lg.flex-wrap:has(> [data-slot="input"].border-0) { border-width: 1px; border-color: var(--hl-hair-strong); border-radius: 0.75rem; background: var(--hl-field); }
+/* session edit form: one column, as in the SessionEdit mockup */
+html[data-ui="new"] .hlx .session-form .grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+html[data-ui="new"] .hlx .session-form .grid > * { grid-column: auto; grid-row: auto; }
+html[data-ui="new"] .hlx .session-form .bg-background.rounded-xl { background: transparent; padding: 0; border: 0; }
+html[data-ui="new"] .hlx .session-form h3 { display: none; }

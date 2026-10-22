@@ -163,9 +163,9 @@ export function FileUpload({
           onBlur={onBlur}
           style={{ padding: 18, cursor: "pointer", borderColor: dragOver ? "var(--primary)" : undefined }}
         >
-          <Upload className="ico" aria-hidden="true" style={{ width: 22, height: 22 }} />
+          <Upload className="ico" aria-hidden="true" style={{ width: 22, height: 22, display: "block", margin: "0 auto" }} />
           <div style={{ marginTop: 6, color: "var(--text)", fontWeight: 550 }}>Drop lab reports or browse</div>
-          <div className="small">PDF or image, up to {formatSize(MAX_FILE_BYTES)} each</div>
+          <div className="small">PDF or image, up to {MAX_FILE_BYTES / (1024 * 1024)} MB each</div>
           <input ref={inputRef} type="file" multiple hidden onChange={(e) => addFiles(e.target.files)} />
         </div>
         {rejected.length > 0 && (

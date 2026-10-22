@@ -518,7 +518,7 @@ export default function Session() {
           }
           goToNextStep();
         }}
-        className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6"
+        className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
       >
         <DynamicFormEngine form={sessionForm} schema={schema} />
 
@@ -540,7 +540,7 @@ export default function Session() {
               onClick={() => navigate("/patients")}
               className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
             >
-              Back to Patients
+              {isNewView ? "Back to patients" : "Back to Patients"}
             </Button>
 
             {sessionData.status !== "DRAFT" && (
