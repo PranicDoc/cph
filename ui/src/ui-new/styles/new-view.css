@@ -497,3 +497,5 @@ html[data-ui="new"] .hlx .session-form .grid { grid-template-columns: minmax(0, 
 html[data-ui="new"] .hlx .session-form .grid > * { grid-column: auto; grid-row: auto; }
 html[data-ui="new"] .hlx .session-form .bg-background.rounded-xl { background: transparent; padding: 0; border: 0; }
 html[data-ui="new"] .hlx .session-form h3 { display: none; }
+/* plan cards: as many columns as fit (4 plans on desktop, 1 on phones) */
+html[data-ui="new"] .hlx div.plans { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
