@@ -1,6 +1,6 @@
 import { useUiVersion } from "../ui-version";
 import { useMemo, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ interface TableInputProps {
   editableFields?: Record<string, EditableFieldConfig>;
   createNewTag?: (input: string) => any;
   readOnly?: boolean;
+  /** New view: the field label, shown on one row with the add button. */
+  label?: string;
 }
 
 function camelToLabel(key: string): string {
@@ -94,6 +96,7 @@ export function TableInput({
   editableFields,
   createNewTag,
   readOnly = false,
+  label,
 }: TableInputProps) {
   const { isNewView } = useUiVersion();
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
@@ -314,7 +317,8 @@ export function TableInput({
     const addLabel = placeholder ?? (displayKey.toLowerCase().includes("medic") ? "Add medicine" : "Add row");
     return (
       <div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: label ? "space-between" : "flex-end", marginBottom: 4 }}>
+          {label && <label className="lbl" style={{ margin: 0 }}>{label}</label>}
           <button type="button" className="btn btn-ghost" onClick={addRow}>
             <Plus className="ico" /> {addLabel}
           </button>
@@ -350,7 +354,7 @@ export function TableInput({
               )
             )}
             <button type="button" className="icon-btn danger" aria-label="Delete row" onClick={() => deleteRow(idx)}>
-              <X className="ico" />
+              <Trash2 className="ico" />
             </button>
           </div>
         ))}

@@ -14,6 +14,8 @@ import {
   TextareaField,
 } from "@/components/form/Field";
 import { cn } from "@/lib/utils";
+import { useUiVersion } from "../ui-version";
+import { sentenceCase } from "../ui-new/lib/sentenceCase";
 
 export type FieldType =
   | "text"
@@ -97,9 +99,10 @@ export function DynamicField({
   form: any;
   fieldConfig: FieldConfig;
 }) {
+  const { isNewView } = useUiVersion();
   const {
     name,
-    label,
+    label: rawLabel,
     display = true,
     type = "text",
     options,
@@ -112,6 +115,8 @@ export function DynamicField({
     trimSpaces = false,
   } = fieldConfig;
 
+  // The new view uses sentence case for field labels, as in the mockups.
+  const label = isNewView ? sentenceCase(rawLabel) : rawLabel;
   const [enabled, setEnabled] = useState(false);
 
   const handleToggle = useCallback(() => {
@@ -221,8 +226,9 @@ export function DynamicField({
           }
           return (
             <div className={wrapperClassName}>
-              <Label className="block text-sm font-semibold mb-2">{label}</Label>
+              {!isNewView && <Label className="block text-sm font-semibold mb-2">{label}</Label>}
               <TableInput
+                label={isNewView ? label : undefined}
                 value={field.state.value ?? []}
                 onChange={field.handleChange}
                 placeholder={fieldConfig.placeholder}
