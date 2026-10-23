@@ -13,9 +13,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,9 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 class RequestFailureAuditResolverTest {
 
-    private final AuditLogRepository auditLogRepository = mock(AuditLogRepository.class);
+    private final AuditLogWriter auditLogWriter = mock(AuditLogWriter.class);
     private final SecurityContextUtil securityContextUtil = mock(SecurityContextUtil.class);
-    private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
 
     private RequestFailureAuditResolver resolver;
 
@@ -56,9 +52,7 @@ class RequestFailureAuditResolverTest {
 
     @BeforeEach
     void setUp() {
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenReturn(mock(TransactionStatus.class));
-        resolver = new RequestFailureAuditResolver(auditLogRepository, securityContextUtil, transactionManager);
+        resolver = new RequestFailureAuditResolver(auditLogWriter, securityContextUtil);
     }
 
     private HandlerMethod handler() throws Exception {
@@ -84,7 +78,7 @@ class RequestFailureAuditResolverTest {
 
         assertNull(result, "must not swallow the exception — GlobalExceptionHandler still builds the response");
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         AuditLog saved = captor.getValue();
         assertEquals("POST /api/things/{id}", saved.getAction());
         assertEquals("SampleController", saved.getEntityType());
@@ -103,7 +97,7 @@ class RequestFailureAuditResolverTest {
         resolver.resolveException(request(), new MockHttpServletResponse(), handler(), new RuntimeException("x"));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertNull(captor.getValue().getHealerId());
     }
 
@@ -114,19 +108,19 @@ class RequestFailureAuditResolverTest {
 
         resolver.resolveException(request, new MockHttpServletResponse(), handler(), new RuntimeException("x"));
 
-        verifyNoInteractions(auditLogRepository);
+        verifyNoInteractions(auditLogWriter);
     }
 
     @Test
     void noHandlerMatched_isNotRecorded() {
         resolver.resolveException(request(), new MockHttpServletResponse(), null, new RuntimeException("x"));
 
-        verifyNoInteractions(auditLogRepository);
+        verifyNoInteractions(auditLogWriter);
     }
 
     @Test
     void auditWriteFailure_neverPropagates() throws Exception {
-        when(auditLogRepository.save(any())).thenThrow(new RuntimeException("db down"));
+        doThrow(new RuntimeException("db down")).when(auditLogWriter).enqueue(any());
 
         assertDoesNotThrow(() -> resolver.resolveException(
                 request(), new MockHttpServletResponse(), handler(), new RuntimeException("x")));
@@ -159,7 +153,7 @@ class RequestFailureAuditResolverTest {
                 .andExpect(status().isBadRequest());
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         AuditLog saved = captor.getValue();
         assertEquals("POST /api/things/{id}", saved.getAction());
         assertEquals(AuditStatus.FAILURE, saved.getStatus());

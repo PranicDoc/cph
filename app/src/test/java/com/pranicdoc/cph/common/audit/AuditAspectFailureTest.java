@@ -10,9 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
 
 import java.util.UUID;
 
@@ -22,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -35,10 +33,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuditAspectFailureTest {
 
-    @Mock private AuditLogRepository auditLogRepository;
+    @Mock private AuditLogWriter auditLogWriter;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private HttpServletRequest httpServletRequest;
-    @Mock private PlatformTransactionManager transactionManager;
     @Mock private ProceedingJoinPoint joinPoint;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -50,12 +47,10 @@ class AuditAspectFailureTest {
     @BeforeEach
     void setUp() {
         auditAspect = new AuditAspect(
-                auditLogRepository, securityContextUtil, httpServletRequest, transactionManager, objectMapper);
+                auditLogWriter, securityContextUtil, httpServletRequest, objectMapper);
 
         lenient().when(joinPoint.getTarget()).thenReturn(new Object());
 
-        TransactionStatus status = mock(TransactionStatus.class);
-        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(status);
     }
 
     @Test
@@ -97,7 +92,7 @@ class AuditAspectFailureTest {
         assertThrows(RuntimeException.class, () -> auditAspect.audit(joinPoint, auditable));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         AuditLog saved = captor.getValue();
         assertEquals(AuditStatus.FAILURE, saved.getStatus());
         assertEquals("db exploded", saved.getMessage());
@@ -116,7 +111,7 @@ class AuditAspectFailureTest {
         assertThrows(IllegalStateException.class, () -> auditAspect.audit(joinPoint, auditable));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertEquals(argId, captor.getValue().getEntityId());
     }
 
@@ -130,7 +125,7 @@ class AuditAspectFailureTest {
         assertThrows(NullPointerException.class, () -> auditAspect.audit(joinPoint, auditable));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertEquals("NullPointerException", captor.getValue().getMessage());
     }
 
@@ -145,7 +140,7 @@ class AuditAspectFailureTest {
 
         assertEquals("ok-result", result);
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertEquals(AuditStatus.SUCCESS, captor.getValue().getStatus());
         assertEquals("Success", captor.getValue().getMessage());
     }
@@ -155,8 +150,7 @@ class AuditAspectFailureTest {
         RuntimeException boom = new RuntimeException("db exploded");
         when(joinPoint.getArgs()).thenReturn(new Object[0]);
         when(joinPoint.proceed()).thenThrow(boom);
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
-                .thenThrow(new RuntimeException("audit infra down"));
+        doThrow(new RuntimeException("audit infra down")).when(auditLogWriter).enqueue(any());
         Auditable auditable = mock(Auditable.class);
         when(auditable.action()).thenReturn("SOME_ACTION");
 

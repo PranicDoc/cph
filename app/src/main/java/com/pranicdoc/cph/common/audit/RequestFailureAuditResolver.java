@@ -7,9 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.HandlerMapping;
@@ -43,9 +40,8 @@ public class RequestFailureAuditResolver implements HandlerExceptionResolver, Or
     private static final int ACTION_MAX_LENGTH = 255;
     private static final int MESSAGE_MAX_LENGTH = 10_000;
 
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogWriter auditLogWriter;
     private final SecurityContextUtil securityContextUtil;
-    private final PlatformTransactionManager transactionManager;
 
     @Override
     public int getOrder() {
@@ -77,12 +73,7 @@ public class RequestFailureAuditResolver implements HandlerExceptionResolver, Or
                 auditLog.setHealerId(securityContextUtil.getCurrentHealerIdOrNull());
             } catch (RuntimeException ignored) {}
 
-            TransactionTemplate tx = new TransactionTemplate(transactionManager);
-            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            tx.execute(status -> {
-                auditLogRepository.save(auditLog);
-                return null;
-            });
+            auditLogWriter.enqueue(auditLog);
         } catch (Exception auditFailure) {
             log.error("Failed to write request-failure audit log for {} {}",
                     request.getMethod(), request.getRequestURI(), auditFailure);

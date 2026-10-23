@@ -9,9 +9,6 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -29,10 +26,9 @@ public class AuditAspect {
     private static final int PAYLOAD_MAX_LENGTH = 4000;
     private static final int MESSAGE_MAX_LENGTH = 10_000;
 
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogWriter auditLogWriter;
     private final SecurityContextUtil securityContextUtil;
     private final HttpServletRequest httpServletRequest;
-    private final PlatformTransactionManager transactionManager;
     private final ObjectMapper objectMapper;
 
     /**
@@ -111,12 +107,9 @@ public class AuditAspect {
                 } catch (Exception ignored) {}
             }
 
-            TransactionTemplate tx = new TransactionTemplate(transactionManager);
-            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-            tx.execute(txStatus -> {
-                auditLogRepository.save(auditLog);
-                return null;
-            });
+            // Queued, not saved here: this thread may already hold a pooled connection, and a
+            // second one for the audit row deadlocks the pool under load (see AuditLogWriter).
+            auditLogWriter.enqueue(auditLog);
         } catch (Exception ex) {
             log.error("Failed to write audit log for action: {}", auditable.action(), ex);
         }

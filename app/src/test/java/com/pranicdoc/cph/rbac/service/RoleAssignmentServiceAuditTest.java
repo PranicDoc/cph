@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.common.audit.AuditAspect;
 import com.pranicdoc.cph.common.audit.AuditLog;
-import com.pranicdoc.cph.common.audit.AuditLogRepository;
+import com.pranicdoc.cph.common.audit.AuditLogWriter;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.rbac.dto.RoleAssignmentRequest;
@@ -17,9 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -135,10 +132,9 @@ class RoleAssignmentServiceAuditTest {
 
     // ─── Half B — behavioural proof through the real AuditAspect ───
 
-    @Mock private AuditLogRepository auditLogRepository;
+    @Mock private AuditLogWriter auditLogWriter;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private HttpServletRequest httpServletRequest;
-    @Mock private PlatformTransactionManager transactionManager;
     @Mock private ProceedingJoinPoint joinPoint;
     @Mock private Auditable auditable;
 
@@ -149,15 +145,13 @@ class RoleAssignmentServiceAuditTest {
     @BeforeEach
     void setUp() {
         auditAspect = new AuditAspect(
-                auditLogRepository, securityContextUtil, httpServletRequest, transactionManager, objectMapper);
+                auditLogWriter, securityContextUtil, httpServletRequest, objectMapper);
 
         lenient().when(joinPoint.getTarget()).thenReturn(new Object());
         // A Mockito mock of @Auditable returns false for auditPayload(); the real annotation
         // defaults to true, which is what the payload assertions below are about.
         lenient().when(auditable.auditPayload()).thenReturn(true);
 
-        TransactionStatus status = mock(TransactionStatus.class);
-        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(status);
     }
 
     private AuditLog driveAspect(Object[] args, RoleAssignmentResponse result, String action) throws Throwable {
@@ -168,7 +162,7 @@ class RoleAssignmentServiceAuditTest {
         auditAspect.audit(joinPoint, auditable);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         return captor.getValue();
     }
 
