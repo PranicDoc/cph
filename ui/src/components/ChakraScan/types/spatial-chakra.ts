@@ -4,8 +4,8 @@
 
 // --- Energy & Activation Enums ---
 
-export type EnergyLevel = "N" | "D" | "C";
-export type ActivationLevel = "N" | "U" | "O";
+export type EnergyLevel = "D" | "N" | "C";
+export type ActivationLevel = "U" | "N" | "O";
 export type ColorUsageType = "cleansing" | "energising";
 export type ScanType = "pre" | "post";
 export type BodyModelType = "xbot" | "anatomical";
@@ -13,14 +13,14 @@ export type ChakraCategory = "major" | "minor" | "organ_mini";
 export type BodySide = "front" | "back" | "center";
 
 export const ENERGY_LEVEL_LABELS: Record<EnergyLevel, string> = {
-  N: "Normal",
   D: "Depleted",
+  N: "Normal",
   C: "Congested",
 };
 
 export const ACTIVATION_LEVEL_LABELS: Record<ActivationLevel, string> = {
-  N: "Normal",
   U: "Underactivated",
+  N: "Normal",
   O: "Overactivated",
 };
 
