@@ -290,7 +290,7 @@ html[data-ui="new"] [data-slot="drawer-content"] {
 @media (max-width: 639px) {
   html[data-ui="new"] [data-slot="dialog-content"],
   html[data-ui="new"] [data-slot="alert-dialog-content"] {
-    top: auto; bottom: 0; left: 0; right: 0; translate: none; transform: none;
+    top: auto; bottom: 0; left: 0; right: 0; translate: none;
     max-width: 100%; width: 100%; border-radius: 1.5rem 1.5rem 0 0;
   }
 }
@@ -474,7 +474,7 @@ html[data-ui="new"][data-theme="light"] .hl-canvas [data-slot="table-row"]:hover
 html[data-ui="new"] .hl-search { display: flex; align-items: center; gap: 8px; height: 36px; min-width: 240px; padding: 0 12px; border-radius: 10px; background: var(--hl-field); border: 1px solid var(--hl-hair); color: var(--color-text-light); font-size: 13.5px; cursor: pointer; }
 html[data-ui="new"] .hl-search:hover { border-color: var(--hl-hair-strong); }
 html[data-ui="new"] .hl-search kbd { margin-left: auto; font: inherit; font-size: 11.5px; padding: 1px 6px; border-radius: 6px; background: var(--hl-hair); }
-html[data-ui="new"] [data-slot="dialog-content"].hl-cmdk { top: 14vh; translate: -50% 0; transform: none; width: 560px; max-width: calc(100vw - 24px); padding: 0; border-radius: 20px; overflow: hidden; gap: 0; }
+html[data-ui="new"] [data-slot="dialog-content"].hl-cmdk { top: 14vh; translate: -50% 0; width: 560px; max-width: calc(100vw - 24px); padding: 0; border-radius: 20px; overflow: hidden; gap: 0; }
 html[data-ui="new"] .hl-cmdk-input { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 54px; border-bottom: 1px solid var(--hl-hair); color: var(--color-text-light); }
 html[data-ui="new"] .hl-cmdk-input input { flex: 1; background: transparent; border: 0; outline: none; font-size: 15px; color: var(--color-text); }
 html[data-ui="new"] .hl-cmdk-list { list-style: none; margin: 0; padding: 8px; max-height: min(52vh, 420px); overflow-y: auto; }
@@ -527,7 +527,7 @@ html[data-ui="new"] .hlx .md-swatch { width: 22px; height: 22px; border-radius: 
 }
 /* phones: global search sits between 12px gutters under the header (the desktop centring translate pushed it off screen) */
 @media (max-width: 767px) {
-  html[data-ui="new"] [data-slot="dialog-content"].hl-cmdk { top: 72px; left: 12px; right: 12px; bottom: auto; translate: none; transform: none; width: auto; max-width: none; }
+  html[data-ui="new"] [data-slot="dialog-content"].hl-cmdk { top: 72px; left: 12px; right: 12px; bottom: auto; translate: none; width: auto; max-width: none; }
   html[data-ui="new"] .hl-cmdk-list { max-height: calc(100vh - 220px); }
   html[data-ui="new"] .hl-cmdk-input input:focus-visible { outline: none; box-shadow: none; }
 }

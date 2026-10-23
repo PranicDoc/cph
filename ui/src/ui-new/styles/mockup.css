@@ -321,7 +321,7 @@ html[data-ui="new"] .hl-canvas:has(> .hlx) { background: transparent !important;
 
 /* right-hand sheet (edit package and similar): glass sheet pinned to the right on desktop, bottom sheet on phones */
 html[data-ui="new"] [data-slot="dialog-content"].hl-rsheet {
-  top: 14px; right: 14px; bottom: 14px; left: auto; transform: none; translate: none; width: 520px; max-width: calc(100vw - 28px);
+  top: 14px; right: 14px; bottom: 14px; left: auto; translate: none; width: 520px; max-width: calc(100vw - 28px);
   max-height: none; height: auto; padding: 0; border-radius: 24px; display: block; overflow: hidden;
 }
 @media (max-width: 767px) {
