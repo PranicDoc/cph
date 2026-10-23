@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Verify your email</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F3FA;">
+<div th:replace="~{fragments :: preheader('Confirm your email to finish registering on HealingARK.')}"></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F3FA;">
+  <tr>
+    <td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:600px;background-color:#FFFFFF;border-radius:20px;">
+        <tr><td><table th:replace="~{fragments :: header}"></table></td></tr>
+        <tr>
+          <td style="padding:16px 40px 32px 40px;font-family:Arial,Helvetica,sans-serif;color:#1F1A2E;">
+            <h1 style="margin:0 0 16px 0;font-size:24px;line-height:32px;font-weight:bold;">Verify your email</h1>
+            <p style="margin:0 0 12px 0;font-size:16px;line-height:24px;">
+              Thank you for registering as a healer on HealingARK.
+            </p>
+            <p style="margin:0;font-size:16px;line-height:24px;">
+              Please confirm this is your email address to complete your registration.
+            </p>
+            <table th:replace="~{fragments :: button(${link}, 'Verify my email')}"></table>
+            <p style="margin:8px 0 0 0;font-size:14px;line-height:22px;color:#6B6480;">
+              <span th:text="|This link expires in ${expiryHours} hours.|">This link expires in 72 hours.</span>
+              If you didn't sign up, you can ignore this email.</p>
+            <p th:replace="~{fragments :: fallbackLink(${link})}"></p>
+          </td>
+        </tr>
+        <tr><td><table th:replace="~{fragments :: footer}"></table></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
