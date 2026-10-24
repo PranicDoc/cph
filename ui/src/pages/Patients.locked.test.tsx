@@ -68,35 +68,35 @@ describe("Patients: a LOCKED case", () => {
 
     const row = screen.getAllByText(/locked: credits used up/i)[0].parentElement!;
     expect(within(row).getByRole("button", { name: /upgrade/i })).toBeInTheDocument();
-    expect(within(row).queryByRole("button", { name: /start/i })).not.toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: /unlock/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/generate pdf/i)).not.toBeInTheDocument();
 
     await user.click(within(row).getByRole("button", { name: /upgrade/i }));
     expect(screen.getByText("upgrade-modal")).toBeInTheDocument();
   });
 
-  it("Start asks first, then spends a credit and opens the session", async () => {
+  it("Unlock asks first, then spends a credit and opens the session", async () => {
     (api.post as any).mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     renderPatients();
 
-    await user.click(screen.getAllByRole("button", { name: /^start$/i })[0]);
+    await user.click(screen.getAllByRole("button", { name: /^unlock$/i })[0]);
     expect(screen.getByText(/uses 1 credit\. you have 3 left/i)).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: /use 1 credit and start/i }));
+    await user.click(screen.getByRole("button", { name: /use 1 credit and unlock/i }));
 
     expect(api.post).toHaveBeenCalledWith("/api/v1/cases/case-1/unlock");
     expect(mockNavigate).toHaveBeenCalledWith("/session/case-1");
     expect(localStorage.getItem("unlockCase.skipConfirm.healer-1")).toBe("true");
   });
 
-  it("after Don't show again, Start unlocks without asking", async () => {
+  it("after Don't show again, Unlock without asking", async () => {
     localStorage.setItem("unlockCase.skipConfirm.healer-1", "true");
     (api.post as any).mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     renderPatients();
 
-    await user.click(screen.getAllByRole("button", { name: /^start$/i })[0]);
+    await user.click(screen.getAllByRole("button", { name: /^unlock$/i })[0]);
 
     expect(screen.queryByText(/uses 1 credit\. you have/i)).not.toBeInTheDocument();
     expect(api.post).toHaveBeenCalledWith("/api/v1/cases/case-1/unlock");

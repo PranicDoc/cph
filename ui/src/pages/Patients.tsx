@@ -13,6 +13,7 @@ import {
   Eye,
   Play,
   CreditCard,
+  LockOpen,
   BookText,
   ClipboardList,
   Pen,
@@ -132,7 +133,7 @@ export default function Patients() {
     : null;
   const outOfCredits = creditsLeft !== null && creditsLeft <= 0;
 
-  // A new case is LOCKED: Start spends one credit to unlock it. The confirmation can be turned off.
+  // A new case is LOCKED: Unlock spends one credit to unlock it. The confirmation can be turned off.
   const skipUnlockKey = `unlockCase.skipConfirm.${user?.id ?? ""}`;
   const [unlockTarget, setUnlockTarget] = useState<ComputedPatient | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
@@ -366,7 +367,7 @@ export default function Patients() {
     );
   };
 
-  // A locked case offers one action, full width: Start (unlock for a credit) or, with no credits
+  // A locked case offers one action, full width: Unlock (for a credit) or, with no credits
   // left, Upgrade.
   const renderLockedActions = (patient: ComputedPatient, variant: "table" | "card") => {
     const size = variant === "card" ? "py-2" : "py-1.5";
@@ -381,13 +382,13 @@ export default function Patients() {
           </button>
         ) : (
           <button className={buttonClass} onClick={() => handleStart(patient)} disabled={unlocking}>
-            <Play className="w-3.5 h-3.5 fill-white" />
-            Start
+            <LockOpen className="w-3.5 h-3.5" />
+            Unlock
           </button>
         )}
-        <p className="mt-1 text-[11px] text-text-light">
-          {outOfCredits ? "Locked: credits used up" : "Locked: starting uses 1 credit"}
-        </p>
+        {outOfCredits && (
+          <p className="mt-1 text-[11px] text-text-light">Locked: credits used up</p>
+        )}
       </div>
     );
   };
@@ -696,11 +697,11 @@ export default function Patients() {
       <ConfirmDialog
         open={!!unlockTarget}
         onOpenChange={(open) => !open && setUnlockTarget(null)}
-        title="Start this case?"
+        title="Unlock this case?"
         description={
           <span className="flex flex-col gap-3">
             <span>
-              Starting this case uses 1 credit
+              Unlocking this case uses 1 credit
               {creditsLeft !== null ? `. You have ${creditsLeft} left.` : "."}
             </span>
             <label className="flex items-center gap-2 text-sm">
@@ -712,7 +713,7 @@ export default function Patients() {
             </label>
           </span>
         }
-        confirmLabel="Use 1 credit and start"
+        confirmLabel="Use 1 credit and unlock"
         loading={unlockMutation.isPending}
         onConfirm={confirmUnlock}
       />
