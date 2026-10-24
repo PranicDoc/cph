@@ -16,7 +16,9 @@ import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.JobStatus;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.ConsentRequiredException;
+import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
@@ -124,10 +126,10 @@ public class CaseService {
 
     private CaseResponse createCase(Patient patient, CaseCreateRequest request,
                                     HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        boolean exists = caseRepository.existsByPatientIdAndHealerIdAndStatus(
+        boolean exists = caseRepository.existsByPatientIdAndHealerIdAndStatusIn(
                 request.patientId(),
                 securityContextUtil.getCurrentHealerId(),
-                CaseStatus.DRAFT
+                List.of(CaseStatus.LOCKED, CaseStatus.DRAFT)
         );
         if (exists) {
             throw new IllegalStateException("Draft already exists for this patient");
@@ -362,7 +364,8 @@ public class CaseService {
 
     @Auditable(action = "DELETE_CASE")
     public void softDelete(UUID id) {
-        HealingCase healingCase = findOrThrow(id);
+        HealingCase healingCase = caseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", id));
         healingCase.softDelete();
         caseRepository.save(healingCase);
     }
@@ -376,9 +379,50 @@ public class CaseService {
         }
     }
 
+    /** Loads a case for use; a healer cannot use a case until it is unlocked (see {@link #unlock}). */
     public HealingCase findOrThrow(UUID id) {
-        return caseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", id));
+        return requireUnlocked(caseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", id)));
+    }
+
+    // A patient fills in their own health form while the case is still locked; everyone else waits
+    // for the healer to unlock it, whichever endpoint they call.
+    private HealingCase requireUnlocked(HealingCase healingCase) {
+        if (healingCase.getStatus() == CaseStatus.LOCKED
+                && !"PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {
+            throw new CaseLockedException();
+        }
+        return healingCase;
+    }
+
+    /**
+     * Unlocks a new case for one credit; it becomes a DRAFT the healer can work on. Unlocking a
+     * case that is already unlocked charges nothing. Same shape as {@link #postMessageToGeneratePdf}:
+     * no transaction is held during the credit-service call (D-18).
+     */
+    @Auditable(action = "UNLOCK_CASE")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public CaseResponse unlock(UUID caseId) {
+        HealingCase healingCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+        if (healingCase.getStatus() == CaseStatus.LOCKED) {
+            UUID healerId = securityContextUtil.getCurrentHealerId();
+            if (creditGateService.isExhausted(healerId)) {
+                throw new InsufficientCreditsException();
+            }
+            creditGateService.checkAndDeduct(healerId, healingCase.getHealerId(), caseId);
+        }
+        return self.getObject().markUnlocked(caseId);
+    }
+
+    @Transactional
+    public CaseResponse markUnlocked(UUID caseId) {
+        HealingCase healingCase = caseRepository.findById(caseId)
+                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+        if (healingCase.getStatus() == CaseStatus.LOCKED) {
+            healingCase.unlock();
+        }
+        return toResponse(healingCase);
     }
 
     /**
@@ -392,7 +436,7 @@ public class CaseService {
         if (healingCase == null) {
             throw new ResourceNotFoundException("HealingCase", id);
         }
-        return healingCase;
+        return requireUnlocked(healingCase);
     }
 
     @Transactional(readOnly = true)
@@ -464,8 +508,8 @@ public class CaseService {
                 && (caseUpdateRequest.symptoms() == null || caseUpdateRequest.symptoms().isEmpty())) {
             throw new IllegalArgumentException("At least one symptom is required");
         }
-        HealingCase entity = caseRepository.findById(caseUpdateRequest.healingCaseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found"));
+        HealingCase entity = requireUnlocked(caseRepository.findById(caseUpdateRequest.healingCaseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Healing Case not found")));
         String role = securityContextUtil.getCurrentRole();
         if ("PATIENT".equalsIgnoreCase(role)) {
             UUID tokenPatientId = securityContextUtil.getCurrentPatientId();
@@ -602,11 +646,15 @@ public class CaseService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public JobAckResponse postMessageToGeneratePdf(UUID healingCaseId) {
         self.getObject().validateCaseExists(healingCaseId);
-        UUID caseHealerId = caseRepository.findById(healingCaseId)
-                .map(HealingCase::getHealerId)
+        HealingCase healingCase = caseRepository.findById(healingCaseId)
+                .map(this::requireUnlocked)
                 .orElseThrow(() -> new ResourceNotFoundException("HealingCase", healingCaseId));
-        creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
-                caseHealerId, healingCaseId);
+        // A case paid for when it was unlocked gets its PDFs free. Cases from before unlocking
+        // existed still pay once, on their first PDF.
+        if (healingCase.getCreditChargedAt() == null) {
+            creditGateService.checkAndDeduct(securityContextUtil.getCurrentHealerId(),
+                    healingCase.getHealerId(), healingCaseId);
+        }
         return self.getObject().buildAndEnqueuePdfJob(healingCaseId);
     }
 
@@ -734,8 +782,7 @@ public class CaseService {
     @Auditable(action = "RESEND_FEEDBACK")
     @Transactional
     public void resendFeedback(UUID caseId, boolean isFinal) {
-        HealingCase healingCase = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResourceNotFoundException("HealingCase", caseId));
+        HealingCase healingCase = findOrThrow(caseId);
         if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
             throw new org.springframework.security.access.AccessDeniedException("Not authorized");
         }

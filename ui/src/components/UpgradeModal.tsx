@@ -8,16 +8,15 @@ import { Spinner } from "@/components/ui/spinner";
 
 interface UpgradeModalProps {
   isOpen: boolean;
-  healingCaseId: string;
   ownerId: string;
   ownerType: string;
   onClose: () => void;
-  onRetry: (healingCaseId: string) => void;
+  /** Repeats what ran out of credits, once a plan is bought. */
+  onRetry: () => void;
 }
 
 export function UpgradeModal({
   isOpen,
-  healingCaseId,
   ownerId,
   ownerType,
   onClose,
@@ -46,7 +45,7 @@ export function UpgradeModal({
         onSuccess: () => {
           idempotencyKeyRef.current = null;
           onClose();
-          onRetry(healingCaseId);
+          onRetry();
         },
         onError: () => {
           // key is kept in ref so a retry reuses the same idempotency key
@@ -78,7 +77,7 @@ export function UpgradeModal({
               </DialogTitle>
             </div>
             <p className="text-sm text-text-light">
-              You've run out of credits. Choose a plan to continue generating PDFs.
+              You've run out of credits. Choose a plan to keep starting new cases.
             </p>
           </div>
 

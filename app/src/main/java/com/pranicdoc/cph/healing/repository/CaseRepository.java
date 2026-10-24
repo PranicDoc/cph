@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,7 +28,7 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
 
     boolean existsByPatientId(UUID patientId);
 
-    boolean existsByPatientIdAndHealerIdAndStatus(UUID uuid, UUID currentHealerId, CaseStatus caseStatus);
+    boolean existsByPatientIdAndHealerIdAndStatusIn(UUID uuid, UUID currentHealerId, Collection<CaseStatus> statuses);
 
     /**
      * D-18/D-25/INFRA-01: bounded load for the PDF-generation snapshot path

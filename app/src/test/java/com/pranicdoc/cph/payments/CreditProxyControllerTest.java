@@ -90,6 +90,9 @@ class CreditProxyControllerTest {
     private JwtService jwtService;
 
     @MockBean
+    private com.pranicdoc.cph.payments.service.CreditGateService creditGateService;
+
+    @MockBean
     private TenantInterceptor tenantInterceptor;
 
     @MockBean

@@ -71,7 +71,7 @@ class CaseControllerAuthorizationContractTest {
     private static final String PDF_EXPORT      = "@rbacAuthz.hasPermission('PDF','EXPORT')";
     private static final String FEEDBACK_CREATE = "@rbacAuthz.hasPermission('FEEDBACK','CREATE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 17 gated endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 18 gated endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getByPatientId",            CASE_READ},
             new String[]{"getProtocolUnderstanding",  CASE_READ},
@@ -85,14 +85,15 @@ class CaseControllerAuthorizationContractTest {
             new String[]{"closeCase",                 CASE_UPDATE},
             new String[]{"saveProtocolUnderstanding", CASE_UPDATE},
             new String[]{"updateCaseDetails",         CASE_UPDATE},
+            new String[]{"unlock",                    CASE_UPDATE},
             new String[]{"delete",                    CASE_DELETE},
             new String[]{"generatePdf",               PDF_CREATE},
             new String[]{"getAllPdfs",                PDF_READ},
             new String[]{"getDownloadLink",           PDF_EXPORT},
             new String[]{"resendFeedback",            FEEDBACK_CREATE});
 
-    private static final int EXPECTED_MAPPED = 21;
-    private static final int EXPECTED_GATED = 17;
+    private static final int EXPECTED_MAPPED = 22;
+    private static final int EXPECTED_GATED = 18;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -195,6 +196,10 @@ class CaseControllerAuthorizationContractTest {
     void updateCaseDetails_isGatedByCaseUpdate() { assertGate("updateCaseDetails", CASE_UPDATE); }
 
     @Test
+    @DisplayName("unlock is gated CASE:UPDATE: it spends a credit to open a new case for work")
+    void unlock_isGatedByCaseUpdate() { assertGate("unlock", CASE_UPDATE); }
+
+    @Test
     @DisplayName("getById is gated CASE:READ — the healer-facing case read, gated like every sibling read "
             + "(CR-01 ruling 2026-09-02 / D-19a). The patient health-form load moved to the ungated "
             + "/self-service GET mapping.")
@@ -238,13 +243,13 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 21 declared CaseController request-mapped methods — "
+                .as("the sweep must inspect exactly the 22 declared CaseController request-mapped methods — "
                         + "CaseController spans case CRUD + the PDF job pipeline + the patient feedback cycle + "
                         + "the 3 patient /self-service mappings added by plan 42-13; a method added or removed "
                         + "here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("exactly 17 of the 21 CaseController methods carry a bare capability gate (SC1); a dropped "
+                .as("exactly 18 of the 22 CaseController methods carry a bare capability gate (SC1); a dropped "
                         + "gate restores the implicit any-authenticated-healer path over clinical case records")
                 .isEqualTo(EXPECTED_GATED);
 
@@ -311,8 +316,8 @@ class CaseControllerAuthorizationContractTest {
                 .containsExactlyInAnyOrder(Resource.CASE, Resource.PDF, Resource.FEEDBACK);
 
         assertThat(perResource.get(Resource.CASE))
-                .as("CASE literal count on CaseController must be 13 (5 READ + 7 UPDATE + 1 DELETE)")
-                .isEqualTo(13);
+                .as("CASE literal count on CaseController must be 14 (5 READ + 8 UPDATE + 1 DELETE)")
+                .isEqualTo(14);
         assertThat(perResource.get(Resource.PDF))
                 .as("PDF literal count on CaseController must be 3 (CREATE + READ + EXPORT — the D-05 triplet)")
                 .isEqualTo(3);

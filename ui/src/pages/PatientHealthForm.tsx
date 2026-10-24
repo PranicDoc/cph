@@ -129,11 +129,14 @@ export default function PatientHealthForm() {
     fetchCase();
   }, [caseId]);
 
+  // The patient fills the form in before the healer starts (unlocks) the case, or once it is a draft.
+  const patientCanEdit = caseStatus === "LOCKED" || caseStatus === "DRAFT";
+
   if (isLoading) {
     return <div className="p-6 text-center text-text-light">Loading...</div>;
   }
 
-  if ((isSubmitted || caseStatus !== "DRAFT") && isNewView) {
+  if ((isSubmitted || !patientCanEdit) && isNewView) {
     return (
       <div className="hlx">
         <section className="surface card" style={{ maxWidth: 520, margin: "40px auto", textAlign: "center", padding: 34 }}>
@@ -149,7 +152,7 @@ export default function PatientHealthForm() {
     );
   }
 
-  if (isSubmitted || caseStatus !== "DRAFT") {
+  if (isSubmitted || !patientCanEdit) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 px-4">
         <CheckCircle2 className="w-16 h-16 text-green-500" />

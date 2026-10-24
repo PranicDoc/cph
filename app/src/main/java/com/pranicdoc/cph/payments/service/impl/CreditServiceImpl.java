@@ -10,6 +10,7 @@ import com.pranicdoc.cph.payments.dto.AccountResponse;
 import com.pranicdoc.cph.payments.dto.BalanceCreditResponse;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.payments.service.CreditService;
 import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -26,12 +27,14 @@ public class CreditServiceImpl implements CreditService {
     private final SecurityContextUtil securityContextUtil;
     private final CreditServiceClient creditServiceRestClient;
     private final HealerRepository healerRepository;
+    private final CreditGateService creditGateService;
 
     public CreditServiceImpl(SecurityContextUtil securityContextUtil, CreditServiceClient creditServiceRestClient,
-                              HealerRepository healerRepository) {
+                              HealerRepository healerRepository, CreditGateService creditGateService) {
         this.securityContextUtil = securityContextUtil;
         this.creditServiceRestClient = creditServiceRestClient;
         this.healerRepository = healerRepository;
+        this.creditGateService = creditGateService;
     }
 
     @Override
@@ -52,7 +55,9 @@ public class CreditServiceImpl implements CreditService {
         }
     )
     public String purchase(String requestBody, @Nullable String idempotencyKey) {
-        return creditServiceRestClient.purchase(requestBody, idempotencyKey);
+        String result = creditServiceRestClient.purchase(requestBody, idempotencyKey);
+        creditGateService.clearExhausted(securityContextUtil.getCurrentHealerId());
+        return result;
     }
 
     @Override

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.common.dto.ChakraReadingSummarySnapshot;
 import com.pranicdoc.common.dto.ColorUsedSnapshot;
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ChakraColorSelection;
@@ -44,6 +46,7 @@ public class HealerProtocolUnderstandingService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Healing case not found for id %s"
                                 .formatted(healingCaseId)));
+        if (healingCase.getStatus() == CaseStatus.LOCKED) throw new CaseLockedException();
 
         Map<String, PranaColorCatalog> catalogByName = pranaColorCatalogRepository
                 .findByHealerIdIsNullOrHealerId(healingCase.getHealerId())

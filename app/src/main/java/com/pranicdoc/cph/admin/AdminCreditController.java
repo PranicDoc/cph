@@ -3,6 +3,7 @@ package com.pranicdoc.cph.admin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,7 @@ public class AdminCreditController {
     private final AdminAuthz adminAuthz;
     private final HealerRepository healerRepository;
     private final ObjectMapper objectMapper;
+    private final CreditGateService creditGateService;
 
     // ─── Packages (SUPADM only) ───────────────────────────────────────────────
 
@@ -237,11 +239,13 @@ public class AdminCreditController {
             @PathVariable UUID ownerId,
             @RequestBody String body) {
         enforceOwnerAccess(ownerType, ownerId);
-        return ResponseEntity.ok(creditServiceRestClient.post()
+        String result = creditServiceRestClient.post()
                 .uri("/credits/adjust")
                 .body(body)
                 .retrieve()
-                .body(String.class));
+                .body(String.class);
+        clearExhaustedIfHealer(ownerType, ownerId);
+        return ResponseEntity.ok(result);
     }
 
     // ─── PAYG toggle (ADMIN + SUPADM, ABAC scoped) ───────────────────────────
@@ -259,11 +263,20 @@ public class AdminCreditController {
             @PathVariable UUID ownerId,
             @RequestBody String body) {
         enforceOwnerAccess(ownerType, ownerId);
-        return ResponseEntity.ok(creditServiceRestClient.put()
+        String result = creditServiceRestClient.put()
                 .uri("/credits/accounts/payg")
                 .body(body)
                 .retrieve()
-                .body(String.class));
+                .body(String.class);
+        clearExhaustedIfHealer(ownerType, ownerId);
+        return ResponseEntity.ok(result);
+    }
+
+    // The healer may be able to start cases again: let the next unlock ask creditService.
+    private void clearExhaustedIfHealer(String ownerType, UUID ownerId) {
+        if ("HEALER".equalsIgnoreCase(ownerType)) {
+            creditGateService.clearExhausted(ownerId);
+        }
     }
 
     // ─── ABAC helper ─────────────────────────────────────────────────────────

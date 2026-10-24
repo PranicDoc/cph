@@ -87,7 +87,8 @@ class CreditServiceImplCacheEvictionTest {
         CreditServiceImpl creditServiceImpl(SecurityContextUtil securityContextUtil,
                                              CreditServiceClient creditServiceClient,
                                              HealerRepository healerRepository) {
-            return new CreditServiceImpl(securityContextUtil, creditServiceClient, healerRepository);
+            return new CreditServiceImpl(securityContextUtil, creditServiceClient, healerRepository,
+                    org.mockito.Mockito.mock(com.pranicdoc.cph.payments.service.CreditGateService.class));
         }
     }
 

@@ -134,3 +134,15 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     expect(await screen.findByText(/Toothache — Advanced Pranic Healing, p\.76/)).toBeInTheDocument();
   });
 });
+
+describe("Session: a case that was not started yet", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("shows the locked message instead of the form when the server answers 423", async () => {
+    (api.get as any).mockRejectedValue({ response: { status: 423 } });
+    renderSession();
+
+    expect(await screen.findByText(/this case is locked/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start session/i })).not.toBeInTheDocument();
+  });
+});

@@ -157,7 +157,7 @@ class PatientServiceTest {
         verify(caseRepository).save(caseCaptor.capture());
         HealingCase savedCase = caseCaptor.getValue();
 
-        assertEquals(CaseStatus.DRAFT, savedCase.getStatus());
+        assertEquals(CaseStatus.LOCKED, savedCase.getStatus());
         CaseMedicalSnapshot snapshot = savedCase.getMedicalSnapshot();
         assertNotNull(snapshot, "REGISTER_PATIENT_WITH_CASE must snapshot the patient's "
                 + "medical history onto the case, same as the self-register flow does");
