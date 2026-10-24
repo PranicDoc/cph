@@ -99,7 +99,7 @@ export default function NewHealerRegistrationPage() {
       {data && data.content.length > 0 && (
         <>
           <div className="surface t-wrap">
-            <table className="t">
+            <table className="t t-actions-last">
               <thead>
                 <tr>
                   <th>Email</th>
@@ -159,7 +159,7 @@ export default function NewHealerRegistrationPage() {
           {healersLoading && <p className="muted">Loading healers…</p>}
           {healers && healers.length > 0 && (
             <div className="surface t-wrap">
-              <table className="t">
+              <table className="t t-actions-last">
                 <thead>
                   <tr>
                     <th>Name</th>
