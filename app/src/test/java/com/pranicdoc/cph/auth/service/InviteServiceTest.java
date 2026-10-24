@@ -23,7 +23,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pranicdoc.cph.notification.channel.ChannelType;
+import com.pranicdoc.cph.auth.service.impl.AccountEmails;
 import com.pranicdoc.cph.notification.channel.NotificationMessage;
+import com.pranicdoc.cph.notification.email.EmailTemplates;
 import com.pranicdoc.cph.notification.service.NotificationSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -87,7 +89,7 @@ class InviteServiceTest {
     void setUp() {
         inviteService = new InviteService(inviteRepository, healerRepository,
                 passwordEncoder, jwtService, cookieUtil, creditService,
-                baselineRoleAssigner, notificationSender);
+                baselineRoleAssigner, notificationSender, new AccountEmails(new EmailTemplates()));
         ReflectionTestUtils.setField(inviteService, "inviteUrl", "http://localhost:3000/accept-invite");
         // Delivery succeeds unless a test says otherwise (the invite reports emailSent from this).
         lenient().when(notificationSender.sendNow(any(NotificationMessage.class))).thenReturn(true);
@@ -323,6 +325,7 @@ class InviteServiceTest {
         assertEquals(email, mail.getValue().recipient());
         assertEquals("You're invited to HealingARK", mail.getValue().subject());
         assertTrue(mail.getValue().body().contains("http://localhost:3000/accept-invite?token="));
+        assertTrue(mail.getValue().htmlBody().contains("http://localhost:3000/accept-invite?token="));
     }
 
     @Test

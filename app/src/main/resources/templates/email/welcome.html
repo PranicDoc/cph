@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Welcome to the HealingARK family</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F3FA;">
+<div th:replace="~{fragments :: preheader('You are now part of the HealingARK community of healers.')}"></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F3FA;">
+  <tr>
+    <td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:600px;background-color:#FFFFFF;border-radius:20px;">
+        <tr><td><table th:replace="~{fragments :: header}"></table></td></tr>
+        <tr>
+          <td style="padding:16px 40px 32px 40px;font-family:Arial,Helvetica,sans-serif;color:#1F1A2E;font-size:16px;line-height:24px;">
+            <h1 style="margin:0 0 16px 0;font-size:24px;line-height:32px;font-weight:bold;">Welcome to the HealingARK family</h1>
+            <p style="margin:0 0 12px 0;" th:text="'Dear ' + ${fullName} + ','">Dear Healer,</p>
+            <p style="margin:0 0 12px 0;">
+              Welcome - you are now part of the HealingARK community of healers, and we are truly glad you are here.
+            </p>
+            <p style="margin:0 0 12px 0;">
+              You do your best work when you are with your clients, not with paperwork. We are here to make
+              documenting your cases simpler, and we will keep improving it with you. So please don't worry
+              about getting everything right from day one. Take your time, explore, and if you ever feel
+              stuck, just reply to this email - a real person will help you.
+            </p>
+            <p style="margin:0;">Your space is ready whenever you are.</p>
+            <table th:replace="~{fragments :: button(${appUrl}, 'Open HealingARK')}"></table>
+            <p style="margin:24px 0 0 0;">With care,<br>Team HealingARK</p>
+          </td>
+        </tr>
+        <tr><td><table th:replace="~{fragments :: footer}"></table></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

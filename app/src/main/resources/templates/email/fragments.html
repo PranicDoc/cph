@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!--
+  Shared pieces of every HealingARK email. Email clients ignore <style> blocks and most modern CSS,
+  so everything is tables with inline styles. Violet #6C3FC5 is the app's primary colour.
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Hidden one-line summary shown next to the subject in the inbox list. -->
+<div th:fragment="preheader(text)"
+     style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;"
+     th:text="${text}">Preview text</div>
+
+<!-- Logo and wordmark. -->
+<table th:fragment="header" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="padding:32px 40px 8px 40px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="vertical-align:middle;">
+            <img th:src="${logoUrl}" src="https://app.healingark.in/email/healingark-mark.png" width="40" height="40"
+                 alt="" style="display:block;border:0;border-radius:10px;">
+          </td>
+          <td style="vertical-align:middle;padding-left:12px;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#1F1A2E;letter-spacing:-0.2px;">
+            HealingARK
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- Main call to action. -->
+<table th:fragment="button(link, label)" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px 0;">
+  <tr>
+    <td style="border-radius:12px;background-color:#6C3FC5;">
+      <a th:href="${link}" href="#" target="_blank"
+         style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:12px;"
+         th:text="${label}">Continue</a>
+    </td>
+  </tr>
+</table>
+
+<!-- The raw link, for clients that block the button. -->
+<p th:fragment="fallbackLink(link)"
+   style="margin:16px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#6B6480;">
+  If the button doesn't work, copy this link into your browser:<br>
+  <a th:href="${link}" href="#" th:text="${link}" style="color:#6C3FC5;word-break:break-all;">link</a>
+</p>
+
+<!-- Sign-off and footer. -->
+<table th:fragment="footer" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="padding:24px 40px 32px 40px;border-top:1px solid #ECE8F4;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8A849B;">
+      You are receiving this email because of your HealingARK account.
+      Questions? Just reply to this email and a real person will help you.<br>
+      <a th:href="${appUrl}" href="https://app.healingark.in" style="color:#8A849B;text-decoration:underline;">HealingARK</a>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

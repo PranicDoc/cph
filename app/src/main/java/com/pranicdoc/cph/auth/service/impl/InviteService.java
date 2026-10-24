@@ -13,7 +13,6 @@ import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
-import com.pranicdoc.cph.notification.channel.NotificationMessage;
 import com.pranicdoc.cph.notification.service.NotificationSender;
 import com.pranicdoc.cph.payments.dto.OwnerType;
 import com.pranicdoc.cph.payments.service.CreditService;
@@ -54,6 +53,7 @@ public class InviteService {
     private final CreditService creditService;
     private final BaselineRoleAssigner baselineRoleAssigner;
     private final NotificationSender notificationSender;
+    private final AccountEmails accountEmails;
 
     @Value("${app.invite.url}")
     private String inviteUrl;
@@ -318,7 +318,7 @@ public class InviteService {
         // First activation through the registration link: welcome the healer once the account
         // is committed. Async and fail-soft, so it can never delay or undo the activation.
         notificationSender.sendAfterCommit(
-                AccountMessages.welcome(saved.getEmail(), saved.getFullName(), inviteUrl));
+                accountEmails.welcome(saved.getEmail(), saved.getFullName(), inviteUrl));
 
         return toHealerResponse(saved);
     }
@@ -353,22 +353,14 @@ public class InviteService {
      * invite creation, the admin has Resend).
      */
     private boolean sendInviteEmail(String email, String token) {
-        return notificationSender.sendNow(NotificationMessage.email(email,
-                "You're invited to HealingARK",
-                "You've been invited to join HealingARK.\n\n"
-                        + "Click the link below to set up your account:\n"
-                        + inviteUrl + "?token=" + token + "\n\n"
-                        + "This link expires in 72 hours."));
+        return notificationSender.sendNow(
+                accountEmails.invite(email, inviteUrl + "?token=" + token, inviteExpiryHours));
     }
 
     // Don't let SMTP downtime block the request - resubmitting /signup rotates the token.
     private boolean sendSelfSignupEmail(String email, String token) {
-        return notificationSender.sendNow(NotificationMessage.email(email,
-                "Verify your email to complete HealingARK registration",
-                "You requested to register as a healer on HealingARK.\n\n"
-                        + "Click the link below to verify your email and complete registration:\n"
-                        + inviteUrl + "?token=" + token + "\n\n"
-                        + "This link expires in 72 hours."));
+        return notificationSender.sendNow(
+                accountEmails.selfSignupVerification(email, inviteUrl + "?token=" + token, inviteExpiryHours));
     }
 
     static InviteResponse toResponse(HealerInviteLink invite) {
