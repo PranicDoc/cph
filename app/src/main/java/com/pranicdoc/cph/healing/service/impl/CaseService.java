@@ -563,7 +563,9 @@ public class CaseService {
         if (healingCaseIds.isEmpty()) {
             return Window.from(Collections.emptyList(), value -> ScrollPosition.keyset());
         }
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt")
+        // Most recently generated first: a regenerated PDF reuses its job row, so createdAt would
+        // leave it at its first generation's place. id breaks ties for the keyset cursor.
+        Sort sort = Sort.by(Sort.Direction.DESC, "updatedAt")
                 .and(Sort.by(Sort.Direction.DESC, "id"));
         Window<PdfJobEntity> jobWindow = pdfJobRepository.findByStatusAndHealingCaseIdIn(
                 JobStatus.COMPLETED,

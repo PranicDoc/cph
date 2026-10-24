@@ -511,6 +511,28 @@ class CaseServiceTest {
         verify(healingCaseMapper, never()).toEntity(any(), any());
     }
 
+    // --- PDF list ---
+
+    @Test
+    void completedPdfs_newestUpdatedFirst_soARegeneratedPdfMovesToTheTop() {
+        UUID healerId = UUID.randomUUID();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(caseRepository.findAllHealingCaseIdsByHealerId(healerId)).thenReturn(List.of(UUID.randomUUID()));
+        when(pdfJobRepository.findByStatusAndHealingCaseIdIn(any(), any(), any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Window.from(List.of(),
+                        i -> org.springframework.data.domain.ScrollPosition.keyset()));
+
+        caseService.getCompletedPdfJobs(null, 10);
+
+        ArgumentCaptor<org.springframework.data.domain.Sort> sort =
+                ArgumentCaptor.forClass(org.springframework.data.domain.Sort.class);
+        verify(pdfJobRepository).findByStatusAndHealingCaseIdIn(any(), any(), any(), any(), sort.capture());
+        assertEquals(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Order.desc("updatedAt"),
+                        org.springframework.data.domain.Sort.Order.desc("id")),
+                sort.getValue());
+    }
+
     // --- closeCase (V31: CaseStatus.CONTINUED) ---
 
     private HealingCase buildCaseForClosure(UUID caseId) {
