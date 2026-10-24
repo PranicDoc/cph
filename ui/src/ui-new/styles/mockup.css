@@ -215,6 +215,9 @@ html[data-ui="new"] .hlx .t td[data-label=""] { justify-content: flex-end; }
 html[data-ui="new"] .hlx .t tbody tr { position: relative; }
 html[data-ui="new"] .hlx .t td[data-label=""]:last-child { position: absolute; top: 6px; right: 8px; padding: 0; }
 html[data-ui="new"] .hlx .t td:first-child { padding-right: 84px; }
+/* .t-actions-last: tables whose last cell holds text buttons (Resend/Revoke, Deactivate/Remove) keep them as the card's last row instead of the top-right corner. */
+html[data-ui="new"] .hlx .t.t-actions-last td[data-label=""]:last-child { position: static; padding-top: 8px; }
+html[data-ui="new"] .hlx .t.t-actions-last td:first-child { padding-right: 0; }
 html[data-ui="new"] .hlx .card-h { flex-wrap: wrap; gap: 10px; }
 html[data-ui="new"] .hlx .card-h h2 { white-space: nowrap; }
 html[data-ui="new"] .hlx .t td > div { text-align: right; }
