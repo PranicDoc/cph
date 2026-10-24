@@ -1,7 +1,6 @@
 package com.pranicdoc.cph.healing.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
@@ -563,7 +562,9 @@ public class CaseService {
         if (healingCaseIds.isEmpty()) {
             return Window.from(Collections.emptyList(), value -> ScrollPosition.keyset());
         }
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt")
+        // Most recently generated first: a regenerated PDF reuses its job row, so createdAt would
+        // leave it at its first generation's place. id breaks ties for the keyset cursor.
+        Sort sort = Sort.by(Sort.Direction.DESC, "updatedAt")
                 .and(Sort.by(Sort.Direction.DESC, "id"));
         Window<PdfJobEntity> jobWindow = pdfJobRepository.findByStatusAndHealingCaseIdIn(
                 JobStatus.COMPLETED,
@@ -640,7 +641,6 @@ public class CaseService {
         com.pranicdoc.common.dto.CaseSnapshot caseSnapshot = cphCaseMapper.toCaseSnapshot(healingCase);
         com.pranicdoc.common.dto.Patient patientSnapshot = cphCaseMapper.toPatientSnapshot(patientEntity);
 
-        JsonNode newJsonNode;
         String healingCaseData;
         try {
             ObjectNode root = objectMapper.valueToTree(caseSnapshot);
@@ -648,7 +648,6 @@ public class CaseService {
             // Cases created before consent existed have no declaration: no signature then.
             Declaration declaration = healingCase.getDeclaration();
             root.put("healerSign", declaration != null ? declaration.getHealerSignature() : null);
-            newJsonNode = root;
             healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize healing case snapshot", e);
@@ -662,14 +661,8 @@ public class CaseService {
                 throw new IllegalStateException("PDF generation is already in process for this case.");
             }
             if (JobStatus.COMPLETED.equals(currentStatus)) {
-                try {
-                    JsonNode existingJsonNode = objectMapper.readTree(existingJob.getHealingCaseData());
-                    if (newJsonNode.equals(existingJsonNode)) {
-                        return new JobAckResponse(existingJob.getJobId(), currentStatus);
-                    }
-                } catch (Exception e) {
-                    // If parsing the old data fails for any reason, assume it changed and proceed.
-                }
+                // Always regenerate, even when the case data is unchanged: the PDF also depends on
+                // the template and pdfWorker's rendering, which can change between generations.
                 existingJob.setHealingCaseData(healingCaseData);
                 existingJob.setStatus(JobStatus.DRAFT);
                 pdfJobRepository.save(existingJob);
