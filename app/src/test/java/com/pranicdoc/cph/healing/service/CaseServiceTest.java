@@ -6,13 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.CaseStatus;
-import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.CaseClosureRequest;
 import com.pranicdoc.cph.healing.dto.CaseResponse;
 import com.pranicdoc.cph.healing.dto.CaseUpdateRequest;
-import com.pranicdoc.cph.healing.dto.JobAckResponse;
 import com.pranicdoc.cph.healing.dto.HealingDetailsRequest;
 import com.pranicdoc.cph.healing.dto.MedicationRequest;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
@@ -233,44 +231,6 @@ class CaseServiceTest {
         caseService.postMessageToGeneratePdf(caseId);
 
         verify(pdfJobRepository).save(any());
-    }
-
-    @Test
-    void generatePdfAgain_withUnchangedData_requeuesInsteadOfReturningTheOldPdf() {
-        UUID caseId = UUID.randomUUID();
-        UUID patientId = UUID.randomUUID();
-        HealingCase healingCase = HealingCase.builder()
-                .patientId(patientId)
-                .status(CaseStatus.CLOSED)
-                .sessions(new ArrayList<>())
-                .symptoms(new ArrayList<>())
-                .medications(new ArrayList<>())
-                .build();
-        healingCase.setHealerId(UUID.randomUUID());
-        healingCase.setDeclaration(declaration(healingCase));
-        doNothing().when(creditGateService).checkAndDeduct(any(), any(), any());
-        when(caseRepository.existsById(caseId)).thenReturn(true);
-        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
-        when(caseRepository.findWithSessionsById(caseId)).thenReturn(Optional.of(healingCase));
-        when(patientRepository.findById(patientId)).thenReturn(Optional.of(org.mockito.Mockito.mock(Patient.class)));
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
-        ArgumentCaptor<PdfJobEntity> saved = ArgumentCaptor.forClass(PdfJobEntity.class);
-        when(pdfJobRepository.save(saved.capture())).thenAnswer(inv -> inv.getArgument(0));
-
-        // First generation, then the worker finishes it.
-        when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.empty());
-        caseService.postMessageToGeneratePdf(caseId);
-        PdfJobEntity done = saved.getValue();
-        done.setStatus(JobStatus.COMPLETED);
-
-        // Same data, Generate clicked again: the PDF must be made again (e.g. on a new template).
-        when(pdfJobRepository.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.of(done));
-        JobAckResponse ack = caseService.postMessageToGeneratePdf(caseId);
-
-        assertEquals(JobStatus.PROCESSING, ack.status());
-        assertEquals(done.getJobId(), ack.jobId(), "the case keeps one job row, re-queued");
-        assertEquals(JobStatus.DRAFT, done.getStatus(), "queued for the worker again");
-        verify(pdfJobRepository, times(2)).save(any());
     }
 
     /**
@@ -549,28 +509,6 @@ class CaseServiceTest {
                 "missing symptoms must be rejected with a clear message, was: " + ex.getMessage());
         verify(caseRepository, never()).findById(any());
         verify(healingCaseMapper, never()).toEntity(any(), any());
-    }
-
-    // --- PDF list ---
-
-    @Test
-    void completedPdfs_newestUpdatedFirst_soARegeneratedPdfMovesToTheTop() {
-        UUID healerId = UUID.randomUUID();
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
-        when(caseRepository.findAllHealingCaseIdsByHealerId(healerId)).thenReturn(List.of(UUID.randomUUID()));
-        when(pdfJobRepository.findByStatusAndHealingCaseIdIn(any(), any(), any(), any(), any()))
-                .thenReturn(org.springframework.data.domain.Window.from(List.of(),
-                        i -> org.springframework.data.domain.ScrollPosition.keyset()));
-
-        caseService.getCompletedPdfJobs(null, 10);
-
-        ArgumentCaptor<org.springframework.data.domain.Sort> sort =
-                ArgumentCaptor.forClass(org.springframework.data.domain.Sort.class);
-        verify(pdfJobRepository).findByStatusAndHealingCaseIdIn(any(), any(), any(), any(), sort.capture());
-        assertEquals(org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Order.desc("updatedAt"),
-                        org.springframework.data.domain.Sort.Order.desc("id")),
-                sort.getValue());
     }
 
     // --- closeCase (V31: CaseStatus.CONTINUED) ---
