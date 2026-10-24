@@ -10,9 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
 
 import java.util.UUID;
 
@@ -36,10 +33,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuditAspectEntityIdTest {
 
-    @Mock private AuditLogRepository auditLogRepository;
+    @Mock private AuditLogWriter auditLogWriter;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private HttpServletRequest httpServletRequest;
-    @Mock private PlatformTransactionManager transactionManager;
     @Mock private ProceedingJoinPoint joinPoint;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -58,12 +54,10 @@ class AuditAspectEntityIdTest {
     @BeforeEach
     void setUp() {
         auditAspect = new AuditAspect(
-                auditLogRepository, securityContextUtil, httpServletRequest, transactionManager, objectMapper);
+                auditLogWriter, securityContextUtil, httpServletRequest, objectMapper);
 
         lenient().when(joinPoint.getTarget()).thenReturn(new Object());
 
-        TransactionStatus status = mock(TransactionStatus.class);
-        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(status);
     }
 
     @Test
@@ -77,7 +71,7 @@ class AuditAspectEntityIdTest {
         auditAspect.audit(joinPoint, auditable);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertEquals(expectedId, captor.getValue().getEntityId());
     }
 
@@ -93,7 +87,7 @@ class AuditAspectEntityIdTest {
         auditAspect.audit(joinPoint, auditable);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertEquals(argId, captor.getValue().getEntityId());
     }
 
@@ -107,7 +101,7 @@ class AuditAspectEntityIdTest {
         assertDoesNotThrow(() -> auditAspect.audit(joinPoint, auditable));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertNull(captor.getValue().getEntityId());
     }
 
@@ -121,7 +115,7 @@ class AuditAspectEntityIdTest {
         assertDoesNotThrow(() -> auditAspect.audit(joinPoint, auditable));
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
+        verify(auditLogWriter).enqueue(captor.capture());
         assertNull(captor.getValue().getEntityId());
     }
 }
