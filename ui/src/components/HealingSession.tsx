@@ -82,7 +82,11 @@ export const HealingSessionWizard = ({
     loadedSession.current = true;
     const toEntries = (scanType: "PRE" | "POST"): ChakraDocEntry[] =>
       (session.scans.find((s) => s.scanType === scanType)?.readings ?? []).map((r) => {
-        const chakra = availableChakras.find((c) => c.id === r.chakraId);
+        // Older sessions can point at chakra ids from a catalog that was since re-imported:
+        // fall back to the name, so the row shows and is saved against today's chakra.
+        const chakra =
+          availableChakras.find((c) => c.id === r.chakraId) ??
+          availableChakras.find((c) => c.name.trim().toLowerCase() === String(r.chakraName ?? "").trim().toLowerCase());
         const base = chakra
           ? createDefaultEntry(chakra)
           : { id: r.chakraId, name: r.chakraName, color: "", energyLevel: "N" as const, activationLevel: "N" as const, treatmentColors: [] };
