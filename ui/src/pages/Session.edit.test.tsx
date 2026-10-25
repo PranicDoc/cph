@@ -96,6 +96,37 @@ describe("Session: a case can be edited on any status", () => {
   });
 });
 
+describe("Session: saving case details", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("Save stores the details and returns to the view, which offers the next step", async () => {
+    const user = userEvent.setup();
+    (api.get as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    renderSession();
+
+    await user.click(await screen.findByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(api.patch).toHaveBeenCalledWith("/api/v1/cases", expect.any(FormData), expect.anything());
+    expect(await screen.findByRole("button", { name: /proceed to session/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
+  });
+
+  it("stays in edit mode when saving fails", async () => {
+    const user = userEvent.setup();
+    (api.get as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as any).mockRejectedValue(new Error("network"));
+    renderSession();
+
+    await user.click(await screen.findByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByRole("button", { name: /^save$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /proceed to session/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("Case details form", () => {
   it("keeps medications and lab findings editable whatever the status", () => {
     const fields = buildSessionSchema([]).flatMap((section) => section.fields);

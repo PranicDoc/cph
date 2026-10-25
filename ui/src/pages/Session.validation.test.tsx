@@ -71,7 +71,7 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     const user = userEvent.setup();
     renderSession();
 
-    const startButton = await screen.findByRole("button", { name: /start session/i });
+    const startButton = await screen.findByRole("button", { name: /^save$/i });
     expect(startButton).toHaveAttribute("aria-disabled", "true");
 
     await user.click(startButton);
@@ -91,7 +91,7 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
 
     const chiefComplaint = await screen.findByPlaceholderText(/stomachache for 4 days/i);
     await user.type(chiefComplaint, "Neck pain for 5 days");
-    await user.click(screen.getByRole("button", { name: /start session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     renderSession();
 
     expect((await screen.findAllByText("Headache")).length).toBeGreaterThan(0);
-    const startButton = screen.getByRole("button", { name: /start session/i });
+    const startButton = screen.getByRole("button", { name: /^save$/i });
     expect(startButton).not.toHaveAttribute("aria-disabled", "true");
   });
 
@@ -143,6 +143,6 @@ describe("Session: a case that was not started yet", () => {
     renderSession();
 
     expect(await screen.findByText(/this case is locked/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /start session/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
   });
 });
