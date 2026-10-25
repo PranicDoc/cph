@@ -5,7 +5,6 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.model.MasterDataElevation;
 import com.pranicdoc.cph.masterdata.repository.MasterDataElevationRepository;
-import com.pranicdoc.cph.payments.CreditServiceClient;
 import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -25,7 +25,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,7 +36,6 @@ class MasterDataElevationServiceTest {
     @Mock private MasterDataElevationRepository elevationRepository;
     @Mock private HealerRepository healerRepository;
     @Mock private PasswordEncoder passwordEncoder;
-    @Mock private CreditServiceClient creditServiceClient;
     @Mock private SecurityContextUtil securityContextUtil;
     @InjectMocks private MasterDataElevationService service;
 
@@ -47,6 +45,7 @@ class MasterDataElevationServiceTest {
     @BeforeEach
     void setUp() {
         healer.setPasswordHash("hash");
+        ReflectionTestUtils.setField(service, "elevationMinutes", 5);
         lenient().when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         lenient().when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
     }
@@ -54,7 +53,6 @@ class MasterDataElevationServiceTest {
     @Test
     void theRightPasswordUnlocksTheTypeForTheConfiguredMinutes() {
         when(passwordEncoder.matches("secret", "hash")).thenReturn(true);
-        when(creditServiceClient.configValue(MasterDataElevationService.MINUTES_KEY)).thenReturn(Optional.of("5"));
 
         Instant before = Instant.now();
         Instant expiresAt = service.elevate(Resource.MASTER_DATA_CHAKRAS, "secret");
@@ -85,18 +83,6 @@ class MasterDataElevationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Set a password in your profile first");
         verify(elevationRepository, never()).save(any());
-    }
-
-    @Test
-    void whenTheDurationCannotBeReadItDefaultsTo15Minutes() {
-        when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
-        when(creditServiceClient.configValue(MasterDataElevationService.MINUTES_KEY))
-                .thenThrow(new IllegalStateException("creditService down"));
-
-        Instant expiresAt = service.elevate(Resource.MASTER_DATA_PROTOCOLS, "secret");
-
-        assertThat(expiresAt).isAfter(Instant.now().plus(Duration.ofMinutes(14)));
-        assertThat(expiresAt).isBefore(Instant.now().plus(Duration.ofMinutes(16)));
     }
 
     @Test
