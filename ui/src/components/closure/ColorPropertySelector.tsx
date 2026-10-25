@@ -98,6 +98,13 @@ export function ColorPropertySelector({
    */
   const selectedColors = value.map((x) => x.color);
 
+  // A selected color stays an option even when it is outside this selector's category
+  // (e.g. saved before categories existed), so it can still be seen and removed.
+  const colorOptions = [
+    ...colors,
+    ...selectedColors.filter((c) => !colors.includes(c)),
+  ];
+
   /**
    * Fetch properties whenever colors change.
    *
@@ -210,7 +217,7 @@ export function ColorPropertySelector({
 
       <MultiSelect<string>
         title="Colors"
-        options={colors}
+        options={colorOptions}
         value={selectedColors}
         onChange={handleColorsChange}
         getOptionKey={(c) => c}

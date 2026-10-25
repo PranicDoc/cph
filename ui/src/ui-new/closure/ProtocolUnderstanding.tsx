@@ -5,10 +5,13 @@ import { ColorChipPicker } from "./ColorChipPicker";
 
 interface Props {
   rows: HPUTable[];
-  colors: string[];
+  energisingColors: string[];
+  cleansingColors: string[];
   colorsLoading: boolean;
-  getProperties: (color: string) => string[];
-  getColorHex: (color: string) => string | undefined;
+  getEnergisingProperties: (color: string) => string[];
+  getCleansingProperties: (color: string) => string[];
+  getEnergisingHex: (color: string) => string | undefined;
+  getCleansingHex: (color: string) => string | undefined;
   onChange: <K extends keyof HPUTable>(index: number, field: K, value: HPUTable[K]) => void;
 }
 
@@ -23,7 +26,7 @@ function summary(row: HPUTable) {
 }
 
 /** New-view step 1 of the close-case dialog: one accordion row per scanned chakra. */
-export default function ProtocolUnderstanding({ rows, colors, colorsLoading, getProperties, getColorHex, onChange }: Props) {
+export default function ProtocolUnderstanding({ rows, energisingColors, cleansingColors, colorsLoading, getEnergisingProperties, getCleansingProperties, getEnergisingHex, getCleansingHex, onChange }: Props) {
   const [open, setOpen] = useState<string | null>(rows[0]?.chakra ?? null);
   return (
     <div className="hl-acc">
@@ -48,18 +51,18 @@ export default function ProtocolUnderstanding({ rows, colors, colorsLoading, get
                 <ColorChipPicker
                   label="Energising colors"
                   value={row.energisingColors}
-                  colors={colors}
-                  getProperties={getProperties}
-                  getColorHex={getColorHex}
+                  colors={energisingColors}
+                  getProperties={getEnergisingProperties}
+                  getColorHex={getEnergisingHex}
                   loading={colorsLoading}
                   onChange={(v) => onChange(index, "energisingColors", v)}
                 />
                 <ColorChipPicker
                   label="Cleansing colors"
                   value={row.cleansingColors}
-                  colors={colors}
-                  getProperties={getProperties}
-                  getColorHex={getColorHex}
+                  colors={cleansingColors}
+                  getProperties={getCleansingProperties}
+                  getColorHex={getCleansingHex}
                   loading={colorsLoading}
                   onChange={(v) => onChange(index, "cleansingColors", v)}
                 />

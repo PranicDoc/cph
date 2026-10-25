@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.model;
 
+import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,6 +38,10 @@ public class PranaColorCatalog extends BaseEntity {
     @ElementCollection(fetch = FetchType.LAZY)
     @Builder.Default
     private List<String> properties = new ArrayList<>(); // Individual healing properties of this color
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 20)
+    private ColorUsageType category; // CLEANSING or ENERGISING; a color used both ways is two rows
 
     @Column(name = "healer_id", columnDefinition = "uuid")
     private UUID healerId; // NULL = system-level, non-null = healer-custom

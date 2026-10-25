@@ -1,3 +1,5 @@
+import type { ColorCategory } from "./lib/colorCategory";
+
 export interface HealingSession {
   id: string;
   patientId: string;
@@ -143,6 +145,7 @@ export interface ColorOption {
   name: string;
   colorHex?: string;
   properties?: string[];
+  category?: ColorCategory | null;
   healerId?: string | null;
 }
 

@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import type { ColorOption, ProtocolColorRequest } from "../../interfaces";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { hasColorCategory } from "@/lib/colorCategory";
 import {
   Select,
   SelectContent,
@@ -53,6 +54,13 @@ export function ProtocolColorRows({
           const selectedColor = colors.find(
             (option) => option.id === color.colorId
           );
+          // Offer colors of the row's usage type; keep an already-chosen color listed
+          // so switching the usage type never blanks the selection.
+          const colorOptions = colors.filter(
+            (option) =>
+              option.id === color.colorId ||
+              hasColorCategory(option, color.usageType)
+          );
 
           return (
             <div key={colorIndex} className="flex gap-2 items-center">
@@ -77,7 +85,7 @@ export function ProtocolColorRows({
                   <SelectValue placeholder="Select color..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {colors.map((option) => (
+                  {colorOptions.map((option) => (
                     <SelectItem key={option.id} value={option.id}>
                       {option.name} {option.code ? `(${option.code})` : ""}
                     </SelectItem>

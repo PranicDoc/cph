@@ -47,7 +47,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SelectField, TextField, TextareaField } from "@/components/form/Field";
 import { MultiSelect } from "@/components/ui/multi-select/multi-select";
-import { cn } from "@/lib/utils";
+import { cn, extractDetail } from "@/lib/utils";
+import {
+  COLOR_CATEGORIES,
+  COLOR_CATEGORY_LABELS,
+  hasColorCategory,
+  type ColorCategory,
+} from "@/lib/colorCategory";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -188,12 +194,16 @@ function RowActions({
 
 function ColorModal({
   initial,
+  defaultCategory,
   onClose,
 }: {
   initial?: PranaColor;
+  /** Category a new color starts in: the tab it was added from. */
+  defaultCategory: ColorCategory;
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
+  const [category, setCategory] = useState<ColorCategory>(initial?.category ?? defaultCategory);
   const create = useCreateColor();
   const update = useUpdateColor();
 
@@ -214,6 +224,7 @@ function ColorModal({
           .split("\n")
           .map((p) => p.trim())
           .filter(Boolean),
+        category,
         healerId: initial ? initial.healerId : null,
       };
       try {
@@ -223,8 +234,8 @@ function ColorModal({
           await create.mutateAsync(payload);
         }
         onClose();
-      } catch {
-        setError("Failed to save. Please try again.");
+      } catch (err) {
+        setError(extractDetail(err) || "Failed to save. Please try again.");
       }
     },
   });
@@ -270,6 +281,26 @@ function ColorModal({
             )}
           />
         </Field>
+        <Field label="Category">
+          <div role="radiogroup" aria-label="Category" className="inline-flex rounded-lg border border-border p-0.5">
+            {COLOR_CATEGORIES.map((c) => (
+              <Button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={category === c}
+                variant={category === c ? "secondary" : "ghost"}
+                onClick={() => setCategory(c)}
+                className="px-3 py-1.5 h-auto text-sm"
+              >
+                {COLOR_CATEGORY_LABELS[c]}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-text-light mt-1">
+            A color used for both cleansing and energising is added once in each tab.
+          </p>
+        </Field>
         <Field label="Healing Properties">
           <form.Field
             name="properties"
@@ -298,6 +329,11 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const deleteColor = useDeleteColor();
   const [modal, setModal] = useState<PranaColor | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<PranaColor | null>(null);
+  const [category, setCategory] = useState<ColorCategory>("ENERGISING");
+  const visible = useMemo(
+    () => data?.filter((color) => hasColorCategory(color, category)),
+    [data, category]
+  );
 
   const canModify = (item: PranaColor) => isSuperAdmin || !!item.healerId;
   const can = useCan();
@@ -360,10 +396,29 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-text-light">
-          System colors are seeded globally. Your own custom colors are also listed here.
-        </p>
+      <p className="text-sm text-text-light mb-3">
+        System colors are seeded globally. Your own custom colors are also listed here.
+      </p>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div
+          role="tablist"
+          aria-label="Color category"
+          className="inline-flex rounded-lg border border-border p-0.5"
+        >
+          {COLOR_CATEGORIES.map((c) => (
+            <Button
+              key={c}
+              type="button"
+              role="tab"
+              aria-selected={category === c}
+              variant={category === c ? "secondary" : "ghost"}
+              onClick={() => setCategory(c)}
+              className="px-3 py-1.5 h-auto text-sm"
+            >
+              {COLOR_CATEGORY_LABELS[c]}
+            </Button>
+          ))}
+        </div>
         {canCreate && (
           <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
             <Plus className="w-4 h-4" />
@@ -375,21 +430,26 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
       {isError && <p className="text-red-500 text-sm">Failed to load colors.</p>}
 
-      {data && (
+      {visible && (
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
             <DataTable<PranaColor>
               columns={columns}
-              data={data}
+              data={visible}
               enableSorting={false}
-              emptyMessage="No colors found."
+              emptyMessage={`No ${COLOR_CATEGORY_LABELS[category].toLowerCase()} colors found.`}
             />
           </div>
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
-            {data.map((item) => (
+            {visible.length === 0 && (
+              <p className="text-sm text-text-light">
+                No {COLOR_CATEGORY_LABELS[category].toLowerCase()} colors found.
+              </p>
+            )}
+            {visible.map((item) => (
               <div key={item.id} className="border border-border rounded-xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -419,7 +479,11 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       )}
 
       {modal !== null && (
-        <ColorModal initial={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />
+        <ColorModal
+          initial={modal === "new" ? undefined : modal}
+          defaultCategory={category}
+          onClose={() => setModal(null)}
+        />
       )}
 
       <ConfirmDialog

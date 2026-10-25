@@ -13,6 +13,7 @@ import { AxiosResponse } from "axios";
 import { extractDetail } from "@/lib/utils";
 import { ColorPropertySelector } from "./ColorPropertySelector";
 import { useReferenceData } from "@/hooks/useReferenceData";
+import { findColorInCategory, hasColorCategory, type ColorCategory } from "@/lib/colorCategory";
 import { MultiSelect } from "../ui/multi-select/multi-select";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
 import { useUiVersion } from "../../ui-version";
@@ -40,7 +41,7 @@ const CLOSURE_FORM_STEPS = 2;
 /**
  * TanStack's `flexRender` calls `React.createElement(cellFn, props)` for
  * function cell renderers -- treating the function ITSELF as the component
- * type. If `columns` closes over `allColors`/`colorsLoading`/
+ * type. If `columns` closes over the color lists/`colorsLoading`/
  * `fetchPropertiesForColor` directly, every time those change (e.g. the
  * color reference-data fetch resolving after the table has already
  * rendered rows) the cell function reference changes too, so React sees a
@@ -52,10 +53,13 @@ const CLOSURE_FORM_STEPS = 2;
  * the existing component instance instead of remounting it.
  */
 interface HpuTableMeta {
-  allColors: string[];
+  energisingColors: string[];
+  cleansingColors: string[];
   colorsLoading: boolean;
-  fetchPropertiesForColor: (color: string) => string[];
-  fetchColorHex: (color: string) => string | undefined;
+  getEnergisingProperties: (color: string) => string[];
+  getCleansingProperties: (color: string) => string[];
+  getEnergisingHex: (color: string) => string | undefined;
+  getCleansingHex: (color: string) => string | undefined;
 }
 
 const ClosureForm = ({
@@ -163,18 +167,30 @@ const ClosureForm = ({
     }
   }, [colorsError]);
 
-  const allColors = useMemo(() => colors.map((c) => c.name), [colors]);
-
-  const fetchPropertiesForColor = useCallback(
-    (color: string) => {
-      const match = colors.find((c) => c.name === color);
-      return match?.properties ?? [];
-    },
+  // Names are unique per category, not overall: each column lists, and looks properties and
+  // swatches up in, its own category's colors.
+  const namesIn = useCallback(
+    (category: ColorCategory) =>
+      Array.from(new Set(colors.filter((c) => hasColorCategory(c, category)).map((c) => c.name))),
     [colors]
   );
+  const energisingColors = useMemo(() => namesIn("ENERGISING"), [namesIn]);
+  const cleansingColors = useMemo(() => namesIn("CLEANSING"), [namesIn]);
 
-  const fetchColorHex = useCallback(
-    (color: string) => colors.find((c) => c.name === color)?.colorHex,
+  const getEnergisingProperties = useCallback(
+    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.properties ?? [],
+    [colors]
+  );
+  const getCleansingProperties = useCallback(
+    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.properties ?? [],
+    [colors]
+  );
+  const getEnergisingHex = useCallback(
+    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.colorHex,
+    [colors]
+  );
+  const getCleansingHex = useCallback(
+    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.colorHex,
     [colors]
   );
 
@@ -212,9 +228,9 @@ const ClosureForm = ({
           return (
             <ColorPropertySelector
               value={row.original.energisingColors}
-              colors={meta.allColors}
-              getProperties={meta.fetchPropertiesForColor}
-              getColorHex={meta.fetchColorHex}
+              colors={meta.energisingColors}
+              getProperties={meta.getEnergisingProperties}
+              getColorHex={meta.getEnergisingHex}
               loading={meta.colorsLoading}
               onChange={(updated) => {
                 updateRow(row.index, "energisingColors", updated);
@@ -235,9 +251,9 @@ const ClosureForm = ({
           return (
             <ColorPropertySelector
               value={row.original.cleansingColors}
-              colors={meta.allColors}
-              getProperties={meta.fetchPropertiesForColor}
-              getColorHex={meta.fetchColorHex}
+              colors={meta.cleansingColors}
+              getProperties={meta.getCleansingProperties}
+              getColorHex={meta.getCleansingHex}
               loading={meta.colorsLoading}
               onChange={(updated) => {
                 updateRow(row.index, "cleansingColors", updated);
@@ -257,10 +273,13 @@ const ClosureForm = ({
           <Suspense fallback={null}>
             <ProtocolUnderstanding
               rows={hpuTableData}
-              colors={allColors}
+              energisingColors={energisingColors}
+              cleansingColors={cleansingColors}
               colorsLoading={colorsLoading}
-              getProperties={fetchPropertiesForColor}
-              getColorHex={fetchColorHex}
+              getEnergisingProperties={getEnergisingProperties}
+              getCleansingProperties={getCleansingProperties}
+              getEnergisingHex={getEnergisingHex}
+              getCleansingHex={getCleansingHex}
               onChange={updateRow}
             />
           </Suspense>
@@ -274,10 +293,13 @@ const ClosureForm = ({
                 cellClassName="py-3"
                 meta={
                   {
-                    allColors,
+                    energisingColors,
+                    cleansingColors,
                     colorsLoading,
-                    fetchPropertiesForColor,
-                    fetchColorHex,
+                    getEnergisingProperties,
+                    getCleansingProperties,
+                    getEnergisingHex,
+                    getCleansingHex,
                   } as TableMeta<HPUTable>
                 }
               />
@@ -294,9 +316,9 @@ const ClosureForm = ({
                   <ColorPropertySelector
                     label="Energising Colors"
                     value={row.energisingColors}
-                    colors={allColors}
-                    getProperties={fetchPropertiesForColor}
-                    getColorHex={fetchColorHex}
+                    colors={energisingColors}
+                    getProperties={getEnergisingProperties}
+                    getColorHex={getEnergisingHex}
                     loading={colorsLoading}
                     onChange={(updated) =>
                       updateRow(index, "energisingColors", updated)
@@ -306,9 +328,9 @@ const ClosureForm = ({
                   <ColorPropertySelector
                     label="Cleansing Colors"
                     value={row.cleansingColors}
-                    colors={allColors}
-                    getProperties={fetchPropertiesForColor}
-                    getColorHex={fetchColorHex}
+                    colors={cleansingColors}
+                    getProperties={getCleansingProperties}
+                    getColorHex={getCleansingHex}
                     loading={colorsLoading}
                     onChange={(updated) =>
                       updateRow(index, "cleansingColors", updated)

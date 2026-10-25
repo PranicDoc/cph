@@ -30,7 +30,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -329,8 +331,8 @@ class ProtocolImportServiceTest {
         verify(protocolChakraColorRepo, times(8)).save(any(ProtocolChakraColor.class));
         // 3 distinct chakra names backfilled once each
         verify(chakraRepo, times(3)).save(any(ChakraCatalog.class));
-        // 5 distinct color names backfilled once each, despite appearing in multiple cells
-        verify(pranaColorRepo, times(5)).save(any(PranaColorCatalog.class));
+        // 6 distinct (name, category) colors backfilled once each, despite appearing in multiple cells
+        verify(pranaColorRepo, times(6)).save(any(PranaColorCatalog.class));
 
         ArgumentCaptor<ProtocolChakraColor> colorLinkCaptor = ArgumentCaptor.forClass(ProtocolChakraColor.class);
         verify(protocolChakraColorRepo, times(8)).save(colorLinkCaptor.capture());
@@ -340,6 +342,18 @@ class ProtocolImportServiceTest {
                 .filter(l -> l.getUsageType() == ColorUsageType.ENERGISING).count();
         assertEquals(3, cleansingCount); // one cleansing color per chakra
         assertEquals(5, energizingCount); // 3 (solar plexus) + 2 (back heart) + 0 (spleen)
+
+        // Colors are one row per (name, category): "Light Whitish Green" is used both ways, so it
+        // is backfilled twice -- once per category -- and every other color once in its own.
+        ArgumentCaptor<PranaColorCatalog> colorCaptor = ArgumentCaptor.forClass(PranaColorCatalog.class);
+        verify(pranaColorRepo, times(6)).save(colorCaptor.capture());
+        Set<String> nameAndCategory = colorCaptor.getAllValues().stream()
+                .map(c -> c.getName() + "/" + c.getCategory())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(
+                "Light Whitish Green/CLEANSING", "Light Whitish Green/ENERGISING",
+                "Light Whitish Blue/ENERGISING", "Light Whitish Orange/ENERGISING",
+                "Ordinary Light Whitish Violet/ENERGISING", "Light Whitish Violet/CLEANSING"), nameAndCategory);
     }
 
     @Test
@@ -378,6 +392,7 @@ class ProtocolImportServiceTest {
         existingColor.setId(UUID.randomUUID());
         existingColor.setCode("GREEN");
         existingColor.setName("Green Prana");
+        existingColor.setCategory(ColorUsageType.CLEANSING); // matched per (name, category)
         when(pranaColorRepo.findByHealerIdIsNull()).thenReturn(List.of(existingColor));
 
         ProtocolCatalog headache = existingProtocol("Headache", "Advanced Pranic Healing", 20);
@@ -449,6 +464,7 @@ class ProtocolImportServiceTest {
         existingColor.setId(UUID.randomUUID());
         existingColor.setCode("LWB");
         existingColor.setName("Light Whitish Blue");
+        existingColor.setCategory(ColorUsageType.CLEANSING); // matched per (name, category)
         when(pranaColorRepo.findByHealerIdIsNull()).thenReturn(List.of(existingColor));
 
         ProtocolChakra existingLink = ProtocolChakra.builder().protocol(existingProtocol).chakra(existingChakra).build();

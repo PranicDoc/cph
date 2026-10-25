@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { hasColorCategory, type ColorCategory } from "@/lib/colorCategory";
 
 interface TreatmentColorPickerProps {
   value: TreatmentColor[];
@@ -30,6 +31,13 @@ export function TreatmentColorPicker({
   const selectedColorIds = useMemo(
     () => new Set(value.map((color) => color.id)),
     [value]
+  );
+  const colorsForUsage = useMemo(
+    () =>
+      colors.filter((color) =>
+        hasColorCategory(color, usageType.toUpperCase() as ColorCategory)
+      ),
+    [colors, usageType]
   );
 
   return (
@@ -102,7 +110,7 @@ export function TreatmentColorPicker({
           </div>
 
           <div className="grid grid-cols-5 gap-1.5">
-            {colors.map((color) => {
+            {colorsForUsage.map((color) => {
               const alreadyAdded = selectedColorIds.has(color.id);
 
               return (

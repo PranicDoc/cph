@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.repository;
 
+import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,6 +18,11 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     /** Name-based lookup for import-time resolve-or-backfill (source files carry display names, not codes). */
     Optional<PranaColorCatalog> findByNameIgnoreCase(String name);
+
+    /** Live colors with this name and category (the uq_prana_color_catalog_name_category pair). */
+    boolean existsByNameIgnoreCaseAndCategory(String name, ColorUsageType category);
+
+    boolean existsByNameIgnoreCaseAndCategoryAndIdNot(String name, ColorUsageType category, UUID id);
 
     /** System colors (healerId is null) */
     List<PranaColorCatalog> findByHealerIdIsNull();

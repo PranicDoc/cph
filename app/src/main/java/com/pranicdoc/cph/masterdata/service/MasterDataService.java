@@ -133,11 +133,14 @@ public class MasterDataService {
     @Auditable(action = "CREATE_COLOR")
     @Transactional
     public PranaColorCatalog createColor(PranaColorRequest req) {
+        if (colorRepo.existsByNameIgnoreCaseAndCategory(req.name(), req.category()))
+            throw duplicateColor(req);
         PranaColorCatalog color = new PranaColorCatalog();
         color.setName(req.name());
         color.setCode(req.code().toUpperCase());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setCategory(req.category());
         color.setHealerId(securityContextUtil.getCurrentHealerId());
         return colorRepo.save(color);
     }
@@ -148,10 +151,18 @@ public class MasterDataService {
         PranaColorCatalog color = getColorById(id);
         if (color.getHealerId() == null && !isSuperAdmin)
             throw new AccessDeniedException("System colors can only be edited by SUPADM");
+        if (colorRepo.existsByNameIgnoreCaseAndCategoryAndIdNot(req.name(), req.category(), id))
+            throw duplicateColor(req);
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setCategory(req.category());
         return colorRepo.save(color);
+    }
+
+    private static IllegalArgumentException duplicateColor(PranaColorRequest req) {
+        return new IllegalArgumentException("\"%s\" already exists in %s colors"
+                .formatted(req.name(), req.category().name().toLowerCase(Locale.ROOT)));
     }
 
     @Auditable(action = "DELETE_COLOR")
