@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -101,8 +101,8 @@ describe("Session: saving case details", () => {
 
   it("Save stores the details and returns to the view, which offers the next step", async () => {
     const user = userEvent.setup();
-    (api.get as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
-    (api.patch as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
     renderSession();
 
     await user.click(await screen.findByRole("button", { name: /edit session/i }));
@@ -115,8 +115,8 @@ describe("Session: saving case details", () => {
 
   it("stays in edit mode when saving fails", async () => {
     const user = userEvent.setup();
-    (api.get as any).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
-    (api.patch as any).mockRejectedValue(new Error("network"));
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as Mock).mockRejectedValue(new Error("network"));
     renderSession();
 
     await user.click(await screen.findByRole("button", { name: /edit session/i }));
