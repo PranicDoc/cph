@@ -3,10 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useHealingSessionWizard } from "../hooks/useHealingSessionWizard";
 import { useChakrasForProtocols } from "../hooks/admin/useMasterData";
 import { resolvePrefillChakras } from "../lib/resolveScanChakras";
-import {
-  buildBackendChakraCatalog,
-  buildPranaColorCatalog,
-} from "./ChakraScan";
+import { buildBackendChakraCatalog } from "./ChakraScan";
 import type { ChakraCatalogEntry, ChakraDocEntry } from "./ChakraScan/types/spatial-chakra";
 import { createDefaultEntry } from "./ChakraScan/utils";
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";

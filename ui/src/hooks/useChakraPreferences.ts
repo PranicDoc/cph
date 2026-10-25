@@ -15,7 +15,9 @@ export function useChakraPreferences(
     if (stored) {
       try {
         setUsageMap(JSON.parse(stored));
-      } catch (e) {}
+      } catch {
+        // a corrupt saved value: start with no preferences
+      }
     }
   }, []);
 

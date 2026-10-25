@@ -17,7 +17,7 @@ export default function OAuth2Success() {
         login(res.data);
 
         navigate("/", { replace: true });
-      } catch (e) {
+      } catch {
         navigate("/login", { replace: true });
       }
     }

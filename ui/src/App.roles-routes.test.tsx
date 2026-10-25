@@ -127,17 +127,16 @@ describe("App.tsx route registration", () => {
   const src = readFileSync("src/App.tsx", "utf8");
 
   it("imports the two role pages from ./pages/admin/", () => {
-    expect(src).toContain('import RolesPage from "./pages/admin/RolesPage"');
-    expect(src).toContain(
-      'import RoleFormPage from "./pages/admin/RoleFormPage"'
-    );
+    expect(src).toContain('import("./pages/admin/RolesPage")');
+    expect(src).toContain('import("./pages/admin/RoleFormPage")');
     expect(src).not.toContain("RoleAssignmentPage");
   });
 
   it("registers the three role routes with the intended elements", () => {
-    expect(src).toMatch(/path="roles"\s+element=\{<RolesPage/);
-    expect(src).toMatch(/path="roles\/new"\s+element=\{<RoleFormPage/);
-    expect(src).toMatch(/path="roles\/:id\/edit"\s+element=\{<RoleFormPage/);
+    // Pages load lazily: each route points at its page module.
+    expect(src).toMatch(/path="roles"\s+lazy=\{page\(\(\) => import\("\.\/pages\/admin\/RolesPage"\)/);
+    expect(src).toMatch(/path="roles\/new"\s+lazy=\{page\(\(\) => import\("\.\/pages\/admin\/RoleFormPage"\)/);
+    expect(src).toMatch(/path="roles\/:id\/edit"\s+lazy=\{page\(\(\) => import\("\.\/pages\/admin\/RoleFormPage"\)/);
     expect(src).not.toMatch(/path="roles\/:id\/users"/);
   });
 

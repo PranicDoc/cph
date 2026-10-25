@@ -15,7 +15,6 @@ import {
   CreditCard,
   BookText,
   ClipboardList,
-  Pen,
   Filter,
   Check,
   MessageSquareText,

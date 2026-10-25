@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PROTOCOL_CATALOG } from "./data/protocol-catalog";
-import { PRANA_COLOR_CATALOG } from "./data/prana-color-catalog";
 import { CHAKRA_CATALOG } from "./utils";
 import {
   ENERGY_LEVEL_LABELS,
@@ -87,8 +85,6 @@ export function ChakraDataGrid({
   value,
   onChange,
   availableChakras,
-  protocolCatalog = PROTOCOL_CATALOG,
-  pranaColorCatalog = PRANA_COLOR_CATALOG,
 }: ChakraDataGridProps) {
   const [entriesMap, setEntriesMap] = useState<Record<string, ChakraDocEntry>>(
     () => {

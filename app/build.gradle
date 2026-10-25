@@ -132,6 +132,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 }
 
+// Deprecated or unchecked use fails the build, so warnings can't pile up unnoticed.
+// A deliberate use carries @SuppressWarnings with the reason next to it.
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['-Xlint:deprecation,unchecked', '-Werror']
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	maxHeapSize = "512m"

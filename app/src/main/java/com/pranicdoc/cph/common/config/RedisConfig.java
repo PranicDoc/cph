@@ -88,6 +88,7 @@ public class RedisConfig {
      * types root-level Collections regardless of typing mode — that was coincidence, not a
      * working case of {@code NON_FINAL}.)
      */
+    @SuppressWarnings("deprecation") // DefaultTyping.EVERYTHING is required, see above
     @Bean
     public RedisCacheManager redisCacheManager(RedisConnectionFactory redisConnectionFactory,
                                                 ObjectMapper objectMapper) {

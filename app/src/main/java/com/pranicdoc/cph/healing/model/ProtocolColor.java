@@ -15,6 +15,8 @@ import java.util.UUID;
  * Single table with usage_type enum (CLEANSING/ENERGISING).
  * UNIQUE(entry_id, color_id, usage_type).
  */
+// Part of the deprecated ProtocolEntry model (kept for existing data); using it is intended.
+@SuppressWarnings("deprecation")
 @Entity
 @Table(name = "protocol_color",
         uniqueConstraints = @UniqueConstraint(columnNames = {"protocol_entry_id", "color_id", "usage_type"}))

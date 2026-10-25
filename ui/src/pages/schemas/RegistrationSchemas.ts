@@ -257,7 +257,7 @@ export const consentDeclarationSchema = (
         required: true,
         readOnly: onBehalf,
         placeholder: "Enter patient's full name",
-        validate: (value, _, __) => value != patientName ? "Signature mismatch" : undefined  
+        validate: (value) => value != patientName ? "Signature mismatch" : undefined  
       },
     ],
   },

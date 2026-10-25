@@ -16,22 +16,14 @@ type HealingSessionFormValues = {
   patientRemarks: string;
 };
 
-export function useHealingSessionForm(symptoms: any[]) {
+// Symptoms will seed the per-symptom feedback once that step is back in the wizard.
+export function useHealingSessionForm(_symptoms: any[]) {
   const { currentDate, startTime, endTime } = getCurrentDateAndTime();
-
-  const initialSymptomFeedbacks: SymptomFeedbackRequest[] = symptoms.map(
-    (s) => ({
-      caseSymptomId: s.id,
-      rating: 5,
-      notes: "",
-    })
-  );
 
   const defaultValues: HealingSessionFormValues = {
     sessionDate: currentDate,
     startTime,
     endTime,
-    // symptomFeedbacks: initialSymptomFeedbacks,
     protocolName: "",
     referenceBook: "",
     detailedProtocol: "",

@@ -8,6 +8,7 @@ node_modules/
 dist/
 build/
 .next/
+*.tsbuildinfo
 
 # JVM crash artifacts (OOM on memory-constrained dev machines, see Phase 26 plans)
 hs_err_pid*.log

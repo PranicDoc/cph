@@ -626,7 +626,7 @@ public class ProtocolImportService {
                      .setHeader()
                      .setSkipHeaderRecord(true)
                      .setTrim(true)
-                     .build()
+                     .get()
                      .parse(reader)) {
             for (CSVRecord record : parser) {
                 Map<String, String> rowMap = new LinkedHashMap<>();
