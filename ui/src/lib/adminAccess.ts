@@ -12,13 +12,15 @@ export function hasPermission(perms: MyPermissions | undefined, resource: string
 }
 
 /**
- * A menu item is shown when it needs no permission, or when the user may READ any of the
- * resources it lists. Gated items stay hidden until the permissions have loaded.
+ * A menu item is shown when it needs no permission, or when the user holds its verb (READ unless
+ * the item names another) on any of the resources it lists. Gated items stay hidden until the
+ * permissions have loaded.
  */
 export function canSeeNavItem(perms: MyPermissions | undefined, item: SidebarNavItem): boolean {
   if (!item.anyOf?.length) return true;
   if (!perms) return false;
-  return item.anyOf.some((resource) => perms.grants[resource]?.includes("READ"));
+  const verb = item.verb ?? "READ";
+  return item.anyOf.some((resource) => perms.grants[resource]?.includes(verb));
 }
 
 export function visibleNavItems<T extends SidebarNavItem>(perms: MyPermissions | undefined, items: T[]): T[] {

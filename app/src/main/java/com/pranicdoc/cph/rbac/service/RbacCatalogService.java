@@ -61,7 +61,8 @@ public class RbacCatalogService {
             Operation.EXPORT, "Export",
             Operation.SHARE, "Share",
             Operation.WRITE, "Write",
-            Operation.ADMIN, "Administer"
+            Operation.ADMIN, "Administer",
+            Operation.IMPORT, "Import"
     );
 
     /**
@@ -77,7 +78,8 @@ public class RbacCatalogService {
             Operation.EXPORT, "Export records to a file",
             Operation.SHARE, "Share records externally",
             Operation.WRITE, "Create and edit records",
-            Operation.ADMIN, "Full administrative control"
+            Operation.ADMIN, "Full administrative control",
+            Operation.IMPORT, "Bulk-import records from a file"
     );
 
     /**

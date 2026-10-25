@@ -15,5 +15,6 @@ public enum Operation {
     EXPORT,
     SHARE,
     WRITE,
-    ADMIN
+    ADMIN,
+    IMPORT
 }

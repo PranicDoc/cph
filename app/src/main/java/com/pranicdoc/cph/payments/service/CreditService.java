@@ -16,4 +16,7 @@ public interface CreditService {
     PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size);
     AccountResponse createAccount(OwnerType ownerType, UUID ownerId);
     AccountResponse createAccount();
+
+    /** The signed-in healer's own credit transactions. */
+    PagedTransactionResponse getMyTransactions(int page, int size);
 }

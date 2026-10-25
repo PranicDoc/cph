@@ -9,8 +9,9 @@ export interface SidebarNavItem {
   path: string;
   icon: LucideIcon;
   exact?: boolean;
-  /** Shown only to users who may READ any of these RBAC resources; omit for items everyone sees. */
+  /** Shown only to users who hold `verb` (default READ) on any of these RBAC resources; omit for items everyone sees. */
   anyOf?: string[];
+  verb?: string;
 }
 
 interface SidebarProps {

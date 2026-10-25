@@ -3,6 +3,7 @@ import { Activity, Mail, Pencil, Phone, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCreditAccount } from "../../hooks/useCreditAccount";
 import { planEndLine } from "../lib/planEnd";
+import { CreditHistoryCard } from "../components/CreditHistoryCard";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
@@ -175,6 +176,8 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
             )}
             <button type="button" className="btn btn-primary" onClick={page.openUpgrade}>Upgrade plan</button>
           </section>
+
+          <CreditHistoryCard />
 
           <section className="surface card">
             <div className="card-h">

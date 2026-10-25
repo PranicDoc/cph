@@ -1651,6 +1651,7 @@ function ProtocolsTab({
   const canModify = (item: Protocol) => isSuperAdmin || !!item.healerId;
   const can = useCan();
   const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
+  const canImport = can("MASTER_DATA_PROTOCOLS", "IMPORT");
   const canUpdate = can("MASTER_DATA_PROTOCOLS", "UPDATE");
   const canDelete = can("MASTER_DATA_PROTOCOLS", "DELETE");
 
@@ -1720,20 +1721,24 @@ function ProtocolsTab({
           Bulk-imported protocol catalog. Only "Protocol" type entries appear in the
           session form's dropdown.
         </p>
-        {canCreate && (
+        {(canCreate || canImport) && (
           <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowImport(true)}
-              className="px-3 py-2 h-auto"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Import</span>
-            </Button>
-            <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Protocol</span>
-            </Button>
+            {canImport && (
+              <Button
+                variant="outline"
+                onClick={() => setShowImport(true)}
+                className="px-3 py-2 h-auto"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add Protocol</span>
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1912,15 +1917,15 @@ export default function MasterDataPage() {
   const isSuperAdmin = user?.role === "SUPADM";
   const can = useCan();
 
-  // Only the tabs whose data the user may READ; the server refuses the rest anyway.
-  const allTabs: { key: Tab; label: string; resource: string }[] = [
-    { key: "colors", label: "Prana Colors", resource: "MASTER_DATA_COLORS" },
-    { key: "chakras", label: "Chakras", resource: "MASTER_DATA_CHAKRAS" },
-    // { key: "mappings", label: "Protocol Mappings", resource: "MASTER_DATA_PROTOCOLS" },
-    { key: "protocols", label: "Protocols", resource: "MASTER_DATA_PROTOCOLS" },
-    { key: "imports", label: "Imports", resource: "MASTER_DATA_PROTOCOLS" },
+  // Only the tabs the user may open (READ, or IMPORT for the import jobs); the server refuses the rest anyway.
+  const allTabs: { key: Tab; label: string; resource: string; verb: string }[] = [
+    { key: "colors", label: "Prana Colors", resource: "MASTER_DATA_COLORS", verb: "READ" },
+    { key: "chakras", label: "Chakras", resource: "MASTER_DATA_CHAKRAS", verb: "READ" },
+    // { key: "mappings", label: "Protocol Mappings", resource: "MASTER_DATA_PROTOCOLS", verb: "READ" },
+    { key: "protocols", label: "Protocols", resource: "MASTER_DATA_PROTOCOLS", verb: "READ" },
+    { key: "imports", label: "Imports", resource: "MASTER_DATA_PROTOCOLS", verb: "IMPORT" },
   ];
-  const tabs = allTabs.filter((tab) => can(tab.resource, "READ"));
+  const tabs = allTabs.filter((tab) => can(tab.resource, tab.verb));
   const [chosenTab, setActiveTab] = useState<Tab | null>(null);
   const activeTab = chosenTab ?? tabs[0]?.key;
 

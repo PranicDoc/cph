@@ -59,7 +59,7 @@ describe("AdminRoute, opened by permissions", () => {
   });
 
   it("lets a user holding every admin grant in everywhere", () => {
-    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } }, isLoading: false, isError: false });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ", "CREATE", "ADMIN"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } }, isLoading: false, isError: false });
     at("/admin/accounts");
     expect(screen.getByText("accounts")).toBeInTheDocument();
   });

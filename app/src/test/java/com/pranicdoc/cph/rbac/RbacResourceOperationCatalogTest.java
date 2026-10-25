@@ -29,8 +29,8 @@ class RbacResourceOperationCatalogTest {
     }
 
     @Test
-    void declaresExactlyEightOperations() {
-        assertEquals(8, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
+    void declaresExactlyNineOperations() {
+        assertEquals(9, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
     }
 
     @Test
@@ -43,10 +43,11 @@ class RbacResourceOperationCatalogTest {
     void accountsResourceIsDistinctFromCreditAccounts() {
         assertEquals(Set.of(Operation.READ, Operation.UPDATE, Operation.DELETE),
                 Resource.ACCOUNTS.getSupportedOperations());
-        assertEquals(Set.of(Operation.READ, Operation.CREATE),
+        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.ADMIN),
                 Resource.CREDIT_ACCOUNTS.getSupportedOperations(),
                 "CREDIT_ACCOUNTS gained CREATE per D-04 — CreditProxyController.createAccount "
-                        + "(POST /api/credits/account) has no other fitting verb");
+                        + "(POST /api/credits/account) has no other fitting verb — and ADMIN for the "
+                        + "cross-healer admin Accounts screen");
     }
 
     @Test
@@ -80,7 +81,7 @@ class RbacResourceOperationCatalogTest {
                 "SC2 / D-06: the healer per-session protocol resource must be a distinct enum "
                         + "constant from the admin master-data protocol catalog");
         assertEquals(Set.of(Operation.CREATE), Resource.SESSION_PROTOCOL.getSupportedOperations());
-        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE),
+        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE, Operation.IMPORT),
                 Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations());
         assertNotEquals(Resource.SESSION_PROTOCOL.getSupportedOperations(),
                 Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations(),

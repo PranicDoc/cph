@@ -73,6 +73,7 @@ class MasterDataControllerAuthorizationContractTest {
     private static final String PROTOCOLS_CREATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')";
     private static final String PROTOCOLS_UPDATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','UPDATE')";
     private static final String PROTOCOLS_DELETE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')";
+    private static final String PROTOCOLS_IMPORT = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','IMPORT')";
 
     /** methodName -> expected @PreAuthorize literal. All 29 endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
@@ -96,9 +97,9 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"createProtocol",  PROTOCOLS_CREATE},
             new String[]{"updateProtocol",  PROTOCOLS_UPDATE},
             new String[]{"deleteProtocol",  PROTOCOLS_DELETE},
-            new String[]{"importProtocols", PROTOCOLS_CREATE},
-            new String[]{"getImportJobs", PROTOCOLS_READ},
-            new String[]{"getImportJob", PROTOCOLS_READ},
+            new String[]{"importProtocols", PROTOCOLS_IMPORT},
+            new String[]{"getImportJobs", PROTOCOLS_IMPORT},
+            new String[]{"getImportJob", PROTOCOLS_IMPORT},
             new String[]{"getChakrasForProtocols",          PROTOCOLS_READ},
             new String[]{"getColorsForProtocolsAndChakras", PROTOCOLS_READ},
             new String[]{"getChakraColorGroupsForProtocol", PROTOCOLS_READ},
@@ -197,14 +198,14 @@ class MasterDataControllerAuthorizationContractTest {
     @Test @DisplayName("protocols: deleteProtocol is gated MASTER_DATA_PROTOCOLS:DELETE")
     void deleteProtocol_isGatedByProtocolsDelete() { assertGate("deleteProtocol", PROTOCOLS_DELETE); }
 
-    @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:CREATE (bulk CSV creation, now async submit)")
-    void importProtocols_isGatedByProtocolsCreate() { assertGate("importProtocols", PROTOCOLS_CREATE); }
+    @Test @DisplayName("protocols: importProtocols is gated MASTER_DATA_PROTOCOLS:IMPORT (bulk xlsx, async submit)")
+    void importProtocols_isGatedByProtocolsImport() { assertGate("importProtocols", PROTOCOLS_IMPORT); }
 
-    @Test @DisplayName("protocols: getImportJobs is gated MASTER_DATA_PROTOCOLS:READ (import job list)")
-    void getImportJobs_isGatedByProtocolsRead() { assertGate("getImportJobs", PROTOCOLS_READ); }
+    @Test @DisplayName("protocols: getImportJobs is gated MASTER_DATA_PROTOCOLS:IMPORT (import job list)")
+    void getImportJobs_isGatedByProtocolsImport() { assertGate("getImportJobs", PROTOCOLS_IMPORT); }
 
-    @Test @DisplayName("protocols: getImportJob is gated MASTER_DATA_PROTOCOLS:READ (single import job status)")
-    void getImportJob_isGatedByProtocolsRead() { assertGate("getImportJob", PROTOCOLS_READ); }
+    @Test @DisplayName("protocols: getImportJob is gated MASTER_DATA_PROTOCOLS:IMPORT (single import job status)")
+    void getImportJob_isGatedByProtocolsImport() { assertGate("getImportJob", PROTOCOLS_IMPORT); }
 
     @Test @DisplayName("protocols: getChakrasForProtocols is gated MASTER_DATA_PROTOCOLS:READ (protocol->chakra relationship read)")
     void getChakrasForProtocols_isGatedByProtocolsRead() { assertGate("getChakrasForProtocols", PROTOCOLS_READ); }

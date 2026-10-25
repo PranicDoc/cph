@@ -31,9 +31,13 @@ import java.util.Set;
  * (system rows, healerId null, stay SUPADM-only via the non-grantable
  * MASTER_DATA_PROTOCOLS:ADMIN override — see PD-40-04), so this grant cannot
  * let a healer touch system data or another healer's rows. It does also
- * unlock {@code POST /protocols/import} (bulk xlsx) and the
- * {@code /protocol-mappings} CRUD for every healer, since both share this
- * same resource — accepted, not an oversight.
+ * unlock the {@code /protocol-mappings} CRUD for every healer, since it shares
+ * this same resource — accepted, not an oversight. Bulk xlsx import is NOT
+ * included: it needs MASTER_DATA_PROTOCOLS:IMPORT, granted separately.
+ *
+ * <p>No ADMIN on the credit resources either: CREDIT_ACCOUNTS:ADMIN /
+ * CREDIT_ACCOUNT_TRANSACTIONS:ADMIN open the cross-healer Accounts screens
+ * and manual adjust, which stay SUPADM-only by default.
  */
 public final class BaselineRole {
 

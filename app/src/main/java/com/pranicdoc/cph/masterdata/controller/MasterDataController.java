@@ -288,10 +288,10 @@ public class MasterDataController {
 
     // Async: submitting an import returns immediately (QUEUED) — the actual parse+upsert runs
     // in the background (ProtocolImportAsyncRunner) and is tracked via the /import-jobs
-    // endpoints below, not returned in this response. importProtocols is bulk protocol
-    // creation from a CSV, so CREATE is the correct verb.
+    // endpoints below, not returned in this response. Bulk import has its own IMPORT verb,
+    // separate from adding a single protocol (CREATE); the job list below needs it too.
     @PostMapping(value = "/protocols/import", consumes = "multipart/form-data")
-    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','CREATE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','IMPORT')")
     public ResponseEntity<ApiResponse<ProtocolImportJobView>> importProtocols(
             @RequestPart("file") MultipartFile file) {
         return ResponseEntity.accepted()
@@ -299,13 +299,13 @@ public class MasterDataController {
     }
 
     @GetMapping("/protocols/import-jobs")
-    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','IMPORT')")
     public ResponseEntity<ApiResponse<List<ProtocolImportJobView>>> getImportJobs() {
         return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJobs()));
     }
 
     @GetMapping("/protocols/import-jobs/{id}")
-    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','IMPORT')")
     public ResponseEntity<ApiResponse<ProtocolImportJobView>> getImportJob(@PathVariable UUID id) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Success", protocolImportJobService.getImportJob(id)));
     }

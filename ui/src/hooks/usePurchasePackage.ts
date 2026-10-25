@@ -39,6 +39,7 @@ export function usePurchasePackage() {
       // Without this, PlanPicker keeps showing the pre-purchase plan_tier/balance
       // until something else happens to trigger a refetch (e.g. a remount).
       qc.invalidateQueries({ queryKey: ["credit-account"] });
+      qc.invalidateQueries({ queryKey: ["my-credit-transactions"] });
       // An upgrade changes which plans may still be offered (only higher ones).
       qc.invalidateQueries({ queryKey: ["credit-packages"] });
       qc.invalidateQueries({ queryKey: ["dashboard-summary"] });

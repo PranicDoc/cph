@@ -35,7 +35,7 @@ describe("AdminShell", () => {
 
   it("shows a super admin every admin page, grouped, with the Admin crumb", () => {
     mockUseAuth.mockReturnValue({ user: { fullName: "Root", role: "SUPADM" } });
-    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } } });
+    mockUseMyPermissions.mockReturnValue({ data: { grants: { CREDIT_ACCOUNTS: ["READ", "CREATE", "ADMIN"], GLOBAL_CONFIG: ["READ"], PACKAGES: ["READ"], MASTER_DATA_COLORS: ["READ"], HEALER_REG: ["READ"], LEGAL_DOCUMENTS: ["READ"], ROLES: ["READ"] } } });
     renderAt("/admin/packages", <AdminShell />);
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     expect(within(side).getAllByRole("link").map((l) => l.textContent?.trim())).toEqual([
@@ -65,10 +65,11 @@ describe("AdminShell", () => {
         },
       },
     });
-    renderAt("/admin/accounts", <AdminShell />);
+    renderAt("/admin/healer-registration", <AdminShell />);
     const side = screen.getByRole("navigation", { name: "Sidebar" });
     const labels = within(side).getAllByRole("link").map((l) => l.textContent?.trim());
-    expect(labels).toEqual(["Accounts", "Healer Reg.", "Master Data", "Legal Documents"]);
+    // Reading credits (own account) does not open Accounts; that needs CREDIT_ACCOUNTS:ADMIN.
+    expect(labels).toEqual(["Healer Reg.", "Master Data", "Legal Documents"]);
     expect(screen.queryByText("Admin", { selector: "div" })).not.toBeInTheDocument();
   });
 });

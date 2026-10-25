@@ -6,6 +6,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useUiVersion } from "../ui-version";
 import { UpgradePlanDialog } from "../components/UpgradePlanDialog";
+import { CreditHistory } from "../components/CreditHistory";
 import { Skeleton } from "../components/ui/skeleton";
 import {
   useHealerProfile, useUpdateProfile, useChangePassword,
@@ -579,6 +580,8 @@ export default function Profile() {
           Upgrade Plan
         </Button>
       </div>
+
+      <CreditHistory />
 
       {dialogs}
     </div>
