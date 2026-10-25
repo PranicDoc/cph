@@ -55,7 +55,7 @@ export function ManualFeedbackDialog({
         healingDate,
         symptoms: Object.entries(ratings).map(([caseSymptomId, value]) => ({
           caseSymptomId,
-          rating: toSymptomRating(value, isNewView),
+          rating: toSymptomRating(value),
           notes: "",
         })),
         feedbackText,

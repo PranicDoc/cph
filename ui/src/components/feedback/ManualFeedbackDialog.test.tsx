@@ -27,6 +27,13 @@ function renderDialog(onClose = vi.fn()) {
   return onClose;
 }
 
+/** Moves the first symptom's slider up from 0 by `steps` (keyboard, as Radix's slider supports). */
+async function rateSeverity(user: ReturnType<typeof userEvent.setup>, steps: number) {
+  const thumb = await screen.findByRole("slider");
+  thumb.focus();
+  await user.keyboard("{ArrowRight}".repeat(steps));
+}
+
 describe("ManualFeedbackDialog", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -35,7 +42,7 @@ describe("ManualFeedbackDialog", () => {
     renderDialog();
 
     expect(screen.getByLabelText("Healing date")).toHaveValue("");
-    await user.click(await screen.findByRole("button", { name: "Headache: Good" }));
+    await rateSeverity(user, 2);
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
 
     expect(screen.getByText("Enter the healing date.")).toBeInTheDocument();
@@ -49,7 +56,7 @@ describe("ManualFeedbackDialog", () => {
 
     await user.type(screen.getByLabelText("Healing date"), "2026-10-20");
     await user.click(screen.getByRole("button", { name: "Final" }));
-    await user.click(await screen.findByRole("button", { name: "Headache: Good" }));
+    await rateSeverity(user, 2);
     await user.type(screen.getByLabelText("Comments"), "Sleeping better");
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
 
@@ -57,7 +64,7 @@ describe("ManualFeedbackDialog", () => {
       expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", {
         feedbackType: "FINAL",
         healingDate: "2026-10-20",
-        // Classic emoji scale: "Good" is 4 of 5, stored as 8 of 10.
+        // Severity 2 of 10 (higher is worse) is stored as rating 8 (higher is better).
         symptoms: [{ caseSymptomId: "s1", rating: 8, notes: "" }],
         feedbackText: "Sleeping better",
       })

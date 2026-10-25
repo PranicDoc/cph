@@ -133,9 +133,9 @@ export default function PatientFeedback() {
 
     try {
       const symptomPayload = Object.entries(symptomRatings).map(
-        ([caseSymptomId, emojiRating]) => ({
+        ([caseSymptomId, severity]) => ({
           caseSymptomId,
-          rating: toSymptomRating(emojiRating, isNewView),
+          rating: toSymptomRating(severity),
           notes: "",
         })
       );

@@ -1,15 +1,6 @@
-import { SeveritySlider } from "@/ui-new/components/SeveritySlider";
-import { Button } from "@/components/ui/button";
+import { SeveritySlider, severityBand } from "@/ui-new/components/SeveritySlider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-
-const EMOJI_SCALE = [
-  { value: 1, emoji: "😠", label: "Terrible" },
-  { value: 2, emoji: "🙁", label: "Bad" },
-  { value: 3, emoji: "😐", label: "Okay" },
-  { value: 4, emoji: "🙂", label: "Good" },
-  { value: 5, emoji: "😄", label: "Great" },
-];
+import { Slider } from "@/components/ui/slider";
 
 export interface FeedbackSymptom {
   caseSymptomId: string;
@@ -18,8 +9,9 @@ export interface FeedbackSymptom {
 
 /**
  * The per-symptom rating section of the patient feedback form, shared by the patient's
- * WhatsApp form and the healer's manual entry so both collect feedback the same way:
- * a severity slider in the new view, the emoji scale in the classic one.
+ * WhatsApp form and the healer's manual entry so both collect feedback the same way: a
+ * 0 (none) to 10 (worst) severity slider per symptom -- the new view's SeveritySlider, or the
+ * classic view's Slider (the new view's slider is only styled inside the new view).
  */
 export function SymptomRatingList({
   symptoms,
@@ -30,7 +22,7 @@ export function SymptomRatingList({
 }: {
   symptoms: FeedbackSymptom[];
   ratings: Record<string, number>;
-  onChange: (caseSymptomId: string, value: number) => void;
+  onChange: (caseSymptomId: string, severity: number) => void;
   isNewView: boolean;
   loading?: boolean;
 }) {
@@ -50,44 +42,48 @@ export function SymptomRatingList({
 
   return (
     <div className="space-y-4">
-      {symptoms.map((symptom) => (
-        <div key={symptom.caseSymptomId} className="border border-border rounded-xl p-4">
-          <div className="mb-4">
-            <h3 className="font-medium text-primary-dark">{symptom.name}</h3>
-          </div>
-
-          {isNewView ? (
-            <SeveritySlider
-              label={symptom.name}
-              value={ratings[symptom.caseSymptomId]}
-              onChange={(v) => onChange(symptom.caseSymptomId, v)}
-            />
-          ) : (
-            <div className="flex flex-wrap justify-between gap-2">
-              {EMOJI_SCALE.map((item) => (
-                <Button
-                  key={item.value}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onChange(symptom.caseSymptomId, item.value)}
-                  title={item.label}
-                  aria-label={`${symptom.name}: ${item.label}`}
-                  aria-pressed={ratings[symptom.caseSymptomId] === item.value}
-                  className={cn(
-                    "flex flex-col items-center gap-1 h-auto p-2 rounded-xl transition-all",
-                    ratings[symptom.caseSymptomId] === item.value
-                      ? "transform scale-110 bg-primary/10 ring-2 ring-primary hover:bg-primary/10"
-                      : "hover:bg-primary/5 opacity-60 hover:opacity-100"
-                  )}
-                >
-                  <span className="text-4xl">{item.emoji}</span>
-                  <span className="text-xs text-text-light">{item.label}</span>
-                </Button>
-              ))}
+      {symptoms.map((symptom) => {
+        const severity = ratings[symptom.caseSymptomId];
+        const rated = severity !== undefined;
+        return (
+          <div key={symptom.caseSymptomId} className="border border-border rounded-xl p-4">
+            <div className="mb-4">
+              <h3 className="font-medium text-primary-dark">{symptom.name}</h3>
             </div>
-          )}
-        </div>
-      ))}
+
+            {isNewView ? (
+              <SeveritySlider
+                label={symptom.name}
+                value={severity}
+                onChange={(v) => onChange(symptom.caseSymptomId, v)}
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Slider
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={[severity ?? 0]}
+                    // Commit as well as change, so releasing on the starting 0 still records "0 · None".
+                    onValueChange={([v]) => onChange(symptom.caseSymptomId, v)}
+                    onValueCommit={([v]) => onChange(symptom.caseSymptomId, v)}
+                    aria-label={`${symptom.name}: severity from 0 (none) to 10 (worst)`}
+                    className="flex-1"
+                  />
+                  <span className="w-28 text-right text-sm font-semibold text-text">
+                    {rated ? `${severity} · ${severityBand(severity).label}` : "Not rated yet"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-text-light">
+                  <span>0 None</span>
+                  <span>10 Worst</span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
