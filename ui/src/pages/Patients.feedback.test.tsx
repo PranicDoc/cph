@@ -24,7 +24,10 @@ const patient = (id: string, status: string) => ({
 
 vi.mock("../context/PatientContext", () => ({
   usePatient: () => ({ selectPatient: vi.fn() }),
-  usePatientList: () => ({ patients: [patient("a", "ACTIVE"), patient("c", "CLOSED")], isLoading: false }),
+  usePatientList: () => ({
+    patients: [patient("a", "ACTIVE"), patient("c", "CLOSED"), patient("n", "CONTINUED"), patient("d", "DRAFT"), patient("l", "LOCKED")],
+    isLoading: false,
+  }),
 }));
 vi.mock("../ui-version", () => ({ useUiVersion: () => ({ isNewView: false }) }));
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: { id: "healer-1" } }) }));
@@ -51,16 +54,19 @@ function renderPatients() {
 describe("Patients: manual feedback action", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("is enabled only for a patient whose latest case is active, and opens the dialog for that case", async () => {
+  it("is offered on every started case but not on a draft or locked one", async () => {
+    renderPatients();
+
+    // The table and the phone cards both render, so each case's button appears twice.
+    expect(screen.getAllByRole("button", { name: /^feedback$/i })).toHaveLength(3 * 2);
+  });
+
+  it("opens the dialog for that patient's case, closed cases included", async () => {
     const user = userEvent.setup();
     renderPatients();
 
-    // Table and mobile card layouts both render; the first two are the table rows.
-    const [activeButton, closedButton] = screen.getAllByRole("button", { name: /^feedback$/i });
-    expect(activeButton).toBeEnabled();
-    expect(closedButton).toBeDisabled();
-
-    await user.click(activeButton);
-    expect(screen.getByText("feedback-dialog:case-a")).toBeInTheDocument();
+    const [, closedButton] = screen.getAllByRole("button", { name: /^feedback$/i });
+    await user.click(closedButton);
+    expect(screen.getByText("feedback-dialog:case-c")).toBeInTheDocument();
   });
 });

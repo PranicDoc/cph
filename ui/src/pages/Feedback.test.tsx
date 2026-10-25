@@ -36,6 +36,13 @@ function renderForm(isFinal: boolean) {
   );
 }
 
+/** Moves the first symptom's slider up from 0 by `steps` (keyboard, as Radix's slider supports). */
+async function rateSeverity(user: ReturnType<typeof userEvent.setup>, steps: number) {
+  const thumb = await screen.findByRole("slider");
+  thumb.focus();
+  await user.keyboard("{ArrowRight}".repeat(steps));
+}
+
 describe("Patient feedback form (WhatsApp link)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,7 +54,7 @@ describe("Patient feedback form (WhatsApp link)", () => {
     renderForm(false);
 
     expect(await screen.findByText(new Date("2026-10-08T00:00:00").toLocaleDateString())).toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: "Headache: Good" }));
+    await rateSeverity(user, 2);
     await user.type(screen.getByPlaceholderText("Type your feedback here..."), "Less pain");
     await user.click(screen.getByRole("button", { name: /submit feedback/i }));
 
@@ -67,7 +74,7 @@ describe("Patient feedback form (WhatsApp link)", () => {
     const user = userEvent.setup();
     renderForm(true);
 
-    await user.click(await screen.findByRole("button", { name: "Headache: Great" }));
+    await rateSeverity(user, 1);
     await user.type(screen.getByPlaceholderText("Type your feedback here..."), "All good");
     await user.click(screen.getByRole("button", { name: /submit feedback/i }));
 

@@ -13,10 +13,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Ensures the {@link BaselineRole} exists on startup (idempotent), mirroring
- * {@code MasterDataSeeder}. Writes through the repositories directly rather
- * than {@code RbacRoleService.create} — this is a system action with no
- * audit actor, and the seeder does its own existence check.
+ * Ensures the {@link BaselineRole} exists on startup (idempotent). Writes through the
+ * repositories directly rather than {@code RbacRoleService.create} — this is a system
+ * action with no audit actor, and the seeder does its own existence check.
  */
 @Component
 @RequiredArgsConstructor

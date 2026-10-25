@@ -356,16 +356,19 @@ export default function Patients() {
             </>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setFeedbackPatient(patient)}
-          disabled={!isActive}
-          title={isActive ? "Record the patient's feedback" : "Feedback can be added to an active case"}
-          className={`inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary ${buttonSize} text-xs font-medium hover:bg-primary/5 transition-colors disabled:border-border disabled:text-text-light disabled:hover:bg-transparent disabled:cursor-not-allowed`}
-        >
-          <MessageSquareText className="w-3.5 h-3.5" />
-          Feedback
-        </button>
+        {/* Feedback can be recorded on any started case; a DRAFT has had no healing yet
+            (a LOCKED case never reaches here: it renders renderLockedActions). */}
+        {!isDraft && (
+          <button
+            type="button"
+            onClick={() => setFeedbackPatient(patient)}
+            title="Record the patient's feedback"
+            className={`inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary ${buttonSize} text-xs font-medium hover:bg-primary/5 transition-colors`}
+          >
+            <MessageSquareText className="w-3.5 h-3.5" />
+            Feedback
+          </button>
+        )}
         {isCompleted && (
           <button
             onClick={() => navigate(`/cases/${patient.healingCaseId}/summary`)}
