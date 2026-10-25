@@ -46,9 +46,8 @@ class RolePermissionLookupServiceEffectiveGrantsTest {
         UUID seeder = UUID.randomUUID();
         when(userRoleRepository.findAllByPrincipalTypeAndPrincipalId("HEALER", healerId))
                 .thenReturn(List.of(assignment(healerId, practitioner), assignment(healerId, seeder)));
-        when(rolePermissionRepository.findAllByRoleId(practitioner)).thenReturn(List.of(
-                grant(practitioner, Resource.MASTER_DATA_PROTOCOLS, Operation.READ)));
-        when(rolePermissionRepository.findAllByRoleId(seeder)).thenReturn(List.of(
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(practitioner, seeder))).thenReturn(List.of(
+                grant(practitioner, Resource.MASTER_DATA_PROTOCOLS, Operation.READ),
                 grant(seeder, Resource.MASTER_DATA_PROTOCOLS, Operation.READ),
                 grant(seeder, Resource.MASTER_DATA_PROTOCOLS, Operation.CREATE),
                 grant(seeder, Resource.MASTER_DATA_CHAKRAS, Operation.READ)));

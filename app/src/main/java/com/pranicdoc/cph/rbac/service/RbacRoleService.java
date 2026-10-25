@@ -24,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -213,25 +216,26 @@ public class RbacRoleService {
      * Sort and page size come from the controller's {@code @PageableDefault}
      * (name ascending, size 20) unless the caller overrides them.
      * <p>
-     * The per-row grant/user-count reads remain an accepted N+1 — now bounded
-     * to a single page's worth of roles rather than the whole table.
+     * Grants and user counts for the page's roles are read in one query each, not per row.
      */
     @Transactional(readOnly = true)
     public PageResponse<RoleSummaryResponse> list(String search, Pageable pageable) {
-        Page<RoleSummaryResponse> page = rbacRoleRepository
-                .findByNameContainingIgnoreCase(search, pageable)
-                .map(role -> {
-                    List<RolePermission> grants = rolePermissionRepository.findAllByRoleId(role.getId());
-                    int resourceCount = (int) grants.stream()
-                            .map(RolePermission::getResource)
-                            .distinct()
-                            .count();
-                    long userCount = userRoleRepository.countByRoleId(role.getId());
-                    return new RoleSummaryResponse(
-                            role.getId(), role.getName(), role.getDescription(),
-                            resourceCount, userCount, role.getUpdatedAt());
-                });
-        return PageResponse.from(page);
+        Page<RbacRole> roles = rbacRoleRepository.findByNameContainingIgnoreCase(search, pageable);
+        List<UUID> roleIds = roles.getContent().stream().map(RbacRole::getId).toList();
+        Map<UUID, Set<Resource>> resourcesByRole = new HashMap<>();
+        Map<UUID, Long> usersByRole = new HashMap<>();
+        if (!roleIds.isEmpty()) {
+            rolePermissionRepository.findAllByRoleIdIn(roleIds).forEach(grant -> resourcesByRole
+                    .computeIfAbsent(grant.getRoleId(), id -> EnumSet.noneOf(Resource.class))
+                    .add(grant.getResource()));
+            userRoleRepository.findAllByRoleIdIn(roleIds)
+                    .forEach(assignment -> usersByRole.merge(assignment.getRoleId(), 1L, Long::sum));
+        }
+        return PageResponse.from(roles.map(role -> new RoleSummaryResponse(
+                role.getId(), role.getName(), role.getDescription(),
+                resourcesByRole.getOrDefault(role.getId(), Set.of()).size(),
+                usersByRole.getOrDefault(role.getId(), 0L),
+                role.getUpdatedAt())));
     }
 
     /** Public role detail read. */

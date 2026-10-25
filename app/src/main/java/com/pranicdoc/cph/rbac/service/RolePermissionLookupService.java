@@ -77,8 +77,7 @@ public class RolePermissionLookupService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        return roleIds.stream()
-                .flatMap(roleId -> rolePermissionRepository.findAllByRoleId(roleId).stream())
+        return rolePermissionRepository.findAllByRoleIdIn(roleIds).stream()
                 .anyMatch(grant -> grant.getResource() == resource && grant.getOperation() == operation);
     }
 
@@ -92,10 +91,15 @@ public class RolePermissionLookupService {
         if (healerId == null) {
             return grants;
         }
-        userRoleRepository.findAllByPrincipalTypeAndPrincipalId(PRINCIPAL_TYPE_HEALER, healerId).stream()
+        List<UUID> roleIds = userRoleRepository.findAllByPrincipalTypeAndPrincipalId(PRINCIPAL_TYPE_HEALER, healerId)
+                .stream()
                 .map(UserRole::getRoleId)
                 .distinct()
-                .flatMap(roleId -> rolePermissionRepository.findAllByRoleId(roleId).stream())
+                .toList();
+        if (roleIds.isEmpty()) {
+            return grants;
+        }
+        rolePermissionRepository.findAllByRoleIdIn(roleIds)
                 .forEach(grant -> grants
                         .computeIfAbsent(grant.getResource(), r -> EnumSet.noneOf(Operation.class))
                         .add(grant.getOperation()));

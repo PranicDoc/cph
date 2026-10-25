@@ -57,7 +57,7 @@ class RolePermissionLookupServiceTest {
         UUID roleA = UUID.randomUUID();
         when(userRoleRepository.findAllByPrincipalTypeAndPrincipalId("HEALER", healerId))
                 .thenReturn(List.of(assignment(healerId, roleA)));
-        when(rolePermissionRepository.findAllByRoleId(roleA))
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(roleA)))
                 .thenReturn(List.of(grant(roleA, Resource.ROLES, Operation.CREATE)));
 
         assertTrue(lookupService.hasPermission(healerId, Resource.ROLES, Operation.CREATE));
@@ -69,7 +69,7 @@ class RolePermissionLookupServiceTest {
         UUID roleA = UUID.randomUUID();
         when(userRoleRepository.findAllByPrincipalTypeAndPrincipalId("HEALER", healerId))
                 .thenReturn(List.of(assignment(healerId, roleA)));
-        when(rolePermissionRepository.findAllByRoleId(roleA))
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(roleA)))
                 .thenReturn(List.of(grant(roleA, Resource.ROLES, Operation.READ)));
 
         assertFalse(lookupService.hasPermission(healerId, Resource.ROLES, Operation.DELETE));
@@ -82,10 +82,9 @@ class RolePermissionLookupServiceTest {
         UUID roleB = UUID.randomUUID();
         when(userRoleRepository.findAllByPrincipalTypeAndPrincipalId("HEALER", healerId))
                 .thenReturn(List.of(assignment(healerId, roleA), assignment(healerId, roleB)));
-        when(rolePermissionRepository.findAllByRoleId(roleA))
-                .thenReturn(List.of(grant(roleA, Resource.ROLES, Operation.READ)));
-        when(rolePermissionRepository.findAllByRoleId(roleB))
-                .thenReturn(List.of(grant(roleB, Resource.ROLES, Operation.DELETE)));
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(roleA, roleB)))
+                .thenReturn(List.of(grant(roleA, Resource.ROLES, Operation.READ),
+                        grant(roleB, Resource.ROLES, Operation.DELETE)));
 
         assertTrue(lookupService.hasPermission(healerId, Resource.ROLES, Operation.READ));
         assertTrue(lookupService.hasPermission(healerId, Resource.ROLES, Operation.DELETE));
@@ -120,7 +119,7 @@ class RolePermissionLookupServiceTest {
         UUID roleA = UUID.randomUUID();
         when(userRoleRepository.findAllByPrincipalTypeAndPrincipalId("HEALER", healerId))
                 .thenReturn(List.of(assignment(healerId, roleA)));
-        when(rolePermissionRepository.findAllByRoleId(roleA))
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(roleA)))
                 .thenReturn(List.of(grant(roleA, Resource.ROLES, Operation.CREATE)))
                 .thenReturn(Collections.emptyList());
 
