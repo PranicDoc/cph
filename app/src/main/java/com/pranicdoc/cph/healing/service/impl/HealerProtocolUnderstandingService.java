@@ -15,8 +15,17 @@ import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ColorSel
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
+import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
+import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
+import com.pranicdoc.cph.masterdata.model.ProtocolChakra;
+import com.pranicdoc.cph.masterdata.model.ProtocolChakraColor;
+import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +43,11 @@ public class HealerProtocolUnderstandingService {
     private final CaseRepository caseRepository;
     private final HealerProtocolUnderstandingRepository hpuRepository;
     private final PranaColorCatalogRepository pranaColorCatalogRepository;
+    private final SessionRepository sessionRepository;
+    private final ProtocolCatalogRepository protocolCatalogRepository;
+    private final ProtocolChakraRepository protocolChakraRepository;
+    private final ProtocolChakraColorRepository protocolChakraColorRepository;
+    private final ChakraCatalogRepository chakraCatalogRepository;
     private final ObjectMapper objectMapper;
 
     /**
@@ -118,6 +132,105 @@ public class HealerProtocolUnderstandingService {
                 .toList();
 
         return new HealerProtocolUnderstandingRequest(chakraSelections);
+    }
+
+    /**
+     * Pre-fill for the closure form: for each chakra scanned in this case, the cleansing and
+     * energising colors the case's protocol(s) prescribe for that chakra in master data, with
+     * properties left empty for the healer to pick. A chakra the protocols do not cover, or a
+     * case whose protocols have no chakra/color data, comes back with empty lists, and the
+     * form falls back to manual selection.
+     */
+    @Transactional(readOnly = true)
+    public HealerProtocolUnderstandingRequest getProtocolPrefill(UUID healingCaseId) {
+        HealingCase healingCase = caseRepository.findById(healingCaseId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Healing case not found for id %s"
+                                .formatted(healingCaseId)));
+        Map<String, Map<ColorUsageType, Set<String>>> colorsByChakra =
+                protocolColorsByChakra(healingCase, healingCase.getHealerId());
+
+        List<ChakraColorSelection> prefill = sessionRepository.findAllScannedChakras(healingCaseId)
+                .stream()
+                .sorted()
+                .map(chakra -> {
+                    Map<ColorUsageType, Set<String>> colors =
+                            colorsByChakra.getOrDefault(normalizeChakraName(chakra), Map.of());
+                    return new ChakraColorSelection(
+                            chakra,
+                            toUnselectedColors(colors.get(ColorUsageType.ENERGISING)),
+                            toUnselectedColors(colors.get(ColorUsageType.CLEANSING)));
+                })
+                .toList();
+        return new HealerProtocolUnderstandingRequest(prefill);
+    }
+
+    /**
+     * Normalized chakra name -> usage -> color names, merged across every protocol named on the
+     * case (HealingDetails.protocolName is a comma-joined list of catalog names). Only system rows
+     * and the case healer's own rows count.
+     */
+    private Map<String, Map<ColorUsageType, Set<String>>> protocolColorsByChakra(HealingCase healingCase, UUID healerId) {
+        HealingDetails details = healingCase.getHealingDetails();
+        if (details == null || details.getProtocolName() == null || details.getProtocolName().isBlank()) {
+            return Map.of();
+        }
+        Set<String> protocolNames = Arrays.stream(details.getProtocolName().split(","))
+                .map(name -> name.trim().toLowerCase(Locale.ROOT))
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toSet());
+        List<UUID> protocolIds = protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)
+                .stream()
+                .filter(p -> p.getName() != null && protocolNames.contains(p.getName().trim().toLowerCase(Locale.ROOT)))
+                .map(ProtocolCatalog::getId)
+                .toList();
+        if (protocolIds.isEmpty()) return Map.of();
+
+        // One query for every named protocol's links, keeping system rows and the case healer's own.
+        List<ProtocolChakra> links = protocolChakraRepository.findByProtocol_IdIn(protocolIds)
+                .stream()
+                .filter(link -> link.getHealerId() == null || link.getHealerId().equals(healerId))
+                .toList();
+        if (links.isEmpty()) return Map.of();
+
+        Map<UUID, String> chakraNameById = chakraCatalogRepository
+                .findAllById(links.stream().map(link -> link.getChakra().getId()).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(ChakraCatalog::getId, ChakraCatalog::getName));
+        Map<UUID, String> colorNameById = pranaColorCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)
+                .stream()
+                .collect(Collectors.toMap(PranaColorCatalog::getId, PranaColorCatalog::getName));
+        Map<UUID, String> chakraKeyByLinkId = new HashMap<>();
+        for (ProtocolChakra link : links) {
+            String chakraName = chakraNameById.get(link.getChakra().getId());
+            if (chakraName != null) chakraKeyByLinkId.put(link.getId(), normalizeChakraName(chakraName));
+        }
+
+        List<ProtocolChakraColor> linkColors = protocolChakraColorRepository.findByProtocolChakra_IdIn(
+                links.stream().map(ProtocolChakra::getId).toList());
+        Map<String, Map<ColorUsageType, Set<String>>> result = new HashMap<>();
+        for (ProtocolChakraColor linkColor : linkColors) {
+            String chakraKey = chakraKeyByLinkId.get(linkColor.getProtocolChakra().getId());
+            String colorName = colorNameById.get(linkColor.getColor().getId());
+            if (chakraKey == null || colorName == null || linkColor.getUsageType() == null) continue;
+            result.computeIfAbsent(chakraKey, k -> new EnumMap<>(ColorUsageType.class))
+                    .computeIfAbsent(linkColor.getUsageType(), k -> new TreeSet<>())
+                    .add(colorName);
+        }
+        return result;
+    }
+
+    /** "Solar Plexus Chakra", "solar plexus" and " Solar  Plexus " all match one another. */
+    static String normalizeChakraName(String name) {
+        String normalized = name.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        return normalized.endsWith(" chakra")
+                ? normalized.substring(0, normalized.length() - " chakra".length())
+                : normalized;
+    }
+
+    private static List<ColorSelection> toUnselectedColors(Set<String> colorNames) {
+        if (colorNames == null || colorNames.isEmpty()) return Collections.emptyList();
+        return colorNames.stream().map(name -> new ColorSelection(name, List.of())).toList();
     }
 
     // ── Deserializers (used by mapper) ───────────────────────────────────────

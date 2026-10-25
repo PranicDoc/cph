@@ -9,8 +9,13 @@ import com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
+import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
+import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
+import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,6 +40,11 @@ class HealerProtocolUnderstandingSaveTest {
     @Mock private CaseRepository caseRepository;
     @Mock private HealerProtocolUnderstandingRepository hpuRepository;
     @Mock private PranaColorCatalogRepository pranaColorCatalogRepository;
+    @Mock private SessionRepository sessionRepository;
+    @Mock private ProtocolCatalogRepository protocolCatalogRepository;
+    @Mock private ProtocolChakraRepository protocolChakraRepository;
+    @Mock private ProtocolChakraColorRepository protocolChakraColorRepository;
+    @Mock private ChakraCatalogRepository chakraCatalogRepository;
 
     @Test
     void eachSelectionSnapshotsTheColorOfItsOwnCategory() {
@@ -49,7 +59,8 @@ class HealerProtocolUnderstandingSaveTest {
                 color("LWG_E", "Light Whitish Green", ColorUsageType.ENERGISING),
                 color("LWG_C", "Light Whitish Green", ColorUsageType.CLEANSING)));
         HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
-                caseRepository, hpuRepository, pranaColorCatalogRepository, new ObjectMapper());
+                caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
 
         service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of(
                 new ChakraColorSelection("Solar Plexus",
