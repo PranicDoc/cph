@@ -84,13 +84,19 @@ const ClosureForm = ({
      * upserts by healingCaseId (saveFromHealerSelection), so fetching this
      * alongside the scanned chakras and merging by chakra name is the only
      * piece needed for "edit, not duplicate". A chakra with no prior
-     * selection (or a first-ever fill) just gets []/[], same as before.
+     * selection (or a first-ever fill) is pre-filled with the colors the
+     * case's protocol prescribes for it in master data (properties left for
+     * the healer to pick), or []/[] when the protocol has no such data.
      */
     const fetchScannedChakrasAndExisting = async () => {
       try {
-        const [chakrasRes, existingRes] = await Promise.all([
+        const [chakrasRes, existingRes, suggestionsRes] = await Promise.all([
           api.get(`/api/v1/sessions/${healingCaseId}/chakras`),
           api.get(`/api/v1/cases/${healingCaseId}/protocol-understanding`),
+          // Pre-fill is a convenience: if it fails the form still opens for manual entry.
+          api
+            .get(`/api/v1/cases/${healingCaseId}/protocol-understanding/suggestions`)
+            .catch(() => null),
         ]);
         const { data } = chakrasRes?.data;
         const existingSelections: HPUTable[] =
@@ -98,9 +104,15 @@ const ClosureForm = ({
         const existingByChakra = new Map(
           existingSelections.map((selection) => [selection.chakra, selection])
         );
+        const suggestions: HPUTable[] =
+          suggestionsRes?.data?.chakraSelections ?? [];
+        const suggestionByChakra = new Map(
+          suggestions.map((suggestion) => [suggestion.chakra, suggestion])
+        );
 
         const tableData: HPUTable[] = data.map((chakraName: string) => {
-          const existing = existingByChakra.get(chakraName);
+          const existing =
+            existingByChakra.get(chakraName) ?? suggestionByChakra.get(chakraName);
           return {
             chakra: chakraName,
             energisingColors: existing?.energisingColors ?? [],
