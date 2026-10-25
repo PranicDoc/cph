@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import Patients from "./Patients";
@@ -34,11 +40,6 @@ vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: { id: "healer
 vi.mock("../hooks/useCreditAccount", () => ({
   useCreditAccount: () => ({ data: { free_balance: 3, paid_balance: 0 } }),
 }));
-vi.mock("../components/feedback/ManualFeedbackDialog", () => ({
-  ManualFeedbackDialog: ({ healingCaseId }: { healingCaseId: string }) => (
-    <div>feedback-dialog:{healingCaseId}</div>
-  ),
-}));
 
 function renderPatients() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -61,12 +62,14 @@ describe("Patients: manual feedback action", () => {
     expect(screen.getAllByRole("button", { name: /^feedback$/i })).toHaveLength(3 * 2);
   });
 
-  it("opens the dialog for that patient's case, closed cases included", async () => {
+  it("opens the feedback page for that patient's case, closed cases included", async () => {
     const user = userEvent.setup();
     renderPatients();
 
     const [, closedButton] = screen.getAllByRole("button", { name: /^feedback$/i });
     await user.click(closedButton);
-    expect(screen.getByText("feedback-dialog:case-c")).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith("/cases/case-c/feedback", {
+      state: { patientName: "Patient c" },
+    });
   });
 });

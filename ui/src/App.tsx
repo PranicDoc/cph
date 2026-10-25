@@ -71,6 +71,7 @@ const router = createBrowserRouter(
           <Route path="pdf-list" lazy={page(() => import("./pages/PdfList").then((m) => ({ default: m.PdfList })))} />
           <Route path="session/:healingCaseId" lazy={page(() => import("./pages/Session"))} />
           <Route path="cases/:healingCaseId/summary" lazy={page(() => import("./pages/CaseSummary"))} />
+          <Route path="cases/:healingCaseId/feedback" lazy={page(() => import("./pages/ManualFeedback"))} />
           <Route path="profile" lazy={page(() => import("./pages/Profile"))} />
         </Route>
         {/* Sibling of the Layout route, not nested inside it: /legal-center
