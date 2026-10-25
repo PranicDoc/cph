@@ -1,20 +1,16 @@
 package com.pranicdoc.cph.masterdata.seed;
 
-import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
-import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
-import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 /**
- * Seeds system-level master data (chakras + prana colors) on startup.
- * Only runs if the catalogs are empty (idempotent).
+ * Seeds the system-level chakra catalog on startup, only when it is empty (idempotent).
+ * Prana colors are no longer seeded: production color data is final and maintained from
+ * Master Data -> Prana Colors (and the protocol import).
  */
 @Component
 @RequiredArgsConstructor
@@ -22,12 +18,10 @@ import java.util.List;
 public class MasterDataSeeder implements CommandLineRunner {
 
     private final ChakraCatalogRepository chakraRepo;
-    private final PranaColorCatalogRepository colorRepo;
 
     @Override
     public void run(String... args) {
         seedChakras();
-        seedPranaColors();
     }
 
     private void seedChakras() {
@@ -73,30 +67,6 @@ public class MasterDataSeeder implements CommandLineRunner {
         log.info("Seeded {} chakras", chakraRepo.count());
     }
 
-    private void seedPranaColors() {
-        if (colorRepo.count() > 0) {
-            log.info("Prana color catalog already seeded, skipping");
-            return;
-        }
-
-        log.info("Seeding prana color catalog...");
-
-        seedColor("WHITE", "White Prana", "#FFFFFF", "General cleansing", "energizing");
-        seedColor("RED", "Red Prana", "#FF0000", "Strengthening", "warming", "energizing");
-        seedColor("ORANGE", "Orange Prana", "#FFA500", "Expelling", "eliminating", "decongesting");
-        seedColor("YELLOW", "Yellow Prana", "#FFFF00", "Cohesion", "cementing", "assimilating");
-        seedColor("GREEN", "Green Prana", "#00FF00", "Decongesting", "cleansing", "disinfecting");
-        seedColor("BLUE", "Blue Prana", "#0000FF", "Inhibiting", "cooling", "disinfecting");
-        seedColor("VIOLET", "Violet Prana", "#EE82EE", "All-purpose", "regenerating");
-        seedColor("ELECTRIC_VIOLET", "Electric Violet", "#7F00FF", "Powerful regeneration", "spirituality");
-        seedColor("GOLD", "Golden Prana", "#FFD700", "Higher-level healing", "flushing");
-        seedColor("LIGHT_WHITISH_GREEN", "Light Whitish Green", "#E0FFE0", "Mild cleansing");
-        seedColor("LIGHT_WHITISH_BLUE", "Light Whitish Blue", "#E0E0FF", "Mild inhibiting", "soothing");
-        seedColor("LIGHT_WHITISH_VIOLET", "Light Whitish Violet", "#F0E0FF", "Mild regeneration");
-
-        log.info("Seeded {} prana colors", colorRepo.count());
-    }
-
     private void seedChakra(String code, String name, String category, String location) {
         ChakraCatalog chakra = ChakraCatalog.builder()
                 .code(code)
@@ -106,18 +76,5 @@ public class MasterDataSeeder implements CommandLineRunner {
                 .healerId(null) // System-level
                 .build();
         chakraRepo.save(chakra);
-    }
-
-    private void seedColor(String code, String name, String hex, String... properties) {
-        PranaColorCatalog color = PranaColorCatalog.builder()
-                .code(code)
-                .name(name)
-                .colorHex(hex)
-                .properties(List.of(properties))
-                // Matches the one-time backfill of pre-category colors; SUPADM recategorises from the UI.
-                .category(ColorUsageType.ENERGISING)
-                .healerId(null) // System-level
-                .build();
-        colorRepo.save(color);
     }
 }
