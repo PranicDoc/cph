@@ -62,16 +62,17 @@ class SessionControllerAuthorizationContractTest {
     private static final String SESSION_CREATE = "@rbacAuthz.hasPermission('SESSION','CREATE')";
     private static final String SESSION_UPDATE = "@rbacAuthz.hasPermission('SESSION','UPDATE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 5 request-mapped methods. */
+    /** methodName -> expected @PreAuthorize literal. All 6 request-mapped methods. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"create",               SESSION_CREATE},
             new String[]{"getById",              SESSION_READ},
             new String[]{"getByCaseId",          SESSION_READ},
             new String[]{"complete",             SESSION_UPDATE},
+            new String[]{"update",               SESSION_UPDATE},
             new String[]{"getAllScannedChakras", SESSION_READ});
 
-    private static final int EXPECTED_MAPPED = 5;
-    private static final int EXPECTED_GATED = 5;
+    private static final int EXPECTED_MAPPED = 6;
+    private static final int EXPECTED_GATED = 6;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -132,6 +133,9 @@ class SessionControllerAuthorizationContractTest {
     @Test @DisplayName("complete is gated SESSION:UPDATE")
     void complete_isGatedBySessionUpdate() { assertGate("complete", SESSION_UPDATE); }
 
+    @Test @DisplayName("update is gated SESSION:UPDATE")
+    void update_isGatedBySessionUpdate() { assertGate("update", SESSION_UPDATE); }
+
     @Test
     @DisplayName("getAllScannedChakras is gated SESSION:READ, deliberately not SCAN:READ (D-03) — "
             + "it returns the set of chakra names scanned in a session and reads session-detail; "
@@ -171,11 +175,11 @@ class SessionControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 5 declared SessionController request-mapped methods — "
+                .as("the sweep must inspect exactly the 6 declared SessionController request-mapped methods — "
                         + "a method added or removed here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("every one of the 5 SessionController methods must carry a bare capability gate (SC1); "
+                .as("every one of the 6 SessionController methods must carry a bare capability gate (SC1); "
                         + "a dropped gate restores the implicit any-authenticated-healer path over clinical "
                         + "healing-session records")
                 .isEqualTo(EXPECTED_GATED);
@@ -195,7 +199,7 @@ class SessionControllerAuthorizationContractTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 5 SessionController gates, never an empty list")
+                .as("the allow-list check must run over all 6 SessionController gates, never an empty list")
                 .hasSize(EXPECTED_GATED);
 
         for (String literal : literals) {

@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.controller;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
+import com.pranicdoc.cph.healing.dto.UpdateSessionRequest;
 import com.pranicdoc.cph.healing.service.impl.SessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,13 @@ public class SessionController {
     @PatchMapping("/{id}/complete")
     public ResponseEntity<SessionResponse> complete(@PathVariable UUID id) {
         return ResponseEntity.ok(sessionService.complete(id));
+    }
+
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','UPDATE')")
+    @PutMapping("/{id}")
+    public ResponseEntity<SessionResponse> update(@PathVariable UUID id,
+                                                  @Valid @RequestBody UpdateSessionRequest request) {
+        return ResponseEntity.ok(sessionService.update(id, request));
     }
 
     // D-03: returns the Set<String> of chakra names scanned within a session — it hangs off

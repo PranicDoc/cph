@@ -140,7 +140,7 @@ class HealerControllerGateSweepTest {
      */
     private static final List<SweptController> CONTROLLERS = List.of(
             new SweptController(PatientController.class, 11, 9),
-            new SweptController(SessionController.class, 5, 5),
+            new SweptController(SessionController.class, 6, 6),
             new SweptController(CaseController.class, 22, 18),
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),

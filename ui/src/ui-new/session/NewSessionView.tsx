@@ -8,8 +8,10 @@ import { isLegacyProtocol } from "../../lib/protocolSelection";
 interface Props {
   sessionData: HealingSession;
   protocols: Protocol[];
-  canEdit: boolean;
   onEdit: () => void;
+  onEditSession: (session: any) => void;
+  /** Present only once the case has a closure (CLOSED or CONTINUED). */
+  onEditClosure?: () => void;
   onBack: () => void;
   onNext: () => void;
   nextLabel: string;
@@ -27,7 +29,7 @@ function Field({ title, children, wide }: { title: string; children: React.React
 }
 
 /** Step 0 of a session in view mode, laid out as in the approved mockup (details and past sessions, next step on the right). */
-export default function NewSessionView({ sessionData, protocols, canEdit, onEdit, onBack, onNext, nextLabel }: Props) {
+export default function NewSessionView({ sessionData, protocols, onEdit, onEditSession, onEditClosure, onBack, onNext, nextLabel }: Props) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -46,11 +48,9 @@ export default function NewSessionView({ sessionData, protocols, canEdit, onEdit
         <div className="surface card">
           <div className="card-h">
             <h2>Patient medical details</h2>
-            {canEdit && (
-              <button className="icon-btn" type="button" aria-label="Edit session" onClick={onEdit}>
-                <Pencil className="ico" />
-              </button>
-            )}
+            <button className="icon-btn" type="button" aria-label="Edit session" onClick={onEdit}>
+              <Pencil className="ico" />
+            </button>
           </div>
           <div className="row2" style={{ gap: 22 }}>
             <Field title="Chief complaint" wide>{sessionData.medicalCondition || "—"}</Field>
@@ -123,6 +123,14 @@ export default function NewSessionView({ sessionData, protocols, canEdit, onEdit
                     <ChevronDown className="ico" style={{ color: "var(--muted)", transform: isOpen ? "rotate(180deg)" : undefined }} />
                   </button>
                   {isOpen && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                      <button className="btn btn-secondary" type="button" onClick={() => onEditSession(session)}>
+                        <Pencil className="ico" />
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                  {isOpen && (
                     <div className="row2" style={{ marginTop: 14, gap: 18 }}>
                       {session.scans.map((scan) => (
                         <div key={scan.id}>
@@ -160,6 +168,11 @@ export default function NewSessionView({ sessionData, protocols, canEdit, onEdit
           <button className="btn btn-primary" type="button" style={{ width: "100%", height: 44 }} onClick={onNext}>
             {nextLabel}
           </button>
+          {onEditClosure && (
+            <button className="btn btn-secondary" type="button" style={{ width: "100%", marginTop: 10 }} onClick={onEditClosure}>
+              Edit closure
+            </button>
+          )}
           <button className="btn btn-secondary" type="button" style={{ width: "100%", marginTop: 10 }} onClick={onBack}>
             Back to patients
           </button>

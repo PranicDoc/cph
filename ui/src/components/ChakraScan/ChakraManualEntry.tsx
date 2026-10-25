@@ -96,10 +96,13 @@ function ChakraPicker({
   chakra,
   options,
   onSelect,
+  savedName,
 }: {
   chakra: ChakraCatalogEntry | null;
   options: ChakraCatalogEntry[];
   onSelect: (chakra: ChakraCatalogEntry) => void;
+  /** Name saved on an older reading whose chakra is no longer in the list. */
+  savedName?: string;
 }) {
   const [editing, setEditing] = useState(chakra === null);
 
@@ -127,7 +130,7 @@ function ChakraPicker({
         onSelect(c);
         setEditing(false);
       }}
-      placeholder="Select chakra..."
+      placeholder={savedName ? `${savedName} (not in chakra list)` : "Select chakra..."}
       className="[&_input]:text-sm"
     />
   );
@@ -263,6 +266,7 @@ export function ChakraManualEntry({
                           chakra={chakra}
                           options={options}
                           onSelect={(c) => selectChakra(row.key, c)}
+                          savedName={chakra ? undefined : row.entry?.name}
                         />
                       </TableCell>
                       <TableCell>
@@ -318,6 +322,7 @@ export function ChakraManualEntry({
                         chakra={chakra}
                         options={options}
                         onSelect={(c) => selectChakra(row.key, c)}
+                        savedName={chakra ? undefined : row.entry?.name}
                       />
                     </div>
                     <Button

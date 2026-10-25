@@ -44,6 +44,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -158,6 +159,7 @@ class SessionControllerAuthorizationTest {
             case "GET" -> get(path);
             case "POST" -> post(path).contentType(MediaType.APPLICATION_JSON).content("{}");
             case "PATCH" -> patch(path).contentType(MediaType.APPLICATION_JSON).content("{}");
+            case "PUT" -> put(path).contentType(MediaType.APPLICATION_JSON).content("{}");
             default -> throw new IllegalArgumentException("unsupported method " + method);
         };
         return b.cookie(accessCookie());
@@ -167,26 +169,27 @@ class SessionControllerAuthorizationTest {
     //  (a) SUPADM sweep — all 5 endpoints, zero grant lookups
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** All 5 concrete SessionController requests, {uuid} -> {@link #ROW_ID}. */
-    static Stream<Arguments> fiveSessionEndpoints() {
+    /** All 6 concrete SessionController requests, {uuid} -> {@link #ROW_ID}. */
+    static Stream<Arguments> sessionEndpoints() {
         return Stream.of(
                 Arguments.of("POST", BASE + "/case"),
                 Arguments.of("GET", BASE + "/" + ROW_ID),
                 Arguments.of("GET", BASE + "/case/" + ROW_ID),
                 Arguments.of("PATCH", BASE + "/" + ROW_ID + "/complete"),
+                Arguments.of("PUT", BASE + "/" + ROW_ID),
                 Arguments.of("GET", BASE + "/" + ROW_ID + "/chakras"));
     }
 
     @Test
-    void supadmSweepCoversExactly5Endpoints() {
-        assertThat(fiveSessionEndpoints().count())
-                .as("the SUPADM sweep must supply exactly the 5 SessionController requests — "
+    void supadmSweepCoversExactly6Endpoints() {
+        assertThat(sessionEndpoints().count())
+                .as("the SUPADM sweep must supply exactly the 6 SessionController requests — "
                         + "the sweep can never silently shrink")
-                .isEqualTo(5L);
+                .isEqualTo(6L);
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403 and never reads a grant")
-    @MethodSource("fiveSessionEndpoints")
+    @MethodSource("sessionEndpoints")
     void supadmReachesEverySessionEndpointWithoutAGrantLookup(String method, String path) throws Exception {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");

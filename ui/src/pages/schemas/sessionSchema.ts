@@ -17,7 +17,7 @@ export const COMMON_SYMPTOMS = [
   "Dizziness",
 ];
 
-export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): FormSchema {
+export function buildSessionSchema(protocols: Protocol[]): FormSchema {
   return [
   {
     fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
@@ -35,7 +35,6 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         name: "labFindings",
         label: "Lab Findings",
         type: "file",
-        readOnly: !isDraft,
         confirmRemove: true,
       },
     ],
@@ -65,7 +64,6 @@ export function buildSessionSchema(protocols: Protocol[], isDraft: boolean): For
         name: "medications",
         label: "Medications",
         type: "table",
-        readOnly: !isDraft,
         displayKey: "medicationName",
         editableFields: {
           dosage: { label: "Dosage", placeholder: "e.g. 500mg" },
