@@ -23,7 +23,6 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -116,7 +115,7 @@ class RateLimitFilterTest {
     private void stubBucketByKeySubstring(String keySubstring, BucketProxy bucket) {
         when(proxyManager.getProxy(
                 argThat(key -> key != null && new String(key, StandardCharsets.UTF_8).contains(keySubstring)),
-                any(Supplier.class)))
+                any()))
                 .thenReturn(bucket);
     }
 
@@ -187,7 +186,7 @@ class RateLimitFilterTest {
     void login_redisUnavailable_failsOpenAndProceeds() throws Exception {
         stubRequest("/api/v1/auth/login", "{\"email\":\"healer@example.com\",\"password\":\"secret\"}",
                 "203.0.113.10", null);
-        when(proxyManager.getProxy(any(byte[].class), any(Supplier.class)))
+        when(proxyManager.getProxy(any(byte[].class), any()))
                 .thenThrow(new RuntimeException("Connection refused: Redis unavailable"));
 
         filter.doFilter(request, response, filterChain);
@@ -224,7 +223,7 @@ class RateLimitFilterTest {
         verify(proxyManager, atLeastOnce()).getProxy(
                 argThat(key -> new String(key, StandardCharsets.UTF_8).contains(":ip:203.0.113.10")
                         && !new String(key, StandardCharsets.UTF_8).contains("9.9.9.9")),
-                any(Supplier.class));
+                any());
         verify(filterChain, times(1)).doFilter(any(HttpServletRequest.class), eq(response));
     }
 }

@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+// Part of the deprecated ProtocolEntry model (kept for existing data); using it is intended.
+@SuppressWarnings("deprecation")
 @Service
 @RequiredArgsConstructor
 @Transactional

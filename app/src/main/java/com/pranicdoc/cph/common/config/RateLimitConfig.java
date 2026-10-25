@@ -69,7 +69,7 @@ public class RateLimitConfig {
     public ProxyManager<byte[]> rateLimitProxyManager() {
         RedisURI.Builder uriBuilder = RedisURI.Builder.redis(redisHost, redisPort).withSsl(redisSslEnabled);
         if (redisPassword != null && !redisPassword.isBlank()) {
-            uriBuilder.withPassword(redisPassword);
+            uriBuilder.withPassword(redisPassword.toCharArray());
         }
         this.redisClient = RedisClient.create(uriBuilder.build());
         return Bucket4jLettuce.casBasedBuilder(redisClient)

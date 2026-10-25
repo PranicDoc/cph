@@ -97,7 +97,7 @@ class RbacRoleServiceTest {
         when(rbacRoleRepository.existsByNameIgnoreCase("Billing Ops")).thenReturn(false);
 
         ArgumentCaptor<RbacRole> roleCaptor = ArgumentCaptor.forClass(RbacRole.class);
-        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.captor();
 
         RoleCreateRequest request = new RoleCreateRequest(
                 "Billing Ops", "desc",
@@ -216,8 +216,8 @@ class RbacRoleServiceTest {
                 "Billing Ops", "desc",
                 List.of(new ResourceGrantDto("ROLES", List.of("UPDATE"))));
 
-        ArgumentCaptor<List<RolePermission>> deleteCaptor = ArgumentCaptor.forClass(List.class);
-        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RolePermission>> deleteCaptor = ArgumentCaptor.captor();
+        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.captor();
 
         rbacRoleService.update(request, role.getId());
 
@@ -376,7 +376,7 @@ class RbacRoleServiceTest {
                 "Role Admins", "desc",
                 List.of(new ResourceGrantDto("ROLES", List.of("READ"))));
 
-        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RolePermission>> saveCaptor = ArgumentCaptor.captor();
 
         rbacRoleService.update(request, role.getId());
 
@@ -478,7 +478,7 @@ class RbacRoleServiceTest {
         when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(grantOne, grantTwo));
 
         ArgumentCaptor<RbacRole> roleCaptor = ArgumentCaptor.forClass(RbacRole.class);
-        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RolePermission>> grantsCaptor = ArgumentCaptor.captor();
 
         rbacRoleService.delete(role.getId());
 
