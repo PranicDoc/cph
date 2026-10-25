@@ -75,7 +75,7 @@ class CaseControllerAuthorizationContractTest {
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getByPatientId",            CASE_READ},
             new String[]{"getProtocolUnderstanding",  CASE_READ},
-            new String[]{"getProtocolUnderstandingSuggestions", CASE_READ},
+            new String[]{"getProtocolUnderstandingPrefill", CASE_READ},
             new String[]{"getCaseSummary",            CASE_READ},
             new String[]{"getById",                   CASE_READ},
             new String[]{"getSymptomsForFeedback",    CASE_READ},

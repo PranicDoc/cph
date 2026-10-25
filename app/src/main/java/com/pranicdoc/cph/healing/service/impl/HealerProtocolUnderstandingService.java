@@ -142,7 +142,7 @@ public class HealerProtocolUnderstandingService {
      * form falls back to manual selection.
      */
     @Transactional(readOnly = true)
-    public HealerProtocolUnderstandingRequest getProtocolSuggestions(UUID healingCaseId) {
+    public HealerProtocolUnderstandingRequest getProtocolPrefill(UUID healingCaseId) {
         HealingCase healingCase = caseRepository.findById(healingCaseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Healing case not found for id %s"
@@ -150,7 +150,7 @@ public class HealerProtocolUnderstandingService {
         Map<String, Map<ColorUsageType, Set<String>>> colorsByChakra =
                 protocolColorsByChakra(healingCase, healingCase.getHealerId());
 
-        List<ChakraColorSelection> suggestions = sessionRepository.findAllScannedChakras(healingCaseId)
+        List<ChakraColorSelection> prefill = sessionRepository.findAllScannedChakras(healingCaseId)
                 .stream()
                 .sorted()
                 .map(chakra -> {
@@ -162,7 +162,7 @@ public class HealerProtocolUnderstandingService {
                             toUnselectedColors(colors.get(ColorUsageType.CLEANSING)));
                 })
                 .toList();
-        return new HealerProtocolUnderstandingRequest(suggestions);
+        return new HealerProtocolUnderstandingRequest(prefill);
     }
 
     /**

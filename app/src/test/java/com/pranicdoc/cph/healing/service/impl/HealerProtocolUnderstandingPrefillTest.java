@@ -43,11 +43,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit coverage for {@link HealerProtocolUnderstandingService#getProtocolSuggestions}: the
+ * Unit coverage for {@link HealerProtocolUnderstandingService#getProtocolPrefill}: the
  * closure form's pre-fill of each scanned chakra's colors from the case's master-data protocols.
  */
 @ExtendWith(MockitoExtension.class)
-class HealerProtocolUnderstandingSuggestionsTest {
+class HealerProtocolUnderstandingPrefillTest {
 
     @Mock private CaseRepository caseRepository;
     @Mock private HealerProtocolUnderstandingRepository hpuRepository;
@@ -103,7 +103,7 @@ class HealerProtocolUnderstandingSuggestionsTest {
         // Scan names need not match the catalog's exactly.
         scanned("solar plexus", "Navel");
 
-        Map<String, ChakraColorSelection> byChakra = suggestionsByChakra();
+        Map<String, ChakraColorSelection> byChakra = prefillByChakra();
 
         assertEquals(2, byChakra.size());
         ChakraColorSelection solar = byChakra.get("solar plexus");
@@ -124,7 +124,7 @@ class HealerProtocolUnderstandingSuggestionsTest {
         when(protocolChakraRepository.findByProtocol_IdIn(anyList())).thenReturn(List.of(theirs));
         scanned("Spleen Chakra");
 
-        ChakraColorSelection spleenRow = suggestionsByChakra().get("Spleen Chakra");
+        ChakraColorSelection spleenRow = prefillByChakra().get("Spleen Chakra");
 
         assertTrue(spleenRow.energisingColors().isEmpty());
         assertTrue(spleenRow.cleansingColors().isEmpty());
@@ -135,7 +135,7 @@ class HealerProtocolUnderstandingSuggestionsTest {
     void caseWithoutProtocol_returnsScannedChakrasWithEmptyColors() {
         scanned("Spleen Chakra");
 
-        ChakraColorSelection spleenRow = suggestionsByChakra().get("Spleen Chakra");
+        ChakraColorSelection spleenRow = prefillByChakra().get("Spleen Chakra");
 
         assertTrue(spleenRow.energisingColors().isEmpty());
         assertTrue(spleenRow.cleansingColors().isEmpty());
@@ -150,8 +150,8 @@ class HealerProtocolUnderstandingSuggestionsTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private Map<String, ChakraColorSelection> suggestionsByChakra() {
-        HealerProtocolUnderstandingRequest result = service.getProtocolSuggestions(caseId);
+    private Map<String, ChakraColorSelection> prefillByChakra() {
+        HealerProtocolUnderstandingRequest result = service.getProtocolPrefill(caseId);
         return result.chakraSelections().stream()
                 .collect(Collectors.toMap(ChakraColorSelection::chakra, Function.identity()));
     }

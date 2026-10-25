@@ -269,7 +269,7 @@ class CaseControllerAuthorizationTest {
      * Exactly the 18 gated CaseController methods, one schema-valid request each, per the
      * plan's {@code <interfaces>} table (14 from plan 42-09 + the 3 dual-caller methods gated
      * by plan 42-13's CR-01 ruling: {@code updateCaseDetails}, {@code getById},
-     * {@code getSymptomsForFeedback}, + {@code getProtocolUnderstandingSuggestions}). Consumed
+     * {@code getSymptomsForFeedback}, + {@code getProtocolUnderstandingPrefill}). Consumed
      * by all three trio sweeps (SUPADM / granted / ungranted) so coverage cannot drift between
      * the three cases. Split: CASE 14, PDF 3, FEEDBACK 1 — asserted by
      * {@link #gatedEndpointsSourceSuppliesExactlyThe18GatedMethods()}.
@@ -303,8 +303,8 @@ class CaseControllerAuthorizationTest {
                                 .cookie(accessCookie())),
                 spec("getProtocolUnderstanding", Resource.CASE, Operation.READ,
                         get(BASE + "/" + ROW_ID + "/protocol-understanding").cookie(accessCookie())),
-                spec("getProtocolUnderstandingSuggestions", Resource.CASE, Operation.READ,
-                        get(BASE + "/" + ROW_ID + "/protocol-understanding/suggestions").cookie(accessCookie())),
+                spec("getProtocolUnderstandingPrefill", Resource.CASE, Operation.READ,
+                        get(BASE + "/" + ROW_ID + "/protocol-understanding/prefill").cookie(accessCookie())),
                 spec("delete", Resource.CASE, Operation.DELETE,
                         delete(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("generatePdf", Resource.PDF, Operation.CREATE,
@@ -349,7 +349,7 @@ class CaseControllerAuthorizationTest {
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
                         "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding",
-                        "getProtocolUnderstandingSuggestions", "delete",
+                        "getProtocolUnderstandingPrefill", "delete",
                         "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
                         "updateCaseDetails", "getById", "getSymptomsForFeedback");
 

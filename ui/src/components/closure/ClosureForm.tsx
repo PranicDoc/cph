@@ -92,12 +92,12 @@ const ClosureForm = ({
      */
     const fetchScannedChakrasAndExisting = async () => {
       try {
-        const [chakrasRes, existingRes, suggestionsRes] = await Promise.all([
+        const [chakrasRes, existingRes, prefillRes] = await Promise.all([
           api.get(`/api/v1/sessions/${healingCaseId}/chakras`),
           api.get(`/api/v1/cases/${healingCaseId}/protocol-understanding`),
           // Pre-fill is a convenience: if it fails the form still opens for manual entry.
           api
-            .get(`/api/v1/cases/${healingCaseId}/protocol-understanding/suggestions`)
+            .get(`/api/v1/cases/${healingCaseId}/protocol-understanding/prefill`)
             .catch(() => null),
         ]);
         const { data } = chakrasRes?.data;
@@ -106,15 +106,15 @@ const ClosureForm = ({
         const existingByChakra = new Map(
           existingSelections.map((selection) => [selection.chakra, selection])
         );
-        const suggestions: HPUTable[] =
-          suggestionsRes?.data?.chakraSelections ?? [];
-        const suggestionByChakra = new Map(
-          suggestions.map((suggestion) => [suggestion.chakra, suggestion])
+        const prefill: HPUTable[] =
+          prefillRes?.data?.chakraSelections ?? [];
+        const prefillByChakra = new Map(
+          prefill.map((row) => [row.chakra, row])
         );
 
         const tableData: HPUTable[] = data.map((chakraName: string) => {
           const existing =
-            existingByChakra.get(chakraName) ?? suggestionByChakra.get(chakraName);
+            existingByChakra.get(chakraName) ?? prefillByChakra.get(chakraName);
           return {
             chakra: chakraName,
             energisingColors: existing?.energisingColors ?? [],

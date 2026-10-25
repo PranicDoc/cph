@@ -158,10 +158,10 @@ public class CaseController {
     // Same CASE:READ gate as the saved selection above: master-data protocol colors for the
     // case's scanned chakras, which the closure form pre-fills where nothing is saved yet.
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
-    @GetMapping("/{id}/protocol-understanding/suggestions")
-    public ResponseEntity<HealerProtocolUnderstandingRequest> getProtocolUnderstandingSuggestions(
+    @GetMapping("/{id}/protocol-understanding/prefill")
+    public ResponseEntity<HealerProtocolUnderstandingRequest> getProtocolUnderstandingPrefill(
             @PathVariable UUID id) {
-        return ResponseEntity.ok(healerProtocolUnderstandingService.getProtocolSuggestions(id));
+        return ResponseEntity.ok(healerProtocolUnderstandingService.getProtocolPrefill(id));
     }
 
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','DELETE')")
