@@ -145,9 +145,10 @@ export default function PatientFeedback() {
         symptomPayload
       );
 
-      if (isFinal && feedbackText.trim()) {
+      // The comment is kept for interim feedback too, like the healer's manual entry.
+      if (feedbackText.trim()) {
         await api.post(`/api/v1/sessions/${caseId}/feedback/qualitative`, {
-          feedbackType: "FINAL",
+          feedbackType: isFinal ? "FINAL" : "INTERIM",
           feedbackText,
           patientRemarks: "",
         });

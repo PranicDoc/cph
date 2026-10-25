@@ -42,51 +42,23 @@ public class FeedbackService {
     private final SecurityContextUtil securityContextUtil;
 
     /**
-     * Save symptom feedback for a session (one rating per symptom, scale 0-10).
+     * Save symptom feedback for a session (one rating per symptom, scale 0-10). WhatsApp path:
+     * the patient rates the case's latest session, and the feedback is dated with it.
      */
     @Auditable(action = "SAVE_SYMPTOM_FEEDBACK")
     public void saveSymptomFeedback(UUID caseId, List<SymptomFeedbackRequest> requests) {
         HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
-        try {
-            List<SymptomFeedback> feedbacks = requests.stream()
-                .map(req -> SymptomFeedback.builder()
-                    .healingSession(session)
-                    .caseSymptomId(req.caseSymptomId())
-                    .rating(req.rating())
-                    .notes(req.notes())
-                    .healingDate(session.getSessionDate())
-                    .source(FeedbackSource.WHATSAPP)
-                    .build())
-                .toList();
-            symptomFeedbackRepository.saveAllAndFlush(feedbacks);
-            feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
-        } catch (DataIntegrityViolationException ex) {
-            throw new FeedbackAlreadySubmittedException();
-        }
+        saveSymptoms(session, requests, session.getSessionDate(), FeedbackSource.WHATSAPP);
+        feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
     }
 
+    /** WhatsApp path: the patient's interim or final comment on the case's latest session. */
     @Auditable(action = "SAVE_QUALITATIVE_FEEDBACK")
     public void saveQualitativeFeedback(UUID caseId, QualitativeFeedbackRequest request) {
         HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
-
-        if (request.feedbackType() == FeedbackType.FINAL) {
-            qualitativeFeedbackRepository
-                .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
-                .ifPresent(existing -> {
-                    throw new FeedbackAlreadySubmittedException();
-                });
-        }
-
-        QualitativeFeedback feedback = QualitativeFeedback.builder()
-                .healingSession(session)
-                .feedbackType(request.feedbackType())
-                .feedbackText(request.feedbackText())
-                .patientRemarks(request.patientRemarks())
-                .healingDate(session.getSessionDate())
-                .source(FeedbackSource.WHATSAPP)
-                .build();
-
-        qualitativeFeedbackRepository.save(feedback);
+        rejectSecondFinal(caseId, request.feedbackType());
+        saveComment(session, request.feedbackType(), request.feedbackText(), request.patientRemarks(),
+                session.getSessionDate(), FeedbackSource.WHATSAPP);
 
         if (request.feedbackType() == FeedbackType.FINAL) {
             feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
@@ -94,10 +66,11 @@ public class FeedbackService {
     }
 
     /**
-     * Feedback the healer enters by hand on the patient's behalf. It is attached to the session
-     * the healing date points at -- the session held on that date, else the latest one before it --
-     * so feedback for an earlier healing never collides with what the patient already sent through
-     * WhatsApp for the latest session. The patient's WhatsApp link stays usable.
+     * Feedback the healer enters by hand on the patient's behalf, saved the same way as the
+     * WhatsApp path. It is attached to the session the healing date points at -- the session held
+     * on that date, else the latest one before it -- so feedback for an earlier healing never
+     * collides with what the patient already sent through WhatsApp for the latest session. The
+     * patient's WhatsApp link stays usable.
      */
     @Auditable(action = "SAVE_MANUAL_FEEDBACK")
     public void saveManualFeedback(UUID caseId, ManualFeedbackRequest request) {
@@ -112,38 +85,53 @@ public class FeedbackService {
         }
 
         HealingSession session = sessionForHealingDate(caseId, request.healingDate());
-        if (request.feedbackType() == FeedbackType.FINAL) {
-            qualitativeFeedbackRepository
-                .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
-                .ifPresent(existing -> {
-                    throw new FeedbackAlreadySubmittedException();
-                });
+        rejectSecondFinal(caseId, request.feedbackType());
+        saveSymptoms(session, symptoms, request.healingDate(), FeedbackSource.MANUAL);
+        if (!feedbackText.isEmpty() || request.feedbackType() == FeedbackType.FINAL) {
+            saveComment(session, request.feedbackType(), feedbackText, "", request.healingDate(), FeedbackSource.MANUAL);
         }
+    }
 
+    // ── Shared by the WhatsApp and manual paths ───────────────────────────────
+
+    private void saveSymptoms(HealingSession session, List<SymptomFeedbackRequest> requests,
+                              LocalDate healingDate, FeedbackSource source) {
         try {
-            symptomFeedbackRepository.saveAllAndFlush(symptoms.stream()
+            symptomFeedbackRepository.saveAllAndFlush(requests.stream()
                 .map(req -> SymptomFeedback.builder()
                     .healingSession(session)
                     .caseSymptomId(req.caseSymptomId())
                     .rating(req.rating())
                     .notes(req.notes())
-                    .healingDate(request.healingDate())
-                    .source(FeedbackSource.MANUAL)
+                    .healingDate(healingDate)
+                    .source(source)
                     .build())
                 .toList());
         } catch (DataIntegrityViolationException ex) {
             throw new FeedbackAlreadySubmittedException();
         }
-        if (!feedbackText.isEmpty() || request.feedbackType() == FeedbackType.FINAL) {
-            qualitativeFeedbackRepository.save(QualitativeFeedback.builder()
+    }
+
+    private void saveComment(HealingSession session, FeedbackType type, String text, String patientRemarks,
+                             LocalDate healingDate, FeedbackSource source) {
+        qualitativeFeedbackRepository.save(QualitativeFeedback.builder()
                 .healingSession(session)
-                .feedbackType(request.feedbackType())
-                .feedbackText(feedbackText)
-                .patientRemarks("")
-                .healingDate(request.healingDate())
-                .source(FeedbackSource.MANUAL)
+                .feedbackType(type)
+                .feedbackText(text)
+                .patientRemarks(patientRemarks)
+                .healingDate(healingDate)
+                .source(source)
                 .build());
-        }
+    }
+
+    /** Only one FINAL feedback per case, whichever path it comes through. */
+    private void rejectSecondFinal(UUID caseId, FeedbackType type) {
+        if (type != FeedbackType.FINAL) return;
+        qualitativeFeedbackRepository
+            .findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL)
+            .ifPresent(existing -> {
+                throw new FeedbackAlreadySubmittedException();
+            });
     }
 
     private HealingSession sessionForHealingDate(UUID caseId, LocalDate healingDate) {
