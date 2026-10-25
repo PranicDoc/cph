@@ -137,6 +137,9 @@ app:
     from: ${APP_MAIL_FROM:hello@healingark.in}
   invite:
     token-expiry-hours: 72
+  masterdata:
+    # How long "unlock shared entries" lets a user edit shared (system) master data.
+    elevation-minutes: ${MASTER_DATA_ELEVATION_MINUTES:15}
   whatsapp:
     phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:placeholder-phone-number-id}
     access-token: ${WHATSAPP_ACCESS_TOKEN:placeholder-access-token}

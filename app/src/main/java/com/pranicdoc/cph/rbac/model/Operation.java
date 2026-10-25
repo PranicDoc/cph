@@ -16,5 +16,7 @@ public enum Operation {
     SHARE,
     WRITE,
     ADMIN,
-    IMPORT
+    IMPORT,
+    // Temporarily edit shared (system) rows after confirming the password; master data only.
+    ELEVATE
 }

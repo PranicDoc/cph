@@ -5,6 +5,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Trash2, Lock, Upload } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useCan } from "../../hooks/useMyPermissions";
+import { useElevation } from "../../hooks/useElevation";
+import { UnlockSharedEntries } from "@/components/admin/UnlockSharedEntries";
 import {
   usePranaColors,
   useChakras,
@@ -335,7 +337,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     [data, category]
   );
 
-  const canModify = (item: PranaColor) => isSuperAdmin || !!item.healerId;
+  // System rows: editing needs the super admin or an active unlock; deleting the super admin only.
+  const shared = useElevation("MASTER_DATA_COLORS");
+  const canEditRow = (item: PranaColor) => isSuperAdmin || !!item.healerId || shared.unlocked;
+  const canDeleteRow = (item: PranaColor) => isSuperAdmin || !!item.healerId;
   const can = useCan();
   const canCreate = can("MASTER_DATA_COLORS", "CREATE");
   const canUpdate = can("MASTER_DATA_COLORS", "UPDATE");
@@ -382,10 +387,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        canModify(row.original) ? (
+        canEditRow(row.original) ? (
           <RowActions
             onEdit={canUpdate ? () => setModal(row.original) : undefined}
-            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
+            onDelete={canDelete && canDeleteRow(row.original) ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteColor.isPending}
           />
         ) : (
@@ -397,7 +402,7 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   return (
     <div>
       <p className="text-sm text-text-light mb-3">
-        System colors are seeded globally. Your own custom colors are also listed here.
+        System colors are shared by everyone. Your own custom colors are also listed here.
       </p>
       <div className="flex items-center justify-between gap-3 mb-4">
         <div
@@ -419,12 +424,15 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
             </Button>
           ))}
         </div>
-        {canCreate && (
-          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Color</span>
-          </Button>
-        )}
+        <div className="flex gap-2 shrink-0">
+          <UnlockSharedEntries elevation={shared} isSuperAdmin={isSuperAdmin} />
+          {canCreate && (
+            <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Color</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -457,10 +465,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                     <span className="font-semibold text-text truncate">{item.name}</span>
                     <SourceBadge healerId={item.healerId} />
                   </div>
-                  {canModify(item) ? (
+                  {canEditRow(item) ? (
                     <RowActions
                       onEdit={canUpdate ? () => setModal(item) : undefined}
-                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
+                      onDelete={canDelete && canDeleteRow(item) ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteColor.isPending}
                     />
                   ) : (
@@ -626,7 +634,9 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [modal, setModal] = useState<Chakra | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Chakra | null>(null);
 
-  const canModify = (item: Chakra) => isSuperAdmin || !!item.healerId;
+  const shared = useElevation("MASTER_DATA_CHAKRAS");
+  const canEditRow = (item: Chakra) => isSuperAdmin || !!item.healerId || shared.unlocked;
+  const canDeleteRow = (item: Chakra) => isSuperAdmin || !!item.healerId;
   const can = useCan();
   const canCreate = can("MASTER_DATA_CHAKRAS", "CREATE");
   const canUpdate = can("MASTER_DATA_CHAKRAS", "UPDATE");
@@ -670,10 +680,10 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        canModify(row.original) ? (
+        canEditRow(row.original) ? (
           <RowActions
             onEdit={canUpdate ? () => setModal(row.original) : undefined}
-            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
+            onDelete={canDelete && canDeleteRow(row.original) ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteChakra.isPending}
           />
         ) : (
@@ -688,12 +698,15 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System chakras (26 seeded) are global. Add your own custom chakras below.
         </p>
-        {canCreate && (
-          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Chakra</span>
-          </Button>
-        )}
+        <div className="flex gap-2 shrink-0">
+          <UnlockSharedEntries elevation={shared} isSuperAdmin={isSuperAdmin} />
+          {canCreate && (
+            <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Chakra</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -723,10 +736,10 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                       <SourceBadge healerId={item.healerId} />
                     </div>
                   </div>
-                  {canModify(item) ? (
+                  {canEditRow(item) ? (
                     <RowActions
                       onEdit={canUpdate ? () => setModal(item) : undefined}
-                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
+                      onDelete={canDelete && canDeleteRow(item) ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteChakra.isPending}
                     />
                   ) : (
@@ -1285,8 +1298,11 @@ function ChakraColorSection({
   const [editing, setEditing] = useState<ProtocolChakraColorGroup | "new" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProtocolChakraColorGroup | null>(null);
 
-  const canModify = (g: ProtocolChakraColorGroup) =>
-    isSuperAdmin || (!!g.healerId && g.healerId === currentHealerId);
+  const shared = useElevation("MASTER_DATA_PROTOCOLS");
+  const ownsGroup = (g: ProtocolChakraColorGroup) => !!g.healerId && g.healerId === currentHealerId;
+  const canEditGroup = (g: ProtocolChakraColorGroup) =>
+    isSuperAdmin || ownsGroup(g) || (!g.healerId && shared.unlocked);
+  const canDeleteGroup = (g: ProtocolChakraColorGroup) => isSuperAdmin || ownsGroup(g);
   const can = useCan();
   const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
   const canUpdate = can("MASTER_DATA_PROTOCOLS", "UPDATE");
@@ -1330,9 +1346,9 @@ function ChakraColorSection({
               key={g.protocolChakraId}
               group={g}
               colors={colors ?? []}
-              canModify={canModify(g)}
+              canModify={canEditGroup(g)}
               onEdit={canUpdate ? () => setEditing(g) : undefined}
-              onDelete={canDelete ? () => setDeleteTarget(g) : undefined}
+              onDelete={canDelete && canDeleteGroup(g) ? () => setDeleteTarget(g) : undefined}
               deleting={deleteMutation.isPending}
             />
           )
@@ -1713,7 +1729,9 @@ function ProtocolsTab({
   const [deleteTarget, setDeleteTarget] = useState<Protocol | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  const canModify = (item: Protocol) => isSuperAdmin || !!item.healerId;
+  const shared = useElevation("MASTER_DATA_PROTOCOLS");
+  const canEditRow = (item: Protocol) => isSuperAdmin || !!item.healerId || shared.unlocked;
+  const canDeleteRow = (item: Protocol) => isSuperAdmin || !!item.healerId;
   const can = useCan();
   const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
   const canImport = can("MASTER_DATA_PROTOCOLS", "IMPORT");
@@ -1767,10 +1785,10 @@ function ProtocolsTab({
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        canModify(row.original) ? (
+        canEditRow(row.original) ? (
           <RowActions
             onEdit={canUpdate ? () => setModal(row.original) : undefined}
-            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
+            onDelete={canDelete && canDeleteRow(row.original) ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteProtocol.isPending}
           />
         ) : (
@@ -1798,6 +1816,7 @@ function ProtocolsTab({
                 <span className="hidden sm:inline">Import</span>
               </Button>
             )}
+            <UnlockSharedEntries elevation={shared} isSuperAdmin={isSuperAdmin} />
             {canCreate && (
               <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
                 <Plus className="w-4 h-4" />
@@ -1844,10 +1863,10 @@ function ProtocolsTab({
                       <SourceBadge healerId={item.healerId} />
                     </div>
                   </div>
-                  {canModify(item) ? (
+                  {canEditRow(item) ? (
                     <RowActions
                       onEdit={canUpdate ? () => setModal(item) : undefined}
-                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
+                      onDelete={canDelete && canDeleteRow(item) ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteProtocol.isPending}
                     />
                   ) : (

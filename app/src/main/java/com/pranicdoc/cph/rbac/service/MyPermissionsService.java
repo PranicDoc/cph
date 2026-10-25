@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.rbac.service;
 
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.masterdata.service.MasterDataElevationService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.dto.MyPermissionsResponse;
 import com.pranicdoc.cph.rbac.model.Operation;
@@ -14,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 
 /**
  * The signed-in user's own permissions, read with the same rules as {@link RbacAuthz}: the
@@ -34,15 +36,17 @@ public class MyPermissionsService {
     private final RbacAuthz rbacAuthz;
     private final SecurityContextUtil securityContextUtil;
     private final RolePermissionLookupService lookupService;
+    private final MasterDataElevationService elevationService;
 
     public MyPermissionsResponse current() {
         if (rbacAuthz.isSuperAdmin()) {
-            return new MyPermissionsResponse(ALL_GRANTS);
+            return new MyPermissionsResponse(ALL_GRANTS, Map.of());
         }
+        UUID healerId = securityContextUtil.getCurrentHealerId();
         Map<String, List<String>> grants = new TreeMap<>();
-        lookupService.effectiveGrants(securityContextUtil.getCurrentHealerId())
+        lookupService.effectiveGrants(healerId)
                 .forEach((resource, operations) -> grants.put(resource.name(), names(operations)));
-        return new MyPermissionsResponse(grants);
+        return new MyPermissionsResponse(grants, elevationService.activeFor(healerId));
     }
 
     private static Map<String, List<String>> allGrants() {

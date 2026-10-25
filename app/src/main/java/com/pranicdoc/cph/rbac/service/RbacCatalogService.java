@@ -62,7 +62,8 @@ public class RbacCatalogService {
             Operation.SHARE, "Share",
             Operation.WRITE, "Write",
             Operation.ADMIN, "Administer",
-            Operation.IMPORT, "Import"
+            Operation.IMPORT, "Import",
+            Operation.ELEVATE, "Unlock shared entries"
     );
 
     /**
@@ -79,7 +80,8 @@ public class RbacCatalogService {
             Operation.SHARE, "Share records externally",
             Operation.WRITE, "Create and edit records",
             Operation.ADMIN, "Full administrative control",
-            Operation.IMPORT, "Bulk-import records from a file"
+            Operation.IMPORT, "Bulk-import records from a file",
+            Operation.ELEVATE, "Temporarily edit shared (system) entries after confirming the password"
     );
 
     /**

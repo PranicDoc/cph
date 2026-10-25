@@ -4,6 +4,8 @@ import type { SidebarNavItem } from "../components/Sidebar";
 /** GET /api/v1/auth/me/permissions: resource name to the verbs the user holds across all their roles. */
 export interface MyPermissions {
   grants: Record<string, string[]>;
+  /** Master-data resource to when the user's "unlock shared entries" ends (ISO time). */
+  elevations?: Record<string, string>;
 }
 
 /** Whether the user holds this verb on this resource. False until the permissions have loaded. */
