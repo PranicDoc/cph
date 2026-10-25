@@ -14,8 +14,8 @@ vi.mock("../../ui-version", () => ({
 vi.mock("@/hooks/useReferenceData", () => ({
   useReferenceData: () => ({
     colors: [
-      { id: "g", code: "G", name: "Green", properties: ["Cleansing"], categories: ["CLEANSING"] },
-      { id: "v", code: "V", name: "Violet", properties: ["Regenerating"], categories: ["ENERGISING"] },
+      { id: "g", code: "G", name: "Green", properties: ["Cleansing"], category: "CLEANSING" },
+      { id: "v", code: "V", name: "Violet", properties: ["Regenerating"], category: "ENERGISING" },
     ],
     loading: false,
     error: null,
@@ -34,17 +34,17 @@ const sel = (color: string, properties: string[] = []) => ({ color, properties }
 
 function renderForm({
   saved = [],
-  suggestions,
+  prefill,
 }: {
   saved?: unknown[];
-  suggestions: unknown[] | "error";
+  prefill: unknown[] | "error";
 }) {
   mGet.mockImplementation((url: string) => {
     if (url.endsWith("/chakras")) return Promise.resolve({ data: { data: ["Solar Plexus", "Spleen"] } });
-    if (url.endsWith("/suggestions")) {
-      return suggestions === "error"
+    if (url.endsWith("/prefill")) {
+      return prefill === "error"
         ? Promise.reject(new Error("boom"))
-        : Promise.resolve({ data: { chakraSelections: suggestions } });
+        : Promise.resolve({ data: { chakraSelections: prefill } });
     }
     return Promise.resolve({ data: { chakraSelections: saved } });
   });
@@ -82,9 +82,9 @@ async function panelsFor(chakra: string) {
 describe("ClosureForm protocol pre-fill", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("pre-fills a chakra with no saved selection from the protocol suggestions", async () => {
+  it("pre-fills a chakra with no saved selection from the protocol pre-fill", async () => {
     renderForm({
-      suggestions: [
+      prefill: [
         // Violet is energising-only in the catalog but the protocol also uses it for cleansing.
         { chakra: "Solar Plexus", energisingColors: [sel("Violet")], cleansingColors: [sel("Green"), sel("Violet")] },
         { chakra: "Spleen", energisingColors: [], cleansingColors: [] },
@@ -97,10 +97,10 @@ describe("ClosureForm protocol pre-fill", () => {
     expect(within(cleansing).getByRole("button", { name: /Violet/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("keeps a saved selection over the protocol suggestion", async () => {
+  it("keeps a saved selection over the protocol pre-fill", async () => {
     renderForm({
       saved: [{ chakra: "Solar Plexus", energisingColors: [], cleansingColors: [sel("Green", ["Cleansing"])] }],
-      suggestions: [{ chakra: "Solar Plexus", energisingColors: [sel("Violet")], cleansingColors: [] }],
+      prefill: [{ chakra: "Solar Plexus", energisingColors: [sel("Violet")], cleansingColors: [] }],
     });
 
     const { energising, cleansing } = await panelsFor("Solar Plexus");
@@ -108,8 +108,8 @@ describe("ClosureForm protocol pre-fill", () => {
     expect(within(energising).getByRole("button", { name: /Violet/ })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("still opens for manual entry when suggestions fail to load", async () => {
-    renderForm({ suggestions: "error" });
+  it("still opens for manual entry when the pre-fill fails to load", async () => {
+    renderForm({ prefill: "error" });
 
     const { energising } = await panelsFor("Solar Plexus");
     expect(within(energising).getByRole("button", { name: /Violet/ })).toHaveAttribute("aria-pressed", "false");

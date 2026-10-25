@@ -128,7 +128,7 @@ class HealerControllerGateSweepTest {
      * {@code (expectedMapped, expectedGated)} counts. These were DERIVED, not
      * pasted: each triple is the value recorded in the Wave-2 summaries
      * (42-02 {@code PatientController} 11/9/2, 42-04 {@code SessionController}
-     * 5/5/0, <b>42-13</b> {@code CaseController} 21/17/4 (22/18/4 since the unlock endpoint, 23/19/4 since the HPU suggestions read) — superseding 42-03's
+     * 5/5/0, <b>42-13</b> {@code CaseController} 21/17/4 (22/18/4 since the unlock endpoint, 23/19/4 since the HPU prefill read) — superseding 42-03's
      * 18/14/4 after the CR-01 route split added three ungated
      * {@code /api/v1/cases/self-service} patient twins and gated their three
      * healer-path siblings, 42-05 {@code ScanController} 1/1/0 +
