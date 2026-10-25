@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { versioned } from "../../ui-version";
 import { useAdminGlobalConfig, useUpdateGlobalConfig } from "../../hooks/admin/useAdminGlobalConfig";
+import { useCan } from "../../hooks/useMyPermissions";
 import type { CreditConfigEntry } from "../../hooks/admin/useAdminGlobalConfig";
 import { Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ function ConfigCard({ entry }: { entry: CreditConfigEntry }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry.config_value);
   const update = useUpdateGlobalConfig();
+  const canEdit = useCan()("GLOBAL_CONFIG", "UPDATE");
 
   const save = async () => {
     await update.mutateAsync({ key: entry.config_key, value: draft });
@@ -39,7 +41,7 @@ function ConfigCard({ entry }: { entry: CreditConfigEntry }) {
                 <X className="w-4 h-4" />
               </Button>
             </div>
-          ) : (
+          ) : canEdit && (
             <Button variant="ghost" size="icon-sm" onClick={() => setEditing(true)}
               className="h-auto w-auto p-1.5 text-text-light">
               <Pencil className="w-4 h-4" />

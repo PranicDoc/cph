@@ -9,6 +9,11 @@ vi.mock("../../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 
+// Every verb is granted unless a test narrows it with denied.add("RESOURCE:VERB").
+const perms = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock("../../hooks/useMyPermissions", () => ({
+  useCan: () => (resource: string, verb: string) => !perms.denied.has(`${resource}:${verb}`),
+}));
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -84,6 +89,7 @@ function lastGetParams() {
 }
 
 beforeEach(() => {
+  perms.denied.clear();
   mockedGet.mockReset();
   mockedDelete.mockReset();
   mockedToastSuccess.mockReset();
@@ -289,5 +295,29 @@ describe("RolesPage — server-paged searchable roles list", () => {
 
     await waitFor(() => expect(mockedToastError).toHaveBeenCalled());
     expect(screen.queryByText('Delete "Billing"?')).not.toBeInTheDocument();
+  });
+});
+
+describe("RolesPage — actions follow the user's ROLES permissions", () => {
+  it("shows no New, Edit or Delete to a user who may only read roles", async () => {
+    perms.denied.add("ROLES:CREATE").add("ROLES:UPDATE").add("ROLES:DELETE");
+    mockedGet.mockResolvedValue({ data: pageStub() });
+    renderPage();
+
+    await screen.findByText("Billing");
+    expect(screen.queryByRole("button", { name: /New role/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Billing" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Billing" })).not.toBeInTheDocument();
+  });
+
+  it("keeps Edit and New but hides Delete when only DELETE is missing", async () => {
+    perms.denied.add("ROLES:DELETE");
+    mockedGet.mockResolvedValue({ data: pageStub() });
+    renderPage();
+
+    await screen.findByText("Billing");
+    expect(screen.getByRole("button", { name: "Edit Billing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /New role/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Billing" })).not.toBeInTheDocument();
   });
 });

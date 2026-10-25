@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ChevronRight, ChevronLeft, UserPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useCan } from "../../hooks/useMyPermissions";
 import {
   useAdminInvites,
   useCreateInvite,
@@ -55,7 +56,12 @@ function HealerStatusBadge({ active }: { active: boolean }) {
 
 function ClassicHealerRegistrationPage() {
   const { user } = useAuth();
-  const isSupadm = user?.role === "SUPADM";
+  const can = useCan();
+  const canInvite = can("HEALER_REG", "CREATE");
+  const canManageInvites = can("HEALER_REG", "UPDATE");
+  const canSeeHealers = can("ACCOUNTS", "READ");
+  const canSetHealerActive = can("ACCOUNTS", "UPDATE");
+  const canRemoveHealer = can("ACCOUNTS", "DELETE");
 
   const [page, setPage] = useState(0);
   const { data, isLoading, isError } = useAdminInvites(page);
@@ -66,7 +72,7 @@ function ClassicHealerRegistrationPage() {
 
   const [revokeTarget, setRevokeTarget] = useState<AdminInvite | null>(null);
 
-  const { data: healers, isLoading: healersLoading } = useAdminHealers(isSupadm);
+  const { data: healers, isLoading: healersLoading } = useAdminHealers(canSeeHealers);
   const setHealerActive = useSetHealerActive();
   const removeHealer = useRemoveHealer();
   const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
@@ -117,7 +123,8 @@ function ClassicHealerRegistrationPage() {
       </div>
     ) : null;
 
-  const canShowActions = (status: AdminInvite["status"]) => status === "PENDING" || status === "EXPIRED";
+  const canShowActions = (status: AdminInvite["status"]) =>
+    canManageInvites && (status === "PENDING" || status === "EXPIRED");
 
   const InviteActions = ({ invite }: { invite: AdminInvite }) => {
     if (!canShowActions(invite.status)) return null;
@@ -175,11 +182,13 @@ function ClassicHealerRegistrationPage() {
         </span>
       ),
     },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => <InviteActions invite={row.original} />,
-    },
+    ...(canManageInvites
+      ? [{
+          id: "actions",
+          header: "Actions",
+          cell: ({ row }) => <InviteActions invite={row.original} />,
+        } satisfies ColumnDef<AdminInvite, unknown>]
+      : []),
   ];
 
   const HealerActions = ({ healer }: { healer: AdminHealer }) => {
@@ -188,7 +197,7 @@ function ClassicHealerRegistrationPage() {
     }
     return (
       <div className="flex items-center gap-3">
-        <Button
+        {canSetHealerActive && <Button
           type="button"
           variant="link"
           onClick={() => setHealerActive.mutate({ id: healer.id, active: !healer.active })}
@@ -196,15 +205,15 @@ function ClassicHealerRegistrationPage() {
           className="h-auto p-0 text-xs font-medium"
         >
           {healer.active ? "Deactivate" : "Activate"}
-        </Button>
-        <Button
+        </Button>}
+        {canRemoveHealer && <Button
           type="button"
           variant="link"
           onClick={() => setRemoveTarget(healer)}
           className="h-auto p-0 text-xs font-medium text-danger hover:text-danger"
         >
           Remove
-        </Button>
+        </Button>}
       </div>
     );
   };
@@ -236,11 +245,13 @@ function ClassicHealerRegistrationPage() {
       header: "Status",
       cell: (info) => <HealerStatusBadge active={Boolean(info.getValue())} />,
     },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => <HealerActions healer={row.original} />,
-    },
+    ...(canSetHealerActive || canRemoveHealer
+      ? [{
+          id: "actions",
+          header: "Actions",
+          cell: ({ row }) => <HealerActions healer={row.original} />,
+        } satisfies ColumnDef<AdminHealer, unknown>]
+      : []),
   ];
 
   return (
@@ -248,7 +259,7 @@ function ClassicHealerRegistrationPage() {
       <h1 className="text-2xl font-semibold text-text mb-6">Healer Invitations</h1>
 
       {/* Create-invite form card */}
-      <div className="bg-card border border-border rounded-xl shadow-sm p-6 mb-8">
+      {canInvite && <div className="bg-card border border-border rounded-xl shadow-sm p-6 mb-8">
         <h2 className="text-xl font-semibold text-text mb-4">Send a New Invite</h2>
         <form
           onSubmit={(e) => {
@@ -283,7 +294,7 @@ function ClassicHealerRegistrationPage() {
             {createInvite.isPending ? "Sending…" : "Send Invite"}
           </Button>
         </form>
-      </div>
+      </div>}
 
       {/* Invite table */}
       {isLoading && <p className="text-text-light">Loading invites…</p>}
@@ -347,8 +358,8 @@ function ClassicHealerRegistrationPage() {
         </>
       )}
 
-      {/* Existing healers — activate/deactivate/remove (SUPADM only) */}
-      {isSupadm && (
+      {/* Existing healers — activate/deactivate/remove, each behind its ACCOUNTS permission */}
+      {canSeeHealers && (
         <div className="mt-10">
           <h2 className="text-xl font-semibold text-text mb-4">Healers</h2>
 
@@ -378,9 +389,11 @@ function ClassicHealerRegistrationPage() {
                     </div>
                     <p className="text-xs text-text-light">{healer.email}</p>
                     <p className="text-xs text-text-light">{healer.role}</p>
-                    <div className="mt-3">
-                      <HealerActions healer={healer} />
-                    </div>
+                    {(canSetHealerActive || canRemoveHealer) && (
+                      <div className="mt-3">
+                        <HealerActions healer={healer} />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

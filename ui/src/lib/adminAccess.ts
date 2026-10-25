@@ -6,6 +6,11 @@ export interface MyPermissions {
   grants: Record<string, string[]>;
 }
 
+/** Whether the user holds this verb on this resource. False until the permissions have loaded. */
+export function hasPermission(perms: MyPermissions | undefined, resource: string, verb: string): boolean {
+  return !!perms?.grants[resource]?.includes(verb);
+}
+
 /**
  * A menu item is shown when it needs no permission, or when the user may READ any of the
  * resources it lists. Gated items stay hidden until the permissions have loaded.

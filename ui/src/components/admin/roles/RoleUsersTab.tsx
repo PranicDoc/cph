@@ -12,6 +12,7 @@ import {
 } from "@/hooks/admin/useRoleAssignments";
 import type { RoleAssignedUser } from "@/hooks/admin/useRoleAssignments";
 import { useAdminHealers } from "@/hooks/admin/useAdminHealers";
+import { useCan } from "@/hooks/useMyPermissions";
 import { extractDetail } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DataTable } from "@/components/ui/data-table";
@@ -40,6 +41,8 @@ export interface RoleUsersTabProps {
  */
 export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
   const { data, isLoading, isError, refetch } = useRoleAssignments(roleId);
+  // Assigning and removing users both need ROLES:UPDATE on the server.
+  const canManage = useCan()("ROLES", "UPDATE");
   const healersQuery = useAdminHealers();
   const healers = useMemo(() => healersQuery.data ?? [], [healersQuery.data]);
 
@@ -135,27 +138,29 @@ export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
           </span>
         ),
       },
-      {
-        id: "actions",
-        header: () => <div className="text-right" />,
-        cell: (info) => {
-          const user = info.row.original;
-          return (
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Remove ${displayNameOf(user)}`}
-                onClick={() => openRemove(user)}
-              >
-                Remove
-              </Button>
-            </div>
-          );
-        },
-      },
+      ...(canManage
+        ? [{
+            id: "actions",
+            header: () => <div className="text-right" />,
+            cell: (info) => {
+              const user = info.row.original;
+              return (
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove ${displayNameOf(user)}`}
+                    onClick={() => openRemove(user)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              );
+            },
+          } satisfies ColumnDef<RoleAssignedUser, unknown>]
+        : []),
     ],
-    [openRemove],
+    [openRemove, canManage],
   );
 
   const isMobile = useIsMobile();
@@ -181,10 +186,12 @@ export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
           Assign a user to give them everything this role grants. Use Assign user
           to search by name or email.
         </p>
-        <Button onClick={() => setPickerOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Assign user
-        </Button>
+        {canManage && (
+          <Button onClick={() => setPickerOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Assign user
+          </Button>
+        )}
       </div>
     );
   } else if (isMobile) {
@@ -196,14 +203,16 @@ export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
               <span className="text-sm font-semibold text-text">
                 {user.name || user.email}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Remove ${displayNameOf(user)}`}
-                onClick={() => openRemove(user)}
-              >
-                Remove
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove ${displayNameOf(user)}`}
+                  onClick={() => openRemove(user)}
+                >
+                  Remove
+                </Button>
+              )}
             </div>
             <p className="truncate text-xs text-text-light">{user.email}</p>
             <p className="mt-1 text-xs text-text-light">
@@ -238,10 +247,12 @@ export function RoleUsersTab({ roleId, roleName }: RoleUsersTabProps) {
           {count} user{count === 1 ? "" : "s"} {count === 1 ? "has" : "have"} this
           role
         </div>
-        <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Assign user
-        </Button>
+        {canManage && (
+          <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Assign user
+          </Button>
+        )}
       </div>
 
       {content}

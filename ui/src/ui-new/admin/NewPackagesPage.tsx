@@ -9,6 +9,7 @@ import {
   useDeletePackage,
   useUpdatePackage,
 } from "../../hooks/admin/useAdminPackages";
+import { useCan } from "../../hooks/useMyPermissions";
 import type { AdminPackage, CreatePackagePayload } from "../../hooks/admin/useAdminPackages";
 import { VALIDITY_UNITS, formatValidity, type ValidityUnit } from "../../lib/validity";
 import { HlField, HlSelect, HlSwitch } from "../components/Controls";
@@ -186,6 +187,10 @@ export default function NewPackagesPage() {
   const update = useUpdatePackage();
   const [sheet, setSheet] = useState<AdminPackage | null | "new">(null);
   const [deletePkg, setDeletePkg] = useState<AdminPackage | null>(null);
+  const can = useCan();
+  const canCreate = can("PACKAGES", "CREATE");
+  const canUpdate = can("PACKAGES", "UPDATE");
+  const canDelete = can("PACKAGES", "DELETE");
 
   return (
     <div className="hlx">
@@ -194,9 +199,11 @@ export default function NewPackagesPage() {
           <h1>Credit packages</h1>
           <p className="muted" style={{ marginTop: 6 }}>The plans healers can buy. Changes apply to new purchases only.</p>
         </div>
-        <button className="btn btn-primary" type="button" onClick={() => setSheet("new")}>
-          <Plus className="ico" /> New package
-        </button>
+        {canCreate && (
+          <button className="btn btn-primary" type="button" onClick={() => setSheet("new")}>
+            <Plus className="ico" /> New package
+          </button>
+        )}
       </div>
 
       {isLoading && <p className="muted">Loading…</p>}
@@ -230,23 +237,29 @@ export default function NewPackagesPage() {
                     <td className="r" data-label="Order"><span className="num muted">{p.display_order}</span></td>
                     <td data-label="Status">
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <HlSwitch
-                          label={`${p.active ? "Disable" : "Enable"} ${p.name}`}
-                          checked={p.active}
-                          disabled={update.isPending}
-                          onChange={(active) => update.mutate({ id: p.id, payload: { active } })}
-                        />
+                        {canUpdate && (
+                          <HlSwitch
+                            label={`${p.active ? "Disable" : "Enable"} ${p.name}`}
+                            checked={p.active}
+                            disabled={update.isPending}
+                            onChange={(active) => update.mutate({ id: p.id, payload: { active } })}
+                          />
+                        )}
                         <span className={`badge ${p.active ? "ok" : "off"}`}>{p.active ? "Active" : "Disabled"}</span>
                       </div>
                     </td>
                     <td className="r" data-label="">
                       <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                        <button className="icon-btn" type="button" aria-label={`Edit ${p.name}`} onClick={() => setSheet(p)}>
-                          <Pencil className="ico" />
-                        </button>
-                        <button className="icon-btn danger" type="button" aria-label={`Delete ${p.name}`} disabled={remove.isPending} onClick={() => setDeletePkg(p)}>
-                          <Trash2 className="ico" />
-                        </button>
+                        {canUpdate && (
+                          <button className="icon-btn" type="button" aria-label={`Edit ${p.name}`} onClick={() => setSheet(p)}>
+                            <Pencil className="ico" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button className="icon-btn danger" type="button" aria-label={`Delete ${p.name}`} disabled={remove.isPending} onClick={() => setDeletePkg(p)}>
+                            <Trash2 className="ico" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -264,7 +277,7 @@ export default function NewPackagesPage() {
         <PackageSheet
           initial={sheet === "new" ? undefined : sheet}
           onClose={() => setSheet(null)}
-          onDelete={sheet === "new" ? undefined : () => { setDeletePkg(sheet); setSheet(null); }}
+          onDelete={sheet === "new" || !canDelete ? undefined : () => { setDeletePkg(sheet); setSheet(null); }}
         />
       )}
 

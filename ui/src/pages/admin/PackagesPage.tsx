@@ -8,6 +8,7 @@ import {
   useUpdatePackage,
   useDeletePackage,
 } from "../../hooks/admin/useAdminPackages";
+import { useCan } from "../../hooks/useMyPermissions";
 import type { AdminPackage, CreatePackagePayload } from "../../hooks/admin/useAdminPackages";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -201,16 +202,20 @@ function ClassicPackagesPage() {
   const update = useUpdatePackage();
   const [modalPkg, setModalPkg] = useState<AdminPackage | null | "new">(null);
   const [deletePkg, setDeletePkg] = useState<AdminPackage | null>(null);
+  const can = useCan();
+  const canCreate = can("PACKAGES", "CREATE");
+  const canUpdate = can("PACKAGES", "UPDATE");
+  const canDelete = can("PACKAGES", "DELETE");
 
   const rowActions = (pkg: AdminPackage) => (
     <div className="flex items-center gap-1 justify-end">
-      <Switch
+      {canUpdate && <Switch
         checked={pkg.active}
         disabled={update.isPending}
         onCheckedChange={(active) => update.mutate({ id: pkg.id, payload: { active } })}
         aria-label={`${pkg.active ? "Disable" : "Enable"} ${pkg.name}`}
-      />
-      <Button
+      />}
+      {canUpdate && <Button
         variant="ghost"
         size="icon-sm"
         onClick={() => setModalPkg(pkg)}
@@ -218,8 +223,8 @@ function ClassicPackagesPage() {
         className="h-auto w-auto p-1.5 text-text-light"
       >
         <Pencil className="w-4 h-4" />
-      </Button>
-      <Button
+      </Button>}
+      {canDelete && <Button
         variant="ghost"
         size="icon-sm"
         onClick={() => setDeletePkg(pkg)}
@@ -228,7 +233,7 @@ function ClassicPackagesPage() {
         className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
       >
         <Trash2 className="w-4 h-4" />
-      </Button>
+      </Button>}
     </div>
   );
 
@@ -280,11 +285,13 @@ function ClassicPackagesPage() {
       header: "Status",
       cell: (info) => <StatusBadge active={Boolean(info.getValue())} />,
     },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => rowActions(row.original),
-    },
+    ...(canUpdate || canDelete
+      ? [{
+          id: "actions",
+          header: "",
+          cell: ({ row }) => rowActions(row.original),
+        } satisfies ColumnDef<AdminPackage, unknown>]
+      : []),
   ];
 
   return (
@@ -294,11 +301,13 @@ function ClassicPackagesPage() {
           <h1 className="text-xl md:text-2xl font-bold text-text">Credit Packages</h1>
           <p className="text-sm text-text-light mt-0.5">Manage packages available to healers and clinics.</p>
         </div>
-        <Button onClick={() => setModalPkg("new")} className="px-3 py-2 md:px-4 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">New Package</span>
-          <span className="sm:hidden">New</span>
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setModalPkg("new")} className="px-3 py-2 md:px-4 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New Package</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-text-light">Loading…</p>}

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../context/AuthContext";
+import { useCan } from "../../hooks/useMyPermissions";
 import {
   useActivePolicyVersions,
   usePublishPolicyVersion,
@@ -353,6 +354,9 @@ function AddConsentTypeModal({
 function ClassicLegalDocumentsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
+  const can = useCan();
+  const canCreate = can("LEGAL_DOCUMENTS", "CREATE");
+  const canUpdate = can("LEGAL_DOCUMENTS", "UPDATE");
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
@@ -418,18 +422,20 @@ function ClassicLegalDocumentsPage() {
             <Switch size="sm" checked={showInactive} onCheckedChange={setShowInactive} />
             Show inactive
           </label>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setShowAddType(true)}
-            className="px-3 py-1.5 h-auto text-sm font-medium"
-          >
-            Add Consent Form
-          </Button>
+          {canCreate && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddType(true)}
+              className="px-3 py-1.5 h-auto text-sm font-medium"
+            >
+              Add Consent Form
+            </Button>
+          )}
         </div>
       </div>
 
-      {!isLoading && !isError && activeConsentType && (
+      {!isLoading && !isError && activeConsentType && canUpdate && (
         <TypeActionRow
           type={activeConsentType}
           isSuperAdmin={isSuperAdmin}
@@ -445,7 +451,7 @@ function ClassicLegalDocumentsPage() {
       {!isLoading && !isError && activeConsentType && (
         <div className="space-y-4">
           {entry ? <ActiveVersionCard entry={entry} /> : <EmptyState />}
-          {activeConsentType.active && (
+          {activeConsentType.active && canCreate && (
             <Button onClick={() => setShowPublish(true)} className="px-3 py-2 h-auto">
               Publish New Version
             </Button>
