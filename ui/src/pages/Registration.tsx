@@ -58,7 +58,7 @@ export default function Registration() {
         });
         sessionStorage.setItem("role", res.data?.data);
         window.history.replaceState({}, "", "/self-register");
-      } catch (err) {
+      } catch {
         navigate("/unauthorized");
       }
     };

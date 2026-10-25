@@ -5,7 +5,6 @@ import { useReferenceData } from "./useReferenceData";
 import { useHealingSessionForm } from "./useHealingSessionForm";
 import { constructHealingSessionPayload, extractDetail } from "../lib/utils";
 import api from "../lib/axios";
-import type { SymptomFeedbackRequest } from "../interfaces";
 import { toast } from "sonner";
 
 const FINAL_FORM_STEP = 2;

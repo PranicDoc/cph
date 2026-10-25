@@ -1,5 +1,5 @@
 import { useUiVersion } from "../ui-version";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -276,7 +276,7 @@ export function TableInput({
         },
       },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately excludes
+     
     // updateCell/deleteRow (recreated every render via value/onChange) so this array
     // stays referentially stable; current versions are read from meta at call time.
   }, [displayKey, editableFields]);

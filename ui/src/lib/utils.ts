@@ -77,11 +77,6 @@ export function constructHealingSessionPayload({
   endTime,
   preScanData,
   postScanData,
-  symptomFeedbacks,
-  protocolEntries,
-  feedbackType,
-  feedbackText,
-  patientRemarks,
 }: {
   caseId: string;
   sessionDate: string;

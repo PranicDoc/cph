@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUiVersion } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -814,7 +814,8 @@ function MappingModal({ onClose, isSuperAdmin }: { onClose: () => void; isSuperA
   const toggle = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
 

@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     url: string,
     options: RequestInit = {}
   ): Promise<Response> => {
-    let res = await fetch(url, {
+    const res = await fetch(url, {
       ...options,
       credentials: "include",
     });
@@ -185,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    const res = await api.post("/api/v1/auth/logout");
+    await api.post("/api/v1/auth/logout");
     setIsAuthenticated(false);
     setUser(null);
   };

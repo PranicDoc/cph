@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { Activity, Menu } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
 import UserProfileIcon from "../UserProfile";
 import Sidebar from "../Sidebar";
 import { adminNavItems } from "../../config/adminNavItems";
@@ -11,8 +10,6 @@ import { Button } from "@/components/ui/button";
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
-  const isSuperAdmin = user?.role === "SUPADM";
 
   const { data: permissions } = useMyPermissions();
 

@@ -28,7 +28,7 @@ type ClosureFormProps = {
   selectedProtocols: Protocol[];
   setSelectedProtocols: React.Dispatch<React.SetStateAction<Protocol[]>>;
   closeMutation: UseMutationResult<
-    AxiosResponse<any, any, {}>,
+    AxiosResponse,
     Error,
     void,
     unknown
@@ -100,7 +100,7 @@ const ClosureForm = ({
             .get(`/api/v1/cases/${healingCaseId}/protocol-understanding/prefill`)
             .catch(() => null),
         ]);
-        const { data } = chakrasRes?.data;
+        const data = chakrasRes?.data?.data;
         const existingSelections: HPUTable[] =
           existingRes?.data?.chakraSelections ?? [];
         const existingByChakra = new Map(

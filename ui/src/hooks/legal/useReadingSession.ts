@@ -60,7 +60,7 @@ export function useReadingSessionLifecycle(
         // surface any user-facing notification to the practitioner.
         console.warn("useReadingSessionLifecycle: failed to open reading session", error);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [consentType, policyVersion]);
 
   const closeSession = useCallback((useBeacon: boolean) => {

@@ -30,6 +30,9 @@ export default defineConfig(({mode}) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
+      // The popover/combobox tests drive many user events; with every file running in parallel
+      // they can pass 5s on a busy machine or CI runner and fail for no real reason.
+      testTimeout: 15000,
     },
   };
 });

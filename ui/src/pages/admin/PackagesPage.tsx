@@ -67,9 +67,8 @@ function PackageModal({ initial, onClose }: { initial?: AdminPackage; onClose: (
         validity_unit: value.validity_unit,
       };
       try {
-        initial
-          ? await update.mutateAsync({ id: initial.id, payload })
-          : await create.mutateAsync(payload);
+        if (initial) await update.mutateAsync({ id: initial.id, payload });
+        else await create.mutateAsync(payload);
         onClose();
       } catch {
         setError("Failed to save package.");

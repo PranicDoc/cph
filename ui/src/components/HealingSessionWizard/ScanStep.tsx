@@ -13,7 +13,6 @@ import type {
 } from "../ChakraScan/types/spatial-chakra";
 import { ChakraManualEntry } from "../ChakraScan/ChakraManualEntry";
 import { ScanPreviewTable } from "./ScanPreviewTable";
-import { TranscriptionRecorder } from "./TranscriptionRecorder";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { parseChakraTranscript } from "@/lib/chakraNlp";
 
@@ -36,10 +35,6 @@ export function ScanStep({
   const { isNewView } = useUiVersion();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mode, setMode] = useState<ScanEntryMode>(DEFAULT_SCAN_ENTRY_MODE);
-
-  function handleEntriesResolved(entries: ChakraDocEntry[]) {
-    onChange(entries);
-  }
 
   function handleTranscript(transcript: string) {
     const updated = parseChakraTranscript(transcript, availableChakras, value);
@@ -164,12 +159,6 @@ export function ScanStep({
           />
         ) : (
           <div className="flex justify-center">
-            {/* <TranscriptionRecorder
-              engine="whisper"
-              availableChakras={availableChakras}
-              currentEntries={value}
-              onEntriesResolved={handleEntriesResolved}
-            /> */}
             <VoiceRecorder onTranscript={handleTranscript} />
           </div>
         )}
