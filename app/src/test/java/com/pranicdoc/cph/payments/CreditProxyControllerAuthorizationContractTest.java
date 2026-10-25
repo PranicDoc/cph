@@ -57,15 +57,17 @@ class CreditProxyControllerAuthorizationContractTest {
     private static final String CREDIT_ACCOUNTS_READ   = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','READ')";
     private static final String TXN_WRITE              = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')";
     private static final String CREDIT_ACCOUNTS_CREATE = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','CREATE')";
+    private static final String TXN_READ               = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')";
 
-    /** methodName -> expected @PreAuthorize literal. All 3 request-mapped methods. */
+    /** methodName -> expected @PreAuthorize literal. All 4 request-mapped methods. */
     private static final List<String[]> EXPECTED_GATES = List.of(
-            new String[]{"getPackages",   CREDIT_ACCOUNTS_READ},
-            new String[]{"purchase",      TXN_WRITE},
-            new String[]{"createAccount", CREDIT_ACCOUNTS_CREATE});
+            new String[]{"getPackages",       CREDIT_ACCOUNTS_READ},
+            new String[]{"purchase",          TXN_WRITE},
+            new String[]{"createAccount",     CREDIT_ACCOUNTS_CREATE},
+            new String[]{"getMyTransactions", TXN_READ});
 
-    private static final int EXPECTED_MAPPED = 3;
-    private static final int EXPECTED_GATED = 3;
+    private static final int EXPECTED_MAPPED = 4;
+    private static final int EXPECTED_GATED = 4;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -164,11 +166,11 @@ class CreditProxyControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("CreditProxyController has exactly 3 request-mapped methods — a method added or "
+                .as("CreditProxyController has exactly 4 request-mapped methods — a method added or "
                         + "removed here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("every one of the 3 CreditProxyController methods must carry a bare capability gate "
+                .as("every one of the 4 CreditProxyController methods must carry a bare capability gate "
                         + "(SC1); a dropped gate restores the implicit any-authenticated-healer path over "
                         + "billing / credit-balance operations")
                 .isEqualTo(EXPECTED_GATED);
@@ -209,9 +211,9 @@ class CreditProxyControllerAuthorizationContractTest {
 
         // D-04: the CREATE verb added to CREDIT_ACCOUNTS this phase is pinned at the site that uses it.
         assertThat(Resource.CREDIT_ACCOUNTS.getSupportedOperations())
-                .as("Resource.CREDIT_ACCOUNTS allow-lists exactly {READ, CREATE} (D-04) — CREATE was added "
-                        + "this phase for CreditProxyController.createAccount, its only enforcing endpoint")
-                .isEqualTo(Set.of(Operation.READ, Operation.CREATE));
+                .as("Resource.CREDIT_ACCOUNTS allow-lists exactly {READ, CREATE, ADMIN} — CREATE (D-04) for "
+                        + "CreditProxyController.createAccount, ADMIN for the SUPADM-by-default admin Accounts screen")
+                .isEqualTo(Set.of(Operation.READ, Operation.CREATE, Operation.ADMIN));
 
         // PD-40-02 negative pin: purchase could not use CREDIT_ACCOUNTS:WRITE — it is un-allow-listed.
         assertThat(Resource.CREDIT_ACCOUNTS.supports(Operation.WRITE))

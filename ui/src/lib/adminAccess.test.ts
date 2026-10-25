@@ -36,6 +36,12 @@ describe("navigation by permission", () => {
     expect(canSeeNavItem({ grants: { ROLES: ["CREATE"] } }, items[2])).toBe(false);
   });
 
+  it("needs the item's own verb when it names one, so reading your own credits does not open Accounts", () => {
+    const accounts = { ...items[0], verb: "ADMIN" };
+    expect(canSeeNavItem({ grants: { CREDIT_ACCOUNTS: ["READ", "CREATE"] } }, accounts)).toBe(false);
+    expect(canSeeNavItem({ grants: { CREDIT_ACCOUNTS: ["READ", "CREATE", "ADMIN"] } }, accounts)).toBe(true);
+  });
+
   it("always shows items that need no permission, and hides gated ones until permissions load", () => {
     const dashboard: SidebarNavItem = { label: "Dashboard", path: "/", icon: Users };
     const patients: SidebarNavItem = { label: "Patients", path: "/patients", icon: Users, anyOf: ["PATIENT"] };

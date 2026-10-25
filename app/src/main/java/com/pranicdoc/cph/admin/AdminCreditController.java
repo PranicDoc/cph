@@ -35,7 +35,8 @@ import java.util.stream.Collectors;
  *   only if granted the named (resource, verb) pair. No {@code ADMIN} role
  *   literal remains in this file — the packages/config gates map to
  *   {@code PACKAGES} / {@code GLOBAL_CONFIG}, the account gates to
- *   {@code CREDIT_ACCOUNTS} / {@code CREDIT_ACCOUNT_TRANSACTIONS}. Authentication
+ *   {@code CREDIT_ACCOUNTS:ADMIN} / {@code CREDIT_ACCOUNT_TRANSACTIONS:ADMIN} (by default
+ *   SUPADM only: a healer's own-account verbs READ/CREATE/WRITE do not open them). Authentication
  *   is still enforced by {@code SecurityConfig}'s {@code .anyRequest().authenticated()}.
  *
  * ABAC:
@@ -138,14 +139,14 @@ public class AdminCreditController {
                 .body(String.class));
     }
 
-    // ─── Accounts (ADMIN + SUPADM, ABAC scoped) ──────────────────────────────
+    // ─── Accounts (CREDIT_ACCOUNTS:ADMIN, ABAC scoped) ──────────────────────────────
 
     /**
      * List accounts. An ordinary healer sees only their own HEALER account.
      * SUPADM sees all (no ownerType/ownerId filter injected).
      */
     @GetMapping("/accounts")
-    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','ADMIN')")
     public ResponseEntity<String> listAccounts(
             @RequestParam(required = false) String ownerType,
             @RequestParam(defaultValue = "0") int page,
@@ -212,10 +213,10 @@ public class AdminCreditController {
         }
     }
 
-    // ─── Transactions (ADMIN + SUPADM, ABAC scoped) ──────────────────────────
+    // ─── Transactions (CREDIT_ACCOUNT_TRANSACTIONS:ADMIN, ABAC scoped) ──────────────────────────
 
     @GetMapping("/accounts/{ownerType}/{ownerId}/transactions")
-    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')")
     public ResponseEntity<String> getTransactions(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,
@@ -229,11 +230,12 @@ public class AdminCreditController {
                 .body(String.class));
     }
 
-    // ─── Manual adjustment (ADMIN + SUPADM, ABAC scoped) ─────────────────────
+    // ─── Manual adjustment (CREDIT_ACCOUNT_TRANSACTIONS:ADMIN, ABAC scoped) ─────────────────────
 
-    // manual credit adjustment = a transaction write
+    // Manual adjustment needs ADMIN, not WRITE: every healer holds WRITE to buy credits, and
+    // with WRITE here they could top up their own account for free.
     @PostMapping("/accounts/{ownerType}/{ownerId}/adjust")
-    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')")
     public ResponseEntity<String> adjust(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,
@@ -248,16 +250,11 @@ public class AdminCreditController {
         return ResponseEntity.ok(result);
     }
 
-    // ─── PAYG toggle (ADMIN + SUPADM, ABAC scoped) ───────────────────────────
+    // ─── PAYG toggle (CREDIT_ACCOUNT_TRANSACTIONS:ADMIN, ABAC scoped) ───────────────────────────
 
-    // PD-40-02: PAYG is conceptually an account setting, but CREDIT_ACCOUNTS supports
-    // READ only, so CREDIT_ACCOUNTS:UPDATE would be an un-allow-listed pair that can
-    // never be granted. CREDIT_ACCOUNT_TRANSACTIONS:WRITE is the only writable
-    // credit-domain verb and already gates adjust, the sibling money-moving handler;
-    // reusing it here avoids a Resource.java enum change (a Phase-35 catalog change
-    // with catalog-service, catalog-test and frontend implications).
+    // PAYG is an admin setting on the account; ADMIN for the same reason as adjust.
     @PutMapping("/accounts/{ownerType}/{ownerId}/payg")
-    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')")
     public ResponseEntity<String> togglePayg(
             @PathVariable String ownerType,
             @PathVariable UUID ownerId,

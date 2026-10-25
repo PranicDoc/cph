@@ -96,10 +96,13 @@ class AdminCreditControllerAuthorizationTest {
     private static final String DEACTIVATE_PACKAGE  = "@rbacAuthz.hasPermission('PACKAGES','DELETE')";
     private static final String LIST_CONFIG         = "@rbacAuthz.hasPermission('GLOBAL_CONFIG','READ')";
     private static final String UPDATE_CONFIG       = "@rbacAuthz.hasPermission('GLOBAL_CONFIG','UPDATE')";
-    private static final String LIST_ACCOUNTS       = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','READ')";
-    private static final String GET_TRANSACTIONS    = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')";
-    private static final String ADJUST             = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')";
-    private static final String TOGGLE_PAYG         = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')";
+    // ADMIN, not the healer's own-account verbs: every healer holds CREDIT_ACCOUNTS:READ and
+    // CREDIT_ACCOUNT_TRANSACTIONS:READ/WRITE, which must not open other accounts or let them
+    // adjust their own balance.
+    private static final String LIST_ACCOUNTS       = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','ADMIN')";
+    private static final String GET_TRANSACTIONS    = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
+    private static final String ADJUST             = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
+    private static final String TOGGLE_PAYG         = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
 
     /** methodName -> expected @PreAuthorize literal, for Section C's parametric resolution. */
     private static final List<String[]> EXPECTED_GATES = List.of(
@@ -180,25 +183,25 @@ class AdminCreditControllerAuthorizationTest {
     }
 
     @Test
-    void listAccounts_isGatedByCreditAccountsRead() {
+    void listAccounts_isGatedByCreditAccountsAdmin() {
         assertThat(preAuthorizeValueOf(AdminCreditController.class, "listAccounts"))
                 .isEqualTo(LIST_ACCOUNTS);
     }
 
     @Test
-    void getTransactions_isGatedByCreditAccountTransactionsRead() {
+    void getTransactions_isGatedByCreditAccountTransactionsAdmin() {
         assertThat(preAuthorizeValueOf(AdminCreditController.class, "getTransactions"))
                 .isEqualTo(GET_TRANSACTIONS);
     }
 
     @Test
-    void adjust_isGatedByCreditAccountTransactionsWrite() {
+    void adjust_isGatedByCreditAccountTransactionsAdmin() {
         assertThat(preAuthorizeValueOf(AdminCreditController.class, "adjust"))
                 .isEqualTo(ADJUST);
     }
 
     @Test
-    void togglePayg_isGatedByCreditAccountTransactionsWrite() {
+    void togglePayg_isGatedByCreditAccountTransactionsAdmin() {
         assertThat(preAuthorizeValueOf(AdminCreditController.class, "togglePayg"))
                 .isEqualTo(TOGGLE_PAYG);
     }
@@ -422,7 +425,7 @@ class FilterChainAdminCreditControllerAuthorizationTest {
         authenticateAs("HEALER");
         when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.ADMIN)))
                 .thenReturn(true);
 
         mockMvc.perform(get("/api/admin/credit/accounts").cookie(accessCookie()))
@@ -434,14 +437,39 @@ class FilterChainAdminCreditControllerAuthorizationTest {
         authenticateAs("HEALER");
         when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.ADMIN)))
                 .thenReturn(false);
 
         mockMvc.perform(get("/api/admin/credit/accounts").cookie(accessCookie()))
                 .andExpect(status().isForbidden());
 
         // Direct proof the @rbacAuthz bean method executed.
-        verify(lookupService).hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ));
+        verify(lookupService).hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.ADMIN));
+    }
+
+    @Test
+    void healerWithOwnAccountVerbs_isForbiddenFromListAccounts() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNTS), eq(Operation.READ)))
+                .thenReturn(true);
+
+        mockMvc.perform(get("/api/admin/credit/accounts").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void healerWhoCanBuyCredits_cannotAdjustTheirOwnBalance() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNT_TRANSACTIONS), eq(Operation.WRITE)))
+                .thenReturn(true);
+
+        mockMvc.perform(post("/api/admin/credit/accounts/HEALER/" + HEALER_ID + "/adjust")
+                        .cookie(accessCookie()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
     }
 
     // ─── (d) cross-resource isolation ─────────────────────────────────────

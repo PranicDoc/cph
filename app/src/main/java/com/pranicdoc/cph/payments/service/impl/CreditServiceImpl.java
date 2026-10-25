@@ -78,6 +78,18 @@ public class CreditServiceImpl implements CreditService {
     @Override
     public AccountResponse createAccount() {
         UUID ownerId = securityContextUtil.getCurrentHealerId();
-        return createAccount(OwnerType.HEALER, ownerId);
+        AccountResponse account = createAccount(OwnerType.HEALER, ownerId);
+        // Credits can come back without passing through cph (a free-credit grant, a fix made in
+        // creditService), which would leave the out-of-credits flag refusing Start for up to a
+        // day. The UI reads this balance before offering Start, so a stale flag is dropped here.
+        if (account != null && account.freeBalance() + account.paidBalance() > 0) {
+            creditGateService.clearExhausted(ownerId);
+        }
+        return account;
+    }
+
+    @Override
+    public PagedTransactionResponse getMyTransactions(int page, int size) {
+        return getTransactions(OwnerType.HEALER, securityContextUtil.getCurrentHealerId(), page, size);
     }
 }

@@ -3,6 +3,7 @@ package com.pranicdoc.cph.payments;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.payments.dto.AccountResponse;
 import com.pranicdoc.cph.payments.dto.OwnerType;
+import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
 import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -70,5 +71,14 @@ public class CreditProxyController {
     @PostMapping("/account")
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount() {
         return ResponseEntity.ok(ApiResponse.of(creditService.createAccount()));
+    }
+
+    /** GET /api/credits/transactions — the caller's own credit history; the owner comes from the session, never the request. */
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')")
+    @GetMapping("/transactions")
+    public ResponseEntity<ApiResponse<PagedTransactionResponse>> getMyTransactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.of(creditService.getMyTransactions(page, size)));
     }
 }

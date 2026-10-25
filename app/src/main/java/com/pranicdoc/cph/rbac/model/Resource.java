@@ -45,14 +45,19 @@ public enum Resource {
             Operation.SHARE
     ),
 
+    // ADMIN on both credit resources opens the admin Accounts/Transactions screens (every
+    // healer's account, manual adjust, PAYG). The Practitioner role never grants it, so by
+    // default only SUPADM has it; READ/CREATE/WRITE stay the healer's own-account verbs.
     CREDIT_ACCOUNTS(
             Operation.READ,
-            Operation.CREATE
+            Operation.CREATE,
+            Operation.ADMIN
     ),
 
     CREDIT_ACCOUNT_TRANSACTIONS(
             Operation.READ,
-            Operation.WRITE
+            Operation.WRITE,
+            Operation.ADMIN
     ),
 
     GLOBAL_CONFIG(
@@ -74,11 +79,14 @@ public enum Resource {
             Operation.DELETE
     ),
 
+    // IMPORT is the bulk xlsx upload and its job list, kept apart from CREATE so a role can
+    // add protocols one by one without being able to bulk-import them.
     MASTER_DATA_PROTOCOLS(
             Operation.READ,
             Operation.CREATE,
             Operation.UPDATE,
-            Operation.DELETE
+            Operation.DELETE,
+            Operation.IMPORT
     ),
 
     MASTER_DATA_CHAKRAS(
