@@ -266,12 +266,13 @@ class CaseControllerAuthorizationTest {
     }
 
     /**
-     * Exactly the 17 gated CaseController methods, one schema-valid request each, per the
+     * Exactly the 18 gated CaseController methods, one schema-valid request each, per the
      * plan's {@code <interfaces>} table (14 from plan 42-09 + the 3 dual-caller methods gated
      * by plan 42-13's CR-01 ruling: {@code updateCaseDetails}, {@code getById},
-     * {@code getSymptomsForFeedback}). Consumed by all three trio sweeps (SUPADM / granted /
-     * ungranted) so coverage cannot drift between the three cases. Split: CASE 13, PDF 3,
-     * FEEDBACK 1 — asserted by {@link #gatedEndpointsSourceSuppliesExactlyThe17GatedMethods()}.
+     * {@code getSymptomsForFeedback}, + {@code getProtocolUnderstandingPrefill}). Consumed
+     * by all three trio sweeps (SUPADM / granted / ungranted) so coverage cannot drift between
+     * the three cases. Split: CASE 14, PDF 3, FEEDBACK 1 — asserted by
+     * {@link #gatedEndpointsSourceSuppliesExactlyThe18GatedMethods()}.
      */
     static Stream<Arguments> gatedEndpoints() {
         return Stream.of(
@@ -302,6 +303,8 @@ class CaseControllerAuthorizationTest {
                                 .cookie(accessCookie())),
                 spec("getProtocolUnderstanding", Resource.CASE, Operation.READ,
                         get(BASE + "/" + ROW_ID + "/protocol-understanding").cookie(accessCookie())),
+                spec("getProtocolUnderstandingPrefill", Resource.CASE, Operation.READ,
+                        get(BASE + "/" + ROW_ID + "/protocol-understanding/prefill").cookie(accessCookie())),
                 spec("delete", Resource.CASE, Operation.DELETE,
                         delete(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("generatePdf", Resource.PDF, Operation.CREATE,
@@ -334,10 +337,10 @@ class CaseControllerAuthorizationTest {
     // ═══════════════════════════════════════════════════════════════════════
 
     @Test
-    void gatedEndpointsSourceSuppliesExactlyThe17GatedMethods() {
+    void gatedEndpointsSourceSuppliesExactlyThe18GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 17 gated CaseController methods")
-                .isEqualTo(17L);
+                .as("the trio @MethodSource must supply exactly the 18 gated CaseController methods")
+                .isEqualTo(18L);
 
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
@@ -345,7 +348,8 @@ class CaseControllerAuthorizationTest {
                 .as("a shrunken or duplicated @MethodSource must redden the build, not quietly change coverage")
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
-                        "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding", "delete",
+                        "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding",
+                        "getProtocolUnderstandingPrefill", "delete",
                         "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
                         "updateCaseDetails", "getById", "getSymptomsForFeedback");
 
@@ -353,10 +357,10 @@ class CaseControllerAuthorizationTest {
                 .map(a -> ((EndpointSpec) a.get()[0]).resource())
                 .collect(Collectors.groupingBy(r -> r, Collectors.counting()));
         assertThat(byResource)
-                .as("CaseController's 17 gates must partition CASE 13 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
+                .as("CaseController's 18 gates must partition CASE 14 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
                         + "copy-paste that duplicates a CASE endpoint instead of covering getDownloadLink fails here")
                 .containsOnly(
-                        entry(Resource.CASE, 13L),
+                        entry(Resource.CASE, 14L),
                         entry(Resource.PDF, 3L),
                         entry(Resource.FEEDBACK, 1L));
     }
