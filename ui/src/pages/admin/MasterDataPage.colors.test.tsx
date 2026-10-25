@@ -10,6 +10,8 @@ vi.mock("../../lib/axios", () => ({
 }));
 vi.mock("../../hooks/useMyPermissions", () => ({
   useCan: () => () => true,
+  // No active unlock of shared entries (useElevation reads this).
+  useMyPermissions: () => ({ data: { elevations: {} } }),
 }));
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: { role: "SUPADM" } }),
