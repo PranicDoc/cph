@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -60,12 +60,12 @@ describe("Master Data: unlock shared entries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     elevations = {};
-    (api.get as any).mockImplementation(() => Promise.resolve({ data: { grants, elevations } }));
+    (api.get as Mock).mockImplementation(() => Promise.resolve({ data: { grants, elevations } }));
   });
 
   it("locks a system row until shared entries are unlocked, then allows editing but not deleting", async () => {
     const user = userEvent.setup();
-    (api.post as any).mockImplementation(() => {
+    (api.post as Mock).mockImplementation(() => {
       elevations = { MASTER_DATA_COLORS: new Date(Date.now() + 10 * 60_000).toISOString() };
       return Promise.resolve({ data: {} });
     });
@@ -85,7 +85,7 @@ describe("Master Data: unlock shared entries", () => {
 
   it("shows why a wrong password did not unlock", async () => {
     const user = userEvent.setup();
-    (api.post as any).mockRejectedValue({ response: { status: 400, data: { detail: "Password is incorrect" } } });
+    (api.post as Mock).mockRejectedValue({ response: { status: 400, data: { detail: "Password is incorrect" } } });
     renderPage();
 
     await user.click(await screen.findByRole("button", { name: /unlock shared entries/i }));
@@ -97,7 +97,7 @@ describe("Master Data: unlock shared entries", () => {
   });
 
   it("offers no unlock without the ELEVATE permission", async () => {
-    (api.get as any).mockResolvedValue({ data: { grants: { MASTER_DATA_COLORS: ["READ", "UPDATE"] } } });
+    (api.get as Mock).mockResolvedValue({ data: { grants: { MASTER_DATA_COLORS: ["READ", "UPDATE"] } } });
     renderPage();
 
     expect(await screen.findAllByText("Green")).not.toHaveLength(0);
