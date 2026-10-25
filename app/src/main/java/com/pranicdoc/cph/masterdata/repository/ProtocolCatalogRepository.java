@@ -26,8 +26,15 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
     /** System protocols of a given type */
     List<ProtocolCatalog> findByProtocolTypeAndHealerIdIsNull(ProtocolType protocolType);
 
-    /** All accessible protocols of a given type: system + current healer */
-    List<ProtocolCatalog> findByProtocolTypeAndHealerIdIsNullOrHealerId(ProtocolType protocolType, UUID healerId);
+    /**
+     * All accessible protocols of a given type: system + current healer. Explicit JPQL: the
+     * derived "ProtocolTypeAndHealerIdIsNullOrHealerId" reads as (type AND system) OR own, which
+     * also returned the healer's own protocols of every other type.
+     */
+    @Query("SELECT p FROM ProtocolCatalog p WHERE p.protocolType = :protocolType "
+            + "AND (p.healerId IS NULL OR p.healerId = :healerId)")
+    List<ProtocolCatalog> findVisibleByProtocolType(@Param("protocolType") ProtocolType protocolType,
+                                                    @Param("healerId") UUID healerId);
 
     /**
      * One page of the protocols a caller can see (system rows, plus the healer's own when
