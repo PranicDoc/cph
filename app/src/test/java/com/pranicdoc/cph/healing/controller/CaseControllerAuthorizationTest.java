@@ -17,6 +17,7 @@ import com.pranicdoc.cph.healing.dto.PdfJobDTO;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackDTO;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
+import com.pranicdoc.cph.healing.service.impl.FeedbackService;
 import com.pranicdoc.cph.healing.service.impl.HealerProtocolUnderstandingService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
@@ -146,6 +147,8 @@ class CaseControllerAuthorizationTest {
     private CaseService caseService;
     @MockBean
     private HealerProtocolUnderstandingService healerProtocolUnderstandingService;
+    @MockBean
+    private FeedbackService feedbackService;
 
     // ─── consumed by RbacAuthz ─────────────────────────────────────────────
     @MockBean
@@ -180,6 +183,8 @@ class CaseControllerAuthorizationTest {
             "{\"additionalComments\":\"done\",\"isHealingContinued\":false}";
     private static final String PROTOCOL_UNDERSTANDING_JSON =
             "{\"chakraSelections\":[{\"chakra\":\"HEART\",\"energisingColors\":[],\"cleansingColors\":[]}]}";
+    private static final String MANUAL_FEEDBACK_JSON =
+            "{\"feedbackType\":\"INTERIM\",\"healingDate\":\"2026-01-01\",\"feedbackText\":\"Better\"}";
     static final String CASE_CREATE_JSON =
             "{\"patientId\":\"" + PATIENT_ID + "\",\"declaration\":" + DECLARATION_JSON + "}";
     static final String CASE_UPDATE_JSON = "{}";
@@ -266,13 +271,13 @@ class CaseControllerAuthorizationTest {
     }
 
     /**
-     * Exactly the 18 gated CaseController methods, one schema-valid request each, per the
+     * Exactly the 19 gated CaseController methods, one schema-valid request each, per the
      * plan's {@code <interfaces>} table (14 from plan 42-09 + the 3 dual-caller methods gated
      * by plan 42-13's CR-01 ruling: {@code updateCaseDetails}, {@code getById},
-     * {@code getSymptomsForFeedback}, + {@code getProtocolUnderstandingPrefill}). Consumed
-     * by all three trio sweeps (SUPADM / granted / ungranted) so coverage cannot drift between
-     * the three cases. Split: CASE 14, PDF 3, FEEDBACK 1 — asserted by
-     * {@link #gatedEndpointsSourceSuppliesExactlyThe18GatedMethods()}.
+     * {@code getSymptomsForFeedback}, + {@code getProtocolUnderstandingPrefill} and
+     * {@code saveManualFeedback}). Consumed by all three trio sweeps (SUPADM / granted /
+     * ungranted) so coverage cannot drift between the three cases. Split: CASE 15, PDF 3,
+     * FEEDBACK 1 — asserted by {@link #gatedEndpointsSourceSuppliesExactlyThe19GatedMethods()}.
      */
     static Stream<Arguments> gatedEndpoints() {
         return Stream.of(
@@ -305,6 +310,10 @@ class CaseControllerAuthorizationTest {
                         get(BASE + "/" + ROW_ID + "/protocol-understanding").cookie(accessCookie())),
                 spec("getProtocolUnderstandingPrefill", Resource.CASE, Operation.READ,
                         get(BASE + "/" + ROW_ID + "/protocol-understanding/prefill").cookie(accessCookie())),
+                spec("saveManualFeedback", Resource.CASE, Operation.UPDATE,
+                        post(BASE + "/" + ROW_ID + "/feedback")
+                                .contentType(MediaType.APPLICATION_JSON).content(MANUAL_FEEDBACK_JSON)
+                                .cookie(accessCookie())),
                 spec("delete", Resource.CASE, Operation.DELETE,
                         delete(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("generatePdf", Resource.PDF, Operation.CREATE,
@@ -337,10 +346,10 @@ class CaseControllerAuthorizationTest {
     // ═══════════════════════════════════════════════════════════════════════
 
     @Test
-    void gatedEndpointsSourceSuppliesExactlyThe18GatedMethods() {
+    void gatedEndpointsSourceSuppliesExactlyThe19GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 18 gated CaseController methods")
-                .isEqualTo(18L);
+                .as("the trio @MethodSource must supply exactly the 19 gated CaseController methods")
+                .isEqualTo(19L);
 
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
@@ -349,7 +358,7 @@ class CaseControllerAuthorizationTest {
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
                         "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding",
-                        "getProtocolUnderstandingPrefill", "delete",
+                        "getProtocolUnderstandingPrefill", "saveManualFeedback", "delete",
                         "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
                         "updateCaseDetails", "getById", "getSymptomsForFeedback");
 
@@ -357,10 +366,10 @@ class CaseControllerAuthorizationTest {
                 .map(a -> ((EndpointSpec) a.get()[0]).resource())
                 .collect(Collectors.groupingBy(r -> r, Collectors.counting()));
         assertThat(byResource)
-                .as("CaseController's 18 gates must partition CASE 14 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
+                .as("CaseController's 19 gates must partition CASE 15 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
                         + "copy-paste that duplicates a CASE endpoint instead of covering getDownloadLink fails here")
                 .containsOnly(
-                        entry(Resource.CASE, 14L),
+                        entry(Resource.CASE, 15L),
                         entry(Resource.PDF, 3L),
                         entry(Resource.FEEDBACK, 1L));
     }

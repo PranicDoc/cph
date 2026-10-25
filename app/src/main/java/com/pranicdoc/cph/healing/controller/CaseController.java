@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.service.impl.CaseService;
+import com.pranicdoc.cph.healing.service.impl.FeedbackService;
 import com.pranicdoc.cph.healing.service.impl.HealerProtocolUnderstandingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,6 +31,7 @@ public class CaseController {
 
     private final CaseService caseService;
     private final HealerProtocolUnderstandingService healerProtocolUnderstandingService;
+    private final FeedbackService feedbackService;
 
     /**
      * Deliberately UNGATED (SC4 / D-19). Reached by a PATIENT-role token — the dynamic
@@ -313,5 +315,16 @@ public class CaseController {
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     public void resendFeedback(@PathVariable UUID id, @RequestParam boolean isFinal) {
         caseService.resendFeedback(id, isFinal);
+    }
+
+    // CASE:UPDATE, like addSymptom: the healer records the patient's feedback on the case by hand
+    // (Patients list) instead of waiting on the WhatsApp link. Not FEEDBACK:CREATE, which stays
+    // resendFeedback's alone (D-05); the patient's own submission stays on FeedbackController's
+    // ungated patient-token endpoints.
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','UPDATE')")
+    @PostMapping("/{id}/feedback")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public void saveManualFeedback(@PathVariable UUID id, @Valid @RequestBody ManualFeedbackRequest request) {
+        feedbackService.saveManualFeedback(id, request);
     }
 }

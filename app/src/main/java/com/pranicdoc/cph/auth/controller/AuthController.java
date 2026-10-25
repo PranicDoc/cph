@@ -2,6 +2,7 @@ package com.pranicdoc.cph.auth.controller;
 
 import com.pranicdoc.cph.auth.dto.AcceptInviteRequest;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
+import com.pranicdoc.cph.auth.dto.FeedbackSessionResponse;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
@@ -172,11 +173,10 @@ public class AuthController {
     }
 
     @PostMapping("/init-feedback-session")
-    public ResponseEntity<Void> initFeedbackSession(
+    public ResponseEntity<FeedbackSessionResponse> initFeedbackSession(
             @Valid @RequestBody InitFeedbackSessionRequest request,
             HttpServletResponse response) {
-        authService.initSessionForFeedback(request.token(), response);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(authService.initSessionForFeedback(request.token(), response));
     }
 
     @PostMapping("/clear-patient-session")

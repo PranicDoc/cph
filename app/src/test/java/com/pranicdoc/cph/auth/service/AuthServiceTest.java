@@ -12,6 +12,8 @@ import com.pranicdoc.cph.common.enums.UiVersion;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.model.HealingSession;
+import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -57,6 +61,9 @@ class AuthServiceTest {
 
     @Mock
     private FeedbackLinkRepository feedbackLinkRepository;
+
+    @Mock
+    private SessionRepository sessionRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -188,6 +195,27 @@ class AuthServiceTest {
         verify(jwtService).generateFeedbackSessionToken(healerId.toString(), caseId);
         verify(cookieUtil).setSelfRegSessionCookie(any(), eq(sentinel));
         verify(jwtService, never()).generateSelfRegToken(anyString());
+    }
+
+    @Test
+    void initSessionForFeedback_returnsTheLatestSessionDateAsTheHealingDate() {
+        UUID caseId = UUID.randomUUID();
+        FeedbackLink link = FeedbackLink.builder()
+                .token("tok")
+                .caseId(caseId)
+                .healerId(UUID.randomUUID())
+                .status(LinkStatus.ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(feedbackLinkRepository.findByTokenAndStatusAndExpiresAtAfter(
+                eq("tok"), eq(LinkStatus.ACTIVE), any(Instant.class)))
+                .thenReturn(Optional.of(link));
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of(
+                HealingSession.builder().sessionNumber(1).sessionDate(LocalDate.of(2026, 10, 1)).build(),
+                HealingSession.builder().sessionNumber(2).sessionDate(LocalDate.of(2026, 10, 8)).build()));
+
+        assertEquals(LocalDate.of(2026, 10, 8),
+                authService.initSessionForFeedback("tok", new MockHttpServletResponse()).healingDate());
     }
 
     @Test
