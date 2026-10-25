@@ -18,6 +18,7 @@ import {
   MedicationsView,
 } from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
+import { ClosurePopup } from "./Closure";
 import {
   Accordion,
   AccordionContent,
@@ -70,19 +71,22 @@ export default function Session() {
   const { isNewView } = useUiVersion();
   const frame = isNewView ? "hlx" : "space-y-6";
   const { healingCaseId } = useParams();
-  const { selectPatient } = usePatient();
+  const { selectPatient, selectedPatient } = usePatient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionData, setSessionData] = useState<HealingSession | null>(null);
   const [isEdit, setIsEdit] = useState(false);
   // The case was not started (unlocked with a credit) yet: the server refuses it with 423.
   const [isLocked, setIsLocked] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  // A past session being corrected in the wizard, and whether the closure is being edited.
+  const [editingSession, setEditingSession] = useState<any | null>(null);
+  const [isEditingClosure, setIsEditingClosure] = useState(false);
   const navigate = useNavigate();
 
   const { data: protocols = [] } = useProtocols("PROTOCOL");
   const schema = useMemo(
-    () => buildSessionSchema(protocols, sessionData?.status === "DRAFT"),
-    [protocols, sessionData?.status]
+    () => buildSessionSchema(protocols),
+    [protocols]
   );
 
   // Rebuild the multi-select from the stored comma-joined protocolName. A name that is not in the
@@ -289,6 +293,29 @@ export default function Session() {
     stepEditModeRef.current[0] = true;
   };
 
+  // After a past session or the closure is edited, show the saved values.
+  const reloadCase = async () => {
+    const { data } = await api.get(`/api/v1/cases/${healingCaseId}`);
+    setSessionData(data);
+  };
+
+  const closeSessionEdit = () => {
+    setEditingSession(null);
+    reloadCase();
+  };
+
+  const canEditClosure = sessionData?.status === "CLOSED" || sessionData?.status === "CONTINUED";
+  const closurePopup = isEditingClosure && selectedPatient && healingCaseId && (
+    <ClosurePopup
+      patient={{ ...selectedPatient, healingCaseId }}
+      onClose={() => setIsEditingClosure(false)}
+      onSuccess={() => {
+        setIsEditingClosure(false);
+        reloadCase();
+      }}
+    />
+  );
+
   const populateForm = (data: SessionFormValues) => {
     Object.entries(data).forEach(([key, value]) => {
       sessionForm.setFieldValue(key as keyof SessionFormValues, value);
@@ -331,6 +358,21 @@ export default function Session() {
     return <div className="p-6 text-center">Loading session...</div>;
   }
 
+  // ---------- Correcting a past session ----------
+  if (editingSession && healingCaseId) {
+    return (
+      <div className={frame}>
+        <SessionHeader healingSession={sessionData} />
+        <HealingSessionWizard
+          caseId={healingCaseId}
+          symptoms={sessionData?.symptoms}
+          onClose={closeSessionEdit}
+          session={editingSession}
+        />
+      </div>
+    );
+  }
+
   // ---------- STEP 1 (placeholder for future step) ----------
   if (currentStep === 1) {
     const step1Protocols = reconstructSelectedProtocols(
@@ -365,13 +407,15 @@ export default function Session() {
           <NewSessionView
             sessionData={sessionData}
             protocols={reconstructSelectedProtocols(sessionData.healingDetails?.protocolName || "")}
-            canEdit={sessionData.status !== "CLOSED"}
             onEdit={toggleEdit}
+            onEditSession={setEditingSession}
+            onEditClosure={canEditClosure ? () => setIsEditingClosure(true) : undefined}
             onBack={() => navigate("/patients")}
             onNext={handleNextAction}
             nextLabel={getNextButtonLabel()}
           />
         </Suspense>
+        {closurePopup}
       </div>
     );
   }
@@ -384,18 +428,16 @@ export default function Session() {
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Patient Medical Details</h2>
-            {sessionData.status !== "CLOSED" && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleEdit}
-                className="hover:bg-background"
-                aria-label="Edit session"
-              >
-                <Pencil className="w-5 h-5 text-primary" />
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={toggleEdit}
+              className="hover:bg-background"
+              aria-label="Edit session"
+            >
+              <Pencil className="w-5 h-5 text-primary" />
+            </Button>
           </div>
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -467,6 +509,17 @@ export default function Session() {
                       </AccordionTrigger>
 
                       <AccordionContent className="space-y-6">
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingSession(session)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Edit
+                          </Button>
+                        </div>
                         {session.scans.map((scan) => (
                           <div key={scan.id}>
                             <h4 className="font-semibold mb-2">
@@ -502,15 +555,28 @@ export default function Session() {
             >
               Back to Patients
             </Button>
-            <Button
-              type="button"
-              onClick={handleNextAction}
-              className="flex-1 sm:flex-none px-6 py-2.5 h-auto"
-            >
-              {getNextButtonLabel()}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              {canEditClosure && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditingClosure(true)}
+                  className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
+                >
+                  Edit closure
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={handleNextAction}
+                className="flex-1 sm:flex-none px-6 py-2.5 h-auto"
+              >
+                {getNextButtonLabel()}
+              </Button>
+            </div>
           </div>
         </div>
+        {closurePopup}
       </div>
     );
   }

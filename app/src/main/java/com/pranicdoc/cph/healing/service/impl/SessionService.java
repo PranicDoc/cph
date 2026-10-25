@@ -10,8 +10,11 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.SessionIncompleteException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
+import com.pranicdoc.cph.healing.dto.ScanRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
+import com.pranicdoc.cph.healing.dto.UpdateSessionRequest;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
+import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
@@ -21,6 +24,7 @@ import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -102,7 +106,7 @@ public class SessionService {
             caseService.requireConsent(sessionRequest.caseId());
         }
         int nextNumber = nextSessionNumber(existing);
-        validateMasterDataReferences(sessionRequest);
+        validateMasterDataReferences(sessionRequest.scans());
         HealingSession session = mapper.toEntity(sessionRequest);
         session.setSessionNumber(nextNumber);
         session.setClientRequestId(idempotencyKey);
@@ -114,6 +118,44 @@ public class SessionService {
         HealingSession saved = sessionRepository.save(session);
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
+    }
+
+    /**
+     * Corrects the PRE/POST scans of a session that was already saved, on a case of any status.
+     * Unlike {@link #create} it leaves the case status, the session number and times alone and
+     * sends no notification: an edit is not a new healing.
+     */
+    @Auditable(action = "UPDATE_SESSION")
+    public SessionResponse update(UUID sessionId, UpdateSessionRequest request) {
+        HealingSession session = findOrThrow(sessionId);
+        HealingCase healingCase = caseService.findAndLockOrThrow(session.getHealingCase().getId());
+        // Loading by id skips the tenant filter, so check the owner here.
+        if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Case does not belong to you");
+        }
+        validateMasterDataReferences(request.scans());
+        for (ScanRequest scanRequest : request.scans()) {
+            ChakraScan edited = mapper.toChakraScan(scanRequest);
+            ChakraScan scan = session.getScans().stream()
+                    .filter(s -> s.getScanType() == scanRequest.scanType())
+                    .findFirst()
+                    .orElse(null);
+            if (scan == null) {
+                edited.setHealingSession(session);
+                session.getScans().add(edited);
+                continue;
+            }
+            scan.setNotes(edited.getNotes());
+            scan.getReadings().clear();
+            // Delete the old readings first: (chakra_scan_id, chakra_id) is unique.
+            sessionRepository.flush();
+            edited.getReadings().forEach(reading -> {
+                reading.setChakraScan(scan);
+                scan.getReadings().add(reading);
+            });
+        }
+        validatePrePostAndProtocolExists(session);
+        return toResponse(sessionRepository.save(session));
     }
 
     /**
@@ -149,10 +191,10 @@ public class SessionService {
      * with the DB ~240 ms away, a 2 x 25-reading scan was ~50 sequential round trips (~12 s)
      * and, together with the commit, pushed POST /sessions/case past nginx's 30 s timeout.
      */
-    private void validateMasterDataReferences(CreateSessionRequest request) {
-        if (request.scans() == null) return;
+    private void validateMasterDataReferences(List<ScanRequest> scans) {
+        if (scans == null) return;
         Set<UUID> requested = new LinkedHashSet<>();
-        request.scans().forEach(scan -> {
+        scans.forEach(scan -> {
             if (scan.readings() == null) return;
             scan.readings().forEach(reading -> {
                 if (reading.chakraId() == null) {

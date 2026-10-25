@@ -6,7 +6,21 @@ import api from "../lib/axios";
 import { Patient } from "../context/PatientContext";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import ClosureForm from "@/components/closure/ClosureForm";
-import type { Protocol } from "@/hooks/admin/useMasterData";
+import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
+import { reconstructSelectedProtocols } from "@/lib/protocolSelection";
+
+// The recommended protocols are saved at the top of the closing comments, in this form.
+const PROTOCOL_NOTE = "The patient is advised to follow: \n";
+
+/** Splits saved comments back into the recommended protocol names and the healer's own text. */
+export function splitClosureComments(saved: string): { protocolNames: string; comments: string } {
+  if (!saved.startsWith(PROTOCOL_NOTE)) return { protocolNames: "", comments: saved };
+  const rest = saved.slice(PROTOCOL_NOTE.length);
+  const end = rest.indexOf("\n\n");
+  return end < 0
+    ? { protocolNames: rest, comments: "" }
+    : { protocolNames: rest.slice(0, end), comments: rest.slice(end + 2) };
+}
 
 type ClosurePopupProps = {
   patient: Patient;
@@ -22,6 +36,16 @@ export function ClosurePopup({
   const [comments, setComments] = useState("");
   const [isHealingContinued, setIsHealingContinued] = useState(false);
   const [selectedProtocols, setSelectedProtocols] = useState<Protocol[]>([]);
+  const [savedProtocolNames, setSavedProtocolNames] = useState("");
+  const { data: supplementaryProtocols = [] } = useProtocols("SUPPLEMENTARY");
+
+  // Show the saved recommendations as selected (once the catalog is in), so saving again
+  // doesn't write the protocol line twice.
+  useEffect(() => {
+    if (savedProtocolNames) {
+      setSelectedProtocols(reconstructSelectedProtocols(savedProtocolNames, supplementaryProtocols));
+    }
+  }, [savedProtocolNames, supplementaryProtocols]);
 
   useEffect(() => {
     /**
@@ -35,7 +59,9 @@ export function ClosurePopup({
       try {
         const { data } = await api.get(`/api/v1/cases/${patient.healingCaseId}`);
         if (cancelled || !data?.closure) return;
-        setComments(data.closure.additionalComments ?? "");
+        const saved = splitClosureComments(data.closure.additionalComments ?? "");
+        setComments(saved.comments);
+        setSavedProtocolNames(saved.protocolNames);
         setIsHealingContinued(Boolean(data.closure.isHealingContinued));
       } catch (err) {
         toast.error(
@@ -55,7 +81,7 @@ export function ClosurePopup({
     mutationFn: () => {
       const protocolNames = selectedProtocols.map((p) => p.name).join(", ");
       const protocolNote = protocolNames
-        ? `The patient is advised to follow: \n${protocolNames}`
+        ? `${PROTOCOL_NOTE}${protocolNames}`
         : "";
       const finalComments = [protocolNote, comments.trim()]
         .filter(Boolean)

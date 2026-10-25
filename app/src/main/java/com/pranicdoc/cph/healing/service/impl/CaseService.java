@@ -347,17 +347,22 @@ public class CaseService {
             closure = CaseClosure.builder().healingCase(healingCase).build();
             healingCase.setClosure(closure);
         }
-        closure.setClosureDate(LocalDate.now());
+        // Saving the closure again without changing the outcome is an edit: keep the date the case
+        // was closed on, and don't send the patient the final feedback request a second time.
+        CaseStatus newStatus = request.isHealingContinued() ? CaseStatus.CONTINUED : CaseStatus.CLOSED;
+        boolean isEdit = healingCase.getStatus() == newStatus;
+        if (!isEdit || closure.getClosureDate() == null) {
+            closure.setClosureDate(LocalDate.now());
+        }
         closure.setAdditionalComments(request.additionalComments());
         closure.setHealingCount(healingCount);
         closure.setIsHealingContinued(request.isHealingContinued());
         closure.setLastFeedbackDate(lastFeedbackDate);
         closure.setHealerSignature(healerName);
         closure.setClosedBy(currentHealerId);
-        if(request.isHealingContinued()) healingCase.setStatus(CaseStatus.CONTINUED);
-        else healingCase.setStatus(CaseStatus.CLOSED);
+        healingCase.setStatus(newStatus);
         caseRepository.save(healingCase);
-        if(!request.isHealingContinued()) {
+        if (newStatus == CaseStatus.CLOSED && !isEdit) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
     }

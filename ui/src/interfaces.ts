@@ -58,7 +58,7 @@ export interface TreatmentStep {
   color?: string;
 }
 
-export type CaseStatus = "LOCKED" | "DRAFT" | "ACTIVE" | "CLOSED";
+export type CaseStatus = "LOCKED" | "DRAFT" | "ACTIVE" | "CONTINUED" | "CLOSED";
 
 export interface Medication {
   medicationName: string;

@@ -647,6 +647,23 @@ class CaseServiceTest {
     }
 
     @Test
+    void closeCase_editingAClosedCase_keepsTheClosureDateAndDoesNotEmailThePatientAgain() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        healingCase.setStatus(CaseStatus.CLOSED);
+        LocalDate closedOn = LocalDate.of(2026, 9, 1);
+        healingCase.setClosure(CaseClosure.builder().healingCase(healingCase)
+                .closureDate(closedOn).additionalComments("Fully healed").isHealingContinued(false).build());
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Fully healed, typo fixed", false));
+
+        assertEquals(CaseStatus.CLOSED, healingCase.getStatus());
+        assertEquals(closedOn, healingCase.getClosure().getClosureDate());
+        assertEquals("Fully healed, typo fixed", healingCase.getClosure().getAdditionalComments());
+        verify(notificationService, never()).sendFinalFeedbackNotification(any());
+    }
+
+    @Test
     void closeCase_withNoSessions_throwsIllegalArgumentException() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = HealingCase.builder()

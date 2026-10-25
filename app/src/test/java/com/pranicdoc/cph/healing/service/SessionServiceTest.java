@@ -1,12 +1,15 @@
 package com.pranicdoc.cph.healing.service;
 
 import com.pranicdoc.cph.common.enums.CaseStatus;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.healing.dto.CreateSessionRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.ScanRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
+import com.pranicdoc.cph.healing.dto.UpdateSessionRequest;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
 import com.pranicdoc.cph.healing.model.ChakraReading;
 import com.pranicdoc.cph.healing.model.ChakraScan;
@@ -26,6 +29,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -65,8 +69,122 @@ class SessionServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private SecurityContextUtil securityContextUtil;
+
     @InjectMocks
     private SessionService sessionService;
+
+    // --- Editing a saved session ---
+
+    private final UUID healerId = UUID.randomUUID();
+
+    private HealingSession savedSession(HealingCase healingCase) {
+        HealingSession session = completedSession(LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+        session.setSessionNumber(2);
+        session.setScans(new ArrayList<>(session.getScans()));
+        session.getScans().forEach(scan -> scan.setReadings(new ArrayList<>(List.of(
+                ChakraReading.builder().chakraName("Crown Chakra").energyLevel("N").build()))));
+        session.setHealingCase(healingCase);
+        return session;
+    }
+
+    private UpdateSessionRequest edit(UUID chakraId, String energy) {
+        List<ScanRequest.ChakraReadingRequest> readings =
+                List.of(new ScanRequest.ChakraReadingRequest(chakraId, "Solar Plexus", energy, "N", ""));
+        return new UpdateSessionRequest(List.of(
+                new ScanRequest(ScanType.PRE, "", readings),
+                new ScanRequest(ScanType.POST, "", readings)));
+    }
+
+    private void stubScanMapping() {
+        when(mapper.toChakraScan(any(ScanRequest.class))).thenAnswer(invocation -> {
+            ScanRequest req = invocation.getArgument(0);
+            ChakraScan scan = new ChakraScan();
+            scan.setScanType(req.scanType());
+            scan.setNotes(req.notes());
+            scan.setReadings(new ArrayList<>(req.readings().stream()
+                    .map(r -> ChakraReading.builder().chakraId(r.chakraId()).chakraName(r.chakraName())
+                            .energyLevel(r.energyLevel()).activationLevel(r.activationLevel()).build())
+                    .toList()));
+            return scan;
+        });
+    }
+
+    @Test
+    void updateReplacesTheReadingsAndLeavesStatusNumberAndNotificationsAlone() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        healingCase.setStatus(CaseStatus.CONTINUED);
+        HealingSession session = savedSession(healingCase);
+
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        stubScanMapping();
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SessionResponse response = sessionService.update(session.getId(), edit(chakraId, "H"));
+
+        assertEquals(2, response.sessionNumber());
+        assertEquals(CaseStatus.CONTINUED, healingCase.getStatus());
+        session.getScans().forEach(scan -> {
+            assertEquals(1, scan.getReadings().size());
+            assertEquals("Solar Plexus", scan.getReadings().get(0).getChakraName());
+            assertEquals("H", scan.getReadings().get(0).getEnergyLevel());
+            assertEquals(scan, scan.getReadings().get(0).getChakraScan());
+        });
+        verify(notificationService, never()).sendFeedbackNotification(any(), anyBoolean());
+    }
+
+    @Test
+    void updateRefusesAnotherHealersSession() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(UUID.randomUUID());
+        HealingSession session = savedSession(healingCase);
+
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+
+        assertThrows(AccessDeniedException.class,
+                () -> sessionService.update(session.getId(), edit(UUID.randomUUID(), "H")));
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void updateOnALockedCaseIsRefused() {
+        UUID caseId = UUID.randomUUID();
+        HealingSession session = savedSession(healingCase(caseId));
+
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenThrow(new CaseLockedException());
+
+        assertThrows(CaseLockedException.class,
+                () -> sessionService.update(session.getId(), edit(UUID.randomUUID(), "H")));
+    }
+
+    @Test
+    void updateRejectsAnEmptyScan() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        HealingSession session = savedSession(healingCase);
+
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        stubScanMapping();
+
+        UpdateSessionRequest empty = new UpdateSessionRequest(List.of(new ScanRequest(ScanType.POST, "", List.of())));
+        assertThrows(com.pranicdoc.cph.common.exception.SessionIncompleteException.class,
+                () -> sessionService.update(session.getId(), empty));
+        verify(sessionRepository, never()).save(any());
+    }
 
     @Test
     void createPreservesSubmittedSessionDateAndEndTime() {

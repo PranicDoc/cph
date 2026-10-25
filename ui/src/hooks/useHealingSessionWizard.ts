@@ -14,6 +14,9 @@ const COMPLETED_STEP = 3;
 interface UseHealingSessionWizardParams {
   caseId: string;
   symptoms: any[];
+  /** Set when correcting a saved session: saving updates it instead of creating a new one. */
+  sessionId?: string;
+  onSaved?: () => void;
 }
 
 function mapScanEntry(chakra: ChakraDocEntry) {
@@ -29,6 +32,8 @@ function mapScanEntry(chakra: ChakraDocEntry) {
 export function useHealingSessionWizard({
   caseId,
   symptoms,
+  sessionId,
+  onSaved,
 }: UseHealingSessionWizardParams) {
   const [step, setStep] = useState(1);
   const [preScanChakraData, setPreScanChakraData] = useState<ChakraDocEntry[]>(
@@ -106,6 +111,14 @@ export function useHealingSessionWizard({
         patientRemarks: values.patientRemarks,
       });
 
+      if (sessionId) {
+        await api.put(`/api/v1/sessions/${sessionId}`, { scans: payload.scans });
+        await queryClient.invalidateQueries({ queryKey: ["patients"] });
+        toast.success("Session updated");
+        onSaved?.();
+        return;
+      }
+
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = crypto.randomUUID();
       }
@@ -128,7 +141,7 @@ export function useHealingSessionWizard({
     } finally {
       setIsSubmitting(false);
     }
-  }, [caseId, form, isSubmitting, postScanChakraData, preScanChakraData, queryClient, step]);
+  }, [caseId, form, isSubmitting, onSaved, postScanChakraData, preScanChakraData, queryClient, sessionId, step]);
 
   return {
     step,

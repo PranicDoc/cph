@@ -7,7 +7,8 @@ import {
   buildBackendChakraCatalog,
   buildPranaColorCatalog,
 } from "./ChakraScan";
-import type { ChakraCatalogEntry } from "./ChakraScan/types/spatial-chakra";
+import type { ChakraCatalogEntry, ChakraDocEntry } from "./ChakraScan/types/spatial-chakra";
+import { createDefaultEntry } from "./ChakraScan/utils";
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";
 import { StepPostScan } from "./HealingSessionWizard/StepPostScan";
 import { StepPreScan } from "./HealingSessionWizard/StepPreScan";
@@ -24,6 +25,8 @@ interface HealingSessionWizardProps {
    * healer can always choose from the full chakra catalog, so a protocol with no linked chakra
    * data still leaves every chakra available to add manually. */
   protocolIds?: string[];
+  /** A saved session to correct: its scans are loaded and saving updates it. */
+  session?: { id: string; scans: { scanType: "PRE" | "POST"; readings: any[] }[] };
 }
 
 const NO_CHAKRAS: ChakraCatalogEntry[] = [];
@@ -33,6 +36,7 @@ export const HealingSessionWizard = ({
   symptoms = [],
   onClose,
   protocolIds = [],
+  session,
 }: HealingSessionWizardProps) => {
   const {
     step,
@@ -44,12 +48,12 @@ export const HealingSessionWizard = ({
     setPostScanChakraData,
     handleBack,
     handleNext,
-  } = useHealingSessionWizard({ caseId, symptoms });
+  } = useHealingSessionWizard({ caseId, symptoms, sessionId: session?.id, onSaved: onClose });
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (step !== 3) return;
+    if (step !== 3 || session) return;
     const timer = setTimeout(() => navigate('/patients'), 2000);
     return () => clearTimeout(timer);
   }, [step, navigate]);
@@ -67,9 +71,26 @@ export const HealingSessionWizard = ({
   const chakraFilterPending = protocolIds.length > 0 && protocolChakrasLoading;
   // The subset linked to the selected protocols: only pre-populated as rows, editable after.
   const prefillChakras = useMemo(
-    () => (chakraFilterPending ? [] : resolvePrefillChakras(availableChakras, protocolChakras, protocolIds)),
-    [availableChakras, protocolChakras, protocolIds, chakraFilterPending]
+    () => (chakraFilterPending || session ? [] : resolvePrefillChakras(availableChakras, protocolChakras, protocolIds)),
+    [availableChakras, protocolChakras, protocolIds, chakraFilterPending, session]
   );
+
+  // Editing: load the saved readings once the chakra catalog (names and colours) is ready.
+  const loadedSession = useRef(false);
+  useEffect(() => {
+    if (!session || loading || loadedSession.current) return;
+    loadedSession.current = true;
+    const toEntries = (scanType: "PRE" | "POST"): ChakraDocEntry[] =>
+      (session.scans.find((s) => s.scanType === scanType)?.readings ?? []).map((r) => {
+        const chakra = availableChakras.find((c) => c.id === r.chakraId);
+        const base = chakra
+          ? createDefaultEntry(chakra)
+          : { id: r.chakraId, name: r.chakraName, color: "", energyLevel: "N" as const, activationLevel: "N" as const, treatmentColors: [] };
+        return { ...base, energyLevel: r.energyLevel ?? "N", activationLevel: r.activationLevel ?? "N", notes: r.notes ?? "" };
+      });
+    setPreScanChakraData(toEntries("PRE"));
+    setPostScanChakraData(toEntries("POST"));
+  }, [session, loading, availableChakras, setPreScanChakraData, setPostScanChakraData]);
 
   // Prefill each scan step once per wizard visit. The steps unmount/remount when the healer
   // goes Back/Next, and re-seeding on every mount would bring back chakras they deliberately
