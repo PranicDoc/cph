@@ -154,6 +154,8 @@ describe("UiVersionProvider", () => {
 
   it("applies and remembers a chosen theme", async () => {
     localStorage.setItem(UI_VERSION_KEY, "new");
+    // The account must agree, or its CLASSIC answer can switch views (and clear the theme) mid-test.
+    get.mockResolvedValue({ data: { uiVersion: "NEW" } });
     renderProvider();
     await act(async () => screen.getByText("light").click());
     expect(document.documentElement.dataset.theme).toBe("light");
@@ -163,6 +165,7 @@ describe("UiVersionProvider", () => {
   it("follows the system theme when 'system' is chosen", async () => {
     mockMatchMedia(false);
     localStorage.setItem(UI_VERSION_KEY, "new");
+    get.mockResolvedValue({ data: { uiVersion: "NEW" } });
     renderProvider();
     await act(async () => screen.getByText("system").click());
     expect(screen.getByTestId("resolved")).toHaveTextContent("light");
