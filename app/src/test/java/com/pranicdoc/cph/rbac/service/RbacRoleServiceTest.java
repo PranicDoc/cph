@@ -12,6 +12,7 @@ import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.RbacRole;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.model.RolePermission;
+import com.pranicdoc.cph.rbac.model.UserRole;
 import com.pranicdoc.cph.rbac.repository.RbacRoleRepository;
 import com.pranicdoc.cph.rbac.repository.RolePermissionRepository;
 import com.pranicdoc.cph.rbac.repository.UserRoleRepository;
@@ -611,12 +612,15 @@ class RbacRoleServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         when(rbacRoleRepository.findByNameContainingIgnoreCase("bill", pageable))
                 .thenReturn(new PageImpl<>(List.of(role), pageable, 1));
-        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of(
+        when(rolePermissionRepository.findAllByRoleIdIn(List.of(role.getId()))).thenReturn(List.of(
                 RolePermission.builder().roleId(role.getId())
                         .resource(Resource.ROLES).operation(Operation.READ).build(),
                 RolePermission.builder().roleId(role.getId())
                         .resource(Resource.ROLES).operation(Operation.UPDATE).build()));
-        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(3L);
+        when(userRoleRepository.findAllByRoleIdIn(List.of(role.getId()))).thenReturn(List.of(
+                UserRole.builder().roleId(role.getId()).build(),
+                UserRole.builder().roleId(role.getId()).build(),
+                UserRole.builder().roleId(role.getId()).build()));
 
         ArgumentCaptor<String> searchCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
@@ -650,9 +654,6 @@ class RbacRoleServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         when(rbacRoleRepository.findByNameContainingIgnoreCase("", pageable))
                 .thenReturn(new PageImpl<>(List.of(role), pageable, 57));
-        when(rolePermissionRepository.findAllByRoleId(role.getId())).thenReturn(List.of());
-        when(userRoleRepository.countByRoleId(role.getId())).thenReturn(0L);
-
         PageResponse<RoleSummaryResponse> result = rbacRoleService.list("", pageable);
 
         assertEquals(1, result.content().size());

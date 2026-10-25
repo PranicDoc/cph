@@ -4,6 +4,7 @@ import com.pranicdoc.cph.rbac.model.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,9 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
 
     /** Phase 37's RoleManagerGuard — how many (role, assigned-user) pairs the given roles hold in total. */
     long countByRoleIdIn(List<UUID> roleIds);
+
+    /** The assignments of several roles in one query (the role list counts them per role). */
+    List<UserRole> findAllByRoleIdIn(Collection<UUID> roleIds);
 
     /** Phase 37's RoleAssignmentService — the single assignment row for one principal/role pair, if it exists. */
     Optional<UserRole> findByPrincipalTypeAndPrincipalIdAndRoleId(String principalType, UUID principalId, UUID roleId);

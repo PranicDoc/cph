@@ -6,6 +6,7 @@ import com.pranicdoc.cph.rbac.model.RolePermission;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +15,9 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
 
     /** The per-role grant set Phase 36's cached lookup and Phase 39's permission-diff view both read. */
     List<RolePermission> findAllByRoleId(UUID roleId);
+
+    /** Every grant of several roles in one query (a healer's roles, or a page of the role list). */
+    List<RolePermission> findAllByRoleIdIn(Collection<UUID> roleIds);
 
     /**
      * Phase 37's RoleManagerGuard — every role currently granting a given (resource, verb) pair.

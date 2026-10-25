@@ -115,6 +115,10 @@ class RoleAssignmentUnionTest {
             UUID roleId = inv.getArgument(0);
             return grantStore.stream().filter(rp -> rp.getRoleId().equals(roleId)).toList();
         });
+        when(rolePermissionRepository.findAllByRoleIdIn(any())).thenAnswer(inv -> {
+            java.util.Collection<UUID> roleIds = inv.getArgument(0);
+            return grantStore.stream().filter(rp -> roleIds.contains(rp.getRoleId())).toList();
+        });
         when(rolePermissionRepository.findAllByResourceAndOperation(any(), any())).thenAnswer(inv -> {
             Resource resource = inv.getArgument(0);
             Operation operation = inv.getArgument(1);
