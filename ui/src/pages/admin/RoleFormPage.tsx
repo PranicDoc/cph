@@ -33,6 +33,7 @@ import {
 import { extractDetail } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useUiVersion } from "../../ui-version";
+import { useCan } from "../../hooks/useMyPermissions";
 import { PermissionsPicker } from "../../ui-new/admin/PermissionsPicker";
 
 function isSelfLockout(error: unknown): boolean {
@@ -77,6 +78,8 @@ export default function RoleFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  // Without the verb to save, the page still shows the role but offers nothing to change.
+  const canSave = useCan()("ROLES", isEdit ? "UPDATE" : "CREATE");
   const [sp, setSp] = useSearchParams();
 
   const tab = isEdit && sp.get("tab") === "users" ? "users" : "permissions";
@@ -304,7 +307,7 @@ export default function RoleFormPage() {
   const heading = isNewView ? (
     <div className="page-head" style={{ marginBottom: 16 }}>
       <div>
-        <h1>{isEdit ? "Edit role" : "New role"}</h1>
+        <h1>{!canSave ? "View role" : isEdit ? "Edit role" : "New role"}</h1>
         <p className="muted" style={{ marginTop: 6 }}>Name the role, then choose what it can do.</p>
       </div>
     </div>
@@ -312,7 +315,7 @@ export default function RoleFormPage() {
     <div className="mb-4">
       <div className="mb-1.5 text-xs text-text-light">{breadcrumb}</div>
       <h1 className="text-xl font-bold text-text md:text-2xl">
-        {isEdit ? "Edit role" : "Create role"}
+        {!canSave ? "View role" : isEdit ? "Edit role" : "Create role"}
       </h1>
     </div>
   );
@@ -409,6 +412,7 @@ export default function RoleFormPage() {
               <Input
                 id="role-name"
                 value={name}
+                disabled={!canSave}
                 onChange={(event) => {
                   setName(event.target.value);
                   setNameError(null);
@@ -429,6 +433,7 @@ export default function RoleFormPage() {
               <Textarea
                 id="role-description"
                 value={description}
+                disabled={!canSave}
                 onChange={(event) => setDescription(event.target.value)}
               />
               <p className="mt-1 text-xs text-text-light">Optional.</p>
@@ -471,7 +476,7 @@ export default function RoleFormPage() {
             <div className="flex flex-1 px-4 py-4 sm:px-5">
               {isNewView ? (
                 <div className="hlx" style={{ width: "100%" }}>
-                  <PermissionsPicker catalog={catalog} value={grants} onChange={applyGrants} disabled={activeMutation.isPending} />
+                  <PermissionsPicker catalog={catalog} value={grants} onChange={applyGrants} disabled={activeMutation.isPending || !canSave} />
                 </div>
               ) : (
               <PermissionToggleGrid
@@ -481,7 +486,7 @@ export default function RoleFormPage() {
                 onRemoveResource={handleRemoveResource}
                 onAddResource={() => setPickerOpen(true)}
                 baseline={isEdit ? baselineGrants : undefined}
-                disabled={activeMutation.isPending}
+                disabled={activeMutation.isPending || !canSave}
               />
               )}
             </div>
@@ -507,9 +512,9 @@ export default function RoleFormPage() {
               className="w-full sm:w-auto"
               onClick={() => navigate("/admin/roles")}
             >
-              Cancel
+              {canSave ? "Cancel" : "Back"}
             </Button>
-            <Button
+            {canSave && <Button
               type="submit"
               className="w-full sm:w-auto"
               disabled={activeMutation.isPending}
@@ -521,7 +526,7 @@ export default function RoleFormPage() {
                 : isEdit
                   ? "Review & save changes"
                   : "Review & save"}
-            </Button>
+            </Button>}
           </div>
         </form>
       )}

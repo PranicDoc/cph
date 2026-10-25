@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { UserPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useCan } from "../../hooks/useMyPermissions";
 import { useAdminInvites, useCreateInvite, useResendInvite, useRevokeInvite, type AdminInvite } from "../../hooks/admin/useAdminInvites";
 import { useAdminHealers, useRemoveHealer, useSetHealerActive, type AdminHealer } from "../../hooks/admin/useAdminHealers";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -20,7 +21,12 @@ const label = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 /** New-view Healer invites: same invite, resend, revoke and healer-management rules as the classic page. */
 export default function NewHealerRegistrationPage() {
   const { user } = useAuth();
-  const isSupadm = user?.role === "SUPADM";
+  const can = useCan();
+  const canInvite = can("HEALER_REG", "CREATE");
+  const canManageInvites = can("HEALER_REG", "UPDATE");
+  const canSeeHealers = can("ACCOUNTS", "READ");
+  const canSetHealerActive = can("ACCOUNTS", "UPDATE");
+  const canRemoveHealer = can("ACCOUNTS", "DELETE");
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("ALL");
   const { data, isLoading, isError } = useAdminInvites(page);
@@ -28,7 +34,7 @@ export default function NewHealerRegistrationPage() {
   const resendInvite = useResendInvite();
   const revokeInvite = useRevokeInvite();
   const [revokeTarget, setRevokeTarget] = useState<AdminInvite | null>(null);
-  const { data: healers, isLoading: healersLoading } = useAdminHealers(isSupadm);
+  const { data: healers, isLoading: healersLoading } = useAdminHealers(canSeeHealers);
   const setHealerActive = useSetHealerActive();
   const removeHealer = useRemoveHealer();
   const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
@@ -60,7 +66,7 @@ export default function NewHealerRegistrationPage() {
         </div>
       </div>
 
-      <form
+      {canInvite && <form
         className="surface card"
         style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap" }}
         onSubmit={(e) => {
@@ -80,7 +86,7 @@ export default function NewHealerRegistrationPage() {
         <button className="btn btn-primary" type="submit" disabled={createInvite.isPending}>
           <UserPlus className="ico" /> {createInvite.isPending ? "Sending…" : "Send invite"}
         </button>
-      </form>
+      </form>}
 
       {isLoading && <p className="muted">Loading invites…</p>}
       {isError && (
@@ -122,7 +128,7 @@ export default function NewHealerRegistrationPage() {
                     <td data-label="Expires"><span className="num muted">{i.status === "ACCEPTED" ? "-" : shortDate(i.expiresAt)}</span></td>
                     <td data-label="Status"><span className={`badge ${TONE[i.status]}`}>{label(i.status)}</span></td>
                     <td className="r" data-label="">
-                      {(i.status === "PENDING" || i.status === "EXPIRED") && (
+                      {canManageInvites && (i.status === "PENDING" || i.status === "EXPIRED") && (
                         <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                           <button className="btn btn-ghost" type="button" style={{ height: 34 }} disabled={resendInvite.isPending} onClick={() => resendInvite.mutate({ id: i.id, email: i.email })}>
                             Resend
@@ -148,7 +154,7 @@ export default function NewHealerRegistrationPage() {
         </>
       )}
 
-      {isSupadm && (
+      {canSeeHealers && (
         <>
           <div className="page-head" style={{ marginTop: 12 }}>
             <div>
@@ -181,12 +187,16 @@ export default function NewHealerRegistrationPage() {
                           <span className="small muted">You</span>
                         ) : (
                           <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                            <button className="btn btn-ghost" type="button" style={{ height: 34 }} disabled={setHealerActive.isPending} onClick={() => setHealerActive.mutate({ id: h.id, active: !h.active })}>
-                              {h.active ? "Deactivate" : "Activate"}
-                            </button>
-                            <button className="btn btn-danger" type="button" style={{ height: 34 }} onClick={() => setRemoveTarget(h)}>
-                              Remove
-                            </button>
+                            {canSetHealerActive && (
+                              <button className="btn btn-ghost" type="button" style={{ height: 34 }} disabled={setHealerActive.isPending} onClick={() => setHealerActive.mutate({ id: h.id, active: !h.active })}>
+                                {h.active ? "Deactivate" : "Activate"}
+                              </button>
+                            )}
+                            {canRemoveHealer && (
+                              <button className="btn btn-danger" type="button" style={{ height: 34 }} onClick={() => setRemoveTarget(h)}>
+                                Remove
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

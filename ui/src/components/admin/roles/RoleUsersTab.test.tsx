@@ -9,6 +9,11 @@ import { RoleUsersTab } from "./RoleUsersTab";
 vi.mock("../../../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
+// Every verb is granted unless a test narrows it with denied.add("RESOURCE:VERB").
+const perms = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock("../../../hooks/useMyPermissions", () => ({
+  useCan: () => (resource: string, verb: string) => !perms.denied.has(`${resource}:${verb}`),
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import api from "../../../lib/axios";
@@ -52,6 +57,7 @@ function renderTab() {
 }
 
 beforeEach(() => {
+  perms.denied.clear();
   mGet.mockReset();
   mPost.mockReset();
   mDelete.mockReset();

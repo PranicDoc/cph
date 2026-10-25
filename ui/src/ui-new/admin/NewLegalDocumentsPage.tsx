@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
+import { useCan } from "../../hooks/useMyPermissions";
 import {
   useActivePolicyVersions,
   useConsentTypes,
@@ -180,6 +181,9 @@ function TypeActions({ type, isSuperAdmin, onDeactivated }: { type: ConsentTypeR
 export default function NewLegalDocumentsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
+  const can = useCan();
+  const canCreate = can("LEGAL_DOCUMENTS", "CREATE");
+  const canUpdate = can("LEGAL_DOCUMENTS", "UPDATE");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showPublish, setShowPublish] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
@@ -204,9 +208,11 @@ export default function NewLegalDocumentsPage() {
             Show inactive
             <HlSwitch label="Show inactive" checked={showInactive} onChange={setShowInactive} />
           </label>
-          <button className="btn btn-secondary" type="button" onClick={() => setShowAddType(true)}>
-            <Plus className="ico" /> Add consent form
-          </button>
+          {canCreate && (
+            <button className="btn btn-secondary" type="button" onClick={() => setShowAddType(true)}>
+              <Plus className="ico" /> Add consent form
+            </button>
+          )}
         </div>
       </div>
 
@@ -234,7 +240,7 @@ export default function NewLegalDocumentsPage() {
 
       {!isLoading && !isError && activeType && (
         <>
-          <TypeActions type={activeType} isSuperAdmin={isSuperAdmin} onDeactivated={() => !showInactive && setSelectedKey(null)} />
+          {canUpdate && <TypeActions type={activeType} isSuperAdmin={isSuperAdmin} onDeactivated={() => !showInactive && setSelectedKey(null)} />}
           <div className="grid2">
             <div className="surface card">
               <div className="card-h">
@@ -244,7 +250,7 @@ export default function NewLegalDocumentsPage() {
                     {entry ? `Published version ${entry.policyVersion} · ${shortDate(entry.effectiveDate)} by ${entry.publisherName ?? "Unknown"}` : "No version published yet"}
                   </div>
                 </div>
-                {activeType.active && (
+                {activeType.active && canCreate && (
                   <button className="btn btn-primary" type="button" onClick={() => setShowPublish(true)}>
                     <Plus className="ico" /> Publish new version
                   </button>

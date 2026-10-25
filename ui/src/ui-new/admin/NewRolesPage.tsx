@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ArrowDown, ArrowUp, Pencil, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { useDeleteRole, useRbacRoles } from "../../hooks/admin/useRbacRoles";
 import type { RoleSummary } from "../../hooks/admin/useRbacRoles";
+import { useCan } from "../../hooks/useMyPermissions";
 import { extractDetail } from "../../lib/utils";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
@@ -64,6 +65,10 @@ export default function NewRolesPage() {
     });
 
   const deleteRole = useDeleteRole();
+  const can = useCan();
+  const canCreate = can("ROLES", "CREATE");
+  const canUpdate = can("ROLES", "UPDATE");
+  const canDelete = can("ROLES", "DELETE");
   const [deleteTarget, setDeleteTarget] = useState<RoleSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const closeDelete = () => {
@@ -105,9 +110,11 @@ export default function NewRolesPage() {
           <h1>Roles &amp; permissions</h1>
           <p className="muted" style={{ marginTop: 6 }}>Who can do what in the admin screens.</p>
         </div>
-        <button className="btn btn-primary" type="button" onClick={goNew}>
-          <Plus className="ico" /> New role
-        </button>
+        {canCreate && (
+          <button className="btn btn-primary" type="button" onClick={goNew}>
+            <Plus className="ico" /> New role
+          </button>
+        )}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -136,7 +143,7 @@ export default function NewRolesPage() {
               ? "Try a different name, or clear the search to see every role."
               : "Create your first role to give admin and ops users scoped access. You choose the resources a role covers, then toggle the permissions it grants."}
           </p>
-          {!search && (
+          {!search && canCreate && (
             <button className="btn btn-primary" type="button" onClick={goNew}>
               <Plus className="ico" /> New role
             </button>
@@ -174,20 +181,24 @@ export default function NewRolesPage() {
                     <td data-label="Updated"><span className="small muted">{relative(r.updatedAt)}</span></td>
                     <td className="r" data-label="" onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                        <button className="icon-btn" type="button" aria-label={`Edit ${r.name}`} onClick={() => goEdit(r.id)}>
-                          <Pencil className="ico" />
-                        </button>
-                        <button
-                          className="icon-btn danger"
-                          type="button"
-                          aria-label={`Delete ${r.name}`}
-                          onClick={() => {
-                            setDeleteError(null);
-                            setDeleteTarget(r);
-                          }}
-                        >
-                          <Trash2 className="ico" />
-                        </button>
+                        {canUpdate && (
+                          <button className="icon-btn" type="button" aria-label={`Edit ${r.name}`} onClick={() => goEdit(r.id)}>
+                            <Pencil className="ico" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            className="icon-btn danger"
+                            type="button"
+                            aria-label={`Delete ${r.name}`}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTarget(r);
+                            }}
+                          >
+                            <Trash2 className="ico" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

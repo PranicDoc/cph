@@ -8,6 +8,11 @@ import { renderWithDataRouter } from "../../test/renderWithDataRouter";
 vi.mock("../../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
+// Every verb is granted unless a test narrows it with denied.add("RESOURCE:VERB").
+const perms = vi.hoisted(() => ({ denied: new Set<string>() }));
+vi.mock("../../hooks/useMyPermissions", () => ({
+  useCan: () => (resource: string, verb: string) => !perms.denied.has(`${resource}:${verb}`),
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import api from "../../lib/axios";
@@ -39,6 +44,7 @@ function renderPage(packages: unknown[]) {
 
 describe("PackagesPage enable/disable and delete", () => {
   beforeEach(() => {
+  perms.denied.clear();
     vi.clearAllMocks();
     mPut.mockResolvedValue({ data: {} });
     mDelete.mockResolvedValue({ data: "" });
@@ -98,5 +104,32 @@ describe("PackagesPage enable/disable and delete", () => {
         expect.anything()
       )
     );
+  });
+});
+
+describe("PackagesPage actions follow the user's PACKAGES permissions", () => {
+  beforeEach(() => {
+    perms.denied.clear();
+    vi.clearAllMocks();
+  });
+
+  it("shows no switch, Edit, Delete or New package to a read-only user", async () => {
+    perms.denied.add("PACKAGES:CREATE").add("PACKAGES:UPDATE").add("PACKAGES:DELETE");
+    renderPage([pkg()]);
+
+    expect((await screen.findAllByText("PRO")).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Edit PRO/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Delete PRO/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /New/ })).toBeNull();
+  });
+
+  it("keeps the switch and Edit but hides Delete when only DELETE is missing", async () => {
+    perms.denied.add("PACKAGES:DELETE");
+    renderPage([pkg()]);
+
+    expect((await screen.findAllByRole("switch", { name: /Disable PRO/ })).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Edit PRO/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Delete PRO/ })).toBeNull();
   });
 });

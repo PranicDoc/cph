@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Pencil, Trash2, Lock, Upload } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useCan } from "../../hooks/useMyPermissions";
 import {
   usePranaColors,
   useChakras,
@@ -152,9 +153,10 @@ function RowActions({
   deleting,
 }: {
   onEdit?: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   deleting: boolean;
 }) {
+  if (!onEdit && !onDelete) return null;
   return (
     <div className="flex gap-1 justify-end">
       {onEdit && (
@@ -167,15 +169,17 @@ function RowActions({
           <Pencil className="w-4 h-4" />
         </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onDelete}
-        disabled={deleting}
-        className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+      {onDelete && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onDelete}
+          disabled={deleting}
+          className="h-auto w-auto p-1.5 hover:bg-red-50 text-red-400 hover:text-red-400"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -296,6 +300,10 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<PranaColor | null>(null);
 
   const canModify = (item: PranaColor) => isSuperAdmin || !!item.healerId;
+  const can = useCan();
+  const canCreate = can("MASTER_DATA_COLORS", "CREATE");
+  const canUpdate = can("MASTER_DATA_COLORS", "UPDATE");
+  const canDelete = can("MASTER_DATA_COLORS", "DELETE");
 
   const columns: ColumnDef<PranaColor, unknown>[] = [
     {
@@ -340,8 +348,8 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       cell: ({ row }) =>
         canModify(row.original) ? (
           <RowActions
-            onEdit={() => setModal(row.original)}
-            onDelete={() => setDeleteTarget(row.original)}
+            onEdit={canUpdate ? () => setModal(row.original) : undefined}
+            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteColor.isPending}
           />
         ) : (
@@ -356,10 +364,12 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System colors are seeded globally. Your own custom colors are also listed here.
         </p>
-        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Color</span>
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Color</span>
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -389,8 +399,8 @@ function PranaColorsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   </div>
                   {canModify(item) ? (
                     <RowActions
-                      onEdit={() => setModal(item)}
-                      onDelete={() => setDeleteTarget(item)}
+                      onEdit={canUpdate ? () => setModal(item) : undefined}
+                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteColor.isPending}
                     />
                   ) : (
@@ -553,6 +563,10 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<Chakra | null>(null);
 
   const canModify = (item: Chakra) => isSuperAdmin || !!item.healerId;
+  const can = useCan();
+  const canCreate = can("MASTER_DATA_CHAKRAS", "CREATE");
+  const canUpdate = can("MASTER_DATA_CHAKRAS", "UPDATE");
+  const canDelete = can("MASTER_DATA_CHAKRAS", "DELETE");
 
   const columns: ColumnDef<Chakra, unknown>[] = [
     {
@@ -594,8 +608,8 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       cell: ({ row }) =>
         canModify(row.original) ? (
           <RowActions
-            onEdit={() => setModal(row.original)}
-            onDelete={() => setDeleteTarget(row.original)}
+            onEdit={canUpdate ? () => setModal(row.original) : undefined}
+            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteChakra.isPending}
           />
         ) : (
@@ -610,10 +624,12 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           System chakras (26 seeded) are global. Add your own custom chakras below.
         </p>
-        <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Chakra</span>
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Chakra</span>
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -645,8 +661,8 @@ function ChakrasTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   </div>
                   {canModify(item) ? (
                     <RowActions
-                      onEdit={() => setModal(item)}
-                      onDelete={() => setDeleteTarget(item)}
+                      onEdit={canUpdate ? () => setModal(item) : undefined}
+                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteChakra.isPending}
                     />
                   ) : (
@@ -858,7 +874,10 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<MappingItem | null>(null);
 
   const colorById = (id: string) => colors?.find((c) => c.id === id);
-  const canDelete = (m: { healerId?: string | null }) => isSuperAdmin || !!m.healerId;
+  const ownsMapping = (m: { healerId?: string | null }) => isSuperAdmin || !!m.healerId;
+  const can = useCan();
+  const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
+  const canDelete = can("MASTER_DATA_PROTOCOLS", "DELETE");
 
   const columns: ColumnDef<MappingItem, unknown>[] = [
     {
@@ -895,9 +914,9 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        canDelete(row.original) ? (
+        ownsMapping(row.original) ? (
           <RowActions
-            onDelete={() => setDeleteTarget(row.original)}
+            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteMapping.isPending}
           />
         ) : (
@@ -912,10 +931,12 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <p className="text-sm text-text-light">
           Maps a protocol name to cleansing or energising prana colors.
         </p>
-        <Button onClick={() => setShowModal(true)} className="px-3 py-2 h-auto shrink-0">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Mapping</span>
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setShowModal(true)} className="px-3 py-2 h-auto shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Mapping</span>
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-text-light text-sm">Loading…</p>}
@@ -948,9 +969,9 @@ function ProtocolMappingsTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                         <UsageBadge usageType={m.usageType} />
                       </div>
                     </div>
-                    {canDelete(m) ? (
+                    {ownsMapping(m) ? (
                       <RowActions
-                        onDelete={() => setDeleteTarget(m)}
+                        onDelete={canDelete ? () => setDeleteTarget(m) : undefined}
                         deleting={deleteMapping.isPending}
                       />
                     ) : (
@@ -1025,8 +1046,8 @@ function ChakraColorRow({
   group: ProtocolChakraColorGroup;
   colors: PranaColor[];
   canModify: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   deleting: boolean;
 }) {
   const colorLabel = (id: string) => colors.find((c) => c.id === id)?.name ?? id;
@@ -1201,12 +1222,16 @@ function ChakraColorSection({
 
   const canModify = (g: ProtocolChakraColorGroup) =>
     isSuperAdmin || (!!g.healerId && g.healerId === currentHealerId);
+  const can = useCan();
+  const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
+  const canUpdate = can("MASTER_DATA_PROTOCOLS", "UPDATE");
+  const canDelete = can("MASTER_DATA_PROTOCOLS", "DELETE");
 
   return (
     <div className="border-t border-border pt-4 mt-4 space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-semibold text-text">Chakras &amp; Colors</Label>
-        {editing === null && (
+        {editing === null && canCreate && (
           <Button
             type="button"
             size="sm"
@@ -1241,8 +1266,8 @@ function ChakraColorSection({
               group={g}
               colors={colors ?? []}
               canModify={canModify(g)}
-              onEdit={() => setEditing(g)}
-              onDelete={() => setDeleteTarget(g)}
+              onEdit={canUpdate ? () => setEditing(g) : undefined}
+              onDelete={canDelete ? () => setDeleteTarget(g) : undefined}
               deleting={deleteMutation.isPending}
             />
           )
@@ -1624,6 +1649,10 @@ function ProtocolsTab({
   const [showImport, setShowImport] = useState(false);
 
   const canModify = (item: Protocol) => isSuperAdmin || !!item.healerId;
+  const can = useCan();
+  const canCreate = can("MASTER_DATA_PROTOCOLS", "CREATE");
+  const canUpdate = can("MASTER_DATA_PROTOCOLS", "UPDATE");
+  const canDelete = can("MASTER_DATA_PROTOCOLS", "DELETE");
 
   const filtered = data ?? [];
   const total = pageData?.totalElements ?? 0;
@@ -1674,8 +1703,8 @@ function ProtocolsTab({
       cell: ({ row }) =>
         canModify(row.original) ? (
           <RowActions
-            onEdit={() => setModal(row.original)}
-            onDelete={() => setDeleteTarget(row.original)}
+            onEdit={canUpdate ? () => setModal(row.original) : undefined}
+            onDelete={canDelete ? () => setDeleteTarget(row.original) : undefined}
             deleting={deleteProtocol.isPending}
           />
         ) : (
@@ -1691,20 +1720,22 @@ function ProtocolsTab({
           Bulk-imported protocol catalog. Only "Protocol" type entries appear in the
           session form's dropdown.
         </p>
-        <div className="flex gap-2 shrink-0">
-          <Button
-            variant="outline"
-            onClick={() => setShowImport(true)}
-            className="px-3 py-2 h-auto"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Import</span>
-          </Button>
-          <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Protocol</span>
-          </Button>
-        </div>
+        {canCreate && (
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowImport(true)}
+              className="px-3 py-2 h-auto"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
+            <Button onClick={() => setModal("new")} className="px-3 py-2 h-auto shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Protocol</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       <Input
@@ -1745,8 +1776,8 @@ function ProtocolsTab({
                   </div>
                   {canModify(item) ? (
                     <RowActions
-                      onEdit={() => setModal(item)}
-                      onDelete={() => setDeleteTarget(item)}
+                      onEdit={canUpdate ? () => setModal(item) : undefined}
+                      onDelete={canDelete ? () => setDeleteTarget(item) : undefined}
                       deleting={deleteProtocol.isPending}
                     />
                   ) : (
@@ -1879,15 +1910,19 @@ type Tab = "colors" | "chakras" | "mappings" | "protocols" | "imports";
 export default function MasterDataPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
-  const [activeTab, setActiveTab] = useState<Tab>("colors");
+  const can = useCan();
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "colors", label: "Prana Colors" },
-    { key: "chakras", label: "Chakras" },
-    // { key: "mappings", label: "Protocol Mappings" },
-    { key: "protocols", label: "Protocols" },
-    { key: "imports", label: "Imports" },
+  // Only the tabs whose data the user may READ; the server refuses the rest anyway.
+  const allTabs: { key: Tab; label: string; resource: string }[] = [
+    { key: "colors", label: "Prana Colors", resource: "MASTER_DATA_COLORS" },
+    { key: "chakras", label: "Chakras", resource: "MASTER_DATA_CHAKRAS" },
+    // { key: "mappings", label: "Protocol Mappings", resource: "MASTER_DATA_PROTOCOLS" },
+    { key: "protocols", label: "Protocols", resource: "MASTER_DATA_PROTOCOLS" },
+    { key: "imports", label: "Imports", resource: "MASTER_DATA_PROTOCOLS" },
   ];
+  const tabs = allTabs.filter((tab) => can(tab.resource, "READ"));
+  const [chosenTab, setActiveTab] = useState<Tab | null>(null);
+  const activeTab = chosenTab ?? tabs[0]?.key;
 
   const { isNewView } = useUiVersion();
   const body = (

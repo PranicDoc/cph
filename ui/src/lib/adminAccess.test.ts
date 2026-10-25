@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Users } from "lucide-react";
-import { adminItemForPath, canSeeNavItem, firstAdminPath, visibleNavItems, type MyPermissions } from "./adminAccess";
+import { adminItemForPath, canSeeNavItem, firstAdminPath, hasPermission, visibleNavItems, type MyPermissions } from "./adminAccess";
 import type { AdminNavItem } from "../config/adminNavItems";
 import type { SidebarNavItem } from "../components/Sidebar";
 
@@ -13,6 +13,18 @@ const items: AdminNavItem[] = [
 const seeder: MyPermissions = { grants: { MASTER_DATA_PROTOCOLS: ["READ", "CREATE"], PATIENT: ["READ"] } };
 const everything: MyPermissions = { grants: { CREDIT_ACCOUNTS: ["READ"], MASTER_DATA_COLORS: ["READ"], ROLES: ["READ", "ADMIN"] } };
 const healer: MyPermissions = { grants: { PATIENT: ["READ", "CREATE"] } };
+
+describe("hasPermission", () => {
+  it("is true only for a verb the user holds on that resource", () => {
+    expect(hasPermission(seeder, "MASTER_DATA_PROTOCOLS", "CREATE")).toBe(true);
+    expect(hasPermission(seeder, "MASTER_DATA_PROTOCOLS", "DELETE")).toBe(false);
+    expect(hasPermission(seeder, "PACKAGES", "READ")).toBe(false);
+  });
+
+  it("is false while the permissions are still loading", () => {
+    expect(hasPermission(undefined, "PATIENT", "READ")).toBe(false);
+  });
+});
 
 describe("navigation by permission", () => {
   it("shows an item when any of its resources can be read", () => {

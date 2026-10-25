@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useRbacRoles, useDeleteRole } from "../../hooks/admin/useRbacRoles";
+import { useCan } from "../../hooks/useMyPermissions";
 import type { RoleSummary } from "../../hooks/admin/useRbacRoles";
 import { extractDetail } from "../../lib/utils";
 import { useIsMobile } from "../../hooks/use-mobile";
@@ -102,6 +103,10 @@ function ClassicRolesPage() {
   };
 
   const deleteRole = useDeleteRole();
+  const can = useCan();
+  const canCreate = can("ROLES", "CREATE");
+  const canUpdate = can("ROLES", "UPDATE");
+  const canDelete = can("ROLES", "DELETE");
   const [deleteTarget, setDeleteTarget] = useState<RoleSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -221,29 +226,33 @@ function ClassicRolesPage() {
               className="flex items-center justify-end gap-1"
               onClick={(event) => event.stopPropagation()}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Edit ${role.name}`}
-                onClick={() => goEdit(role.id)}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-destructive"
-                aria-label={`Delete ${role.name}`}
-                onClick={() => openDelete(role)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {canUpdate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Edit ${role.name}`}
+                  onClick={() => goEdit(role.id)}
+                >
+                  Edit
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-destructive"
+                  aria-label={`Delete ${role.name}`}
+                  onClick={() => openDelete(role)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           );
         },
       },
     ],
-    [sortDescending, toggleSort, goEdit, openDelete],
+    [sortDescending, toggleSort, goEdit, openDelete, canUpdate, canDelete],
   );
 
   const totalPages = data ? data.totalPages || 1 : 1;
@@ -313,10 +322,12 @@ function ClassicRolesPage() {
           choose the resources a role covers, then toggle the permissions it
           grants.
         </p>
-        <Button onClick={goNew}>
-          <Plus className="h-4 w-4" />
-          New role
-        </Button>
+        {canCreate && (
+          <Button onClick={goNew}>
+            <Plus className="h-4 w-4" />
+            New role
+          </Button>
+        )}
       </div>
     );
   } else if (isMobile) {
@@ -333,7 +344,7 @@ function ClassicRolesPage() {
                 <span className="text-sm font-semibold text-text">
                   {role.name}
                 </span>
-                <div onClick={(event) => event.stopPropagation()}>
+                {(canUpdate || canDelete) && <div onClick={(event) => event.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -345,18 +356,22 @@ function ClassicRolesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => goEdit(role.id)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => openDelete(role)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
+                      {canUpdate && (
+                        <DropdownMenuItem onClick={() => goEdit(role.id)}>
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => openDelete(role)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
+                </div>}
               </div>
               <p className="mb-3 truncate text-xs text-text-light">
                 {role.description && role.description.trim()
@@ -408,10 +423,12 @@ function ClassicRolesPage() {
         <h1 className="text-xl font-bold text-text md:text-2xl">
           Roles &amp; Permissions
         </h1>
-        <Button onClick={goNew}>
-          <Plus className="h-4 w-4" />
-          New role
-        </Button>
+        {canCreate && (
+          <Button onClick={goNew}>
+            <Plus className="h-4 w-4" />
+            New role
+          </Button>
+        )}
       </div>
 
       <div className="mb-4 flex items-center gap-3">
