@@ -77,7 +77,7 @@ export function PlanPicker({
         <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "22px 24px 16px", borderBottom: "1px solid var(--hair)" }}>
           <div>
             <h2>Choose a plan</h2>
-            <p className="muted" style={{ marginTop: 4 }}>Select a credit plan to start generating patient PDFs.</p>
+            <p className="muted" style={{ marginTop: 4 }}>Select a credit plan to start new patient cases.</p>
           </div>
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
             <X className="ico" />
@@ -179,7 +179,7 @@ export function PlanPicker({
           </h2>
         </div>
         <p className="text-text-light">
-          Select a credit plan to start generating patient PDFs.
+          Select a credit plan to start new patient cases.
         </p>
       </div>
 

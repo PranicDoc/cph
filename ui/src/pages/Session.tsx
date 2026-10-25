@@ -74,6 +74,8 @@ export default function Session() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionData, setSessionData] = useState<HealingSession | null>(null);
   const [isEdit, setIsEdit] = useState(false);
+  // The case was not started (unlocked with a credit) yet: the server refuses it with 423.
+  const [isLocked, setIsLocked] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const navigate = useNavigate();
 
@@ -234,6 +236,10 @@ export default function Session() {
         populateForm(resetValues);
         initialFormValuesRef.current = resetValues;
       } catch (error) {
+        if ((error as { response?: { status?: number } })?.response?.status === 423) {
+          setIsLocked(true);
+          return;
+        }
         console.error("Error fetching healing session:", error);
       }
     };
@@ -307,6 +313,18 @@ export default function Session() {
     }
     goToNextStep();
   };
+
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 px-4 text-center">
+        <h2 className="text-xl font-bold text-primary-dark">This case is locked</h2>
+        <p className="text-text-light max-w-md">
+          Start it from the patient list. Starting a case uses 1 credit.
+        </p>
+        <Button onClick={() => navigate("/patients")}>Back to patients</Button>
+      </div>
+    );
+  }
 
   // ----------------- Loading state -----------------
   if (!sessionData) {

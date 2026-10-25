@@ -9,6 +9,7 @@ import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -73,6 +74,11 @@ public class HealingCase extends TenantEntity {
     @Builder.Default
     private CaseStatus status = CaseStatus.DRAFT;
 
+    // When the healer spent a credit to unlock the case; null while LOCKED and for cases
+    // created before cases were locked.
+    @Column(name = "credit_charged_at")
+    private Instant creditChargedAt;
+
     // --- Relationships ---
 
     @OneToOne(mappedBy = "healingCase", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -112,12 +118,21 @@ public class HealingCase extends TenantEntity {
 
         healingCase.setPatientId(patientId);
         healingCase.setHealerId(healerId);
-        healingCase.setStatus(CaseStatus.DRAFT);
+        healingCase.setStatus(CaseStatus.LOCKED);
 
         // bidirectional link
         healingCase.setDeclaration(declaration);
         declaration.setHealingCase(healingCase);
 
         return healingCase;
+    }
+
+    /** The healer paid a credit for this case: it opens as a DRAFT. */
+    public void unlock() {
+        if (status != CaseStatus.LOCKED) {
+            throw new IllegalStateException("Case is not locked");
+        }
+        status = CaseStatus.DRAFT;
+        creditChargedAt = Instant.now();
     }
 }

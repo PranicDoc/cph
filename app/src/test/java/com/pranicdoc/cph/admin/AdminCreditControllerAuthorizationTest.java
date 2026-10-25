@@ -327,6 +327,8 @@ class FilterChainAdminCreditControllerAuthorizationTest {
     private AdminAuthz adminAuthz;
     @MockBean
     private HealerRepository healerRepository;
+    @MockBean
+    private com.pranicdoc.cph.payments.service.CreditGateService creditGateService;
     // NOTE: ObjectMapper is deliberately NOT @MockBean'd. A Mockito mock returns
     // null from reader()/writer(), which breaks WebMvcAutoConfiguration's
     // handlerExceptionResolver at context-load time (NPE in

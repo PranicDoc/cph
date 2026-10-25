@@ -22,7 +22,7 @@ export type Patient = {
   dob: string;
   gender: string;
   contact: string;
-  status: "DRAFT" | "ACTIVE" | "CLOSED" | "CONTINUED"; // Fixed to match Patients.tsx
+  status: "LOCKED" | "DRAFT" | "ACTIVE" | "CLOSED" | "CONTINUED"; // Fixed to match Patients.tsx
   caseDate?: string | null; // createdAt of the latest healing case
 };
 
@@ -33,7 +33,7 @@ export type PatientSortOption =
   | "NAME_DESC";
 
 export type PatientListFilters = {
-  status?: "DRAFT" | "ACTIVE" | "CLOSED" | "CONTINUED";
+  status?: "LOCKED" | "DRAFT" | "ACTIVE" | "CLOSED" | "CONTINUED";
   startDate?: string; // yyyy-MM-dd
   endDate?: string; // yyyy-MM-dd
   sort?: PatientSortOption;

@@ -47,6 +47,15 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(CaseLockedException.class)
+    public ProblemDetail handleCaseLocked(CaseLockedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.LOCKED, ex.getMessage());
+        pd.setTitle("Case Locked");
+        pd.setType(URI.create("https://pranicdoc.com/errors/case-locked"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(SessionIncompleteException.class)
     public ProblemDetail handleSessionIncomplete(SessionIncompleteException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());

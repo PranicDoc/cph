@@ -50,6 +50,7 @@ import java.util.UUID;
 
 import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -704,6 +705,109 @@ class CaseServiceTest {
                 mock(jakarta.servlet.http.HttpServletResponse.class)));
 
         verify(patientService, never()).discardUnclaimedSelfRegistered(any());
+    }
+
+    // ─── LOCKED cases: unlocked for one credit, unusable by the healer until then ───
+
+    private HealingCase caseWithStatus(UUID caseId, CaseStatus status) {
+        HealingCase healingCase = HealingCase.builder()
+                .patientId(UUID.randomUUID())
+                .status(status)
+                .sessions(new ArrayList<>())
+                .build();
+        healingCase.setId(caseId);
+        healingCase.setHealerId(UUID.randomUUID());
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        return healingCase;
+    }
+
+    @Test
+    void unlock_aLockedCase_chargesOneCreditUnderItsIdAndOpensItAsDraft() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        HealingCase healingCase = caseWithStatus(caseId, CaseStatus.LOCKED);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+
+        CaseResponse response = caseService.unlock(caseId);
+
+        verify(creditGateService).checkAndDeduct(healerId, healingCase.getHealerId(), caseId);
+        assertEquals(CaseStatus.DRAFT, response.status());
+        assertNotNull(healingCase.getCreditChargedAt());
+    }
+
+    @Test
+    void unlock_aCaseAlreadyUnlocked_chargesNothing() {
+        UUID caseId = UUID.randomUUID();
+        caseWithStatus(caseId, CaseStatus.DRAFT);
+
+        CaseResponse response = caseService.unlock(caseId);
+
+        verifyNoInteractions(creditGateService);
+        assertEquals(CaseStatus.DRAFT, response.status());
+    }
+
+    @Test
+    void unlock_whenTheHealerIsKnownToBeOutOfCredits_isRefusedWithoutCallingCreditService() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        HealingCase healingCase = caseWithStatus(caseId, CaseStatus.LOCKED);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(creditGateService.isExhausted(healerId)).thenReturn(true);
+
+        assertThrows(InsufficientCreditsException.class, () -> caseService.unlock(caseId));
+
+        verify(creditGateService, never()).checkAndDeduct(any(), any(), any());
+        assertEquals(CaseStatus.LOCKED, healingCase.getStatus());
+    }
+
+    @Test
+    void unlock_withoutCredits_leavesTheCaseLocked() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = caseWithStatus(caseId, CaseStatus.LOCKED);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
+        doThrow(new InsufficientCreditsException()).when(creditGateService).checkAndDeduct(any(), any(), any());
+
+        assertThrows(InsufficientCreditsException.class, () -> caseService.unlock(caseId));
+
+        assertEquals(CaseStatus.LOCKED, healingCase.getStatus());
+        assertNull(healingCase.getCreditChargedAt());
+    }
+
+    @Test
+    void aHealerCannotReadOrChangeALockedCase_whicheverEndpointTheyCall() {
+        UUID caseId = UUID.randomUUID();
+        caseWithStatus(caseId, CaseStatus.LOCKED);
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(caseRepository.existsById(caseId)).thenReturn(true);
+
+        assertThrows(CaseLockedException.class, () -> caseService.getById(caseId));
+        assertThrows(CaseLockedException.class, () -> caseService.getCaseSummary(caseId));
+        assertThrows(CaseLockedException.class, () -> caseService.addSymptom(caseId,
+                new com.pranicdoc.cph.healing.dto.SymptomRequest("Headache", null, null)));
+        assertThrows(CaseLockedException.class, () -> caseService.postMessageToGeneratePdf(caseId));
+        verifyNoInteractions(creditGateService);
+    }
+
+    @Test
+    void aPatientCanStillUseTheirLockedCase_toFillInTheirHealthForm() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = caseWithStatus(caseId, CaseStatus.LOCKED);
+        when(securityContextUtil.getCurrentRole()).thenReturn("PATIENT");
+
+        assertSame(healingCase, caseService.findOrThrow(caseId));
+    }
+
+    @Test
+    void generatePdf_forACasePaidWhenUnlocked_chargesNothing() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = caseWithStatus(caseId, CaseStatus.CLOSED);
+        healingCase.setCreditChargedAt(java.time.Instant.now());
+        when(caseRepository.existsById(caseId)).thenReturn(true);
+        when(caseRepository.findWithSessionsById(caseId)).thenThrow(new IllegalStateException("stop after the charge"));
+
+        assertThrows(IllegalStateException.class, () -> caseService.postMessageToGeneratePdf(caseId));
+
+        verifyNoInteractions(creditGateService);
     }
 
     /** Cases reach PDF generation only after consent; the snapshot reads the healer signature. */

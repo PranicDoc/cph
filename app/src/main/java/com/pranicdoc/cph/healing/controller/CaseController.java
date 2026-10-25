@@ -88,6 +88,13 @@ public class CaseController {
         return ResponseEntity.ok(caseService.getByPatientId(patientId, pageable));
     }
 
+    /** Spends one credit to unlock a new case; 402 when the healer has no credits left. */
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','UPDATE')")
+    @PostMapping("/{id}/unlock")
+    public ResponseEntity<CaseResponse> unlock(@PathVariable UUID id) {
+        return ResponseEntity.ok(caseService.unlock(id));
+    }
+
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','UPDATE')")
     @PostMapping("/{id}/symptoms")
     public ResponseEntity<Void> addSymptom(@PathVariable UUID id,

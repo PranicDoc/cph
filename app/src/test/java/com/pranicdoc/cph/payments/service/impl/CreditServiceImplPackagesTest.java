@@ -22,7 +22,8 @@ class CreditServiceImplPackagesTest {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         when(client.getPackages(OwnerType.HEALER, healerId)).thenReturn("[{\"name\":\"ENTERPRISE\"}]");
 
-        var service = new CreditServiceImpl(securityContextUtil, client, mock(HealerRepository.class));
+        var service = new CreditServiceImpl(securityContextUtil, client, mock(HealerRepository.class),
+                mock(com.pranicdoc.cph.payments.service.CreditGateService.class));
 
         assertEquals("[{\"name\":\"ENTERPRISE\"}]", service.getPackages().data());
     }

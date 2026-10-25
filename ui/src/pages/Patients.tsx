@@ -12,6 +12,7 @@ import {
   CircleCheck,
   Eye,
   Play,
+  CreditCard,
   BookText,
   ClipboardList,
   Pen,
@@ -43,6 +44,9 @@ import {
 import { ClosurePopup } from "./Closure";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UpgradeModal } from "../components/UpgradeModal";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useCreditAccount } from "../hooks/useCreditAccount";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { extractDetail } from "../lib/utils";
@@ -119,10 +123,64 @@ export default function Patients() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [pendingHealingCaseId, setPendingHealingCaseId] = useState<
-    string | null
-  >(null);
+  // What to repeat once the healer buys credits (a PDF or unlocking a case); null = dialog closed.
+  const [upgradeRetry, setUpgradeRetry] = useState<(() => void) | null>(null);
+  const openUpgrade = (retry: () => void) => setUpgradeRetry(() => retry);
+  const { data: creditAccount } = useCreditAccount();
+  const creditsLeft = creditAccount
+    ? creditAccount.free_balance + creditAccount.paid_balance
+    : null;
+  const outOfCredits = creditsLeft !== null && creditsLeft <= 0;
+
+  // A new case is LOCKED: Start spends one credit to unlock it. The confirmation can be turned off.
+  const skipUnlockKey = `unlockCase.skipConfirm.${user?.id ?? ""}`;
+  const [unlockTarget, setUnlockTarget] = useState<ComputedPatient | null>(null);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+  const unlockMutation = useMutation({
+    mutationFn: (patient: ComputedPatient) =>
+      api.post(`/api/v1/cases/${patient.healingCaseId}/unlock`),
+    onSuccess: (_data, patient) => {
+      setUnlockTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["patients"] });
+      queryClient.invalidateQueries({ queryKey: ["credit-account"] });
+      handleSelectPatient(patient);
+      navigate(`/session/${patient.healingCaseId}`);
+    },
+    onError: (err: any, patient) => {
+      setUnlockTarget(null);
+      if (err?.response?.status === 402) {
+        queryClient.invalidateQueries({ queryKey: ["credit-account"] });
+        openUpgrade(() => unlockMutation.mutate(patient));
+      } else {
+        toast.error(extractDetail(err) || "Failed to start the case", { duration: 5000 });
+      }
+    },
+  });
+  const handleStart = (patient: ComputedPatient) => {
+    let skip = false;
+    try {
+      skip = localStorage.getItem(skipUnlockKey) === "true";
+    } catch {
+      // storage unavailable: just ask
+    }
+    if (skip) {
+      unlockMutation.mutate(patient);
+    } else {
+      setDontAskAgain(false);
+      setUnlockTarget(patient);
+    }
+  };
+  const confirmUnlock = () => {
+    if (!unlockTarget) return;
+    if (dontAskAgain) {
+      try {
+        localStorage.setItem(skipUnlockKey, "true");
+      } catch {
+        // storage unavailable: the dialog shows again next time
+      }
+    }
+    unlockMutation.mutate(unlockTarget);
+  };
   const generatePdfMutation = useMutation({
     mutationKey: ["generate-pdf"],
     mutationFn: (healingCaseId: string) =>
@@ -132,8 +190,7 @@ export default function Patients() {
     onSuccess: () => toast.success("PDF queued successfully"),
     onError: (err: any, healingCaseId: string) => {
       if (err?.response?.status === 402) {
-        setPendingHealingCaseId(healingCaseId);
-        setShowUpgradeModal(true);
+        openUpgrade(() => generatePdfMutation.mutate(healingCaseId));
       } else {
         toast.error(extractDetail(err) || "Failed to generate PDF", {
           duration: 5000,
@@ -184,13 +241,14 @@ export default function Patients() {
   // (see @theme in index.css) so every status stays visually distinct:
   // DRAFT = neutral, ACTIVE = success, CLOSED = primary, CONTINUED = warning.
   const STATUS_PILL_STYLES: Record<string, string> = {
+    LOCKED: "bg-warning/10 text-warning",
     DRAFT: "bg-muted text-text-light",
     ACTIVE: "bg-success/10 text-success",
     CLOSED: "bg-primary/10 text-primary",
     CONTINUED: "bg-warning/10 text-warning",
   };
 
-  const NEW_PILL: Record<string, string> = { DRAFT: "off", ACTIVE: "ok", CLOSED: "", CONTINUED: "warn" };
+  const NEW_PILL: Record<string, string> = { LOCKED: "warn", DRAFT: "off", ACTIVE: "ok", CLOSED: "", CONTINUED: "warn" };
   const renderStatusPill = (status?: string) =>
     isNewView ? (
       <span className={`badge ${NEW_PILL[status ?? ""] ?? "off"}`}>{status || "-"}</span>
@@ -211,6 +269,7 @@ export default function Patients() {
     if (!patient.healingCaseId)
       return <span className="text-xs text-text-light">No case</span>;
 
+    if (patient.status === "LOCKED") return renderLockedActions(patient, variant);
     const isDraft = patient.status === "DRAFT";
     const isActive = patient.status === "ACTIVE";
     const isCompleted = patient.status === "CLOSED";
@@ -301,6 +360,29 @@ export default function Patients() {
           >
             <ClipboardList className="w-3.5 h-3.5" />
             Case Summary
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // A locked case offers one action, full width: Start (unlock for a credit) or, with no credits
+  // left, Upgrade.
+  const renderLockedActions = (patient: ComputedPatient, variant: "table" | "card") => {
+    const size = variant === "card" ? "py-2" : "py-1.5";
+    const unlocking = unlockMutation.isPending && unlockMutation.variables?.id === patient.id;
+    const buttonClass = `w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary ${size} text-white text-xs font-medium hover:bg-primary-dark transition-colors disabled:opacity-60`;
+    return (
+      <div className="w-full">
+        {outOfCredits ? (
+          <button className={buttonClass} onClick={() => openUpgrade(() => handleStart(patient))}>
+            <CreditCard className="w-3.5 h-3.5" />
+            Upgrade
+          </button>
+        ) : (
+          <button className={buttonClass} onClick={() => handleStart(patient)} disabled={unlocking}>
+            <Play className="w-3.5 h-3.5 fill-white" />
+            Start
           </button>
         )}
       </div>
@@ -452,6 +534,7 @@ export default function Patients() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Statuses</SelectItem>
+                    <SelectItem value="LOCKED">Locked</SelectItem>
                     <SelectItem value="DRAFT">Draft</SelectItem>
                     <SelectItem value="ACTIVE">Active</SelectItem>
                     <SelectItem value="CLOSED">Closed</SelectItem>
@@ -592,23 +675,44 @@ export default function Patients() {
         </div>
       </div>
 
-      {showUpgradeModal && pendingHealingCaseId && (
+      {upgradeRetry && (
         <UpgradeModal
-          isOpen={showUpgradeModal}
-          healingCaseId={pendingHealingCaseId}
+          isOpen
           ownerId={user?.id ?? ""}
           ownerType="HEALER"
-          onClose={() => {
-            setShowUpgradeModal(false);
-            setPendingHealingCaseId(null);
-          }}
-          onRetry={(id) => {
-            setShowUpgradeModal(false);
-            setPendingHealingCaseId(null);
-            generatePdfMutation.mutate(id);
+          onClose={() => setUpgradeRetry(null)}
+          onRetry={() => {
+            const retry = upgradeRetry;
+            setUpgradeRetry(null);
+            queryClient.invalidateQueries({ queryKey: ["credit-account"] });
+            queryClient.invalidateQueries({ queryKey: ["patients"] });
+            retry();
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!unlockTarget}
+        onOpenChange={(open) => !open && setUnlockTarget(null)}
+        title="Start this case?"
+        description={
+          <span className="flex flex-col gap-3">
+            <span>
+              Starting this case uses 1 credit
+              {creditsLeft !== null ? `. You have ${creditsLeft} left.` : "."}
+            </span>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={dontAskAgain}
+                onCheckedChange={(checked) => setDontAskAgain(checked === true)}
+              />
+              Don&apos;t show this again
+            </label>
+          </span>
+        }
+        confirmLabel="Use 1 credit and start"
+        loading={unlockMutation.isPending}
+        onConfirm={confirmUnlock}
+      />
     </div>
   );
 }
