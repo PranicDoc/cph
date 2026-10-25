@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.common.dto.ChakraReadingSummarySnapshot;
 import com.pranicdoc.common.dto.ColorUsedSnapshot;
 import com.pranicdoc.cph.common.enums.CaseStatus;
+import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.ScanType;
 import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -48,20 +49,21 @@ public class HealerProtocolUnderstandingService {
                                 .formatted(healingCaseId)));
         if (healingCase.getStatus() == CaseStatus.LOCKED) throw new CaseLockedException();
 
-        Map<String, PranaColorCatalog> catalogByName = pranaColorCatalogRepository
-                .findByHealerIdIsNullOrHealerId(healingCase.getHealerId())
-                .stream()
-                .collect(Collectors.toMap(
-                        PranaColorCatalog::getName,
-                        c -> c,
-                        (a, b) -> a));
+        // A name can be one color per category, so each selection resolves in its own category
+        // first and falls back to the name alone (uncategorised or legacy colors).
+        List<PranaColorCatalog> catalog = pranaColorCatalogRepository
+                .findByHealerIdIsNullOrHealerId(healingCase.getHealerId());
+        Map<String, PranaColorCatalog> catalogByName = catalog.stream()
+                .collect(Collectors.toMap(PranaColorCatalog::getName, c -> c, (a, b) -> a));
+        Map<String, PranaColorCatalog> energisingByName = byNameIn(catalog, ColorUsageType.ENERGISING, catalogByName);
+        Map<String, PranaColorCatalog> cleansingByName = byNameIn(catalog, ColorUsageType.CLEANSING, catalogByName);
 
         Map<String, List<ColorUsedSnapshot>> energisingColors = new LinkedHashMap<>();
         Map<String, List<ColorUsedSnapshot>> cleansingColors = new LinkedHashMap<>();
 
         for (ChakraColorSelection selection : request.chakraSelections()) {
-            energisingColors.put(selection.chakra(), toColorSnapshots(selection.energisingColors(), catalogByName));
-            cleansingColors.put(selection.chakra(), toColorSnapshots(selection.cleansingColors(), catalogByName));
+            energisingColors.put(selection.chakra(), toColorSnapshots(selection.energisingColors(), energisingByName));
+            cleansingColors.put(selection.chakra(), toColorSnapshots(selection.cleansingColors(), cleansingByName));
         }
 
         List<ChakraReadingSummarySnapshot> chakraReadings =
@@ -142,6 +144,16 @@ public class HealerProtocolUnderstandingService {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /** Name -> color of that category, over the name-only map for names with no such row. */
+    private static Map<String, PranaColorCatalog> byNameIn(List<PranaColorCatalog> catalog, ColorUsageType category,
+                                                           Map<String, PranaColorCatalog> fallback) {
+        Map<String, PranaColorCatalog> result = new HashMap<>(fallback);
+        catalog.stream()
+                .filter(c -> c.getCategory() == category)
+                .forEach(c -> result.put(c.getName(), c));
+        return result;
+    }
 
     private List<ColorUsedSnapshot> toColorSnapshots(
             List<ColorSelection> selections,

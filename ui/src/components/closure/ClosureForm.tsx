@@ -13,7 +13,7 @@ import { AxiosResponse } from "axios";
 import { extractDetail } from "@/lib/utils";
 import { ColorPropertySelector } from "./ColorPropertySelector";
 import { useReferenceData } from "@/hooks/useReferenceData";
-import { hasColorCategory } from "@/lib/colorCategory";
+import { findColorInCategory, hasColorCategory, type ColorCategory } from "@/lib/colorCategory";
 import { MultiSelect } from "../ui/multi-select/multi-select";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
 import { useUiVersion } from "../../ui-version";
@@ -56,8 +56,10 @@ interface HpuTableMeta {
   energisingColors: string[];
   cleansingColors: string[];
   colorsLoading: boolean;
-  fetchPropertiesForColor: (color: string) => string[];
-  fetchColorHex: (color: string) => string | undefined;
+  getEnergisingProperties: (color: string) => string[];
+  getCleansingProperties: (color: string) => string[];
+  getEnergisingHex: (color: string) => string | undefined;
+  getCleansingHex: (color: string) => string | undefined;
 }
 
 const ClosureForm = ({
@@ -165,25 +167,30 @@ const ClosureForm = ({
     }
   }, [colorsError]);
 
-  const energisingColors = useMemo(
-    () => colors.filter((c) => hasColorCategory(c, "ENERGISING")).map((c) => c.name),
+  // Names are unique per category, not overall: each column lists, and looks properties and
+  // swatches up in, its own category's colors.
+  const namesIn = useCallback(
+    (category: ColorCategory) =>
+      Array.from(new Set(colors.filter((c) => hasColorCategory(c, category)).map((c) => c.name))),
     [colors]
   );
-  const cleansingColors = useMemo(
-    () => colors.filter((c) => hasColorCategory(c, "CLEANSING")).map((c) => c.name),
-    [colors]
-  );
+  const energisingColors = useMemo(() => namesIn("ENERGISING"), [namesIn]);
+  const cleansingColors = useMemo(() => namesIn("CLEANSING"), [namesIn]);
 
-  const fetchPropertiesForColor = useCallback(
-    (color: string) => {
-      const match = colors.find((c) => c.name === color);
-      return match?.properties ?? [];
-    },
+  const getEnergisingProperties = useCallback(
+    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.properties ?? [],
     [colors]
   );
-
-  const fetchColorHex = useCallback(
-    (color: string) => colors.find((c) => c.name === color)?.colorHex,
+  const getCleansingProperties = useCallback(
+    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.properties ?? [],
+    [colors]
+  );
+  const getEnergisingHex = useCallback(
+    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.colorHex,
+    [colors]
+  );
+  const getCleansingHex = useCallback(
+    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.colorHex,
     [colors]
   );
 
@@ -222,8 +229,8 @@ const ClosureForm = ({
             <ColorPropertySelector
               value={row.original.energisingColors}
               colors={meta.energisingColors}
-              getProperties={meta.fetchPropertiesForColor}
-              getColorHex={meta.fetchColorHex}
+              getProperties={meta.getEnergisingProperties}
+              getColorHex={meta.getEnergisingHex}
               loading={meta.colorsLoading}
               onChange={(updated) => {
                 updateRow(row.index, "energisingColors", updated);
@@ -245,8 +252,8 @@ const ClosureForm = ({
             <ColorPropertySelector
               value={row.original.cleansingColors}
               colors={meta.cleansingColors}
-              getProperties={meta.fetchPropertiesForColor}
-              getColorHex={meta.fetchColorHex}
+              getProperties={meta.getCleansingProperties}
+              getColorHex={meta.getCleansingHex}
               loading={meta.colorsLoading}
               onChange={(updated) => {
                 updateRow(row.index, "cleansingColors", updated);
@@ -269,8 +276,10 @@ const ClosureForm = ({
               energisingColors={energisingColors}
               cleansingColors={cleansingColors}
               colorsLoading={colorsLoading}
-              getProperties={fetchPropertiesForColor}
-              getColorHex={fetchColorHex}
+              getEnergisingProperties={getEnergisingProperties}
+              getCleansingProperties={getCleansingProperties}
+              getEnergisingHex={getEnergisingHex}
+              getCleansingHex={getCleansingHex}
               onChange={updateRow}
             />
           </Suspense>
@@ -287,8 +296,10 @@ const ClosureForm = ({
                     energisingColors,
                     cleansingColors,
                     colorsLoading,
-                    fetchPropertiesForColor,
-                    fetchColorHex,
+                    getEnergisingProperties,
+                    getCleansingProperties,
+                    getEnergisingHex,
+                    getCleansingHex,
                   } as TableMeta<HPUTable>
                 }
               />
@@ -306,8 +317,8 @@ const ClosureForm = ({
                     label="Energising Colors"
                     value={row.energisingColors}
                     colors={energisingColors}
-                    getProperties={fetchPropertiesForColor}
-                    getColorHex={fetchColorHex}
+                    getProperties={getEnergisingProperties}
+                    getColorHex={getEnergisingHex}
                     loading={colorsLoading}
                     onChange={(updated) =>
                       updateRow(index, "energisingColors", updated)
@@ -318,8 +329,8 @@ const ClosureForm = ({
                     label="Cleansing Colors"
                     value={row.cleansingColors}
                     colors={cleansingColors}
-                    getProperties={fetchPropertiesForColor}
-                    getColorHex={fetchColorHex}
+                    getProperties={getCleansingProperties}
+                    getColorHex={getCleansingHex}
                     loading={colorsLoading}
                     onChange={(updated) =>
                       updateRow(index, "cleansingColors", updated)

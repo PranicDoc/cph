@@ -10,9 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Seeds system-level master data (chakras + prana colors) on startup.
@@ -117,7 +115,7 @@ public class MasterDataSeeder implements CommandLineRunner {
                 .colorHex(hex)
                 .properties(List.of(properties))
                 // Matches the one-time backfill of pre-category colors; SUPADM recategorises from the UI.
-                .categories(new HashSet<>(Set.of(ColorUsageType.ENERGISING)))
+                .category(ColorUsageType.ENERGISING)
                 .healerId(null) // System-level
                 .build();
         colorRepo.save(color);

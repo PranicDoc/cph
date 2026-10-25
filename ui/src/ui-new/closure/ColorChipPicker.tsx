@@ -21,6 +21,9 @@ function Swatch({ hex }: { hex?: string }) {
  * property toggles underneath.
  */
 export function ColorChipPicker({ label, value, colors, getProperties, getColorHex, loading, onChange }: ColorChipPickerProps) {
+  // A picked colour stays listed even when it is outside this panel's category (e.g. saved
+  // before categories existed), so it can still be seen and un-picked.
+  const options = [...colors, ...value.map((v) => v.color).filter((c) => !colors.includes(c))];
   const toggleColor = (color: string) => {
     const has = value.some((v) => v.color === color);
     onChange(has ? value.filter((v) => v.color !== color) : [...value, { color, properties: [] }]);
@@ -48,11 +51,11 @@ export function ColorChipPicker({ label, value, colors, getProperties, getColorH
       </div>
       {loading ? (
         <p className="hl-cpanel-empty">Loading colors…</p>
-      ) : colors.length === 0 ? (
+      ) : options.length === 0 ? (
         <p className="hl-cpanel-empty">No colors found.</p>
       ) : (
         <div className="hl-chips hl-chips-scroll">
-          {colors.map((c) => {
+          {options.map((c) => {
             const on = value.some((v) => v.color === c);
             return (
               <button

@@ -47,8 +47,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SelectField, TextField, TextareaField } from "@/components/form/Field";
 import { MultiSelect } from "@/components/ui/multi-select/multi-select";
-import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
+import { cn, extractDetail } from "@/lib/utils";
 import {
   COLOR_CATEGORIES,
   COLOR_CATEGORY_LABELS,
@@ -204,16 +203,9 @@ function ColorModal({
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
-  const [categories, setCategories] = useState<ColorCategory[]>(
-    initial?.categories?.length ? initial.categories : [defaultCategory]
-  );
+  const [category, setCategory] = useState<ColorCategory>(initial?.category ?? defaultCategory);
   const create = useCreateColor();
   const update = useUpdateColor();
-
-  const toggleCategory = (category: ColorCategory, checked: boolean) =>
-    setCategories((prev) =>
-      checked ? [...prev, category] : prev.filter((c) => c !== category)
-    );
 
   const form = useForm({
     defaultValues: {
@@ -224,10 +216,6 @@ function ColorModal({
     },
     onSubmit: async ({ value }) => {
       setError("");
-      if (categories.length === 0) {
-        setError("Select at least one category.");
-        return;
-      }
       const payload: PranaColorPayload = {
         name: value.name,
         code: value.code.toUpperCase(),
@@ -236,7 +224,7 @@ function ColorModal({
           .split("\n")
           .map((p) => p.trim())
           .filter(Boolean),
-        categories,
+        category,
         healerId: initial ? initial.healerId : null,
       };
       try {
@@ -246,8 +234,8 @@ function ColorModal({
           await create.mutateAsync(payload);
         }
         onClose();
-      } catch {
-        setError("Failed to save. Please try again.");
+      } catch (err) {
+        setError(extractDetail(err) || "Failed to save. Please try again.");
       }
     },
   });
@@ -294,17 +282,24 @@ function ColorModal({
           />
         </Field>
         <Field label="Category">
-          <div className="flex gap-4">
-            {COLOR_CATEGORIES.map((category) => (
-              <Label key={category} className="flex items-center gap-2 font-normal">
-                <Checkbox
-                  checked={categories.includes(category)}
-                  onCheckedChange={(checked) => toggleCategory(category, checked === true)}
-                />
-                {COLOR_CATEGORY_LABELS[category]}
-              </Label>
+          <div role="radiogroup" aria-label="Category" className="inline-flex rounded-lg border border-border p-0.5">
+            {COLOR_CATEGORIES.map((c) => (
+              <Button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={category === c}
+                variant={category === c ? "secondary" : "ghost"}
+                onClick={() => setCategory(c)}
+                className="px-3 py-1.5 h-auto text-sm"
+              >
+                {COLOR_CATEGORY_LABELS[c]}
+              </Button>
             ))}
           </div>
+          <p className="text-xs text-text-light mt-1">
+            A color used for both cleansing and energising is added once in each tab.
+          </p>
         </Field>
         <Field label="Healing Properties">
           <form.Field

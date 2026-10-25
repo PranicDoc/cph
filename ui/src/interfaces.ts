@@ -145,7 +145,7 @@ export interface ColorOption {
   name: string;
   colorHex?: string;
   properties?: string[];
-  categories?: ColorCategory[];
+  category?: ColorCategory | null;
   healerId?: string | null;
 }
 

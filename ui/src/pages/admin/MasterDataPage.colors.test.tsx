@@ -24,13 +24,13 @@ import api from "../../lib/axios";
 const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
 
-const color = (name: string, categories: string[]) => ({
-  id: name,
-  code: name.toUpperCase(),
+const color = (id: string, name: string, category: string | null) => ({
+  id,
+  code: id.toUpperCase(),
   name,
   colorHex: "#ffffff",
   properties: [],
-  categories,
+  category,
   healerId: null,
 });
 
@@ -39,7 +39,13 @@ function renderPage() {
     Promise.resolve({
       data: {
         data: url.endsWith("/colors")
-          ? [color("Green", ["CLEANSING"]), color("Red", ["ENERGISING"]), color("Violet", ["CLEANSING", "ENERGISING"])]
+          ? [
+              color("green", "Green", "CLEANSING"),
+              color("red", "Red", "ENERGISING"),
+              // Used both ways: one row per category.
+              color("violet_e", "Violet", "ENERGISING"),
+              color("violet_c", "Violet", "CLEANSING"),
+            ]
           : [],
       },
     })
@@ -58,23 +64,24 @@ describe("MasterDataPage prana color categories", () => {
     mPost.mockResolvedValue({ data: {} });
   });
 
-  it("lists only the selected category's colors, showing a two-category color in both tabs", async () => {
+  it("lists only the selected category's colors", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await screen.findByRole("tab", { name: "Energising" });
-    await waitFor(() => expect(within(desktopTable()).getByText("Red")).toBeInTheDocument());
-    expect(within(desktopTable()).getByText("Violet")).toBeInTheDocument();
-    expect(within(desktopTable()).queryByText("Green")).not.toBeInTheDocument();
+    await waitFor(() => expect(within(desktopTable()).getByText("RED")).toBeInTheDocument());
+    expect(within(desktopTable()).getByText("VIOLET_E")).toBeInTheDocument();
+    expect(within(desktopTable()).queryByText("VIOLET_C")).not.toBeInTheDocument();
+    expect(within(desktopTable()).queryByText("GREEN")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Cleansing" }));
 
-    expect(within(desktopTable()).getByText("Green")).toBeInTheDocument();
-    expect(within(desktopTable()).getByText("Violet")).toBeInTheDocument();
-    expect(within(desktopTable()).queryByText("Red")).not.toBeInTheDocument();
+    expect(within(desktopTable()).getByText("GREEN")).toBeInTheDocument();
+    expect(within(desktopTable()).getByText("VIOLET_C")).toBeInTheDocument();
+    expect(within(desktopTable()).queryByText("RED")).not.toBeInTheDocument();
   });
 
-  it("a color added from a tab starts in that tab's category", async () => {
+  it("a color added from a tab is saved in that tab's category", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -82,36 +89,37 @@ describe("MasterDataPage prana color categories", () => {
     await user.click(screen.getByRole("button", { name: /Add Color/ }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("checkbox", { name: "Cleansing" })).toBeChecked();
-    expect(within(dialog).getByRole("checkbox", { name: "Energising" })).not.toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: "Cleansing" })).toHaveAttribute("aria-checked", "true");
+    expect(within(dialog).getByRole("radio", { name: "Energising" })).toHaveAttribute("aria-checked", "false");
 
     const [name, code] = within(dialog).getAllByRole("textbox");
     await user.type(name, "Orange");
-    await user.type(code, "orange");
-    await user.click(within(dialog).getByRole("checkbox", { name: "Energising" }));
+    await user.type(code, "orange_c");
     await user.click(within(dialog).getByRole("button", { name: "Add Color" }));
 
     await waitFor(() =>
       expect(mPost).toHaveBeenCalledWith(
         "/api/v1/masterdata/colors",
-        expect.objectContaining({ code: "ORANGE", categories: ["CLEANSING", "ENERGISING"] })
+        expect.objectContaining({ code: "ORANGE_C", category: "CLEANSING" })
       )
     );
   }, TYPING_TIMEOUT);
 
-  it("refuses to save a color with no category", async () => {
+  it("shows the server's message when the name already exists in that category", async () => {
+    mPost.mockRejectedValue({
+      response: { data: { detail: '"Green" already exists in cleansing colors' } },
+    });
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: /Add Color/ }));
+    await user.click(await screen.findByRole("tab", { name: "Cleansing" }));
+    await user.click(screen.getByRole("button", { name: /Add Color/ }));
     const dialog = await screen.findByRole("dialog");
     const [name, code] = within(dialog).getAllByRole("textbox");
-    await user.type(name, "Orange");
-    await user.type(code, "ORANGE");
-    await user.click(within(dialog).getByRole("checkbox", { name: "Energising" }));
+    await user.type(name, "Green");
+    await user.type(code, "GREEN_2");
     await user.click(within(dialog).getByRole("button", { name: "Add Color" }));
 
-    expect(await within(dialog).findByText("Select at least one category.")).toBeInTheDocument();
-    expect(mPost).not.toHaveBeenCalled();
+    expect(await within(dialog).findByText('"Green" already exists in cleansing colors')).toBeInTheDocument();
   }, TYPING_TIMEOUT);
 });

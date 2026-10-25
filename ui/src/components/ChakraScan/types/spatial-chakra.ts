@@ -74,7 +74,7 @@ export interface PranaColorEntry {
   gradientTo: string;
   primaryUses: string;
   properties: string;
-  categories?: ColorCategory[];
+  category?: ColorCategory | null;
 }
 
 // --- Treatment Color (selected on a chakra) ---

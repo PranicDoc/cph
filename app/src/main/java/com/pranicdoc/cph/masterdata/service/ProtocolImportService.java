@@ -332,7 +332,8 @@ public class ProtocolImportService {
         Map<String, PranaColorCatalog> colorByName = new HashMap<>();
         Set<String> colorCodes = new HashSet<>();
         for (PranaColorCatalog c : pranaColorRepo.findByHealerIdIsNull()) {
-            colorByName.put(c.getName().toLowerCase(Locale.ROOT), c);
+            // Uncategorised colors (backfill not yet run) never match: a color is resolved per category.
+            if (c.getCategory() != null) colorByName.put(colorKey(c.getName(), c.getCategory()), c);
             colorCodes.add(c.getCode());
         }
 
@@ -463,9 +464,14 @@ public class ProtocolImportService {
         return chakra;
     }
 
+    /** Colors are unique per (name, category): the same name is a separate row per usage. */
+    private static String colorKey(String name, ColorUsageType category) {
+        return name.toLowerCase(Locale.ROOT) + "|" + category;
+    }
+
     private PranaColorCatalog resolveOrBackfillColor(String name, ColorUsageType usageType,
                                                      Map<String, PranaColorCatalog> byName, Set<String> codes) {
-        PranaColorCatalog existing = byName.get(name.toLowerCase(Locale.ROOT));
+        PranaColorCatalog existing = byName.get(colorKey(name, usageType));
         if (existing != null) {
             return existing;
         }
@@ -473,10 +479,9 @@ public class ProtocolImportService {
         color.setCode(uniqueCode(name, codes));
         color.setName(name);
         color.setHealerId(null);
-        // A backfilled color starts in the category it was first imported under.
-        color.setCategories(new HashSet<>(Set.of(usageType)));
+        color.setCategory(usageType);
         color = pranaColorRepo.save(color);
-        byName.put(name.toLowerCase(Locale.ROOT), color);
+        byName.put(colorKey(name, usageType), color);
         codes.add(color.getCode());
         return color;
     }

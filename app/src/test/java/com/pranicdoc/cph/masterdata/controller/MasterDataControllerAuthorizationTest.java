@@ -364,7 +364,7 @@ class MasterDataControllerAuthorizationTest {
         mockMvc.perform(put(BASE + "/colors/" + ROW_ID)
                         .cookie(accessCookie())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Green\",\"code\":\"GREEN\",\"colorHex\":\"#0f0\",\"categories\":[\"ENERGISING\"]}"))
+                        .content("{\"name\":\"Green\",\"code\":\"GREEN\",\"colorHex\":\"#0f0\",\"category\":\"ENERGISING\"}"))
                 .andExpect(status().is(not(403)));
 
         var captor = forClass(Boolean.class);

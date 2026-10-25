@@ -13,7 +13,7 @@ export interface PranaColor {
   name: string;
   colorHex: string;
   properties?: string[];
-  categories?: ColorCategory[];
+  category?: ColorCategory | null;
   healerId?: string | null;
 }
 
@@ -39,7 +39,7 @@ export interface PranaColorPayload {
   code: string;
   colorHex: string;
   properties?: string[];
-  categories: ColorCategory[];
+  category: ColorCategory;
   healerId?: string | null;
 }
 

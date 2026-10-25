@@ -8,9 +8,7 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -41,10 +39,9 @@ public class PranaColorCatalog extends BaseEntity {
     @Builder.Default
     private List<String> properties = new ArrayList<>(); // Individual healing properties of this color
 
-    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private Set<ColorUsageType> categories = new HashSet<>(); // CLEANSING and/or ENERGISING
+    @Column(name = "category", length = 20)
+    private ColorUsageType category; // CLEANSING or ENERGISING; a color used both ways is two rows
 
     @Column(name = "healer_id", columnDefinition = "uuid")
     private UUID healerId; // NULL = system-level, non-null = healer-custom
