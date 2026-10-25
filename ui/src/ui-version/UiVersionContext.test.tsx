@@ -127,8 +127,11 @@ describe("UiVersionProvider", () => {
     localStorage.setItem(UI_VERSION_KEY, "new");
     get.mockResolvedValue({ data: { uiVersion: "CLASSIC" } });
     renderProvider();
-    await waitFor(() => expect(screen.getByTestId("version")).toHaveTextContent("classic"));
-    expect(document.documentElement.dataset.theme).toBeUndefined();
+    // The view switches on render and the theme attribute is cleared just after: wait for both.
+    await waitFor(() => {
+      expect(screen.getByTestId("version")).toHaveTextContent("classic");
+      expect(document.documentElement.dataset.theme).toBeUndefined();
+    });
   });
 
   it("does not ask the account anything while signed out", async () => {
