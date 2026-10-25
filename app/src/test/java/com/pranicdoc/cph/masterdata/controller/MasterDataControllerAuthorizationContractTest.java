@@ -75,6 +75,10 @@ class MasterDataControllerAuthorizationContractTest {
     private static final String PROTOCOLS_DELETE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','DELETE')";
     private static final String PROTOCOLS_IMPORT = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','IMPORT')";
 
+    private static final String CHAKRAS_ELEVATE   = "@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','ELEVATE')";
+    private static final String COLORS_ELEVATE    = "@rbacAuthz.hasPermission('MASTER_DATA_COLORS','ELEVATE')";
+    private static final String PROTOCOLS_ELEVATE = "@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','ELEVATE')";
+
     /** methodName -> expected @PreAuthorize literal. All 29 endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getChakras",      CHAKRAS_READ},
@@ -106,7 +110,10 @@ class MasterDataControllerAuthorizationContractTest {
             new String[]{"addProtocolChakraColors",         PROTOCOLS_CREATE},
             new String[]{"updateProtocolChakraColor",       PROTOCOLS_UPDATE},
             new String[]{"deleteProtocolChakraColor",       PROTOCOLS_DELETE},
-            new String[]{"wipeMasterData",                  PROTOCOLS_DELETE});
+            new String[]{"wipeMasterData",                  PROTOCOLS_DELETE},
+            new String[]{"elevateChakras",                  CHAKRAS_ELEVATE},
+            new String[]{"elevateColors",                   COLORS_ELEVATE},
+            new String[]{"elevateProtocols",                PROTOCOLS_ELEVATE});
 
     private static String preAuthorizeValueOf(Class<?> controller, String methodName) {
         Method match = null;
@@ -269,19 +276,19 @@ class MasterDataControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 31 declared MasterDataController endpoints (21 from "
+                .as("the sweep must inspect exactly the 34 declared MasterDataController endpoints (21 from "
                         + "Phase 40, the 2 protocol->chakra->color relationship reads added afterward, the "
                         + "4 single-protocol chakra/color management endpoints -- GET/POST/PUT/DELETE "
                         + ".../protocols/{id}/chakra-colors -- added to let a healer self-serve their own "
                         + "chakra/color additions on a protocol, the 2 import-job status reads added when "
                         + "the bulk import became async, the 1 SUPADM-only bulk-wipe endpoint, and the 1 paged "
-                        + "protocol search read). "
+                        + "protocol search read, and the 3 \"unlock shared entries\" endpoints, one per type). "
                         + "Eight of the original 21 (three chakra GETs, three colour GETs, two protocol GETs) were "
                         + "ungated before Phase 40 (D-09); a regression that drops one of those gates "
                         + "restores an information-disclosure path — internal catalog keys and system-row "
                         + "structure become readable by any authenticated caller again — rather than merely "
                         + "failing closed.")
-                .isEqualTo(31);
+                .isEqualTo(34);
     }
 
     // ─── Section C — allow-list validity for all 30 pairs ────────────────
@@ -367,11 +374,13 @@ class MasterDataControllerAuthorizationContractTest {
 
         int flagCount = countOccurrences(stripped, "boolean isSuperAdmin");
         assertThat(flagCount)
-                .as("all 10 SUPADM-only flags (7 from Phase 40 plus 2 for the PUT/DELETE chakra-colors "
-                        + "endpoints, plus 1 for the bulk-wipe endpoint) must still be computed and passed "
-                        + "to the service — deleting them (or replacing with a literal true) would hand the "
-                        + "override/operation to every caller who clears the coarse gate (T-40-21)")
-                .isEqualTo(10);
+                .as("the 6 SUPADM-only flags (the 5 system-row deletes and the bulk wipe) must still be "
+                        + "computed and passed to the service — deleting them (or replacing with a literal true) "
+                        + "would hand the override/operation to every caller who clears the coarse gate (T-40-21)")
+                .isEqualTo(6);
+        assertThat(countOccurrences(stripped, "boolean mayEditSystemRows = mayEditSystemRows(Resource."))
+                .as("the 4 system-row updates use the SUPADM-or-active-unlock check")
+                .isEqualTo(4);
     }
 
     private static int countOccurrences(String haystack, String needle) {

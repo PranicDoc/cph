@@ -90,10 +90,10 @@ public class MasterDataService {
 
     @Auditable(action = "UPDATE_CHAKRA")
     @Transactional
-    public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean isSuperAdmin) {
+    public ChakraCatalog updateChakra(UUID id, ChakraRequest req, boolean mayEditSystemRows) {
         ChakraCatalog chakra = getChakraById(id);
-        if (chakra.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System chakras can only be edited by SUPADM");
+        if (chakra.getHealerId() == null && !mayEditSystemRows)
+            throw new AccessDeniedException("Unlock shared entries to edit a system chakra");
         chakra.setName(req.name());
         chakra.setCategory(req.category());
         chakra.setLocation(req.location());
@@ -147,10 +147,10 @@ public class MasterDataService {
 
     @Auditable(action = "UPDATE_COLOR")
     @Transactional
-    public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean isSuperAdmin) {
+    public PranaColorCatalog updateColor(UUID id, PranaColorRequest req, boolean mayEditSystemRows) {
         PranaColorCatalog color = getColorById(id);
-        if (color.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System colors can only be edited by SUPADM");
+        if (color.getHealerId() == null && !mayEditSystemRows)
+            throw new AccessDeniedException("Unlock shared entries to edit a system color");
         if (colorRepo.existsByNameIgnoreCaseAndCategoryAndIdNot(req.name(), req.category(), id))
             throw duplicateColor(req);
         color.setName(req.name());
@@ -264,10 +264,10 @@ public class MasterDataService {
 
     @Auditable(action = "UPDATE_PROTOCOL")
     @Transactional
-    public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean isSuperAdmin) {
+    public ProtocolCatalog updateProtocol(UUID id, ProtocolRequest req, boolean mayEditSystemRows) {
         ProtocolCatalog protocol = getProtocolById(id);
-        if (protocol.getHealerId() == null && !isSuperAdmin)
-            throw new AccessDeniedException("System protocols can only be edited by SUPADM");
+        if (protocol.getHealerId() == null && !mayEditSystemRows)
+            throw new AccessDeniedException("Unlock shared entries to edit a system protocol");
         protocol.setName(req.name());
         protocol.setSourceBook(req.sourceBook());
         protocol.setPageNumber(req.pageNumber());
@@ -374,8 +374,8 @@ public class MasterDataService {
     @Auditable(action = "UPDATE_PROTOCOL_CHAKRA_COLOR")
     @Transactional
     public List<ProtocolChakraColorGroup> updateProtocolChakraColor(
-            UUID protocolId, UUID protocolChakraId, ProtocolChakraColorUpdateRequest req, boolean isSuperAdmin) {
-        ProtocolChakra link = getOwnedProtocolChakra(protocolId, protocolChakraId, isSuperAdmin);
+            UUID protocolId, UUID protocolChakraId, ProtocolChakraColorUpdateRequest req, boolean mayEditSystemRows) {
+        ProtocolChakra link = getOwnedProtocolChakra(protocolId, protocolChakraId, mayEditSystemRows);
 
         List<ProtocolChakraColor> existing = protocolChakraColorRepo.findByProtocolChakra_IdIn(List.of(protocolChakraId));
         replaceColorsForUsage(link, existing, req.cleansingColorIds(), ColorUsageType.CLEANSING);
@@ -396,11 +396,11 @@ public class MasterDataService {
     }
 
     /**
-     * Ownership check for update/delete: system rows (healerId null) require
-     * the SUPADM override; a non-system row may only be touched by the
+     * Ownership check for update/delete: system rows (healerId null) need {@code maySystemRows}
+     * (SUPADM, or an active unlock when editing); a non-system row may only be touched by the
      * healer who owns it, never by another healer even with the same grant.
      */
-    private ProtocolChakra getOwnedProtocolChakra(UUID protocolId, UUID protocolChakraId, boolean isSuperAdmin) {
+    private ProtocolChakra getOwnedProtocolChakra(UUID protocolId, UUID protocolChakraId, boolean maySystemRows) {
         ProtocolChakra link = protocolChakraRepo.findById(protocolChakraId)
                 .orElseThrow(() -> new ResourceNotFoundException("ProtocolChakra", protocolChakraId));
         if (!link.getProtocol().getId().equals(protocolId)) {
@@ -408,7 +408,7 @@ public class MasterDataService {
         }
         UUID ownerHealerId = link.getHealerId();
         if (ownerHealerId == null) {
-            if (!isSuperAdmin) throw new AccessDeniedException("System protocol-chakra links can only be edited by SUPADM");
+            if (!maySystemRows) throw new AccessDeniedException("Unlock shared entries to edit a system protocol-chakra link");
             return link;
         }
         if (!ownerHealerId.equals(securityContextUtil.getCurrentHealerId())) {

@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -27,6 +29,18 @@ public class CreditServiceClient {
                 .body(new DeductRequest(healerId))
                 .retrieve()
                 .body(DeductResponse.class);
+    }
+
+    /** A global config value set by the super admin, if the key exists. */
+    public Optional<String> configValue(String key) {
+        CreditConfigEntry[] entries = restClient.get()
+                .uri("/credits/admin/config")
+                .retrieve()
+                .body(CreditConfigEntry[].class);
+        return entries == null ? Optional.empty() : Arrays.stream(entries)
+                .filter(entry -> key.equals(entry.configKey()))
+                .map(CreditConfigEntry::configValue)
+                .findFirst();
     }
 
     public AccountResponse createAccount(OwnerType ownerType, UUID ownerId) {

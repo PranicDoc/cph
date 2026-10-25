@@ -76,24 +76,28 @@ public enum Resource {
             Operation.READ,
             Operation.CREATE,
             Operation.UPDATE,
-            Operation.DELETE
+            Operation.DELETE,
+            Operation.ELEVATE
     ),
 
     // IMPORT is the bulk xlsx upload and its job list, kept apart from CREATE so a role can
     // add protocols one by one without being able to bulk-import them.
+    // ELEVATE (all three master-data types) unlocks editing the shared system rows for a while.
     MASTER_DATA_PROTOCOLS(
             Operation.READ,
             Operation.CREATE,
             Operation.UPDATE,
             Operation.DELETE,
-            Operation.IMPORT
+            Operation.IMPORT,
+            Operation.ELEVATE
     ),
 
     MASTER_DATA_CHAKRAS(
             Operation.READ,
             Operation.CREATE,
             Operation.UPDATE,
-            Operation.DELETE
+            Operation.DELETE,
+            Operation.ELEVATE
     ),
 
     HEALER_REG(

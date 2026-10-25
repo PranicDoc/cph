@@ -8,6 +8,7 @@ import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
+import com.pranicdoc.cph.masterdata.service.MasterDataElevationService;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
 import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
@@ -130,6 +131,8 @@ class MasterDataControllerAuthorizationTest {
     private MasterDataService masterDataService;
     @MockBean
     private ProtocolImportJobService protocolImportJobService;
+    @MockBean
+    private MasterDataElevationService elevationService;
 
     // ─── consumed by RbacAuthz ─────────────────────────────────────────────
     @MockBean
@@ -485,6 +488,46 @@ class MasterDataControllerAuthorizationTest {
 
         mockMvc.perform(delete(BASE + "/chakras/" + ROW_ID).cookie(accessCookie()))
                 .andExpect(status().isForbidden());
+    }
+
+    // ─── Unlock shared entries: a non-SUPADM may edit system rows while unlocked, never delete ──
+
+    @Test
+    void whileUnlocked_aNonSupadmMayEditSystemChakras_butNotDeleteThem() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_CHAKRAS), eq(Operation.UPDATE))).thenReturn(true);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_CHAKRAS), eq(Operation.DELETE))).thenReturn(true);
+        when(elevationService.isActive(HEALER_ID, Resource.MASTER_DATA_CHAKRAS)).thenReturn(true);
+        when(masterDataService.updateChakra(any(), any(), anyBoolean())).thenReturn(null);
+
+        mockMvc.perform(put(BASE + "/chakras/" + ROW_ID)
+                        .cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Crown\",\"code\":\"CROWN\"}"))
+                .andExpect(status().is(not(403)));
+        mockMvc.perform(delete(BASE + "/chakras/" + ROW_ID).cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        verify(masterDataService).updateChakra(eq(ROW_ID), any(), eq(true));
+        verify(masterDataService).deleteChakra(ROW_ID, false);
+    }
+
+    @Test
+    void unlockingNeedsTheElevatePermission() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.MASTER_DATA_CHAKRAS), eq(Operation.UPDATE))).thenReturn(true);
+
+        mockMvc.perform(post(BASE + "/chakras/elevation")
+                        .cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"secret\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(elevationService);
     }
 
     // ─── Test D — bulk-wipe endpoint is unconditionally SUPADM-only ──────────

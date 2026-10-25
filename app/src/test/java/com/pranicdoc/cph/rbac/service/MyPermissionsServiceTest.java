@@ -11,6 +11,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.pranicdoc.cph.masterdata.service.MasterDataElevationService;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
@@ -26,6 +28,7 @@ class MyPermissionsServiceTest {
     @Mock private RbacAuthz rbacAuthz;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private RolePermissionLookupService lookupService;
+    @Mock private MasterDataElevationService elevationService;
     @InjectMocks private MyPermissionsService service;
 
     @Test
@@ -54,5 +57,17 @@ class MyPermissionsServiceTest {
 
         assertThat(me.grants()).containsOnlyKeys("MASTER_DATA_PROTOCOLS");
         assertThat(me.grants().get("MASTER_DATA_PROTOCOLS")).containsExactly("READ", "CREATE");
+    }
+
+    @Test
+    void anActiveUnlockOfSharedEntriesIsReported() {
+        UUID healerId = UUID.randomUUID();
+        Instant until = Instant.parse("2026-10-25T12:15:00Z");
+        when(rbacAuthz.isSuperAdmin()).thenReturn(false);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.effectiveGrants(healerId)).thenReturn(Map.of());
+        when(elevationService.activeFor(healerId)).thenReturn(Map.of("MASTER_DATA_CHAKRAS", until));
+
+        assertThat(service.current().elevations()).containsEntry("MASTER_DATA_CHAKRAS", until);
     }
 }

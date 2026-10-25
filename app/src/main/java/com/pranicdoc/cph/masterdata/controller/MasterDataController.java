@@ -4,7 +4,10 @@ import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.MasterDataType;
 import com.pranicdoc.cph.common.enums.ProtocolType;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.dto.ChakraRequest;
+import com.pranicdoc.cph.masterdata.dto.ElevationRequest;
+import com.pranicdoc.cph.masterdata.dto.ElevationResponse;
 import com.pranicdoc.cph.masterdata.dto.MasterDataWipeResult;
 import com.pranicdoc.cph.masterdata.dto.PranaColorRequest;
 import com.pranicdoc.cph.masterdata.dto.ProtocolChakraColorAddRequest;
@@ -18,9 +21,11 @@ import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolColorMapping;
+import com.pranicdoc.cph.masterdata.service.MasterDataElevationService;
 import com.pranicdoc.cph.masterdata.service.MasterDataService;
 import com.pranicdoc.cph.masterdata.service.ProtocolImportJobService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
+import com.pranicdoc.cph.rbac.model.Resource;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +71,8 @@ public class MasterDataController {
     private final MasterDataService masterDataService;
     private final ProtocolImportJobService protocolImportJobService;
     private final RbacAuthz rbacAuthz;
+    private final MasterDataElevationService elevationService;
+    private final SecurityContextUtil securityContextUtil;
 
     @GetMapping("/chakras")
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','READ')")
@@ -96,8 +103,9 @@ public class MasterDataController {
     @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','UPDATE')")
     public ResponseEntity<ApiResponse<ChakraCatalog>> updateChakra(
             @PathVariable UUID id, @Valid @RequestBody ChakraRequest req) {
-        // PD-40-04 (shared with the six other master-data mutating handlers): the system-row
-        // override below is intentionally SUPADM-only and NON-GRANTABLE. The three MASTER_DATA_*
+        // System rows: editable by SUPADM, or for a while after "unlock shared entries" (ELEVATE,
+        // see mayEditSystemRows). Deleting them keeps the PD-40-04 override below, which is
+        // intentionally SUPADM-only and NON-GRANTABLE. The three MASTER_DATA_*
         // resources deliberately do not allow-list the ADMIN verb in Resource.java, so
         // RolePermissionLookupService can never resolve a MASTER_DATA_*+ADMIN grant to true
         // (Permission's constructor rejects that pair at role-creation time). Net effect:
@@ -110,8 +118,8 @@ public class MasterDataController {
         // behavioural gain this phase). Note: the SC1 sweep and the allow-list validity check
         // apply to @PreAuthorize gate literals, not to this in-body capability call, so this
         // pair is not an unflagged D-10 violation.
-        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_CHAKRAS", "ADMIN");
-        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra updated", masterDataService.updateChakra(id, req, isSuperAdmin)));
+        boolean mayEditSystemRows = mayEditSystemRows(Resource.MASTER_DATA_CHAKRAS);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Chakra updated", masterDataService.updateChakra(id, req, mayEditSystemRows)));
     }
 
     @DeleteMapping("/chakras/{id}")
@@ -153,8 +161,8 @@ public class MasterDataController {
     public ResponseEntity<ApiResponse<PranaColorCatalog>> updateColor(
             @PathVariable UUID id, @Valid @RequestBody PranaColorRequest req) {
         // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
-        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_COLORS", "ADMIN");
-        return ResponseEntity.ok(new ApiResponse<>(true, "Color updated", masterDataService.updateColor(id, req, isSuperAdmin)));
+        boolean mayEditSystemRows = mayEditSystemRows(Resource.MASTER_DATA_COLORS);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Color updated", masterDataService.updateColor(id, req, mayEditSystemRows)));
     }
 
     @DeleteMapping("/colors/{id}")
@@ -255,8 +263,8 @@ public class MasterDataController {
     public ResponseEntity<ApiResponse<ProtocolCatalog>> updateProtocol(
             @PathVariable UUID id, @Valid @RequestBody ProtocolRequest req) {
         // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
-        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
-        return ResponseEntity.ok(new ApiResponse<>(true, "Protocol updated", masterDataService.updateProtocol(id, req, isSuperAdmin)));
+        boolean mayEditSystemRows = mayEditSystemRows(Resource.MASTER_DATA_PROTOCOLS);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Protocol updated", masterDataService.updateProtocol(id, req, mayEditSystemRows)));
     }
 
     @DeleteMapping("/protocols/{id}")
@@ -339,9 +347,9 @@ public class MasterDataController {
             @PathVariable UUID protocolId, @PathVariable UUID protocolChakraId,
             @Valid @RequestBody ProtocolChakraColorUpdateRequest req) {
         // PD-40-04: SUPADM-only, non-grantable system-row override — see updateChakra.
-        boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
+        boolean mayEditSystemRows = mayEditSystemRows(Resource.MASTER_DATA_PROTOCOLS);
         return ResponseEntity.ok(new ApiResponse<>(true, "Chakra colors updated",
-                masterDataService.updateProtocolChakraColor(protocolId, protocolChakraId, req, isSuperAdmin)));
+                masterDataService.updateProtocolChakraColor(protocolId, protocolChakraId, req, mayEditSystemRows)));
     }
 
     @DeleteMapping("/protocols/{protocolId}/chakra-colors/{protocolChakraId}")
@@ -352,5 +360,38 @@ public class MasterDataController {
         boolean isSuperAdmin = rbacAuthz.hasPermission("MASTER_DATA_PROTOCOLS", "ADMIN");
         masterDataService.deleteProtocolChakraColor(protocolId, protocolChakraId, isSuperAdmin);
         return ResponseEntity.ok(new ApiResponse<>(true, "Chakra removed from protocol", null));
+    }
+
+    // ── Unlock shared entries (temporary edit of system rows) ───────────────
+    // A role holding MASTER_DATA_*:ELEVATE confirms the user's password to edit that type's
+    // system rows for the minutes set in global config. Deletes and the wipe stay SUPADM-only.
+
+    @PostMapping("/chakras/elevation")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_CHAKRAS','ELEVATE')")
+    public ResponseEntity<ApiResponse<ElevationResponse>> elevateChakras(@Valid @RequestBody ElevationRequest req) {
+        return elevate(Resource.MASTER_DATA_CHAKRAS, req);
+    }
+
+    @PostMapping("/colors/elevation")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_COLORS','ELEVATE')")
+    public ResponseEntity<ApiResponse<ElevationResponse>> elevateColors(@Valid @RequestBody ElevationRequest req) {
+        return elevate(Resource.MASTER_DATA_COLORS, req);
+    }
+
+    @PostMapping("/protocols/elevation")
+    @PreAuthorize("@rbacAuthz.hasPermission('MASTER_DATA_PROTOCOLS','ELEVATE')")
+    public ResponseEntity<ApiResponse<ElevationResponse>> elevateProtocols(@Valid @RequestBody ElevationRequest req) {
+        return elevate(Resource.MASTER_DATA_PROTOCOLS, req);
+    }
+
+    private ResponseEntity<ApiResponse<ElevationResponse>> elevate(Resource resource, ElevationRequest req) {
+        ElevationResponse unlocked = new ElevationResponse(resource.name(), elevationService.elevate(resource, req.password()));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Shared entries unlocked", unlocked));
+    }
+
+    /** SUPADM always; anyone else while their unlock of this type is active. */
+    private boolean mayEditSystemRows(Resource resource) {
+        return rbacAuthz.hasPermission(resource.name(), "ADMIN")
+                || elevationService.isActive(securityContextUtil.getCurrentHealerIdOrNull(), resource);
     }
 }

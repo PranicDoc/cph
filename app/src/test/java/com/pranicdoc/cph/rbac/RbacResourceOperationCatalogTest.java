@@ -29,8 +29,8 @@ class RbacResourceOperationCatalogTest {
     }
 
     @Test
-    void declaresExactlyNineOperations() {
-        assertEquals(9, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
+    void declaresExactlyTenOperations() {
+        assertEquals(10, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
     }
 
     @Test
@@ -81,7 +81,7 @@ class RbacResourceOperationCatalogTest {
                 "SC2 / D-06: the healer per-session protocol resource must be a distinct enum "
                         + "constant from the admin master-data protocol catalog");
         assertEquals(Set.of(Operation.CREATE), Resource.SESSION_PROTOCOL.getSupportedOperations());
-        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE, Operation.IMPORT),
+        assertEquals(Set.of(Operation.READ, Operation.CREATE, Operation.UPDATE, Operation.DELETE, Operation.IMPORT, Operation.ELEVATE),
                 Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations());
         assertNotEquals(Resource.SESSION_PROTOCOL.getSupportedOperations(),
                 Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations(),
