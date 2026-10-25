@@ -61,4 +61,23 @@ describe("HealingSessionWizard: correcting a saved session", () => {
     expect((await screen.findAllByText("Crown Chakra")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/select chakra/i)).not.toBeInTheDocument();
   });
+
+  it("names a saved chakra that is no longer in the list so the healer can replace it", async () => {
+    const removedChakra = {
+      id: "session-3",
+      scans: [
+        { scanType: "PRE" as const, readings: [{ chakraId: "old-spleen-id", chakraName: "Spleen", energyLevel: "D", activationLevel: "U" }] },
+        { scanType: "POST" as const, readings: [] },
+      ],
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <HealingSessionWizard caseId="case-1" symptoms={[]} onClose={vi.fn()} session={removedChakra} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect((await screen.findAllByPlaceholderText("Spleen (not in chakra list)")).length).toBeGreaterThan(0);
+  });
 });
