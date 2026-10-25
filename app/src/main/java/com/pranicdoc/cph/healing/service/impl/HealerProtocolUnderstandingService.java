@@ -186,8 +186,7 @@ public class HealerProtocolUnderstandingService {
                 .toList();
         if (protocolIds.isEmpty()) return Map.of();
 
-        // Filtered here rather than via findByProtocol_IdAndHealerIdIsNullOrHealerId, whose derived
-        // "A and B or C" also matches the healer's own links on other protocols.
+        // One query for every named protocol's links, keeping system rows and the case healer's own.
         List<ProtocolChakra> links = protocolChakraRepository.findByProtocol_IdIn(protocolIds)
                 .stream()
                 .filter(link -> link.getHealerId() == null || link.getHealerId().equals(healerId))
