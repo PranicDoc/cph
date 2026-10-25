@@ -1,4 +1,4 @@
-import { SeveritySlider, severityToRating } from "@/ui-new/components/SeveritySlider";
+import { SeveritySlider } from "@/ui-new/components/SeveritySlider";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -14,11 +14,6 @@ const EMOJI_SCALE = [
 export interface FeedbackSymptom {
   caseSymptomId: string;
   name: string;
-}
-
-/** The 0-10 rating the backend stores for a value picked on this list's scale. */
-export function toSymptomRating(value: number, isNewView: boolean): number {
-  return isNewView ? severityToRating(value) : value * 2;
 }
 
 /**

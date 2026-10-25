@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SymptomRatingList, toSymptomRating, type FeedbackSymptom } from "./SymptomRatingList";
+import { toSymptomRating } from "@/lib/symptomRating";
+import { SymptomRatingList, type FeedbackSymptom } from "./SymptomRatingList";
 
 type FeedbackType = "INTERIM" | "FINAL";
 
@@ -63,9 +64,9 @@ export function ManualFeedbackDialog({
       toast.success("Feedback saved");
       onClose();
     },
-    onError: (err: any) =>
+    onError: (err: unknown) =>
       setError(
-        err?.response?.data?.type === ALREADY_SUBMITTED
+        (err as { response?: { data?: { type?: string } } })?.response?.data?.type === ALREADY_SUBMITTED
           ? "Feedback for this healing is already recorded."
           : extractDetail(err) || "Failed to save feedback, try again"
       ),

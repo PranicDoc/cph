@@ -12,9 +12,9 @@ import {
 } from "../lib/feedbackFlag";
 import {
   SymptomRatingList,
-  toSymptomRating,
   type FeedbackSymptom,
 } from "../components/feedback/SymptomRatingList";
+import { toSymptomRating } from "../lib/symptomRating";
 
 export default function PatientFeedback() {
   const { isNewView } = useUiVersion();
