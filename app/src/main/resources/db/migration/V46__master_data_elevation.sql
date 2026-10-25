@@ -1,5 +1,5 @@
 -- =============================================================================
--- V44__master_data_elevation.sql
+-- V46__master_data_elevation.sql
 -- A user whose role holds MASTER_DATA_*:ELEVATE can confirm their password to
 -- edit the shared (system) rows of that master-data type for a limited time.
 -- One row per unlock; it is active while expires_at is in the future.
