@@ -29,8 +29,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -340,6 +343,14 @@ class ProtocolImportServiceTest {
                 .filter(l -> l.getUsageType() == ColorUsageType.ENERGISING).count();
         assertEquals(3, cleansingCount); // one cleansing color per chakra
         assertEquals(5, energizingCount); // 3 (solar plexus) + 2 (back heart) + 0 (spleen)
+
+        // A backfilled color takes the category it was first imported under.
+        ArgumentCaptor<PranaColorCatalog> colorCaptor = ArgumentCaptor.forClass(PranaColorCatalog.class);
+        verify(pranaColorRepo, times(5)).save(colorCaptor.capture());
+        Map<String, Set<ColorUsageType>> categoriesByName = colorCaptor.getAllValues().stream()
+                .collect(Collectors.toMap(PranaColorCatalog::getName, PranaColorCatalog::getCategories));
+        assertEquals(Set.of(ColorUsageType.ENERGISING), categoriesByName.get("Light Whitish Blue"));
+        assertEquals(Set.of(ColorUsageType.CLEANSING), categoriesByName.get("Light Whitish Violet"));
     }
 
     @Test

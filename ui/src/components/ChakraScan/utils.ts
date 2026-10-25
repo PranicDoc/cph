@@ -115,6 +115,7 @@ export function buildPranaColorCatalog(colors: ColorOption[]): PranaColorEntry[]
       gradientTo: colorHex,
       primaryUses: propertiesText || color.name,
       properties: propertiesText,
+      categories: color.categories,
     };
   });
 }

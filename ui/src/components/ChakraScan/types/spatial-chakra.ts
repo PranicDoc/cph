@@ -1,3 +1,5 @@
+import type { ColorCategory } from "@/lib/colorCategory";
+
 // ============================================================
 // Spatial Chakra Scan — Type Definitions
 // ============================================================
@@ -72,6 +74,7 @@ export interface PranaColorEntry {
   gradientTo: string;
   primaryUses: string;
   properties: string;
+  categories?: ColorCategory[];
 }
 
 // --- Treatment Color (selected on a chakra) ---

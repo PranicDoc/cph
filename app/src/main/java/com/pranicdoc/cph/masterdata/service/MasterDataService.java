@@ -138,6 +138,7 @@ public class MasterDataService {
         color.setCode(req.code().toUpperCase());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setCategories(new HashSet<>(req.categories()));
         color.setHealerId(securityContextUtil.getCurrentHealerId());
         return colorRepo.save(color);
     }
@@ -151,6 +152,7 @@ public class MasterDataService {
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
+        color.setCategories(new HashSet<>(req.categories()));
         return colorRepo.save(color);
     }
 
@@ -493,6 +495,7 @@ public class MasterDataService {
         int colors = 0;
         if (wipeColors) {
             colorRepo.hardDeleteAllProperties();
+            colorRepo.hardDeleteAllCategories();
             colors = colorRepo.hardDeleteAll();
         }
         int chakras = wipeChakras ? chakraRepo.hardDeleteAll() : 0;

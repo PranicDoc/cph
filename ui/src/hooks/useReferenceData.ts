@@ -35,6 +35,7 @@ function normalizeColor(item: any): ColorOption {
     name: item.name ?? "",
     colorHex: item.colorHex ?? undefined,
     properties: item.properties ?? undefined,
+    categories: item.categories ?? undefined,
     healerId: item.healerId ?? null,
   };
 }

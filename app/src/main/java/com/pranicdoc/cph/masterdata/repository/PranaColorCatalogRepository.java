@@ -39,4 +39,8 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "DELETE FROM prana_color_catalog_properties", nativeQuery = true)
     int hardDeleteAllProperties();
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM prana_color_catalog_categories", nativeQuery = true)
+    int hardDeleteAllCategories();
 }

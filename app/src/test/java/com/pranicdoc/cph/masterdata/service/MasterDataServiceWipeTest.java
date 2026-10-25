@@ -72,6 +72,7 @@ class MasterDataServiceWipeTest {
         order.verify(protocolChakraRepo).hardDeleteAll();
         order.verify(mappingRepo).hardDeleteAll();
         order.verify(colorRepo).hardDeleteAllProperties();
+        order.verify(colorRepo).hardDeleteAllCategories();
         order.verify(colorRepo).hardDeleteAll();
         order.verify(chakraRepo).hardDeleteAll();
         order.verify(protocolRepo).hardDeleteAll();
@@ -121,6 +122,7 @@ class MasterDataServiceWipeTest {
         order.verify(protocolChakraColorRepo).hardDeleteAll();
         order.verify(mappingRepo).hardDeleteAll();
         order.verify(colorRepo).hardDeleteAllProperties();
+        order.verify(colorRepo).hardDeleteAllCategories();
         order.verify(colorRepo).hardDeleteAll();
         verify(protocolChakraRepo, never()).hardDeleteAll();
         verifyNoInteractions(chakraRepo, protocolRepo);

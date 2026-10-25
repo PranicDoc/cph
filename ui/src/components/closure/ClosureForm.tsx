@@ -13,6 +13,7 @@ import { AxiosResponse } from "axios";
 import { extractDetail } from "@/lib/utils";
 import { ColorPropertySelector } from "./ColorPropertySelector";
 import { useReferenceData } from "@/hooks/useReferenceData";
+import { hasColorCategory } from "@/lib/colorCategory";
 import { MultiSelect } from "../ui/multi-select/multi-select";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
 import { useUiVersion } from "../../ui-version";
@@ -40,7 +41,7 @@ const CLOSURE_FORM_STEPS = 2;
 /**
  * TanStack's `flexRender` calls `React.createElement(cellFn, props)` for
  * function cell renderers -- treating the function ITSELF as the component
- * type. If `columns` closes over `allColors`/`colorsLoading`/
+ * type. If `columns` closes over the color lists/`colorsLoading`/
  * `fetchPropertiesForColor` directly, every time those change (e.g. the
  * color reference-data fetch resolving after the table has already
  * rendered rows) the cell function reference changes too, so React sees a
@@ -52,7 +53,8 @@ const CLOSURE_FORM_STEPS = 2;
  * the existing component instance instead of remounting it.
  */
 interface HpuTableMeta {
-  allColors: string[];
+  energisingColors: string[];
+  cleansingColors: string[];
   colorsLoading: boolean;
   fetchPropertiesForColor: (color: string) => string[];
   fetchColorHex: (color: string) => string | undefined;
@@ -163,7 +165,14 @@ const ClosureForm = ({
     }
   }, [colorsError]);
 
-  const allColors = useMemo(() => colors.map((c) => c.name), [colors]);
+  const energisingColors = useMemo(
+    () => colors.filter((c) => hasColorCategory(c, "ENERGISING")).map((c) => c.name),
+    [colors]
+  );
+  const cleansingColors = useMemo(
+    () => colors.filter((c) => hasColorCategory(c, "CLEANSING")).map((c) => c.name),
+    [colors]
+  );
 
   const fetchPropertiesForColor = useCallback(
     (color: string) => {
@@ -212,7 +221,7 @@ const ClosureForm = ({
           return (
             <ColorPropertySelector
               value={row.original.energisingColors}
-              colors={meta.allColors}
+              colors={meta.energisingColors}
               getProperties={meta.fetchPropertiesForColor}
               getColorHex={meta.fetchColorHex}
               loading={meta.colorsLoading}
@@ -235,7 +244,7 @@ const ClosureForm = ({
           return (
             <ColorPropertySelector
               value={row.original.cleansingColors}
-              colors={meta.allColors}
+              colors={meta.cleansingColors}
               getProperties={meta.fetchPropertiesForColor}
               getColorHex={meta.fetchColorHex}
               loading={meta.colorsLoading}
@@ -257,7 +266,8 @@ const ClosureForm = ({
           <Suspense fallback={null}>
             <ProtocolUnderstanding
               rows={hpuTableData}
-              colors={allColors}
+              energisingColors={energisingColors}
+              cleansingColors={cleansingColors}
               colorsLoading={colorsLoading}
               getProperties={fetchPropertiesForColor}
               getColorHex={fetchColorHex}
@@ -274,7 +284,8 @@ const ClosureForm = ({
                 cellClassName="py-3"
                 meta={
                   {
-                    allColors,
+                    energisingColors,
+                    cleansingColors,
                     colorsLoading,
                     fetchPropertiesForColor,
                     fetchColorHex,
@@ -294,7 +305,7 @@ const ClosureForm = ({
                   <ColorPropertySelector
                     label="Energising Colors"
                     value={row.energisingColors}
-                    colors={allColors}
+                    colors={energisingColors}
                     getProperties={fetchPropertiesForColor}
                     getColorHex={fetchColorHex}
                     loading={colorsLoading}
@@ -306,7 +317,7 @@ const ClosureForm = ({
                   <ColorPropertySelector
                     label="Cleansing Colors"
                     value={row.cleansingColors}
-                    colors={allColors}
+                    colors={cleansingColors}
                     getProperties={fetchPropertiesForColor}
                     getColorHex={fetchColorHex}
                     loading={colorsLoading}

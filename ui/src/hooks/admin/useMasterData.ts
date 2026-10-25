@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import api from "../../lib/axios";
 import { extractDetail } from "../../lib/utils";
 import type { SpringPageResponse } from "../../types/pagination";
+import type { ColorCategory } from "../../lib/colorCategory";
 
 // -- Interfaces -------------------------------------------------------------------------
 
@@ -12,6 +13,7 @@ export interface PranaColor {
   name: string;
   colorHex: string;
   properties?: string[];
+  categories?: ColorCategory[];
   healerId?: string | null;
 }
 
@@ -37,6 +39,7 @@ export interface PranaColorPayload {
   code: string;
   colorHex: string;
   properties?: string[];
+  categories: ColorCategory[];
   healerId?: string | null;
 }
 

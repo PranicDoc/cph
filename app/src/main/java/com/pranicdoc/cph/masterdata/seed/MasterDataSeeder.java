@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.seed;
 
+import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.PranaColorCatalog;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
@@ -9,7 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Seeds system-level master data (chakras + prana colors) on startup.
@@ -113,6 +116,8 @@ public class MasterDataSeeder implements CommandLineRunner {
                 .name(name)
                 .colorHex(hex)
                 .properties(List.of(properties))
+                // Matches the one-time backfill of pre-category colors; SUPADM recategorises from the UI.
+                .categories(new HashSet<>(Set.of(ColorUsageType.ENERGISING)))
                 .healerId(null) // System-level
                 .build();
         colorRepo.save(color);

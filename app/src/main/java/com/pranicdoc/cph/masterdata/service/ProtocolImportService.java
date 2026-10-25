@@ -433,7 +433,7 @@ public class ProtocolImportService {
     private boolean linkColor(ProtocolChakra link, String phrase, ColorUsageType usageType,
                                Map<String, PranaColorCatalog> colorByName, Set<String> colorCodes,
                                Set<LinkKey> existingColorLinks) {
-        PranaColorCatalog color = resolveOrBackfillColor(phrase, colorByName, colorCodes);
+        PranaColorCatalog color = resolveOrBackfillColor(phrase, usageType, colorByName, colorCodes);
         LinkKey key = LinkKey.of(link.getId(), color.getId(), usageType);
         if (existingColorLinks.contains(key)) {
             return false;
@@ -463,7 +463,8 @@ public class ProtocolImportService {
         return chakra;
     }
 
-    private PranaColorCatalog resolveOrBackfillColor(String name, Map<String, PranaColorCatalog> byName, Set<String> codes) {
+    private PranaColorCatalog resolveOrBackfillColor(String name, ColorUsageType usageType,
+                                                     Map<String, PranaColorCatalog> byName, Set<String> codes) {
         PranaColorCatalog existing = byName.get(name.toLowerCase(Locale.ROOT));
         if (existing != null) {
             return existing;
@@ -472,6 +473,8 @@ public class ProtocolImportService {
         color.setCode(uniqueCode(name, codes));
         color.setName(name);
         color.setHealerId(null);
+        // A backfilled color starts in the category it was first imported under.
+        color.setCategories(new HashSet<>(Set.of(usageType)));
         color = pranaColorRepo.save(color);
         byName.put(name.toLowerCase(Locale.ROOT), color);
         codes.add(color.getCode());
