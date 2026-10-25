@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.auth.service.impl;
 
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
+import com.pranicdoc.cph.auth.dto.FeedbackSessionResponse;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
@@ -17,6 +18,8 @@ import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.GoogleTokenVerifier;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.model.HealingSession;
+import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
@@ -30,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static com.pranicdoc.cph.common.security.JwtAuthFilter.extractTokenFromCookie;
@@ -50,6 +54,7 @@ public class AuthService {
     private final SecurityContextUtil securityContextUtil;
     private final RegistrationLinkRepository registrationLinkRepository;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    private final SessionRepository sessionRepository;
     private final GoogleTokenVerifier googleTokenVerifier;
     private static final String PATIENT = "PATIENT";
 
@@ -73,8 +78,13 @@ public class AuthService {
         return toResponse(healer);
     }
 
+    /**
+     * Opens the patient's feedback session for a WhatsApp link and returns the healing date the
+     * form shows: the date of the case's latest session, which the submitted feedback is
+     * attached to and dated with.
+     */
     @Auditable(action = "FEEDBACK_SESSION")
-    public void initSessionForFeedback(String token, HttpServletResponse response) {
+    public FeedbackSessionResponse initSessionForFeedback(String token, HttpServletResponse response) {
         FeedbackLink link = feedbackLinkRepository
                 .findByTokenAndStatusAndExpiresAtAfter(token, LinkStatus.ACTIVE, Instant.now())
                 .orElseThrow(() -> new TokenExpiredException("Feedback link is expired or already used"));
@@ -83,6 +93,8 @@ public class AuthService {
         String selfRegToken = jwtService.generateFeedbackSessionToken(
                 link.getHealerId().toString(), link.getCaseId());
         cookieUtil.setSelfRegSessionCookie(response, selfRegToken);
+        List<HealingSession> sessions = sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(link.getCaseId());
+        return new FeedbackSessionResponse(sessions.isEmpty() ? null : sessions.get(sessions.size() - 1).getSessionDate());
     }
 
     @Auditable(action = "SELF_REG_SESSION")

@@ -1,12 +1,14 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pranicdoc.cph.common.enums.FeedbackSource;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -38,4 +40,12 @@ public class SymptomFeedback extends TenantEntity {
 
     @Column(name = "notes")
     private String notes;
+
+    @Column(name = "healing_date")
+    private LocalDate healingDate; // the healing (session) this feedback is about
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 10)
+    @Builder.Default
+    private FeedbackSource source = FeedbackSource.WHATSAPP;
 }

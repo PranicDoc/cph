@@ -2,29 +2,19 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import { useUiVersion } from "../ui-version";
-import { SeveritySlider, severityToRating } from "../ui-new/components/SeveritySlider";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { Send, CheckCircle2 } from "lucide-react";
 import {
   persistIsFinalFlag,
   readIsFinalFlag,
 } from "../lib/feedbackFlag";
-
-const EMOJI_SCALE = [
-  { value: 1, emoji: "😠", label: "Terrible" },
-  { value: 2, emoji: "🙁", label: "Bad" },
-  { value: 3, emoji: "😐", label: "Okay" },
-  { value: 4, emoji: "🙂", label: "Good" },
-  { value: 5, emoji: "😄", label: "Great" },
-];
-
-interface Symptom {
-  caseSymptomId: string;
-  name: string;
-}
+import {
+  SymptomRatingList,
+  toSymptomRating,
+  type FeedbackSymptom,
+} from "../components/feedback/SymptomRatingList";
 
 export default function PatientFeedback() {
   const { isNewView } = useUiVersion();
@@ -47,7 +37,9 @@ export default function PatientFeedback() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [availableSymptoms, setAvailableSymptoms] = useState<Symptom[]>([]);
+  const [availableSymptoms, setAvailableSymptoms] = useState<FeedbackSymptom[]>([]);
+  // The healing being rated: the case's latest session, which the feedback is attached to.
+  const [healingDate, setHealingDate] = useState<string | null>(null);
   const [symptomRatings, setSymptomRatings] = useState<Record<string, number>>(
     {}
   );
@@ -89,9 +81,10 @@ export default function PatientFeedback() {
       }
 
       try {
-        await api.post("/api/v1/auth/init-feedback-session", {
+        const init = await api.post("/api/v1/auth/init-feedback-session", {
           token,
         });
+        setHealingDate(init?.data?.healingDate ?? null);
       } catch (err) {
         navigate("/unauthorized", { state: { error: err } });
         return;
@@ -142,7 +135,7 @@ export default function PatientFeedback() {
       const symptomPayload = Object.entries(symptomRatings).map(
         ([caseSymptomId, emojiRating]) => ({
           caseSymptomId,
-          rating: isNewView ? severityToRating(emojiRating) : emojiRating * 2,
+          rating: toSymptomRating(emojiRating, isNewView),
           notes: "",
         })
       );
@@ -152,9 +145,10 @@ export default function PatientFeedback() {
         symptomPayload
       );
 
-      if (isFinal && feedbackText.trim()) {
+      // The comment is kept for interim feedback too, like the healer's manual entry.
+      if (feedbackText.trim()) {
         await api.post(`/api/v1/sessions/${caseId}/feedback/qualitative`, {
-          feedbackType: "FINAL",
+          feedbackType: isFinal ? "FINAL" : "INTERIM",
           feedbackText,
           patientRemarks: "",
         });
@@ -210,6 +204,14 @@ export default function PatientFeedback() {
         <p className="text-text-light text-sm mt-1">
           Please rate the symptoms you are currently experiencing.
         </p>
+        {healingDate && (
+          <p className="text-sm text-text mt-2">
+            Healing date:{" "}
+            <span className="font-medium">
+              {new Date(`${healingDate}T00:00:00`).toLocaleDateString()}
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-8">
@@ -223,67 +225,13 @@ export default function PatientFeedback() {
             </p>
           </div>
 
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : availableSymptoms.length > 0 ? (
-            <div className="space-y-4">
-              {availableSymptoms.map((symptom) => (
-                <div
-                  key={symptom.caseSymptomId}
-                  className="border border-border rounded-xl p-4"
-                >
-                  <div className="mb-4">
-                    <h3 className="font-medium text-primary-dark">
-                      {symptom.name}
-                    </h3>
-                  </div>
-
-                  {isNewView ? (
-                    <SeveritySlider
-                      label={symptom.name}
-                      value={symptomRatings[symptom.caseSymptomId]}
-                      onChange={(v) => handleSymptomRatingChange(symptom.caseSymptomId, v)}
-                    />
-                  ) : (
-                  <div className="flex flex-wrap justify-between gap-2">
-                    {EMOJI_SCALE.map((item) => (
-                      <Button
-                        key={item.value}
-                        variant="ghost"
-                        onClick={() =>
-                          handleSymptomRatingChange(
-                            symptom.caseSymptomId,
-                            item.value
-                          )
-                        }
-                        title={item.label}
-                        className={cn(
-                          "flex flex-col items-center gap-1 h-auto p-2 rounded-xl transition-all",
-                          symptomRatings[symptom.caseSymptomId] === item.value
-                            ? "transform scale-110 bg-primary/10 ring-2 ring-primary hover:bg-primary/10"
-                            : "hover:bg-primary/5 opacity-60 hover:opacity-100"
-                        )}
-                      >
-                        <span className="text-4xl">{item.emoji}</span>
-                        <span className="text-xs text-text-light">
-                          {item.label}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-light italic">
-              No symptoms recorded for this case.
-            </p>
-          )}
+          <SymptomRatingList
+            symptoms={availableSymptoms}
+            ratings={symptomRatings}
+            onChange={handleSymptomRatingChange}
+            isNewView={isNewView}
+            loading={isLoading}
+          />
         </section>
 
         <hr className="border-border" />

@@ -1,12 +1,15 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pranicdoc.cph.common.enums.FeedbackSource;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.model.TenantEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
+
+import java.time.LocalDate;
 
 /**
  * QualitativeFeedback — free-form interim/final feedback per session.
@@ -37,4 +40,12 @@ public class QualitativeFeedback extends TenantEntity {
 
     @Column(name = "patient_remarks", columnDefinition = "TEXT")
     private String patientRemarks;
+
+    @Column(name = "healing_date")
+    private LocalDate healingDate; // the healing (session) this feedback is about
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 10)
+    @Builder.Default
+    private FeedbackSource source = FeedbackSource.WHATSAPP;
 }

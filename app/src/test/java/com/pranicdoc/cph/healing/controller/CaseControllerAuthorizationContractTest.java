@@ -85,6 +85,7 @@ class CaseControllerAuthorizationContractTest {
             new String[]{"signDeclaration",           CASE_UPDATE},
             new String[]{"closeCase",                 CASE_UPDATE},
             new String[]{"saveProtocolUnderstanding", CASE_UPDATE},
+            new String[]{"saveManualFeedback",        CASE_UPDATE},
             new String[]{"updateCaseDetails",         CASE_UPDATE},
             new String[]{"unlock",                    CASE_UPDATE},
             new String[]{"delete",                    CASE_DELETE},
@@ -93,8 +94,8 @@ class CaseControllerAuthorizationContractTest {
             new String[]{"getDownloadLink",           PDF_EXPORT},
             new String[]{"resendFeedback",            FEEDBACK_CREATE});
 
-    private static final int EXPECTED_MAPPED = 23;
-    private static final int EXPECTED_GATED = 19;
+    private static final int EXPECTED_MAPPED = 24;
+    private static final int EXPECTED_GATED = 20;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -244,13 +245,13 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 23 declared CaseController request-mapped methods — "
+                .as("the sweep must inspect exactly the 24 declared CaseController request-mapped methods — "
                         + "CaseController spans case CRUD + the PDF job pipeline + the patient feedback cycle + "
                         + "the 3 patient /self-service mappings added by plan 42-13; a method added or removed "
                         + "here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("exactly 19 of the 23 CaseController methods carry a bare capability gate (SC1); a dropped "
+                .as("exactly 20 of the 24 CaseController methods carry a bare capability gate (SC1); a dropped "
                         + "gate restores the implicit any-authenticated-healer path over clinical case records")
                 .isEqualTo(EXPECTED_GATED);
 
@@ -312,13 +313,13 @@ class CaseControllerAuthorizationContractTest {
         }
 
         assertThat(perResource.keySet())
-                .as("CaseController's 19 gates must resolve to exactly the three-resource partition "
+                .as("CaseController's 20 gates must resolve to exactly the three-resource partition "
                         + "{CASE, PDF, FEEDBACK} (D-05 / D-06 / plan 42-13)")
                 .containsExactlyInAnyOrder(Resource.CASE, Resource.PDF, Resource.FEEDBACK);
 
         assertThat(perResource.get(Resource.CASE))
-                .as("CASE literal count on CaseController must be 15 (6 READ + 8 UPDATE + 1 DELETE)")
-                .isEqualTo(15);
+                .as("CASE literal count on CaseController must be 16 (6 READ + 9 UPDATE + 1 DELETE)")
+                .isEqualTo(16);
         assertThat(perResource.get(Resource.PDF))
                 .as("PDF literal count on CaseController must be 3 (CREATE + READ + EXPORT — the D-05 triplet)")
                 .isEqualTo(3);

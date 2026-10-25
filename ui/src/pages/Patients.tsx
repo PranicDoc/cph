@@ -18,6 +18,7 @@ import {
   Pen,
   Filter,
   Check,
+  MessageSquareText,
 } from "lucide-react";
 import {
   Popover,
@@ -51,6 +52,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { extractDetail } from "../lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ManualFeedbackDialog } from "../components/feedback/ManualFeedbackDialog";
 
 // What the backend falls back to when no sort param is sent.
 const BACKEND_DEFAULT_SORT: PatientSortOption = "CASE_DATE_DESC";
@@ -123,6 +125,8 @@ export default function Patients() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [closurePatient, setClosurePatient] = useState<Patient | null>(null);
+  // The patient whose feedback the healer is entering by hand; null = dialog closed.
+  const [feedbackPatient, setFeedbackPatient] = useState<ComputedPatient | null>(null);
   // What to repeat once the healer buys credits (a PDF or unlocking a case); null = dialog closed.
   const [upgradeRetry, setUpgradeRetry] = useState<(() => void) | null>(null);
   const openUpgrade = (retry: () => void) => setUpgradeRetry(() => retry);
@@ -353,6 +357,16 @@ export default function Patients() {
             </>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setFeedbackPatient(patient)}
+          disabled={!isActive}
+          title={isActive ? "Record the patient's feedback" : "Feedback can be added to an active case"}
+          className={`inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary ${buttonSize} text-xs font-medium hover:bg-primary/5 transition-colors disabled:border-border disabled:text-text-light disabled:hover:bg-transparent disabled:cursor-not-allowed`}
+        >
+          <MessageSquareText className="w-3.5 h-3.5" />
+          Feedback
+        </button>
         {isCompleted && (
           <button
             onClick={() => navigate(`/cases/${patient.healingCaseId}/summary`)}
@@ -466,6 +480,14 @@ export default function Patients() {
             setClosurePatient(null);
             queryClient.invalidateQueries({ queryKey: ["patients"] });
           }}
+        />
+      )}
+
+      {feedbackPatient && (
+        <ManualFeedbackDialog
+          healingCaseId={feedbackPatient.healingCaseId}
+          patientName={feedbackPatient.fullName}
+          onClose={() => setFeedbackPatient(null)}
         />
       )}
 
