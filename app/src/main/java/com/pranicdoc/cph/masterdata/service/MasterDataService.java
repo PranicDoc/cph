@@ -223,7 +223,7 @@ public class MasterDataService {
         if (type != null) {
             return healerId == null
                     ? protocolRepo.findByProtocolTypeAndHealerIdIsNull(type)
-                    : protocolRepo.findByProtocolTypeAndHealerIdIsNullOrHealerId(type, healerId);
+                    : protocolRepo.findVisibleByProtocolType(type, healerId);
         }
         return healerId == null
                 ? protocolRepo.findByHealerIdIsNull()
@@ -314,7 +314,7 @@ public class MasterDataService {
     @Transactional(readOnly = true)
     public List<ProtocolChakraColorGroup> getChakraColorGroupsForProtocol(UUID protocolId) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
-        List<ProtocolChakra> links = protocolChakraRepo.findByProtocol_IdAndHealerIdIsNullOrHealerId(protocolId, healerId);
+        List<ProtocolChakra> links = protocolChakraRepo.findVisibleByProtocolId(protocolId, healerId);
         if (links.isEmpty()) return List.of();
 
         List<UUID> linkIds = links.stream().map(ProtocolChakra::getId).toList();

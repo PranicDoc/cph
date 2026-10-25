@@ -42,9 +42,14 @@ public interface ProtocolChakraRepository extends JpaRepository<ProtocolChakra, 
 
     /**
      * All links (system + the given healer's own) for one protocol — the
-     * single-protocol "manage chakras/colors" admin view.
+     * single-protocol "manage chakras/colors" admin view. Explicit JPQL: the derived
+     * "Protocol_IdAndHealerIdIsNullOrHealerId" reads as (protocol AND system) OR own, which also
+     * returned the healer's own links on every other protocol.
      */
-    List<ProtocolChakra> findByProtocol_IdAndHealerIdIsNullOrHealerId(UUID protocolId, UUID healerId);
+    @Query("SELECT pc FROM ProtocolChakra pc WHERE pc.protocol.id = :protocolId "
+            + "AND (pc.healerId IS NULL OR pc.healerId = :healerId)")
+    List<ProtocolChakra> findVisibleByProtocolId(@Param("protocolId") UUID protocolId,
+                                                 @Param("healerId") UUID healerId);
 
     /**
      * Physically removes every row — including already soft-deleted ones, which the entity's
