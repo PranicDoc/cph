@@ -49,6 +49,9 @@ function renderPage() {
 
 const desktopTable = () => screen.getByRole("table");
 
+// user.type is slow when the full suite runs in parallel; the default 5s is not enough there.
+const TYPING_TIMEOUT = 15_000;
+
 describe("MasterDataPage prana color categories", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +97,7 @@ describe("MasterDataPage prana color categories", () => {
         expect.objectContaining({ code: "ORANGE", categories: ["CLEANSING", "ENERGISING"] })
       )
     );
-  });
+  }, TYPING_TIMEOUT);
 
   it("refuses to save a color with no category", async () => {
     const user = userEvent.setup();
@@ -110,5 +113,5 @@ describe("MasterDataPage prana color categories", () => {
 
     expect(await within(dialog).findByText("Select at least one category.")).toBeInTheDocument();
     expect(mPost).not.toHaveBeenCalled();
-  });
+  }, TYPING_TIMEOUT);
 });
