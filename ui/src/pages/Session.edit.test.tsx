@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -93,6 +93,37 @@ describe("Session: a case can be edited on any status", () => {
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
 
     expect(screen.getByText("wizard for session-1")).toBeInTheDocument();
+  });
+});
+
+describe("Session: saving case details", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("Save stores the details and returns to the view, which offers the next step", async () => {
+    const user = userEvent.setup();
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    renderSession();
+
+    await user.click(await screen.findByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(api.patch).toHaveBeenCalledWith("/api/v1/cases", expect.any(FormData), expect.anything());
+    expect(await screen.findByRole("button", { name: /proceed to session/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
+  });
+
+  it("stays in edit mode when saving fails", async () => {
+    const user = userEvent.setup();
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("ACTIVE") });
+    (api.patch as Mock).mockRejectedValue(new Error("network"));
+    renderSession();
+
+    await user.click(await screen.findByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByRole("button", { name: /^save$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /proceed to session/i })).not.toBeInTheDocument();
   });
 });
 

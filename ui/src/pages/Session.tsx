@@ -3,6 +3,7 @@ import { useUiVersion } from "../ui-version";
 import { useForm } from "@tanstack/react-form";
 import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
+import { toast } from "sonner";
 import api from "../lib/axios";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { buildSessionSchema } from "./schemas/sessionSchema";
@@ -587,10 +588,12 @@ export default function Session() {
         onSubmit={async (e) => {
           e.preventDefault();
           const step0Errors = sessionStep0Errors(sessionForm.state.values);
+          let saved = false;
           try {
             // Always run handleSubmit — on an incomplete form it surfaces the
             // per-field "required" errors instead of persisting an empty case.
             await sessionForm.handleSubmit();
+            saved = true;
           } catch {
             // error already logged in onSubmit
           }
@@ -600,7 +603,14 @@ export default function Session() {
               ?.scrollIntoView({ behavior: "smooth", block: "center" });
             return;
           }
-          goToNextStep();
+          if (!saved) {
+            toast.error("Could not save the case details. Please try again.");
+            return;
+          }
+          // Saving returns to the view, where the next step (start, proceed, summary) is offered.
+          toast.success("Case details saved");
+          setIsEdit(false);
+          stepEditModeRef.current[0] = false;
         }}
         className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
       >
@@ -646,20 +656,19 @@ export default function Session() {
                 isEdit && Object.keys(sessionStep0Errors(values)).length > 0;
               return (
                 <Button
-                  type={isEdit ? "submit" : "button"}
-                  onClick={isEdit ? undefined : goToNextStep}
+                  type="submit"
                   disabled={isSubmitting}
                   aria-disabled={incomplete || undefined}
                   title={
                     incomplete
-                      ? "Fill all required fields to continue"
+                      ? "Fill all required fields to save"
                       : undefined
                   }
                   className={`flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2 ${
                     incomplete ? "opacity-50" : ""
                   }`}
                 >
-                  {getNextButtonLabel()}
+                  Save
                 </Button>
               );
             }}
