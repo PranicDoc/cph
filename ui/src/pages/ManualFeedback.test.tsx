@@ -50,58 +50,45 @@ describe("ManualFeedback page", () => {
     sessions = [];
   });
 
-  it("fills the healing date from the picked session, keeps it editable, and sends the session", async () => {
-    sessions = [
-      { id: "sess-1", sessionNumber: 1, sessionDate: "2026-10-01" },
-      { id: "sess-2", sessionNumber: 2, sessionDate: "2026-10-08" },
-    ];
-    mPost.mockResolvedValue({ data: {} });
-    const user = userEvent.setup();
-    renderPage();
+  const twoSessions = () => [
+    { id: "sess-1", sessionNumber: 1, sessionDate: "2026-10-01" },
+    { id: "sess-2", sessionNumber: 2, sessionDate: "2026-10-08" },
+  ];
 
-    await user.selectOptions(await screen.findByLabelText("Session"), "sess-2");
-    expect(screen.getByLabelText("Healing date")).toHaveValue("2026-10-08");
-    await user.clear(screen.getByLabelText("Healing date"));
-    await user.type(screen.getByLabelText("Healing date"), "2026-10-09");
-    await user.type(screen.getByLabelText("Comments"), "Better");
-    await user.click(screen.getByRole("button", { name: "Save feedback" }));
-
-    await waitFor(() =>
-      expect(mPost).toHaveBeenCalledWith(
-        "/api/v1/cases/case-1/feedback",
-        expect.objectContaining({ sessionId: "sess-2", healingDate: "2026-10-09" })
-      )
-    );
-  });
-
-  it("shows a severity slider per symptom and an empty healing date, and refuses to save without one", async () => {
+  it("shows the picked session's date read-only, and refuses to save interim feedback without a session", async () => {
+    sessions = twoSessions();
     const user = userEvent.setup();
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Patient feedback" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Healing date")).toHaveValue("");
     await rateSeverity(user, 2);
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
-
-    expect(screen.getByText("Enter the healing date.")).toBeInTheDocument();
+    expect(screen.getByText("Pick the session this feedback is for.")).toBeInTheDocument();
     expect(mPost).not.toHaveBeenCalled();
+
+    await screen.findByRole("option", { name: /Session 2/ });
+    await user.selectOptions(screen.getByLabelText("Session"), "sess-2");
+    const date = screen.getByLabelText("Healing date");
+    expect(date).toHaveValue("2026-10-08");
+    expect(date).toBeDisabled();
   });
 
-  it("posts the ratings, comment, type and healing date for the case, then returns to Patients", async () => {
+  it("posts an interim's ratings, comment and session, then returns to Patients", async () => {
+    sessions = twoSessions();
     mPost.mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     const { router } = renderPage();
 
-    await user.type(screen.getByLabelText("Healing date"), "2026-10-20");
-    await user.click(screen.getByRole("button", { name: "Final" }));
+    await screen.findByRole("option", { name: /Session 1/ });
+    await user.selectOptions(screen.getByLabelText("Session"), "sess-1");
     await rateSeverity(user, 2);
     await user.type(screen.getByLabelText("Comments"), "Sleeping better");
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
 
     await waitFor(() =>
       expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", {
-        feedbackType: "FINAL",
-        healingDate: "2026-10-20",
+        feedbackType: "INTERIM",
+        sessionId: "sess-1",
         // Severity 2 of 10 (higher is worse) is stored as rating 8 (higher is better).
         symptoms: [{ caseSymptomId: "s1", rating: 8, notes: "" }],
         feedbackText: "Sleeping better",
@@ -110,14 +97,41 @@ describe("ManualFeedback page", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/patients"));
   }, 15_000);
 
+  it("final feedback is a comment on the latest session: no session picker, no ratings, date shown", async () => {
+    sessions = twoSessions();
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Final" }));
+    expect(screen.queryByLabelText("Session")).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Healing date")).toHaveValue("2026-10-08"));
+
+    await user.click(screen.getByRole("button", { name: "Save feedback" }));
+    expect(screen.getByText("Add the final feedback comment.")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Comments"), "Fully recovered");
+    await user.click(screen.getByRole("button", { name: "Save feedback" }));
+    await waitFor(() =>
+      expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", {
+        feedbackType: "FINAL",
+        symptoms: [],
+        feedbackText: "Fully recovered",
+      })
+    );
+  }, 15_000);
+
   it("explains when feedback for that healing is already recorded, and stays on the page", async () => {
+    sessions = twoSessions();
     mPost.mockRejectedValue({
       response: { data: { type: "https://pranicdoc.com/errors/feedback-already-submitted" } },
     });
     const user = userEvent.setup();
     const { router } = renderPage();
 
-    await user.type(screen.getByLabelText("Healing date"), "2026-10-20");
+    await screen.findByRole("option", { name: /Session 1/ });
+    await user.selectOptions(screen.getByLabelText("Session"), "sess-1");
     await user.type(screen.getByLabelText("Comments"), "Same as before");
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
 

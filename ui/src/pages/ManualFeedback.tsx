@@ -23,14 +23,15 @@ interface CaseSession {
 
 const ALREADY_SUBMITTED = "https://pranicdoc.com/errors/feedback-already-submitted";
 
-/** Today as yyyy-mm-dd in the healer's own timezone (the date input's format). */
-const today = () => new Date().toLocaleDateString("en-CA");
+const INTERIM_PLACEHOLDER = "e.g. Headache is less frequent, sleeping better since the last session";
+const FINAL_PLACEHOLDER = "e.g. Fully recovered, no symptoms for two weeks, no further sessions needed";
 
 /**
  * The healer records a patient's feedback by hand, as an alternative to the WhatsApp link:
- * the same symptom sliders and comment the patient's form collects, plus the date of the
- * healing the feedback is about (left empty for the healer to fill in). A full page rather
- * than a dialog, so it renders inside the new view's styles like every other page.
+ * the same symptom sliders and comment the patient's form collects. Interim feedback is for a
+ * session the healer picks (its date is shown for reference, not editable); final feedback is one
+ * comment per case, kept on the latest session. A full page rather than a dialog, so it renders
+ * inside the new view's styles like every other page.
  */
 export default function ManualFeedback() {
   const { isNewView } = useUiVersion();
@@ -39,7 +40,6 @@ export default function ManualFeedback() {
   const patientName = (useLocation().state as { patientName?: string } | null)?.patientName;
 
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("INTERIM");
-  const [healingDate, setHealingDate] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [feedbackText, setFeedbackText] = useState("");
@@ -61,12 +61,13 @@ export default function ManualFeedback() {
   });
   const sessions = Array.isArray(sessionsQuery.data) ? sessionsQuery.data : [];
 
-  // Picking a session fills the date with that session's date; the healer can still change it.
-  const pickSession = (id: string) => {
-    setSessionId(id);
-    const date = sessions.find((s) => s.id === id)?.sessionDate;
-    if (date) setHealingDate(date);
-  };
+  const isFinal = feedbackType === "FINAL";
+  const latestSession = sessions.reduce<CaseSession | null>(
+    (latest, s) => (!latest || (s.sessionNumber ?? 0) > (latest.sessionNumber ?? 0) ? s : latest),
+    null
+  );
+  // The date is the session's own: shown for reference, never typed.
+  const shownDate = (isFinal ? latestSession : sessions.find((s) => s.id === sessionId))?.sessionDate ?? "";
 
   const backToPatients = () => navigate("/patients");
 
@@ -74,9 +75,8 @@ export default function ManualFeedback() {
     mutationFn: () =>
       api.post(`/api/v1/cases/${healingCaseId}/feedback`, {
         feedbackType,
-        healingDate,
-        ...(sessionId ? { sessionId } : {}),
-        symptoms: Object.entries(ratings).map(([caseSymptomId, severity]) => ({
+        ...(!isFinal && sessionId ? { sessionId } : {}),
+        symptoms: isFinal ? [] : Object.entries(ratings).map(([caseSymptomId, severity]) => ({
           caseSymptomId,
           rating: toSymptomRating(severity),
           notes: "",
@@ -97,11 +97,15 @@ export default function ManualFeedback() {
 
   const submit = () => {
     setError(null);
-    if (!healingDate) {
-      setError("Enter the healing date.");
+    if (isFinal) {
+      if (!feedbackText.trim()) {
+        setError("Add the final feedback comment.");
+        return;
+      }
+    } else if (!sessionId) {
+      setError("Pick the session this feedback is for.");
       return;
-    }
-    if (Object.keys(ratings).length === 0 && !feedbackText.trim()) {
+    } else if (Object.keys(ratings).length === 0 && !feedbackText.trim()) {
       setError("Rate at least one symptom or add a comment.");
       return;
     }
@@ -125,19 +129,19 @@ export default function ManualFeedback() {
 
       <div className="bg-card border border-border rounded-xl shadow-sm p-4 md:p-6 space-y-6 mt-4">
         <div className="flex flex-wrap items-end gap-4">
-          {sessions.length > 0 && (
+          {!isFinal && (
             <div className="space-y-1.5">
               <Label htmlFor="manual-feedback-session">Session</Label>
               <select
                 id="manual-feedback-session"
                 value={sessionId}
-                onChange={(e) => pickSession(e.target.value)}
+                onChange={(e) => setSessionId(e.target.value)}
                 className="h-9 w-56 rounded-md border border-border bg-card px-2 text-sm"
               >
-                <option value="">Not linked to a session</option>
+                <option value="">Select a session</option>
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {`Session ${s.sessionNumber ?? "?"}${s.sessionDate ? ` — ${s.sessionDate}` : ""}`}
+                    {`Session ${s.sessionNumber ?? "?"}${s.sessionDate ? ` â€” ${s.sessionDate}` : ""}`}
                   </option>
                 ))}
               </select>
@@ -145,14 +149,7 @@ export default function ManualFeedback() {
           )}
           <div className="space-y-1.5">
             <Label htmlFor="manual-feedback-date">Healing date</Label>
-            <Input
-              id="manual-feedback-date"
-              type="date"
-              value={healingDate}
-              max={today()}
-              onChange={(e) => setHealingDate(e.target.value)}
-              className="w-44"
-            />
+            <Input id="manual-feedback-date" type="date" value={shownDate} readOnly disabled className="w-44" />
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium">Feedback type</span>
@@ -173,6 +170,7 @@ export default function ManualFeedback() {
           </div>
         </div>
 
+        {!isFinal && (
         <section className="space-y-3">
           <div>
             <h2 className="font-semibold text-primary-dark">Symptoms</h2>
@@ -186,6 +184,7 @@ export default function ManualFeedback() {
             loading={symptomsQuery.isPending}
           />
         </section>
+        )}
 
         <section className="space-y-2">
           <Label htmlFor="manual-feedback-text">Comments</Label>
@@ -193,7 +192,7 @@ export default function ManualFeedback() {
             id="manual-feedback-text"
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="What the patient said (optional)"
+            placeholder={isFinal ? FINAL_PLACEHOLDER : INTERIM_PLACEHOLDER}
             className="min-h-[100px] p-3"
           />
         </section>

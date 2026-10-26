@@ -76,12 +76,12 @@ class FeedbackServiceManualTest {
     }
 
     @Test
-    void manualFeedback_attachesToTheSessionOnOrBeforeTheHealingDate_markedManual() {
-        feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 10, 5), "Calmer"));
+    void manualInterim_isSavedOnThePickedSession_datedWithIt_markedManual() {
+        feedbackService.saveManualFeedback(caseId, interim(first, "Calmer"));
 
         SymptomFeedback symptom = savedSymptoms().get(0);
         assertSame(first, symptom.getHealingSession());
-        assertEquals(LocalDate.of(2026, 10, 5), symptom.getHealingDate());
+        assertEquals(LocalDate.of(2026, 10, 1), symptom.getHealingDate());
         assertEquals(FeedbackSource.MANUAL, symptom.getSource());
         assertEquals(7, symptom.getRating());
 
@@ -96,73 +96,98 @@ class FeedbackServiceManualTest {
     }
 
     @Test
-    void manualFeedback_onALaterDate_usesTheLatestSession() {
-        feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 10, 9), null));
+    void manualInterim_withoutAComment_savesOnlyTheRatings() {
+        feedbackService.saveManualFeedback(caseId, interim(second, null));
 
         assertSame(second, savedSymptoms().get(0).getHealingSession());
         verify(qualitativeFeedbackRepository, never()).save(any());
     }
 
     @Test
-    void manualFeedback_withAPickedSession_attachesToItWhateverTheDate() {
-        UUID firstId = UUID.randomUUID();
-        first.setId(firstId);
-        ManualFeedbackRequest picked = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 9),
-                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null, firstId);
+    void manualInterim_withoutASession_isRejected() {
+        ManualFeedbackRequest noSession = new ManualFeedbackRequest(FeedbackType.INTERIM, null,
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "x");
 
-        feedbackService.saveManualFeedback(caseId, picked);
-
-        assertSame(first, savedSymptoms().get(0).getHealingSession());
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, noSession));
+        verifyNoInteractions(symptomFeedbackRepository);
     }
 
     @Test
-    void manualFeedback_withASessionOfAnotherCase_isRejected() {
-        ManualFeedbackRequest foreign = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 9),
-                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null, UUID.randomUUID());
+    void manualInterim_withASessionOfAnotherCase_isRejected() {
+        ManualFeedbackRequest foreign = new ManualFeedbackRequest(FeedbackType.INTERIM, UUID.randomUUID(),
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null);
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, foreign));
         verifyNoInteractions(symptomFeedbackRepository);
     }
 
     @Test
-    void manualFeedback_beforeTheFirstSession_isRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
-                feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 9, 1), "x")));
-        verifyNoInteractions(symptomFeedbackRepository);
-    }
-
-    @Test
-    void manualFeedback_withNothingToSave_isRejected() {
-        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 8), List.of(), "  ", null);
+    void manualInterim_withNothingToSave_isRejected() {
+        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, first.getId(), List.of(), "  ");
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, empty));
     }
 
     @Test
-    void manualFeedback_onAnotherHealersCase_isDenied() {
-        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
-
-        assertThrows(AccessDeniedException.class, () ->
-                feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 10, 8), "x")));
-        verifyNoInteractions(symptomFeedbackRepository, qualitativeFeedbackRepository);
-    }
-
-    @Test
-    void manualFinalFeedback_whenAFinalAlreadyExists_isRejected() {
-        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL))
-                .thenReturn(Optional.of(QualitativeFeedback.builder().build()));
+    void manualInterim_whenTheSessionAlreadyHasOne_reportsAlreadySubmitted() {
+        when(qualitativeFeedbackRepository.existsByHealingSessionIdAndFeedbackType(first.getId(), FeedbackType.INTERIM))
+                .thenReturn(true);
 
         assertThrows(FeedbackAlreadySubmittedException.class, () ->
-                feedbackService.saveManualFeedback(caseId, request(FeedbackType.FINAL, LocalDate.of(2026, 10, 8), "Done")));
+                feedbackService.saveManualFeedback(caseId, interim(first, "again")));
         verifyNoInteractions(symptomFeedbackRepository);
     }
 
     @Test
-    void manualFeedback_forASymptomAlreadyRatedInThatSession_reportsAlreadySubmitted() {
+    void manualInterim_forASymptomAlreadyRatedInThatSession_reportsAlreadySubmitted() {
         when(symptomFeedbackRepository.saveAllAndFlush(anyList())).thenThrow(new DataIntegrityViolationException("dup"));
 
         assertThrows(FeedbackAlreadySubmittedException.class, () ->
-                feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 10, 8), null)));
+                feedbackService.saveManualFeedback(caseId, interim(second, null)));
+    }
+
+    @Test
+    void manualInterim_onAnotherHealersCase_isDenied() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
+
+        assertThrows(AccessDeniedException.class, () ->
+                feedbackService.saveManualFeedback(caseId, interim(first, "x")));
+        verifyNoInteractions(symptomFeedbackRepository, qualitativeFeedbackRepository);
+    }
+
+    @Test
+    void manualFinal_isOneCommentOnTheLatestSession() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+
+        feedbackService.saveManualFeedback(caseId,
+                new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), "  Fully recovered "));
+
+        ArgumentCaptor<QualitativeFeedback> text = ArgumentCaptor.forClass(QualitativeFeedback.class);
+        verify(qualitativeFeedbackRepository).save(text.capture());
+        assertEquals("Fully recovered", text.getValue().getFeedbackText());
+        assertEquals(FeedbackType.FINAL, text.getValue().getFeedbackType());
+        assertSame(second, text.getValue().getHealingSession());
+        assertEquals(LocalDate.of(2026, 10, 8), text.getValue().getHealingDate());
+        verifyNoInteractions(symptomFeedbackRepository);
+    }
+
+    @Test
+    void manualFinal_whenAFinalAlreadyExists_isRejected() {
+        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL))
+                .thenReturn(Optional.of(QualitativeFeedback.builder().build()));
+
+        assertThrows(FeedbackAlreadySubmittedException.class, () ->
+                feedbackService.saveManualFeedback(caseId, finalFeedback("Done")));
+        verify(qualitativeFeedbackRepository, never()).save(any());
+    }
+
+    @Test
+    void manualFinal_needsAComment_andTakesNoRatings() {
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, finalFeedback(" ")));
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId,
+                new ManualFeedbackRequest(FeedbackType.FINAL, null,
+                        List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "Done")));
+        verifyNoInteractions(symptomFeedbackRepository);
     }
 
     @Test
@@ -183,8 +208,13 @@ class FeedbackServiceManualTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private ManualFeedbackRequest request(FeedbackType type, LocalDate healingDate, String text) {
-        return new ManualFeedbackRequest(type, healingDate, List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text, null);
+    private ManualFeedbackRequest interim(HealingSession session, String text) {
+        return new ManualFeedbackRequest(FeedbackType.INTERIM, session.getId(),
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text);
+    }
+
+    private ManualFeedbackRequest finalFeedback(String text) {
+        return new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), text);
     }
 
     @SuppressWarnings("unchecked")
@@ -196,6 +226,8 @@ class FeedbackServiceManualTest {
     }
 
     private static HealingSession session(int number, LocalDate date) {
-        return HealingSession.builder().sessionNumber(number).sessionDate(date).build();
+        HealingSession session = HealingSession.builder().sessionNumber(number).sessionDate(date).build();
+        session.setId(UUID.randomUUID());
+        return session;
     }
 }

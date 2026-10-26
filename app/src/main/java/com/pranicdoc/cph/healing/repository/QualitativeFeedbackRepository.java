@@ -14,6 +14,8 @@ public interface QualitativeFeedbackRepository extends JpaRepository<Qualitative
 
     List<QualitativeFeedback> findByHealingSessionId(UUID sessionId);
 
+    boolean existsByHealingSessionIdAndFeedbackType(UUID sessionId, FeedbackType feedbackType);
+
     /**
      * Check if a FINAL feedback already exists for any session in this case.
      * Used to enforce the partial unique constraint (1 final per case).

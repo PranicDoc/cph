@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -67,10 +66,9 @@ public class FeedbackService {
 
     /**
      * Feedback the healer enters by hand on the patient's behalf, saved the same way as the
-     * WhatsApp path. It is attached to the session the healing date points at -- the session held
-     * on that date, else the latest one before it -- so feedback for an earlier healing never
-     * collides with what the patient already sent through WhatsApp for the latest session. The
-     * patient's WhatsApp link stays usable.
+     * WhatsApp path and dated with its session. INTERIM feedback is for the session the healer
+     * picked, once per session; FINAL feedback is one comment per case, kept on the latest session.
+     * The patient's WhatsApp link stays usable.
      */
     @Auditable(action = "SAVE_MANUAL_FEEDBACK")
     public void saveManualFeedback(UUID caseId, ManualFeedbackRequest request) {
@@ -80,18 +78,41 @@ public class FeedbackService {
         }
         List<SymptomFeedbackRequest> symptoms = request.symptoms() == null ? List.of() : request.symptoms();
         String feedbackText = request.feedbackText() == null ? "" : request.feedbackText().trim();
-        if (symptoms.isEmpty() && feedbackText.isEmpty()) {
+
+        if (request.feedbackType() == FeedbackType.FINAL) {
+            saveManualFinal(caseId, symptoms, feedbackText);
+        } else {
+            saveManualInterim(caseId, request.sessionId(), symptoms, feedbackText);
+        }
+    }
+
+    private void saveManualInterim(UUID caseId, UUID sessionId, List<SymptomFeedbackRequest> symptoms, String text) {
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Pick the session this feedback is for");
+        }
+        if (symptoms.isEmpty() && text.isEmpty()) {
             throw new IllegalArgumentException("Rate at least one symptom or add a comment");
         }
-
-        HealingSession session = request.sessionId() != null
-            ? sessionOfCase(caseId, request.sessionId())
-            : sessionForHealingDate(caseId, request.healingDate());
-        rejectSecondFinal(caseId, request.feedbackType());
-        saveSymptoms(session, symptoms, request.healingDate(), FeedbackSource.MANUAL);
-        if (!feedbackText.isEmpty() || request.feedbackType() == FeedbackType.FINAL) {
-            saveComment(session, request.feedbackType(), feedbackText, "", request.healingDate(), FeedbackSource.MANUAL);
+        HealingSession session = sessionOfCase(caseId, sessionId);
+        if (qualitativeFeedbackRepository.existsByHealingSessionIdAndFeedbackType(session.getId(), FeedbackType.INTERIM)) {
+            throw new FeedbackAlreadySubmittedException();
         }
+        saveSymptoms(session, symptoms, session.getSessionDate(), FeedbackSource.MANUAL);
+        if (!text.isEmpty()) {
+            saveComment(session, FeedbackType.INTERIM, text, "", session.getSessionDate(), FeedbackSource.MANUAL);
+        }
+    }
+
+    private void saveManualFinal(UUID caseId, List<SymptomFeedbackRequest> symptoms, String text) {
+        if (!symptoms.isEmpty()) {
+            throw new IllegalArgumentException("Final feedback is a comment only");
+        }
+        if (text.isEmpty()) {
+            throw new IllegalArgumentException("Add the final feedback comment");
+        }
+        rejectSecondFinal(caseId, FeedbackType.FINAL);
+        HealingSession latest = sessionService.findLatestByCaseIdOrThrow(caseId);
+        saveComment(latest, FeedbackType.FINAL, text, "", latest.getSessionDate(), FeedbackSource.MANUAL);
     }
 
     // ── Shared by the WhatsApp and manual paths ───────────────────────────────
@@ -142,14 +163,5 @@ public class FeedbackService {
             .filter(s -> sessionId.equals(s.getId()))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Session does not belong to this case"));
-    }
-
-    private HealingSession sessionForHealingDate(UUID caseId, LocalDate healingDate) {
-        return sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId).stream()
-            .filter(s -> s.getSessionDate() != null && !s.getSessionDate().isAfter(healingDate))
-            .max(Comparator.comparing(HealingSession::getSessionDate)
-                .thenComparing(HealingSession::getSessionNumber, Comparator.nullsFirst(Comparator.naturalOrder())))
-            .orElseThrow(() -> new IllegalArgumentException(
-                "No healing session on or before %s for this case".formatted(healingDate)));
     }
 }
