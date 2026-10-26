@@ -14,6 +14,10 @@ export interface PackageResponse {
   validity_unit: ValidityUnit | null;
 }
 
+/** The default plan every account starts on. Other free-priced packages (a trial) must be claimed. */
+export const isBuiltInFreePlan = (pkg: Pick<PackageResponse, "name">) =>
+  pkg.name.toUpperCase() === "FREE";
+
 export function useCreditPackages() {
   return useQuery<PackageResponse[]>({
     queryKey: ["credit-packages"],

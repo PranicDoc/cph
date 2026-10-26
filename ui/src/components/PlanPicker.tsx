@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { CreditCard, CheckCircle2, X } from "lucide-react";
 import {
   useCreditPackages,
+  isBuiltInFreePlan,
   type PackageResponse,
 } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
@@ -42,7 +43,8 @@ export function PlanPicker({
 
   const handleSelectPlan = (pkg: PackageResponse) => {
     if (isCurrentPlan(pkg)) return;
-    if (pkg.price_paise === 0) {
+    // Only the built-in FREE plan needs no purchase; a free trial package is claimed like any other.
+    if (isBuiltInFreePlan(pkg)) {
       onComplete();
       return;
     }
@@ -124,7 +126,7 @@ export function PlanPicker({
                         disabled={isPending || isCurrent}
                         onClick={() => handleSelectPlan(pkg)}
                       >
-                        {busy ? "Processing…" : isCurrent ? "Current plan" : isFree ? "Get started free" : "Select plan"}
+                        {busy ? "Processing…" : isCurrent ? "Current plan" : isFree ? (isBuiltInFreePlan(pkg) ? "Get started free" : "Start free trial") : "Select plan"}
                       </button>
                     </div>
                   );
@@ -231,7 +233,7 @@ export function PlanPicker({
                 disabled={isPending || isCurrent}
                 className={cn(
                   "w-full",
-                  isFree && !isCurrent && "bg-border text-text hover:bg-border/80"
+                  isFree && isBuiltInFreePlan(pkg) && !isCurrent && "bg-border text-text hover:bg-border/80"
                 )}
               >
                 {isThisSelected ? (
@@ -242,7 +244,7 @@ export function PlanPicker({
                 ) : isCurrent ? (
                   "Current Plan"
                 ) : isFree ? (
-                  "Get Started Free"
+                  isBuiltInFreePlan(pkg) ? "Get Started Free" : "Start Free Trial"
                 ) : (
                   "Select Plan"
                 )}
