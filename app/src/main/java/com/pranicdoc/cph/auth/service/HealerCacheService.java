@@ -7,7 +7,7 @@ import java.util.UUID;
 public interface HealerCacheService {
     String getEmail(UUID healerId);
 
-    @Cacheable(key = "#healerId", value = "healerEmail", sync = true)
+    @Cacheable(key = "#healerId", value = "healerName", sync = true)
     String getName(UUID healerId);
 
     /**

@@ -50,6 +50,9 @@ public class CacheConfig {
         // healerEmail -- DO NOT change L1 spec (12h TTL, 10_000 max entries); now also
         // backed by Redis L2 so a healerId->email lookup is shared across cph instances.
         manager.registerCache("healerEmail", 12, TimeUnit.HOURS, 10_000);
+        // healerName must not share healerEmail's cache: both are keyed by healerId, so the
+        // name lookup (declaration/closure signature) used to return the cached email.
+        manager.registerCache("healerName", 12, TimeUnit.HOURS, 10_000);
 
         // Per-name dashboard caches: short Caffeine L1 TTL (30-60s, D-16) + longer Redis
         // L2 TTL (RedisConfig's redis.cache.ttl-minutes, default 5 min).
