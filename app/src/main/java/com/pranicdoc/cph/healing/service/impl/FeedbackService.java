@@ -84,7 +84,9 @@ public class FeedbackService {
             throw new IllegalArgumentException("Rate at least one symptom or add a comment");
         }
 
-        HealingSession session = sessionForHealingDate(caseId, request.healingDate());
+        HealingSession session = request.sessionId() != null
+            ? sessionOfCase(caseId, request.sessionId())
+            : sessionForHealingDate(caseId, request.healingDate());
         rejectSecondFinal(caseId, request.feedbackType());
         saveSymptoms(session, symptoms, request.healingDate(), FeedbackSource.MANUAL);
         if (!feedbackText.isEmpty() || request.feedbackType() == FeedbackType.FINAL) {
@@ -132,6 +134,14 @@ public class FeedbackService {
             .ifPresent(existing -> {
                 throw new FeedbackAlreadySubmittedException();
             });
+    }
+
+    /** The session the healer picked; it must belong to this case. */
+    private HealingSession sessionOfCase(UUID caseId, UUID sessionId) {
+        return sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId).stream()
+            .filter(s -> sessionId.equals(s.getId()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Session does not belong to this case"));
     }
 
     private HealingSession sessionForHealingDate(UUID caseId, LocalDate healingDate) {

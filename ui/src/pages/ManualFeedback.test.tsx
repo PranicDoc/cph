@@ -17,8 +17,16 @@ import api from "@/lib/axios";
 const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
 
+let sessions: { id: string; sessionNumber: number; sessionDate: string }[] = [];
+
 function renderPage() {
-  mGet.mockResolvedValue({ data: { content: [{ caseSymptomId: "s1", name: "Headache" }] } });
+  mGet.mockImplementation((url: string) =>
+    Promise.resolve(
+      url.startsWith("/api/v1/sessions/case/")
+        ? { data: sessions }
+        : { data: { content: [{ caseSymptomId: "s1", name: "Headache" }] } }
+    )
+  );
   return renderWithDataRouter(
     [
       { path: "/cases/:healingCaseId/feedback", element: <ManualFeedback /> },
@@ -39,6 +47,31 @@ describe("ManualFeedback page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     view.isNewView = false;
+    sessions = [];
+  });
+
+  it("fills the healing date from the picked session, keeps it editable, and sends the session", async () => {
+    sessions = [
+      { id: "sess-1", sessionNumber: 1, sessionDate: "2026-10-01" },
+      { id: "sess-2", sessionNumber: 2, sessionDate: "2026-10-08" },
+    ];
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(await screen.findByLabelText("Session"), "sess-2");
+    expect(screen.getByLabelText("Healing date")).toHaveValue("2026-10-08");
+    await user.clear(screen.getByLabelText("Healing date"));
+    await user.type(screen.getByLabelText("Healing date"), "2026-10-09");
+    await user.type(screen.getByLabelText("Comments"), "Better");
+    await user.click(screen.getByRole("button", { name: "Save feedback" }));
+
+    await waitFor(() =>
+      expect(mPost).toHaveBeenCalledWith(
+        "/api/v1/cases/case-1/feedback",
+        expect.objectContaining({ sessionId: "sess-2", healingDate: "2026-10-09" })
+      )
+    );
   });
 
   it("shows a severity slider per symptom and an empty healing date, and refuses to save without one", async () => {

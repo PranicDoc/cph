@@ -104,6 +104,27 @@ class FeedbackServiceManualTest {
     }
 
     @Test
+    void manualFeedback_withAPickedSession_attachesToItWhateverTheDate() {
+        UUID firstId = UUID.randomUUID();
+        first.setId(firstId);
+        ManualFeedbackRequest picked = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 9),
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null, firstId);
+
+        feedbackService.saveManualFeedback(caseId, picked);
+
+        assertSame(first, savedSymptoms().get(0).getHealingSession());
+    }
+
+    @Test
+    void manualFeedback_withASessionOfAnotherCase_isRejected() {
+        ManualFeedbackRequest foreign = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 9),
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null, UUID.randomUUID());
+
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, foreign));
+        verifyNoInteractions(symptomFeedbackRepository);
+    }
+
+    @Test
     void manualFeedback_beforeTheFirstSession_isRejected() {
         assertThrows(IllegalArgumentException.class, () ->
                 feedbackService.saveManualFeedback(caseId, request(FeedbackType.INTERIM, LocalDate.of(2026, 9, 1), "x")));
@@ -112,7 +133,7 @@ class FeedbackServiceManualTest {
 
     @Test
     void manualFeedback_withNothingToSave_isRejected() {
-        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 8), List.of(), "  ");
+        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, LocalDate.of(2026, 10, 8), List.of(), "  ", null);
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, empty));
     }
@@ -163,7 +184,7 @@ class FeedbackServiceManualTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private ManualFeedbackRequest request(FeedbackType type, LocalDate healingDate, String text) {
-        return new ManualFeedbackRequest(type, healingDate, List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text);
+        return new ManualFeedbackRequest(type, healingDate, List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text, null);
     }
 
     @SuppressWarnings("unchecked")

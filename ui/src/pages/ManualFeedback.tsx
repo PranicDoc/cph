@@ -15,6 +15,12 @@ import { SymptomRatingList, type FeedbackSymptom } from "@/components/feedback/S
 
 type FeedbackType = "INTERIM" | "FINAL";
 
+interface CaseSession {
+  id: string;
+  sessionNumber: number | null;
+  sessionDate: string | null;
+}
+
 const ALREADY_SUBMITTED = "https://pranicdoc.com/errors/feedback-already-submitted";
 
 /** Today as yyyy-mm-dd in the healer's own timezone (the date input's format). */
@@ -34,6 +40,7 @@ export default function ManualFeedback() {
 
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("INTERIM");
   const [healingDate, setHealingDate] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [feedbackText, setFeedbackText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +54,20 @@ export default function ManualFeedback() {
     enabled: !!healingCaseId,
   });
 
+  const sessionsQuery = useQuery<CaseSession[]>({
+    queryKey: ["case-sessions", healingCaseId],
+    queryFn: () => api.get(`/api/v1/sessions/case/${healingCaseId}`).then((res) => res.data),
+    enabled: !!healingCaseId,
+  });
+  const sessions = Array.isArray(sessionsQuery.data) ? sessionsQuery.data : [];
+
+  // Picking a session fills the date with that session's date; the healer can still change it.
+  const pickSession = (id: string) => {
+    setSessionId(id);
+    const date = sessions.find((s) => s.id === id)?.sessionDate;
+    if (date) setHealingDate(date);
+  };
+
   const backToPatients = () => navigate("/patients");
 
   const save = useMutation({
@@ -54,6 +75,7 @@ export default function ManualFeedback() {
       api.post(`/api/v1/cases/${healingCaseId}/feedback`, {
         feedbackType,
         healingDate,
+        ...(sessionId ? { sessionId } : {}),
         symptoms: Object.entries(ratings).map(([caseSymptomId, severity]) => ({
           caseSymptomId,
           rating: toSymptomRating(severity),
@@ -103,6 +125,24 @@ export default function ManualFeedback() {
 
       <div className="bg-card border border-border rounded-xl shadow-sm p-4 md:p-6 space-y-6 mt-4">
         <div className="flex flex-wrap items-end gap-4">
+          {sessions.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="manual-feedback-session">Session</Label>
+              <select
+                id="manual-feedback-session"
+                value={sessionId}
+                onChange={(e) => pickSession(e.target.value)}
+                className="h-9 w-56 rounded-md border border-border bg-card px-2 text-sm"
+              >
+                <option value="">Not linked to a session</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {`Session ${s.sessionNumber ?? "?"}${s.sessionDate ? ` — ${s.sessionDate}` : ""}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="manual-feedback-date">Healing date</Label>
             <Input
