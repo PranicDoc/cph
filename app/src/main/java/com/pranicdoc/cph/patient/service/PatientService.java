@@ -85,7 +85,7 @@ public class PatientService {
         Patient patient = patientRepository.save(Patient.create(request.patient(), healerId));
 
         Declaration declaration = declarationMapper.toEntity(request.declaration());
-        if (!declaration.getPatientSignature().equals(patient.getFirstName() + " " + patient.getLastName())) {
+        if (!declaration.getPatientSignature().equals(patient.getFirstName().strip() + " " + patient.getLastName().strip())) {
             throw new IllegalStateException("Signature mismatch in declaration");
         }
 
