@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { CreditCard } from "lucide-react";
-import { useCreditPackages, type PackageResponse } from "../hooks/useCreditPackages";
+import { useCreditPackages, isBuiltInFreePlan, type PackageResponse } from "../hooks/useCreditPackages";
 import { usePurchasePackage } from "../hooks/usePurchasePackage";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export function UpgradeModal({
   const idempotencyKeyRef = useRef<string | null>(null);
 
   const handleUpgrade = (pkg: PackageResponse) => {
-    if (pkg.price_paise === 0) return;
+    if (isBuiltInFreePlan(pkg)) return;
     if (!idempotencyKeyRef.current) {
       idempotencyKeyRef.current = crypto.randomUUID();
     }
@@ -106,7 +106,7 @@ export function UpgradeModal({
                       {isFree ? "Free" : `₹${(pkg.price_paise / 100).toFixed(2)}`}
                     </p>
                     <div className="flex-1" />
-                    {isFree ? (
+                    {isBuiltInFreePlan(pkg) ? (
                       <span className="w-full text-center px-4 py-2 rounded-lg text-sm font-medium bg-border text-text pointer-events-none">
                         Current Plan
                       </span>
@@ -121,6 +121,8 @@ export function UpgradeModal({
                             <Spinner size="sm" className="text-current" />
                             Processing…
                           </span>
+                        ) : isFree ? (
+                          "Start free trial"
                         ) : (
                           "Upgrade"
                         )}
