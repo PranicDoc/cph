@@ -22,7 +22,7 @@ public class HealerCacheServiceImpl implements HealerCacheService {
     }
 
     @Override
-    @Cacheable(key = "#healerId", value = "healerEmail", sync = true)
+    @Cacheable(key = "#healerId", value = "healerName", sync = true)
     public String getName(UUID healerId) {
         Healer healer = healerRepository.findById(healerId)
                 .orElseThrow(() -> new ResourceNotFoundException(String.format("Healer not found for the given id %s", healerId)));
