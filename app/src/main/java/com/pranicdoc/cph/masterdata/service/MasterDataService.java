@@ -76,6 +76,17 @@ public class MasterDataService {
                 .orElseThrow(() -> new ResourceNotFoundException("ChakraCatalog", code));
     }
 
+    /**
+     * Owner of a row created through the API: the current healer, except that SUPADM's rows are
+     * system rows (healerId null) visible to every healer. SUPADM can already edit and delete
+     * system rows, so there is no reason to keep them private to the admin's own account.
+     */
+    private UUID ownerOfNewRow() {
+        return "SUPADM".equals(securityContextUtil.getCurrentRole())
+                ? null
+                : securityContextUtil.getCurrentHealerId();
+    }
+
     @Auditable(action = "CREATE_CHAKRA")
     @Transactional
     public ChakraCatalog createChakra(ChakraRequest req) {
@@ -84,7 +95,7 @@ public class MasterDataService {
         chakra.setCode(req.code().toUpperCase());
         chakra.setCategory(req.category());
         chakra.setLocation(req.location());
-        chakra.setHealerId(securityContextUtil.getCurrentHealerId());
+        chakra.setHealerId(ownerOfNewRow());
         return chakraRepo.save(chakra);
     }
 
@@ -141,7 +152,7 @@ public class MasterDataService {
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
         color.setCategory(req.category());
-        color.setHealerId(securityContextUtil.getCurrentHealerId());
+        color.setHealerId(ownerOfNewRow());
         return colorRepo.save(color);
     }
 
@@ -186,7 +197,7 @@ public class MasterDataService {
     @Auditable(action = "CREATE_PROTOCOL_MAPPING")
     @Transactional
     public List<ProtocolColorMapping> createMappings(ProtocolColorMappingRequest req) {
-        UUID healerId = securityContextUtil.getCurrentHealerId();
+        UUID healerId = ownerOfNewRow();
         List<ProtocolColorMapping> entities = req.colorIds().stream().map(colorId -> {
             ProtocolColorMapping m = new ProtocolColorMapping();
             m.setProtocolName(req.protocolName());
@@ -258,7 +269,7 @@ public class MasterDataService {
         protocol.setDescription(req.description());
         protocol.setChapter(req.chapter());
         protocol.setProtocolType(req.protocolType());
-        protocol.setHealerId(securityContextUtil.getCurrentHealerId());
+        protocol.setHealerId(ownerOfNewRow());
         return protocolRepo.save(protocol);
     }
 
@@ -341,15 +352,15 @@ public class MasterDataService {
     /**
      * Add one or more chakras (each with cleansing/energising colors) to a
      * protocol. Always find-or-creates the CALLER's own {@code ProtocolChakra}
-     * row (healerId = current healer) — never touches a system row or
-     * another healer's row, so no ownership check is needed here (unlike
-     * update/delete below, which target an existing row by id).
+     * row (healerId = current healer, or null -- a system row -- for SUPADM) --
+     * never touches another owner's row, so no ownership check is needed here
+     * (unlike update/delete below, which target an existing row by id).
      */
     @Auditable(action = "ADD_PROTOCOL_CHAKRA_COLORS")
     @Transactional
     public List<ProtocolChakraColorGroup> addProtocolChakraColors(UUID protocolId, ProtocolChakraColorAddRequest req) {
         ProtocolCatalog protocol = getProtocolById(protocolId);
-        UUID healerId = securityContextUtil.getCurrentHealerId();
+        UUID healerId = ownerOfNewRow();
 
         for (ProtocolChakraColorEntry entry : req.entries()) {
             ChakraCatalog chakra = getChakraById(entry.chakraId());
