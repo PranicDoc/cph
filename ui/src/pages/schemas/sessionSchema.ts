@@ -1,4 +1,6 @@
 // src/schemas/sessionSchema.ts
+import { createElement } from "react";
+import { ProtocolOption } from "../../components/ProtocolOption";
 import { FormSchema } from "../../components/DynamicFormEngine";
 import type { Protocol } from "../../hooks/admin/useMasterData";
 import {
@@ -105,6 +107,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
         multiSelectOptions: protocols,
         getOptionKey: (p: Protocol) => p.id,
         getOptionLabel: (p: Protocol) => p.name,
+        renderOption: (p: Protocol) => createElement(ProtocolOption, { protocol: p }),
         renderBadge: (p: Protocol) => (p.sourceBook ? `${p.name} — ${p.sourceBook}, p.${p.pageNumber}` : p.name),
       },
       {
