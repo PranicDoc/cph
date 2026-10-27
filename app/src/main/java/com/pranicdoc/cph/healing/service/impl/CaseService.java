@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pranicdoc.cph.analytics.dto.DashboardCase;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
 import com.pranicdoc.cph.analytics.dto.DashboardTopProtocol;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
@@ -770,6 +771,21 @@ public class CaseService {
                         "ACTIVE_CASE"
                 ))
                 .toList();
+    }
+
+    /** Active and draft cases for the dashboard list, newest activity first; {@code q} matches the patient name. */
+    @Transactional(readOnly = true)
+    public PageResponse<DashboardCase> getDashboardCases(UUID healerId, Collection<CaseStatus> statuses, String q, Pageable pageable) {
+        List<String> names = statuses.stream().map(Enum::name).toList();
+        String needle = q == null ? "" : q.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return PageResponse.from(caseRepository.getDashboardCases(healerId, names, needle, pageable)
+                .map(p -> new DashboardCase(
+                        p.getCaseId(),
+                        p.getPatientFirstName(),
+                        p.getPatientLastName(),
+                        p.getStatus(),
+                        p.getLastSessionDate()
+                )));
     }
 
     @Transactional(readOnly = true)

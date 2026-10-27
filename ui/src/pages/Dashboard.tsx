@@ -13,6 +13,7 @@ import { TopProtocolsChart } from "../components/TopProtocolsChart";
 import { CreditUsageChart } from "../components/CreditUsageChart";
 import { UpcomingSessionsTable } from "../components/UpcomingSessionsTable";
 import { PendingReportsTable } from "../components/PendingReportsTable";
+import { CaseListTable } from "../components/CaseListTable";
 import { FollowupTable } from "../components/FollowupTable";
 import { Button } from "@/components/ui/button";
 
@@ -109,6 +110,9 @@ function ClassicDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <UpcomingSessionsTable healerId={healerId} />
           <PendingReportsTable healerId={healerId} />
+        </div>
+        <div className="mt-6">
+          <CaseListTable healerId={healerId} />
         </div>
         <div className="mt-6">
           <FollowupTable healerId={healerId} />

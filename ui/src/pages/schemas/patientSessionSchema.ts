@@ -108,7 +108,7 @@ export const patientSessionSchema: FormSchema = [
         name: "complementaryDetails",
         label: "Complementary Modalities (Treatments other than main doctor consulting)",
         type: "textarea",
-        placeholder: "Example: Physiotherapy, Accupunture...",
+        placeholder: "Example: Accupunture, Cupping, Osteopathy, Flower medicine...",
         enableToggle: true,
         requiredWhenEnabled: true,
       },

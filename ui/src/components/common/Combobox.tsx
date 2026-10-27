@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   Command,
   CommandEmpty,
@@ -38,6 +38,7 @@ export function Combobox<T>({
 }: ComboboxProps<T>) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const handleSelect = (option: T) => {
     onSelect(option)
@@ -57,6 +58,8 @@ export function Combobox<T>({
             onValueChange={(v) => {
               setQuery(v)
               setOpen(true)
+              // cmdk re-filters in place and keeps the old scrollTop, which hides the matches
+              if (listRef.current) listRef.current.scrollTop = 0
             }}
             onFocus={() => setOpen(true)}
             placeholder={placeholder}
@@ -64,7 +67,7 @@ export function Combobox<T>({
           />
         }
       >
-        <CommandList className="max-h-60">
+        <CommandList ref={listRef} className="max-h-60">
           <CommandEmpty className="py-3 text-sm text-text-light">
             No matches found
           </CommandEmpty>

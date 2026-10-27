@@ -20,8 +20,8 @@ function summary(row: HPUTable) {
   const c = row.cleansingColors.map((x) => x.color);
   if (e.length === 0 && c.length === 0) return "Not filled in";
   const parts = [];
-  if (e.length) parts.push(`Energising: ${e.join(", ")}`);
   if (c.length) parts.push(`Cleansing: ${c.join(", ")}`);
+  if (e.length) parts.push(`Energising: ${e.join(", ")}`);
   return parts.join(" · ");
 }
 
@@ -49,15 +49,6 @@ export default function ProtocolUnderstanding({ rows, energisingColors, cleansin
             {isOpen && (
               <div className="hl-acc-body">
                 <ColorChipPicker
-                  label="Energising colors"
-                  value={row.energisingColors}
-                  colors={energisingColors}
-                  getProperties={getEnergisingProperties}
-                  getColorHex={getEnergisingHex}
-                  loading={colorsLoading}
-                  onChange={(v) => onChange(index, "energisingColors", v)}
-                />
-                <ColorChipPicker
                   label="Cleansing colors"
                   value={row.cleansingColors}
                   colors={cleansingColors}
@@ -65,6 +56,15 @@ export default function ProtocolUnderstanding({ rows, energisingColors, cleansin
                   getColorHex={getCleansingHex}
                   loading={colorsLoading}
                   onChange={(v) => onChange(index, "cleansingColors", v)}
+                />
+                <ColorChipPicker
+                  label="Energising colors"
+                  value={row.energisingColors}
+                  colors={energisingColors}
+                  getProperties={getEnergisingProperties}
+                  getColorHex={getEnergisingHex}
+                  loading={colorsLoading}
+                  onChange={(v) => onChange(index, "energisingColors", v)}
                 />
               </div>
             )}

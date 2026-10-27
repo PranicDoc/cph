@@ -1,5 +1,9 @@
 package com.pranicdoc.cph.analytics.service.impl;
 
+import com.pranicdoc.cph.analytics.dto.DashboardCase;
+import com.pranicdoc.cph.common.dto.PageResponse;
+import com.pranicdoc.cph.common.enums.CaseStatus;
+import org.springframework.data.domain.Pageable;
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
 import com.pranicdoc.cph.analytics.dto.DashboardCreditUsage;
 import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
@@ -159,6 +163,12 @@ public class DashboardServiceImpl implements DashboardService {
     @Transactional(readOnly = true)
     public ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId) {
         return ApiResponse.of(caseService.getPendingReports(healerId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<DashboardCase> getCases(UUID healerId, String q, Pageable pageable) {
+        return caseService.getDashboardCases(healerId, List.of(CaseStatus.ACTIVE, CaseStatus.DRAFT), q, pageable);
     }
 
     @Override

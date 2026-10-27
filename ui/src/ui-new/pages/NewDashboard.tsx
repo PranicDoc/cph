@@ -10,6 +10,7 @@ import { TopProtocolsList, TopSymptomsList } from "../dashboard/RankedCard";
 import { CreditUsageChart } from "../../components/CreditUsageChart";
 import { UpcomingSessionsTable } from "../../components/UpcomingSessionsTable";
 import { PendingReportsTable } from "../../components/PendingReportsTable";
+import { CaseListTable } from "../../components/CaseListTable";
 import { FollowupTable } from "../../components/FollowupTable";
 
 function greeting(firstName?: string): string {
@@ -91,6 +92,9 @@ export default function NewDashboard() {
         <div className="hl-2col">
           <UpcomingSessionsTable healerId={healerId} />
           <PendingReportsTable healerId={healerId} />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <CaseListTable healerId={healerId} />
         </div>
         <div style={{ marginTop: 16 }}>
           <FollowupTable healerId={healerId} />

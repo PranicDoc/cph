@@ -229,29 +229,6 @@ const ClosureForm = ({
         ),
       },
       {
-        accessorKey: "energisingColors",
-        header: "Energising Colors",
-        meta: {
-          headClassName: "min-w-[200px]",
-          cellClassName: "align-top whitespace-normal",
-        },
-        cell: ({ row, table }) => {
-          const meta = table.options.meta as HpuTableMeta;
-          return (
-            <ColorPropertySelector
-              value={row.original.energisingColors}
-              colors={meta.energisingColors}
-              getProperties={meta.getEnergisingProperties}
-              getColorHex={meta.getEnergisingHex}
-              loading={meta.colorsLoading}
-              onChange={(updated) => {
-                updateRow(row.index, "energisingColors", updated);
-              }}
-            />
-          );
-        },
-      },
-      {
         accessorKey: "cleansingColors",
         header: "Cleansing Colors",
         meta: {
@@ -269,6 +246,29 @@ const ClosureForm = ({
               loading={meta.colorsLoading}
               onChange={(updated) => {
                 updateRow(row.index, "cleansingColors", updated);
+              }}
+            />
+          );
+        },
+      },
+      {
+        accessorKey: "energisingColors",
+        header: "Energising Colors",
+        meta: {
+          headClassName: "min-w-[200px]",
+          cellClassName: "align-top whitespace-normal",
+        },
+        cell: ({ row, table }) => {
+          const meta = table.options.meta as HpuTableMeta;
+          return (
+            <ColorPropertySelector
+              value={row.original.energisingColors}
+              colors={meta.energisingColors}
+              getProperties={meta.getEnergisingProperties}
+              getColorHex={meta.getEnergisingHex}
+              loading={meta.colorsLoading}
+              onChange={(updated) => {
+                updateRow(row.index, "energisingColors", updated);
               }}
             />
           );
@@ -377,7 +377,7 @@ const ClosureForm = ({
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
                 className="border px-3 py-2 min-h-[100px] resize-none"
-                placeholder="Add any final notes or observations here..."
+                placeholder="Describe the unique thing identified for this case and healer's understanding of the case"
               />
             </div>
 

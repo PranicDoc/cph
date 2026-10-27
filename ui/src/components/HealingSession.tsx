@@ -101,7 +101,21 @@ export const HealingSessionWizard = ({
   useEffect(() => {
     if (contentReady && step <= 2) prefilledSteps.current.add(step);
   }, [contentReady, step]);
-  const stepPrefillChakras = prefilledSteps.current.has(step) ? NO_CHAKRAS : prefillChakras;
+  // Post-scan starts from the chakras the healer picked in the pre-scan (levels reset), so they
+  // are not re-picked; with none picked, fall back to the protocol-linked chakras. Not when
+  // editing a saved session: its post-scan is already loaded and must not gain rows.
+  const postScanPrefillChakras = useMemo(() => {
+    if (session) return NO_CHAKRAS;
+    const fromPreScan = preScanChakraData
+      .map((entry) => availableChakras.find((c) => c.id === entry.id))
+      .filter((c): c is ChakraCatalogEntry => c !== undefined);
+    return fromPreScan.length > 0 ? fromPreScan : prefillChakras;
+  }, [session, preScanChakraData, availableChakras, prefillChakras]);
+  const stepPrefillChakras = prefilledSteps.current.has(step)
+    ? NO_CHAKRAS
+    : step === 2
+      ? postScanPrefillChakras
+      : prefillChakras;
 
   const handleWizardBack = () => {
     if (step === 1) {

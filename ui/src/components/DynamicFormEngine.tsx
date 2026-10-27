@@ -69,6 +69,7 @@ export type FieldConfig = {
   getOptionKey?: (option: any) => string;
   getOptionLabel?: (option: any) => string;
   renderBadge?: (option: any) => React.ReactNode;
+  renderOption?: (option: any, selected: boolean) => React.ReactNode;
   multiSelectPlaceholder?: string;
   validate?: (
     value: any,
@@ -252,6 +253,7 @@ export function DynamicField({
                 getOptionKey={fieldConfig.getOptionKey ?? ((o: any) => String(o))}
                 getOptionLabel={fieldConfig.getOptionLabel ?? ((o: any) => String(o))}
                 renderBadge={fieldConfig.renderBadge}
+                renderOption={fieldConfig.renderOption}
                 placeholder={fieldConfig.multiSelectPlaceholder ?? placeholder}
                 disabled={fieldConfig.readOnly}
               />

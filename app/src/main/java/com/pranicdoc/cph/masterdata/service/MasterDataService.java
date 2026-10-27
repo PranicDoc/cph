@@ -125,8 +125,10 @@ public class MasterDataService {
 
     @Transactional(readOnly = true)
     public List<PranaColorCatalog> getAllColors(UUID healerId) {
-        if (healerId == null) return colorRepo.findByHealerIdIsNull();
-        return colorRepo.findByHealerIdIsNullOrHealerId(healerId);
+        List<PranaColorCatalog> colors = healerId == null
+                ? colorRepo.findByHealerIdIsNull()
+                : colorRepo.findByHealerIdIsNullOrHealerId(healerId);
+        return colors.stream().sorted(ColorOrder.COMPARATOR).toList();
     }
 
     @Transactional(readOnly = true)
