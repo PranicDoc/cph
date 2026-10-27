@@ -7,9 +7,12 @@ import com.pranicdoc.cph.healing.service.impl.HealerProtocolUnderstandingService
 import org.mapstruct.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public abstract class CphCaseMapper {
@@ -36,6 +39,7 @@ public abstract class CphCaseMapper {
 
     @Mapping(target = "healingCount",       nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT)
     @Mapping(target = "isHealingContinued", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT)
+    @Mapping(target = "lastFeedbackDate",   expression = "java(latestFeedbackDate(e))")
     public abstract com.pranicdoc.common.dto.CaseClosure toCaseClosure(
             com.pranicdoc.cph.healing.model.CaseClosure e);
 
@@ -63,6 +67,23 @@ public abstract class CphCaseMapper {
 
     @Mapping(target = "usageType", expression = "java(c.getUsageType() != null ? c.getUsageType().name() : null)")
     public abstract ProtocolColorSnapshot toProtocolColorSnapshot(ProtocolColor c);
+
+    /**
+     * The date of the latest feedback on the case. The value stored on the closure is set when the
+     * case is closed, before the final feedback exists, so it is stale (or null) by the time the PDF
+     * is built; fall back to it only when no feedback carries a date.
+     */
+    protected LocalDate latestFeedbackDate(com.pranicdoc.cph.healing.model.CaseClosure closure) {
+        HealingCase healingCase = closure.getHealingCase();
+        if (healingCase == null || healingCase.getSessions() == null) return closure.getLastFeedbackDate();
+        return healingCase.getSessions().stream()
+                .flatMap(s -> Stream.concat(
+                        s.getQualitativeFeedbacks().stream().map(QualitativeFeedback::getHealingDate),
+                        s.getSymptomFeedbacks().stream().map(SymptomFeedback::getHealingDate)))
+                .filter(Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(closure.getLastFeedbackDate());
+    }
 
     // ── Sorted sessions with HPU enrichment ──────────────────────────────────
 
