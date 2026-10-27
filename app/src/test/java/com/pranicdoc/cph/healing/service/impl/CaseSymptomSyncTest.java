@@ -52,9 +52,11 @@ class CaseSymptomSyncTest {
         CaseSymptom fever = symptom("Fever");
         HealingCase c = caseWith(headache, fever);
 
-        CaseSymptomSync.apply(c, List.of(new SymptomRequest("Fever", null, null)), CaseSymptomSyncTest::fromRequest);
+        List<UUID> removed = CaseSymptomSync.apply(
+                c, List.of(new SymptomRequest("Fever", null, null)), CaseSymptomSyncTest::fromRequest);
 
         assertThat(c.getSymptoms()).containsExactly(fever);
+        assertThat(removed).containsExactly(headache.getId());
     }
 
     @Test

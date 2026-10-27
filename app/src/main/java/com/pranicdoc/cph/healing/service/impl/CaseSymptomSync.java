@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -23,8 +24,10 @@ final class CaseSymptomSync {
     /**
      * A requested symptom with the same name (ignoring case and surrounding spaces) as an existing one
      * updates that row; a new name adds a row; an existing symptom missing from the request is removed.
+     *
+     * @return the ids of the removed symptoms, so the feedback given on them can be removed with them
      */
-    static void apply(HealingCase healingCase, List<SymptomRequest> requested,
+    static List<UUID> apply(HealingCase healingCase, List<SymptomRequest> requested,
                       Function<SymptomRequest, CaseSymptom> newSymptom) {
         List<CaseSymptom> existing = healingCase.getSymptoms();
         List<CaseSymptom> kept = new ArrayList<>();
@@ -46,10 +49,15 @@ final class CaseSymptomSync {
                 kept.add(added);
             }
         }
+        List<UUID> removedIds = existing.stream()
+                .filter(s -> !matched.contains(s) && s.getId() != null)
+                .map(CaseSymptom::getId)
+                .toList();
         existing.removeIf(s -> !matched.contains(s));
         for (CaseSymptom symptom : kept) {
             if (!matched.contains(symptom)) existing.add(symptom);
         }
+        return removedIds;
     }
 
     private static boolean sameName(String a, String b) {
