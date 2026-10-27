@@ -3,7 +3,7 @@ import api from "../lib/axios";
 import type { DashboardCase } from "../types/workqueue";
 import type { SpringPageResponse } from "../types/pagination";
 
-export const DASHBOARD_CASES_PAGE_SIZE = 5;
+export const DASHBOARD_CASES_PAGE_SIZE = 10;
 
 export function useDashboardCases(healerId: string, q: string, page: number) {
   return useQuery<SpringPageResponse<DashboardCase>>({

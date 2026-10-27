@@ -14,7 +14,7 @@ import api from "../lib/axios";
 const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 
 function page(content: unknown[], overrides = {}) {
-  return { data: { content, page: 0, size: 5, totalElements: content.length, totalPages: 1, last: true, ...overrides } };
+  return { data: { content, page: 0, size: 10, totalElements: content.length, totalPages: 1, last: true, ...overrides } };
 }
 
 const ROWS = [
@@ -66,7 +66,7 @@ describe("CaseListTable", () => {
     await userEvent.type(screen.getByLabelText("Search cases by patient name"), "ravi");
     await waitFor(() =>
       expect(mGet).toHaveBeenLastCalledWith("/api/v1/dashboard/cases", {
-        params: { q: "ravi", page: 0, size: 5 },
+        params: { q: "ravi", page: 0, size: 10 },
       })
     );
   });
@@ -78,7 +78,7 @@ describe("CaseListTable", () => {
     await userEvent.click(screen.getByLabelText("Next page"));
     await waitFor(() =>
       expect(mGet).toHaveBeenLastCalledWith("/api/v1/dashboard/cases", {
-        params: { q: undefined, page: 1, size: 5 },
+        params: { q: undefined, page: 1, size: 10 },
       })
     );
   });

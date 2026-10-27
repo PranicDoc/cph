@@ -26,6 +26,7 @@ public interface DashboardService {
     ApiResponse<List<DashboardTopProtocol>> getTopProtocols(UUID healerId, DateRangeFilter filter);
     ApiResponse<List<DashboardUpcomingSession>> getUpcomingSessions(UUID healerId);
     ApiResponse<List<DashboardPendingReport>> getPendingReports(UUID healerId);
+    PageResponse<DashboardPendingReport> getPendingReportsPage(UUID healerId, String q, Pageable pageable);
     PageResponse<DashboardCase> getCases(UUID healerId, String q, Pageable pageable);
     ApiResponse<List<DashboardFollowup>> getFollowups(UUID healerId);
     ApiResponse<List<DashboardCreditUsage>> getCreditUsage(UUID healerId, DateRangeFilter filter);

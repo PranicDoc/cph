@@ -76,6 +76,10 @@ const ClosureForm = ({
   const { isNewView } = useUiVersion();
   const [currentStep, setCurrentStep] = useState(1);
   const [hpuTableData, setHpuTableData] = useState<HPUTable[]>([]);
+  // Next saves hpuTableData, so it must not run before the saved selections (and scanned chakras)
+  // have loaded: saving the still-empty table would overwrite what the healer filled in earlier.
+  const [hpuLoading, setHpuLoading] = useState(true);
+  const [hpuReady, setHpuReady] = useState(false);
   const { data: supplementaryProtocols = [], isLoading: protocolsLoading } =
     useProtocols("SUPPLEMENTARY");
 
@@ -122,6 +126,7 @@ const ClosureForm = ({
           };
         });
         setHpuTableData(tableData);
+        setHpuReady(true);
       } catch (err) {
         toast.error(
           extractDetail(err) || "Failed to fetch Scanned Chakras, try again",
@@ -129,6 +134,8 @@ const ClosureForm = ({
             duration: 5000,
           }
         );
+      } finally {
+        setHpuLoading(false);
       }
     };
 
@@ -406,9 +413,13 @@ const ClosureForm = ({
         {currentStep < CLOSURE_FORM_STEPS ? (
           <Button
             onClick={nextStep}
-            disabled={saveProtocolUnderstandingMutation.isPending}
+            disabled={saveProtocolUnderstandingMutation.isPending || !hpuReady}
           >
-            {saveProtocolUnderstandingMutation.isPending ? "Saving..." : "Next"}
+            {saveProtocolUnderstandingMutation.isPending
+              ? "Saving..."
+              : hpuLoading
+                ? "Loading..."
+                : "Next"}
           </Button>
         ) : (
           <Button

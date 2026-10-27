@@ -7,6 +7,9 @@ import com.pranicdoc.cph.analytics.service.DashboardService;
 import com.pranicdoc.cph.analytics.service.DateRangeResolver;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.dto.ApiResponse;
+import com.pranicdoc.cph.common.dto.PageResponse;
+import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Pageable;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
@@ -29,7 +32,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -152,6 +158,28 @@ class DashboardControllerWorkQueueTest {
 
         mockMvc.perform(get("/api/v1/dashboard/pending-reports").cookie(accessCookie()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getPendingReportsPage_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/dashboard/pending-reports/page"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getPendingReportsPage_passesSearchAndTenRowsPerPage() throws Exception {
+        authenticateAs("HEALER");
+        when(dashboardService.getPendingReportsPage(any(UUID.class), eq("ali"), any(Pageable.class)))
+                .thenReturn(new PageResponse<>(
+                        List.of(new DashboardPendingReport(UUID.randomUUID(), "Alice", "Smith", LocalDate.now())),
+                        0, 10, 1, 1, true));
+
+        mockMvc.perform(get("/api/v1/dashboard/pending-reports/page").param("q", "ali").cookie(accessCookie()))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(dashboardService).getPendingReportsPage(any(UUID.class), eq("ali"), pageable.capture());
+        assertEquals(10, pageable.getValue().getPageSize());
     }
 
     // --- followups ---

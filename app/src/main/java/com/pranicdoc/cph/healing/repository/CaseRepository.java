@@ -172,6 +172,45 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
     """)
     List<PendingReportPoint> getPendingReportsForQueue(@Param("healerId") UUID healerId);
 
+    @Query(nativeQuery = true, value = """
+        SELECT hc.id           AS caseId,
+               p.first_name    AS patientFirstName,
+               p.last_name     AS patientLastName,
+               cc.closure_date AS closureDate
+        FROM healing_case hc
+        JOIN patient p ON p.id = hc.patient_id
+        LEFT JOIN case_closure cc ON cc.healing_case_id = hc.id
+        WHERE hc.healer_id = CAST(:healerId AS uuid)
+          AND hc.status = 'CLOSED'
+          AND hc.is_deleted = false
+          AND p.is_deleted  = false
+          AND NOT EXISTS (
+                SELECT 1 FROM pdf_job pj
+                WHERE pj.healing_case_id = hc.id
+                  AND pj.status = 'COMPLETED'
+          )
+          AND (:q = '' OR LOWER(p.first_name || ' ' || p.last_name) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY cc.closure_date DESC NULLS LAST, hc.id
+    """, countQuery = """
+        SELECT COUNT(*)
+        FROM healing_case hc
+        JOIN patient p ON p.id = hc.patient_id
+        WHERE hc.healer_id = CAST(:healerId AS uuid)
+          AND hc.status = 'CLOSED'
+          AND hc.is_deleted = false
+          AND p.is_deleted  = false
+          AND NOT EXISTS (
+                SELECT 1 FROM pdf_job pj
+                WHERE pj.healing_case_id = hc.id
+                  AND pj.status = 'COMPLETED'
+          )
+          AND (:q = '' OR LOWER(p.first_name || ' ' || p.last_name) LIKE LOWER(CONCAT('%', :q, '%')))
+    """)
+    Page<PendingReportPoint> getPendingReportsPage(
+            @Param("healerId") UUID healerId,
+            @Param("q") String q,
+            Pageable pageable);
+
     interface PendingReportPoint {
         UUID getCaseId();
         String getPatientFirstName();

@@ -82,6 +82,15 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.getPendingReports(healerId));
     }
 
+    /** Closed cases still waiting for a PDF, searchable by patient name and paginated. */
+    @GetMapping("pending-reports/page")
+    public ResponseEntity<PageResponse<DashboardPendingReport>> getPendingReportsPage(
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 10) Pageable pageable) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getPendingReportsPage(healerId, q, pageable));
+    }
+
     /** Active and draft cases with the patient name, searchable by name and paginated. */
     @GetMapping("cases")
     public ResponseEntity<PageResponse<DashboardCase>> getCases(
