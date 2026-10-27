@@ -123,7 +123,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
         name: "complementaryDetails",
         label: "Complementary Modalities",
         type: "textarea",
-        placeholder: "Please mention complementary modalities if any...",
+        placeholder: "Example: Accupunture, Cupping, Osteopathy, Flower medicine...",
         enableToggle: true,
       },
       {

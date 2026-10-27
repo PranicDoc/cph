@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   Command,
   CommandEmpty,
@@ -20,6 +21,8 @@ export function MultiSelectList<T>({
   emptyText = "No results found.",
   disabled,
 }: MultiSelectListProps<T>) {
+  const listRef = useRef<HTMLDivElement>(null);
+
   const isSelected = (option: T) =>
     value.some((selected) => getOptionKey(selected) === getOptionKey(option));
 
@@ -37,9 +40,16 @@ export function MultiSelectList<T>({
 
   return (
     <Command>
-      <CommandInput placeholder={searchPlaceholder} disabled={disabled} />
+      <CommandInput
+        placeholder={searchPlaceholder}
+        disabled={disabled}
+        onValueChange={() => {
+          // cmdk re-filters in place and keeps the old scrollTop, which hides the matches
+          if (listRef.current) listRef.current.scrollTop = 0;
+        }}
+      />
 
-      <CommandList>
+      <CommandList ref={listRef}>
         <CommandEmpty>{emptyText}</CommandEmpty>
 
         <CommandGroup>
