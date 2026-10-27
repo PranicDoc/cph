@@ -1,6 +1,11 @@
 package com.pranicdoc.cph.analytics.controller;
 
+import com.pranicdoc.cph.analytics.dto.DashboardCase;
 import com.pranicdoc.cph.analytics.dto.DateRangeFilter;
+import com.pranicdoc.cph.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.RequestParam;
 import com.pranicdoc.cph.analytics.dto.DashboardCreditUsage;
 import com.pranicdoc.cph.analytics.dto.DashboardFollowup;
 import com.pranicdoc.cph.analytics.dto.DashboardPendingReport;
@@ -75,6 +80,15 @@ public class DashboardController {
     public ResponseEntity<ApiResponse<List<DashboardPendingReport>>> getPendingReports() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         return ResponseEntity.ok(dashboardService.getPendingReports(healerId));
+    }
+
+    /** Active and draft cases with the patient name, searchable by name and paginated. */
+    @GetMapping("cases")
+    public ResponseEntity<PageResponse<DashboardCase>> getCases(
+            @RequestParam(required = false) String q,
+            @PageableDefault(size = 10) Pageable pageable) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        return ResponseEntity.ok(dashboardService.getCases(healerId, q, pageable));
     }
 
     @GetMapping("followups")
