@@ -167,6 +167,12 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<DashboardPendingReport> getPendingReportsPage(UUID healerId, String q, Pageable pageable) {
+        return caseService.getPendingReportsPage(healerId, q, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PageResponse<DashboardCase> getCases(UUID healerId, String q, Pageable pageable) {
         return caseService.getDashboardCases(healerId, List.of(CaseStatus.ACTIVE, CaseStatus.DRAFT), q, pageable);
     }

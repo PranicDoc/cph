@@ -777,7 +777,7 @@ public class CaseService {
     @Transactional(readOnly = true)
     public PageResponse<DashboardCase> getDashboardCases(UUID healerId, Collection<CaseStatus> statuses, String q, Pageable pageable) {
         List<String> names = statuses.stream().map(Enum::name).toList();
-        String needle = q == null ? "" : q.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        String needle = likeNeedle(q);
         return PageResponse.from(caseRepository.getDashboardCases(healerId, names, needle, pageable)
                 .map(p -> new DashboardCase(
                         p.getCaseId(),
@@ -786,6 +786,23 @@ public class CaseService {
                         p.getStatus(),
                         p.getLastSessionDate()
                 )));
+    }
+
+    /** Closed cases still without a generated PDF, for the dashboard list; {@code q} matches the patient name. */
+    @Transactional(readOnly = true)
+    public PageResponse<DashboardPendingReport> getPendingReportsPage(UUID healerId, String q, Pageable pageable) {
+        return PageResponse.from(caseRepository.getPendingReportsPage(healerId, likeNeedle(q), pageable)
+                .map(p -> new DashboardPendingReport(
+                        p.getCaseId(),
+                        p.getPatientFirstName(),
+                        p.getPatientLastName(),
+                        p.getClosureDate()
+                )));
+    }
+
+    /** The search text with LIKE wildcards escaped, so a typed % or _ matches itself. */
+    private static String likeNeedle(String q) {
+        return q == null ? "" : q.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     @Transactional(readOnly = true)
