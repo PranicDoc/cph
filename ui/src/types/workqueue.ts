@@ -22,3 +22,11 @@ export interface FollowupPatient {
   sentAt: string;
   isFinal: boolean;
 }
+
+export interface DashboardCase {
+  caseId: string;
+  patientFirstName: string;
+  patientLastName: string;
+  status: "ACTIVE" | "DRAFT";
+  lastSessionDate: string | null;
+}
