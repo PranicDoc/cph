@@ -41,6 +41,7 @@ import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealingDetailsRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
+import com.pranicdoc.cph.healing.repository.SymptomFeedbackRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
@@ -99,6 +100,7 @@ public class CaseService {
     private final HealerCacheService healerService;
     private final ObjectProvider<CaseService> self;
     private final PatientService patientService;
+    private final SymptomFeedbackRepository symptomFeedbackRepository;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -530,11 +532,12 @@ public class CaseService {
         }
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
         if(caseUpdateRequest.symptoms() != null && !caseUpdateRequest.symptoms().isEmpty()) {
-            entity.getSymptoms().clear();
-            for (SymptomRequest symptomRequest : caseUpdateRequest.symptoms()) {
-                CaseSymptom symptom = healingCaseMapper.toSymptom(symptomRequest);
-                symptom.setHealingCase(entity);
-                entity.getSymptoms().add(symptom);
+            // Keep the symptoms that stay (same id), so feedback already given on them keeps pointing at them;
+            // feedback on a symptom the edit removed has nothing left to refer to, so it goes with it.
+            List<UUID> removedSymptomIds =
+                    CaseSymptomSync.apply(entity, caseUpdateRequest.symptoms(), healingCaseMapper::toSymptom);
+            if (!removedSymptomIds.isEmpty()) {
+                symptomFeedbackRepository.deleteByCaseSymptomIdIn(removedSymptomIds);
             }
         }
         if(caseUpdateRequest.medications() != null) {
