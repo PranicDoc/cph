@@ -530,12 +530,8 @@ public class CaseService {
         }
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
         if(caseUpdateRequest.symptoms() != null && !caseUpdateRequest.symptoms().isEmpty()) {
-            entity.getSymptoms().clear();
-            for (SymptomRequest symptomRequest : caseUpdateRequest.symptoms()) {
-                CaseSymptom symptom = healingCaseMapper.toSymptom(symptomRequest);
-                symptom.setHealingCase(entity);
-                entity.getSymptoms().add(symptom);
-            }
+            // Keep the symptoms that stay (same id), so feedback already given on them keeps pointing at them.
+            CaseSymptomSync.apply(entity, caseUpdateRequest.symptoms(), healingCaseMapper::toSymptom);
         }
         if(caseUpdateRequest.medications() != null) {
             entity.getMedications().clear();
