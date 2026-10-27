@@ -8,7 +8,6 @@ import { SessionTrendChart } from "../../components/SessionTrendChart";
 import { PatientGrowthChart } from "../../components/PatientGrowthChart";
 import { TopProtocolsList, TopSymptomsList } from "../dashboard/RankedCard";
 import { CreditUsageChart } from "../../components/CreditUsageChart";
-import { UpcomingSessionsTable } from "../../components/UpcomingSessionsTable";
 import { PendingReportsTable } from "../../components/PendingReportsTable";
 import { CaseListTable } from "../../components/CaseListTable";
 import { FollowupTable } from "../../components/FollowupTable";
@@ -90,11 +89,8 @@ export default function NewDashboard() {
       <section>
         <h3 className="ongr" style={{ margin: "4px 4px 12px" }}>Work queue</h3>
         <div className="hl-2col">
-          <UpcomingSessionsTable healerId={healerId} />
-          <PendingReportsTable healerId={healerId} />
-        </div>
-        <div style={{ marginTop: 16 }}>
           <CaseListTable healerId={healerId} />
+          <PendingReportsTable healerId={healerId} />
         </div>
         <div style={{ marginTop: 16 }}>
           <FollowupTable healerId={healerId} />
