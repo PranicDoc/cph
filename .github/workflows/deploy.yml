@@ -30,10 +30,6 @@ on:
         description: "Optional env vars, KEY=value pairs separated by ; (e.g. LOG_LEVEL=info;FEATURE_X=true). Shown on this run page, so no real secrets"
         type: string
         default: ""
-      resolve_release:
-        description: Resolve release SHA and version before building
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -51,7 +47,6 @@ jobs:
 
   resolve:
     needs: check
-    if: inputs.resolve_release
     permissions:
       contents: read
       actions: read
@@ -63,9 +58,7 @@ jobs:
 
   build_backend:
     needs: resolve
-    if: >-
-      always() && inputs.components != 'ui'
-      && (inputs.resolve_release == false || needs.resolve.result == 'success')
+    if: inputs.components != 'ui'
     permissions:
       contents: read
       packages: write
@@ -73,18 +66,16 @@ jobs:
     uses: PranicDoc/infra/.github/workflows/build-image.yml@main
     with:
       image_name: cph
-      context: app
-      use_gpr_key: true
-      ref: ${{ inputs.resolve_release && needs.resolve.outputs.sha || inputs.tag || 'main' }}
-      image_tag: ${{ inputs.resolve_release && needs.resolve.outputs.version || inputs.tag || format('main-{0}', github.run_id) }}
+      context: app                 # Dockerfile lives in cph/app/
+      use_gpr_key: true            # common-dtos / storage-sdk come from GitHub Packages
+      ref: ${{ needs.resolve.outputs.sha }}
+      image_tag: ${{ needs.resolve.outputs.version }}
       gar_environment: ${{ inputs.target == 'cloudrun' && 'uat' || '' }}
     secrets: inherit
 
   build_ui:
     needs: resolve
-    if: >-
-      always() && inputs.components != 'backend'
-      && (inputs.resolve_release == false || needs.resolve.result == 'success')
+    if: inputs.components != 'backend'
     permissions:
       contents: read
       packages: write
@@ -96,20 +87,17 @@ jobs:
       build_args: |
         GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
         VITE_NEW_VIEW=${{ vars.VITE_NEW_VIEW }}
-      ref: ${{ inputs.resolve_release && needs.resolve.outputs.sha || inputs.tag || 'main' }}
-      image_tag: ${{ inputs.resolve_release && needs.resolve.outputs.version || inputs.tag || format('main-{0}', github.run_id) }}
+      ref: ${{ needs.resolve.outputs.sha }}
+      image_tag: ${{ needs.resolve.outputs.version }}
     secrets: inherit
 
   deploy_vm:
     needs: [resolve, build_backend, build_ui]
     # A skipped build (component not selected) is fine; a failed or cancelled one is not.
     if: >-
-      always() && inputs.target == 'vm'
-      && (inputs.resolve_release == false || needs.resolve.result == 'success')
-      && needs.build_backend.result != 'failure'
-      && needs.build_backend.result != 'cancelled'
-      && needs.build_ui.result != 'failure'
-      && needs.build_ui.result != 'cancelled'
+      always() && inputs.target == 'vm' && needs.resolve.result == 'success'
+      && needs.build_backend.result != 'failure' && needs.build_backend.result != 'cancelled'
+      && needs.build_ui.result != 'failure' && needs.build_ui.result != 'cancelled'
     permissions:
       contents: read
       issues: write                # approval gate
