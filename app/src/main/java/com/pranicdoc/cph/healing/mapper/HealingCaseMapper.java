@@ -25,6 +25,7 @@ public interface HealingCaseMapper {
     Declaration toDeclaration(DeclarationRequest request);
 
     @Mapping(target = "healingDetails", ignore = true)
+    @Mapping(target = "symptoms", ignore = true) // CaseSymptomSync merges by name; a bulk map would drop the parent link
     @Mapping(target = "labFindings", ignore = true) // CaseService merges labFindings manually (keys + new uploads)
     void toEntity(CaseUpdateRequest updateRequest, @MappingTarget HealingCase entity);
 
