@@ -2,6 +2,9 @@ package com.pranicdoc.cph.healing.service;
 
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.common.exception.FeedbackAlreadySubmittedException;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import org.springframework.security.access.AccessDeniedException;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.QualitativeFeedback;
@@ -17,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +35,7 @@ class FeedbackServiceTest {
     @Mock private QualitativeFeedbackRepository qualitativeFeedbackRepository;
     @Mock private SessionService sessionService;
     @Mock private FeedbackLinkRepository feedbackLinkRepository;
+    @Mock private SecurityContextUtil securityContextUtil;
 
     @InjectMocks private FeedbackService feedbackService;
 
@@ -40,9 +45,17 @@ class FeedbackServiceTest {
         return s;
     }
 
+    /** Token bound to this case and a live final link exists: the normal patient flow. */
+    private void patientSessionFor(UUID caseId, boolean activeFinalLink) {
+        lenient().when(securityContextUtil.getCurrentCaseId()).thenReturn(caseId);
+        lenient().when(feedbackLinkRepository.existsActiveFinalLink(eq(caseId), eq(LinkStatus.ACTIVE), any(Instant.class)))
+                .thenReturn(activeFinalLink);
+    }
+
     @Test
     void firstFinal_insertsNewRowAndMarksLinkUsed() {
         UUID caseId = UUID.randomUUID();
+        patientSessionFor(caseId, true);
         HealingSession latest = session(1);
         when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(latest);
         when(qualitativeFeedbackRepository
@@ -63,6 +76,7 @@ class FeedbackServiceTest {
     @Test
     void secondFinal_overwritesTextRemarksAndRepointsToLatestSession() {
         UUID caseId = UUID.randomUUID();
+        patientSessionFor(caseId, true);
         HealingSession oldSession = session(1);
         HealingSession latest = session(2);
         QualitativeFeedback existing = QualitativeFeedback.builder()
@@ -91,6 +105,7 @@ class FeedbackServiceTest {
     @Test
     void interim_afterFinalExists_insertsWithoutTouchingFinalOrLink() {
         UUID caseId = UUID.randomUUID();
+        patientSessionFor(caseId, false);
         HealingSession latest = session(2);
         when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(latest);
 
@@ -102,6 +117,41 @@ class FeedbackServiceTest {
         assertEquals(FeedbackType.INTERIM, saved.getValue().getFeedbackType());
         verify(qualitativeFeedbackRepository, never())
                 .findByHealingSession_HealingCase_IdAndFeedbackType(any(), any());
+        verify(feedbackLinkRepository, never()).markUsedBySessionId(any(), any(), any());
+    }
+
+    @Test
+    void qualitative_whenTokenBoundToAnotherCase_isDeniedAndSavesNothing() {
+        UUID caseId = UUID.randomUUID();
+        lenient().when(securityContextUtil.getCurrentCaseId()).thenReturn(UUID.randomUUID());
+
+        assertThrows(AccessDeniedException.class, () -> feedbackService.saveQualitativeFeedback(caseId,
+                new QualitativeFeedbackRequest(FeedbackType.FINAL, "Overwrite attempt", null)));
+
+        verifyNoInteractions(qualitativeFeedbackRepository);
+        verify(feedbackLinkRepository, never()).markUsedBySessionId(any(), any(), any());
+    }
+
+    @Test
+    void qualitative_whenTokenHasNoCaseClaim_isDenied() {
+        UUID caseId = UUID.randomUUID();
+        lenient().when(securityContextUtil.getCurrentCaseId()).thenReturn(null);
+
+        assertThrows(AccessDeniedException.class, () -> feedbackService.saveQualitativeFeedback(caseId,
+                new QualitativeFeedbackRequest(FeedbackType.INTERIM, "x", null)));
+
+        verifyNoInteractions(qualitativeFeedbackRepository);
+    }
+
+    @Test
+    void final_withoutLiveFinalLink_isRejectedAndLeavesExistingFeedbackUntouched() {
+        UUID caseId = UUID.randomUUID();
+        patientSessionFor(caseId, false);
+
+        assertThrows(FeedbackAlreadySubmittedException.class, () -> feedbackService.saveQualitativeFeedback(caseId,
+                new QualitativeFeedbackRequest(FeedbackType.FINAL, "Replay on a used link", null)));
+
+        verify(qualitativeFeedbackRepository, never()).save(any());
         verify(feedbackLinkRepository, never()).markUsedBySessionId(any(), any(), any());
     }
 }

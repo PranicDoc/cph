@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,6 +55,20 @@ public class FeedbackService {
     /** WhatsApp path: the patient's interim or final comment on the case's latest session. A FINAL overwrites the earlier one. */
     @Auditable(action = "SAVE_QUALITATIVE_FEEDBACK")
     public void saveQualitativeFeedback(UUID caseId, QualitativeFeedbackRequest request) {
+        // The feedback-session token is bound to one case (FeedbackLink.caseId -> "caseId" claim).
+        // Without this check any patient cookie of the same healer could write to any of that
+        // healer's cases, and now that FINAL overwrites, could rewrite a recorded FINAL.
+        UUID tokenCaseId = securityContextUtil.getCurrentCaseId();
+        if (tokenCaseId == null || !tokenCaseId.equals(caseId)) {
+            throw new AccessDeniedException("Not authorized to submit feedback for this case");
+        }
+        // A FINAL may only be written while a final-feedback link is live. Submitting marks the
+        // links USED, so a replay on the still-valid session cookie is rejected here.
+        if (request.feedbackType() == FeedbackType.FINAL
+                && !feedbackLinkRepository.existsActiveFinalLink(caseId, LinkStatus.ACTIVE, Instant.now())) {
+            throw new FeedbackAlreadySubmittedException();
+        }
+
         HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
 
         if (request.feedbackType() == FeedbackType.FINAL) {
