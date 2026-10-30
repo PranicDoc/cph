@@ -60,6 +60,8 @@ const router = createBrowserRouter(
         <Route path="/patient-health/:caseId" lazy={page(() => import("./pages/PatientHealthForm"))} />
         <Route path="/accept-invite" lazy={page(() => import("./pages/AcceptInvite"))} />
         <Route path="/signup" lazy={page(() => import("./pages/Signup"))} />
+        <Route path="/forgot-password" lazy={page(() => import("./pages/ForgotPassword"))} />
+        <Route path="/reset-password" lazy={page(() => import("./pages/ResetPassword"))} />
       </Route>
 
       {/* Protected healer routes */}

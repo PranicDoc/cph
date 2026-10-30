@@ -118,6 +118,12 @@ export default function Login() {
               </div>
             )}
 
+            <div className="-mt-2 text-right">
+              <Link to="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-dark">
+                Forgot password?
+              </Link>
+            </div>
+
             <loginForm.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
               children={([canSubmit, isFormSubmitting]) => (

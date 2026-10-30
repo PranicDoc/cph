@@ -103,4 +103,41 @@ class AccountEmailsTest {
             assertTrue(hostile.htmlBody().contains("&lt;b&gt;Eve&lt;/b&gt;"));
         }
     }
+
+    @Nested
+    class PasswordReset {
+
+        private static final String RESET_LINK = "https://app.healingark.in/reset-password?token=abc123";
+        private final NotificationMessage reset = emails.passwordReset("asha@example.com", RESET_LINK, 30);
+
+        @Test
+        void carriesTheLinkAndTheShortExpiryInBothVersions() {
+            assertEquals("Reset your HealingARK password", reset.subject());
+            assertEquals("asha@example.com", reset.recipient());
+            assertTrue(reset.body().contains(RESET_LINK));
+            assertTrue(reset.body().contains("expires in 30 minutes"));
+            assertTrue(reset.htmlBody().contains("href=\"" + RESET_LINK + "\""));
+            assertTrue(reset.htmlBody().contains("expires in 30 minutes"));
+            assertFalse(reset.htmlBody().contains("PranicDoc"));
+        }
+
+        @Test
+        void tellsSomeoneWhoDidNotAskToIgnoreIt() {
+            assertTrue(reset.body().contains("you can ignore this email"));
+        }
+    }
+
+    @Nested
+    class PasswordChanged {
+
+        private final NotificationMessage changed =
+                emails.passwordChanged("asha@example.com", "https://app.healingark.in/login");
+
+        @Test
+        void warnsThemAndPointsToSignIn() {
+            assertEquals("Your HealingARK password was changed", changed.subject());
+            assertTrue(changed.body().contains("If it wasn't"));
+            assertTrue(changed.htmlBody().contains("href=\"https://app.healingark.in/login\""));
+        }
+    }
 }

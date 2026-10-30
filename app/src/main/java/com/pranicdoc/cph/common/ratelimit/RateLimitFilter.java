@@ -116,7 +116,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Map<String, RateLimitRule> RULES = Map.of(
             "/api/v1/auth/login", new RateLimitRule("login", 10, Duration.ofMinutes(1)),
             "/api/v1/auth/signup", new RateLimitRule("signup", 5, Duration.ofMinutes(1)),
-            "/api/v1/auth/accept-invite", new RateLimitRule("accept-invite", 10, Duration.ofMinutes(1))
+            "/api/v1/auth/accept-invite", new RateLimitRule("accept-invite", 10, Duration.ofMinutes(1)),
+            // Email flood / enumeration probing, and reset-token guessing; reset has no email field, so per IP.
+            "/api/v1/auth/forgot-password", new RateLimitRule("forgot-password", 5, Duration.ofMinutes(1)),
+            "/api/v1/auth/reset-password", new RateLimitRule("reset-password", 10, Duration.ofMinutes(1))
     );
 
     public RateLimitFilter(@Lazy ProxyManager<byte[]> rateLimitProxyManager,

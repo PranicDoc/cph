@@ -49,6 +49,31 @@ public class AccountEmails {
                 templates.render("signup-verification", vars));
     }
 
+    /** The healer asked to reset a forgotten password. */
+    public NotificationMessage passwordReset(String email, String resetLink, long expiryMinutes) {
+        String text = "We received a request to reset your HealingARK password.\n\n"
+                + "Click the link below to choose a new one:\n"
+                + resetLink + "\n\n"
+                + "This link expires in " + expiryMinutes + " minutes and can be used once. "
+                + "If you didn't ask for this, you can ignore this email - your password stays as it is.";
+        Map<String, Object> vars = common(resetLink);
+        vars.put("link", resetLink);
+        vars.put("expiryMinutes", expiryMinutes);
+        return NotificationMessage.email(email, "Reset your HealingARK password", text,
+                templates.render("password-reset", vars));
+    }
+
+    /** Sent after a reset, so a healer who did not do it knows straight away. */
+    public NotificationMessage passwordChanged(String email, String loginLink) {
+        String text = "Your HealingARK password was just changed.\n\n"
+                + "If this was you, there is nothing more to do. If it wasn't, reset your password right away: "
+                + loginLink + " (choose \"Forgot password?\") and reply to this email.";
+        Map<String, Object> vars = common(loginLink);
+        vars.put("link", loginLink);
+        return NotificationMessage.email(email, "Your HealingARK password was changed", text,
+                templates.render("password-changed", vars));
+    }
+
     /**
      * Welcome for a healer who has just activated their account. The link goes to the app root on
      * the host of {@code inviteUrl} (the one-time activation page is no use after activation).

@@ -164,5 +164,5 @@ export function constructHealingSessionPayload({
 }
 
 export function extractDetail(error: unknown): string | null {
-  return (error as any)?.response?.data?.detail ?? null;
+  return (error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail ?? null;
 }
