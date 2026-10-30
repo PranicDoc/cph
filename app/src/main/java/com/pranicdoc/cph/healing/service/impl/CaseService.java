@@ -11,6 +11,7 @@ import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.auth.service.HealerService;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
@@ -42,6 +43,7 @@ import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealingDetailsRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.healing.repository.SymptomFeedbackRepository;
+import com.pranicdoc.cph.healing.repository.QualitativeFeedbackRepository;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
@@ -91,6 +93,7 @@ public class CaseService {
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
     private final FeedbackLinkRepository feedbackLinkRepository;
+    private final QualitativeFeedbackRepository qualitativeFeedbackRepository;
     // D-18: self-injection via ObjectProvider so postMessageToGeneratePdf can
     // invoke validateCaseExists/buildAndEnqueuePdfJob THROUGH the Spring
     // proxy — a plain `this.foo()` call would not cross the @Transactional
@@ -334,7 +337,11 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         int healingCount = sessions.size();
-        HealingSession lastSession = sessions.get(sessions.size() - 1);
+        // HealingCase.sessions has no @OrderBy; pick the latest by sessionNumber, the same rule
+        // SessionService.findLatestByCaseIdOrThrow (and so FeedbackService) uses.
+        HealingSession lastSession = sessions.stream()
+                .max(Comparator.comparingInt(HealingSession::getSessionNumber))
+                .orElseThrow();
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
                 .stream()
                 .map(QualitativeFeedback::getCreatedAt)
@@ -365,7 +372,10 @@ public class CaseService {
         closure.setClosedBy(currentHealerId);
         healingCase.setStatus(newStatus);
         caseRepository.save(healingCase);
-        if (newStatus == CaseStatus.CLOSED && !isEdit) {
+        // A new closure asks for final feedback, continued or not, unless the last session already has its
+        // FINAL; editing an existing closure never asks again.
+        if (!isEdit && !qualitativeFeedbackRepository.existsByHealingSessionIdAndFeedbackType(
+                lastSession.getId(), FeedbackType.FINAL)) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
     }
