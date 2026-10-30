@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.URI;
@@ -252,6 +253,26 @@ public class GlobalExceptionHandler {
                 "The uploaded file is too large.");
         pd.setTitle("Payload Too Large");
         pd.setType(URI.create("https://pranicdoc.com/errors/payload-too-large"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
+    /**
+     * CreditServiceClient (WR-02) forwards upstream 4xx/5xx as a ResponseStatusException so the
+     * caller sees the real status (e.g. 409 "Already on the PRO plan"). Without this handler the
+     * catch-all below would swallow it and answer 500 for every upstream error.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ProblemDetail handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        String title = status != null ? status.getReasonPhrase() : "Error";
+        if (ex.getStatusCode().is5xxServerError()) {
+            log.warn("Upstream/5xx ResponseStatusException {}: {}", ex.getStatusCode(), ex.getReason());
+        }
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatusCode(),
+                ex.getReason() != null ? ex.getReason() : title);
+        pd.setTitle(title);
+        pd.setType(URI.create("https://pranicdoc.com/errors/upstream"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }
