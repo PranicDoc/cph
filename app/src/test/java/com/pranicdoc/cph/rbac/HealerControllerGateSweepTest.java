@@ -98,11 +98,12 @@ class HealerControllerGateSweepTest {
             Pattern.compile("^@rbacAuthz\\.hasPermission\\('([A-Z_]+)','([A-Z]+)'\\)$");
 
     /**
-     * The 8 {@code AuthController} routes that are {@code permitAll} in
+     * The 9 {@code AuthController} routes that are {@code permitAll} in
      * {@code SecurityConfig} — reached before any principal exists.
      */
     private static final Set<String> AUTH_PERMIT_ALL_ROUTES = Set.of(
-            "login", "refresh", "logout", "acceptInvite", "signup", "initSession", "initFeedbackSession");
+            "login", "refresh", "logout", "acceptInvite", "signup", "forgotPassword", "resetPassword",
+            "initSession", "initFeedbackSession");
 
     /**
      * The 7 {@code AuthController} routes reachable by every authenticated
@@ -290,24 +291,24 @@ class HealerControllerGateSweepTest {
                 .as("AuthController request-mapped method count — an added or removed endpoint must "
                         + "redden the build rather than silently escape this open-list (anti-vacuous "
                         + "guard T-42-Assurance-O1)")
-                .isEqualTo(16);
+                .isEqualTo(18);
 
         TreeSet<String> ungated = ungatedMethodNames(AuthController.class);
         assertThat(ungated)
                 .as("every AuthController request-mapped method must carry NO @PreAuthorize — D-07: "
                         + "openness is proven by annotation absence plus this named allow-list, never "
                         + "a @PreAuthorize(\"permitAll()\") marker annotation")
-                .hasSize(16)
+                .hasSize(18)
                 .containsExactlyInAnyOrder(
-                        "login", "refresh", "logout", "acceptInvite", "signup", "initSession",
+                        "login", "refresh", "logout", "acceptInvite", "signup", "forgotPassword", "resetPassword", "initSession",
                         "initFeedbackSession", "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion",
                         "changePassword", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
         assertThat(AUTH_PERMIT_ALL_ROUTES)
-                .as("pre-auth 7 — permitAll in SecurityConfig; there is no authenticated principal "
+                .as("pre-auth 9 — permitAll in SecurityConfig; there is no authenticated principal "
                         + "yet, so a capability gate could never resolve and would lock every caller "
                         + "out of login/signup (T-42-DoS-O1)")
-                .hasSize(7)
+                .hasSize(9)
                 .allMatch(ungated::contains);
 
         assertThat(AUTH_SELF_SERVICE_ROUTES)

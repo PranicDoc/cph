@@ -3,7 +3,10 @@ package com.pranicdoc.cph.auth.controller;
 import com.pranicdoc.cph.auth.dto.AcceptInviteRequest;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.FeedbackSessionResponse;
+import com.pranicdoc.cph.auth.dto.ForgotPasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
+import com.pranicdoc.cph.auth.dto.ResetPasswordRequest;
+import com.pranicdoc.cph.auth.service.impl.PasswordResetService;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.InitFeedbackSessionRequest;
 import com.pranicdoc.cph.auth.dto.InitSessionRequest;
@@ -32,6 +35,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final InviteService inviteService;
+    private final PasswordResetService passwordResetService;
     private final MyPermissionsService myPermissionsService;
 
     /**
@@ -60,6 +64,26 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<String>> signup(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.ok(inviteService.requestSelfSignup(request.email()));
+    }
+
+    /**
+     * Forgot password: emails a one-time reset link. Public; the response is the same whether or not
+     * the address has an account (no enumeration).
+     * POST /api/v1/auth/forgot-password
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(passwordResetService.requestReset(request.email()));
+    }
+
+    /**
+     * Sets a new password with the token from the forgot-password email. Public, token-authenticated;
+     * does not sign the caller in.
+     * POST /api/v1/auth/reset-password
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(passwordResetService.resetPassword(request));
     }
 
     /**

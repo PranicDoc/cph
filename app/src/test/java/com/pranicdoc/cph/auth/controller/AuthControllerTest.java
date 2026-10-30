@@ -3,6 +3,7 @@ package com.pranicdoc.cph.auth.controller;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
+import com.pranicdoc.cph.auth.service.impl.PasswordResetService;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
@@ -44,6 +45,9 @@ class AuthControllerTest {
 
     @MockBean
     private InviteService inviteService;
+
+    @MockBean
+    private PasswordResetService passwordResetService;
 
     @MockBean
     private SecurityContextUtil securityContextUtil;

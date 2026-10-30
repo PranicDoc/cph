@@ -74,3 +74,29 @@ export const signupSchema: FormSchema = [
     ],
   },
 ];
+
+export const resetPasswordSchema: FormSchema = [
+  {
+    fieldsContainerClassName: "space-y-4",
+    fields: [
+      {
+        name: "newPassword",
+        label: "New Password",
+        type: "password",
+        required: true,
+        placeholder: "Min. 8 characters",
+        validate: (value) =>
+          value && value.length < 8 ? "Password must be at least 8 characters" : undefined,
+      },
+      {
+        name: "confirmPassword",
+        label: "Confirm Password",
+        type: "password",
+        required: true,
+        placeholder: "Re-enter the new password",
+        validate: (value, formValues) =>
+          value && value !== formValues.newPassword ? "Passwords do not match" : undefined,
+      },
+    ],
+  },
+];
