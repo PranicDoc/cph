@@ -38,7 +38,10 @@ export function usePurchasePackage() {
         { packageId: payload.packageId, ...owner },
         { headers: { "X-Idempotency-Key": payload.idempotencyKey } }
       );
-      if (order.status === "PAID" && order.purchase) return order.purchase;
+      if (order.status === "PAID") {
+        if (!order.purchase) throw new Error("Order already paid — please refresh");
+        return order.purchase;
+      }
 
       let paymentId = "noop";
       let signature = "noop";
@@ -50,7 +53,10 @@ export function usePurchasePackage() {
           amountPaise: order.amount_paise,
           currency: order.currency,
           description: order.package_name,
+          onPaymentFailed: (description) =>
+            toast.error(description || "Payment failed — you can try again"),
         });
+        if (paid.razorpay_order_id !== order.order_id) throw new Error("Payment order mismatch");
         paymentId = paid.razorpay_payment_id;
         signature = paid.razorpay_signature;
       }

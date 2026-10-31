@@ -49,7 +49,7 @@ describe("usePurchasePackage", () => {
     expect(post.mock.calls[0][0]).toBe("/api/credits/purchase/orders");
     expect(post.mock.calls[0][1]).toEqual({ packageId: "p1", ownerType: "HEALER", ownerId: "u1" });
     expect(post.mock.calls[0][2]).toEqual({ headers: { "X-Idempotency-Key": "k1" } });
-    expect(open).toHaveBeenCalledWith({ keyId: "rzp_k", orderId: "order_1", amountPaise: 49900, currency: "INR", description: "Pro" });
+    expect(open).toHaveBeenCalledWith({ keyId: "rzp_k", orderId: "order_1", amountPaise: 49900, currency: "INR", description: "Pro", onPaymentFailed: expect.any(Function) });
     expect(post.mock.calls[1][0]).toBe("/api/credits/purchase/orders/order_1/confirm");
     expect(post.mock.calls[1][1]).toEqual({ ownerType: "HEALER", ownerId: "u1", payment_id: "pay_1", signature: "sig" });
     expect(result.current.data).toEqual(purchase);
@@ -86,6 +86,40 @@ describe("usePurchasePackage", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(toast.info).toHaveBeenCalledWith("Payment cancelled");
     expect(toast.error).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("payment.failed shows an error toast and a following success still confirms", async () => {
+    post.mockResolvedValueOnce(order({})).mockResolvedValueOnce({ data: purchase });
+    load.mockResolvedValue(undefined);
+    open.mockImplementation(async (o: { onPaymentFailed: (d: string) => void }) => {
+      o.onPaymentFailed("Card declined");
+      return { razorpay_payment_id: "pay_2", razorpay_order_id: "order_1", razorpay_signature: "sig2" };
+    });
+    const { result } = setup();
+    result.current.mutate(payload);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(toast.error).toHaveBeenCalledWith("Card declined");
+    expect(post.mock.calls[1][1]).toMatchObject({ payment_id: "pay_2", signature: "sig2" });
+  });
+
+  it("PAID without purchase errors instead of opening checkout", async () => {
+    post.mockResolvedValueOnce(order({ status: "PAID", purchase: null }));
+    const { result } = setup();
+    result.current.mutate(payload);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe("Order already paid — please refresh");
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the paid order id does not match", async () => {
+    post.mockResolvedValueOnce(order({}));
+    load.mockResolvedValue(undefined);
+    open.mockResolvedValue({ razorpay_payment_id: "p", razorpay_order_id: "order_OTHER", razorpay_signature: "s" });
+    const { result } = setup();
+    result.current.mutate(payload);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe("Payment order mismatch");
     expect(post).toHaveBeenCalledTimes(1);
   });
 });

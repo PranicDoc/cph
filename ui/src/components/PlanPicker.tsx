@@ -35,7 +35,7 @@ export function PlanPicker({
   const { mutate: purchase, isPending } = usePurchasePackage();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   // CR-04: persist idempotency key in ref so retries reuse the same key; reset on success
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<{ pkgId: string; key: string } | null>(null);
 
   const currentTier = account?.plan_tier?.toUpperCase();
   const isCurrentPlan = (pkg: PackageResponse) =>
@@ -48,8 +48,9 @@ export function PlanPicker({
       onComplete();
       return;
     }
-    if (!idempotencyKeyRef.current) {
-      idempotencyKeyRef.current = crypto.randomUUID();
+    // A key belongs to one package: choosing a different package gets a fresh key.
+    if (idempotencyKeyRef.current?.pkgId !== pkg.id) {
+      idempotencyKeyRef.current = { pkgId: pkg.id, key: crypto.randomUUID() };
     }
     setSelectedPkgId(pkg.id);
     purchase(
@@ -57,7 +58,7 @@ export function PlanPicker({
         packageId: pkg.id,
         ownerType,
         ownerId,
-        idempotencyKey: idempotencyKeyRef.current,
+        idempotencyKey: idempotencyKeyRef.current.key,
       },
       {
         onSuccess: () => {

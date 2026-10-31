@@ -66,6 +66,8 @@ export function openRazorpayCheckout(o: {
   amountPaise: number;
   currency: string;
   description: string;
+  /** Called on each failed attempt; the modal stays open so the user can retry. */
+  onPaymentFailed?: (description: string) => void;
 }): Promise<RazorpaySuccess> {
   return new Promise<RazorpaySuccess>((resolve, reject) => {
     const Ctor = window.Razorpay;
@@ -83,7 +85,8 @@ export function openRazorpayCheckout(o: {
       handler: (response) => resolve(response),
       modal: { ondismiss: () => reject(new CheckoutCancelled()) },
     });
-    rzp.on("payment.failed", (r) => reject(new Error(r.error?.description || "Payment failed")));
+    // Do not settle here: Razorpay keeps the modal open for a retry. Only a success or dismiss settles.
+    rzp.on("payment.failed", (r) => o.onPaymentFailed?.(r.error?.description ?? ""));
     rzp.open();
   });
 }

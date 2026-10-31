@@ -70,3 +70,29 @@ describe("PlanPicker, free-priced packages", () => {
     expect(mockPurchase).not.toHaveBeenCalled();
   });
 });
+
+describe("PlanPicker, idempotency keys", () => {
+  it("reuses the key for the same package and rotates it for a different one", async () => {
+    mockPackages.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: [
+        pkg({ id: "free", name: "FREE", display_order: 0 }),
+        pkg({ id: "a", name: "ALPHA", price_paise: 100, display_order: 1 }),
+        pkg({ id: "b", name: "BETA", price_paise: 200, display_order: 2 }),
+      ],
+    });
+    render(<PlanPicker ownerId="u1" ownerType="HEALER" onComplete={vi.fn()} />);
+    const user = userEvent.setup();
+    const buttons = () => screen.getAllByRole("button").filter((b) => /upgrade|buy|select|start|get/i.test(b.textContent ?? ""));
+    mockPurchase.mockClear();
+    await user.click(buttons()[0]);
+    await user.click(buttons()[0]);
+    await user.click(buttons()[1]);
+    const keys = mockPurchase.mock.calls.map((c) => [c[0].packageId, c[0].idempotencyKey]);
+    expect(keys[0][0]).toBe(keys[1][0]);
+    expect(keys[0][1]).toBe(keys[1][1]);
+    expect(keys[2][0]).not.toBe(keys[0][0]);
+    expect(keys[2][1]).not.toBe(keys[0][1]);
+  });
+});

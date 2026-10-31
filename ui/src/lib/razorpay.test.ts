@@ -78,10 +78,24 @@ describe("openRazorpayCheckout", () => {
     await expect(p).rejects.toBeInstanceOf(CheckoutCancelled);
   });
 
-  it("rejects with the description on payment.failed", async () => {
-    const p = openRazorpayCheckout(opts);
-    expect(on).toHaveBeenCalledWith("payment.failed", expect.any(Function));
+  it("payment.failed does not settle; a later success still resolves", async () => {
+    const onPaymentFailed = vi.fn();
+    const p = openRazorpayCheckout({ ...opts, onPaymentFailed });
+    let settled = false;
+    p.then(() => (settled = true), () => (settled = true));
     on.mock.calls[0][1]({ error: { description: "Card declined" } });
-    await expect(p).rejects.toThrow("Card declined");
+    await Promise.resolve();
+    expect(onPaymentFailed).toHaveBeenCalledWith("Card declined");
+    expect(settled).toBe(false);
+    const res = { razorpay_payment_id: "pay_2", razorpay_order_id: "order_1", razorpay_signature: "s" };
+    (captured.handler as (r: unknown) => void)(res);
+    await expect(p).resolves.toEqual(res);
+  });
+
+  it("dismiss after a failure rejects CheckoutCancelled", async () => {
+    const p = openRazorpayCheckout(opts);
+    on.mock.calls[0][1]({ error: { description: "x" } });
+    (captured.modal as { ondismiss: () => void }).ondismiss();
+    await expect(p).rejects.toBeInstanceOf(CheckoutCancelled);
   });
 });
