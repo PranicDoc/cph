@@ -146,10 +146,10 @@ class HealerControllerGateSweepTest {
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
-            new SweptController(CreditProxyController.class, 4, 4));
+            new SweptController(CreditProxyController.class, 6, 6));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 49;
-    private static final int EXPECTED_TOTAL_GATED = 41;
+    private static final int EXPECTED_TOTAL_MAPPED = 51;
+    private static final int EXPECTED_TOTAL_GATED = 43;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,

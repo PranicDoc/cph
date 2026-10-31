@@ -20,7 +20,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +32,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -57,7 +62,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * authorization itself is covered by {@code CreditProxyControllerAuthorizationTest}.
  */
 @WebMvcTest(CreditProxyController.class)
-@Import({SecurityConfig.class, CreditProxyControllerTest.RestClientTestConfig.class,
+@Import({SecurityConfig.class, com.pranicdoc.cph.common.exception.GlobalExceptionHandler.class,
+        CreditProxyControllerTest.RestClientTestConfig.class,
         CreditProxyControllerTest.RbacAuthzTestConfig.class, CreditServiceImpl.class})
 @ActiveProfiles("test")
 @TestPropertySource(properties = "app.enable.credit-service=true")
@@ -167,6 +173,142 @@ class CreditProxyControllerTest {
                         .content(requestBody)
                         .cookie(accessCookie()))
                 .andExpect(status().isOk());
+    }
+
+    private static final String ORDER_BODY_HEALER =
+            "{\"packageId\":\"p1\",\"ownerType\":\"HEALER\",\"ownerId\":\"" + HEALER_ID + "\"}";
+    private static final String ORDER_BODY_OTHER_HEALER =
+            "{\"packageId\":\"p1\",\"ownerType\":\"HEALER\",\"ownerId\":\"" + UUID.randomUUID() + "\"}";
+    private static final String ORDER_BODY_CLINIC =
+            "{\"packageId\":\"p1\",\"ownerType\":\"CLINIC\",\"ownerId\":\"" + UUID.randomUUID() + "\"}";
+    private static final String CONFIRM_BODY_HEALER =
+            "{\"ownerType\":\"HEALER\",\"ownerId\":\"" + HEALER_ID + "\",\"payment_id\":\"pay_1\",\"signature\":\"s\"}";
+    private static final String CONFIRM_BODY_OTHER_HEALER =
+            "{\"ownerType\":\"HEALER\",\"ownerId\":\"" + UUID.randomUUID() + "\",\"payment_id\":\"pay_1\",\"signature\":\"s\"}";
+
+    private org.springframework.test.web.servlet.ResultActions postOrder(String body) throws Exception {
+        return mockMvc.perform(post("/api/credits/purchase/orders")
+                .header("X-Idempotency-Key", "idem-9")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(accessCookie()));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions postConfirm(String body) throws Exception {
+        return mockMvc.perform(post("/api/credits/purchase/orders/order_1/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .cookie(accessCookie()));
+    }
+
+    @Test
+    void createOrder_forwardsBodyAndIdempotencyKey_returns201WithUpstreamBody() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.createOrder(any(), any())).thenReturn("{\"status\":\"CREATED\",\"order_id\":\"order_1\"}");
+
+        postOrder(ORDER_BODY_HEALER)
+                .andExpect(status().isCreated())
+                .andExpect(content().json("{\"status\":\"CREATED\",\"order_id\":\"order_1\"}"));
+
+        verify(creditServiceClient).createOrder(ORDER_BODY_HEALER, "idem-9");
+    }
+
+    @Test
+    void createOrder_upstream409_isForwardedWithStatusAndBody() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.createOrder(any(), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Already on the PRO plan"));
+
+        postOrder(ORDER_BODY_HEALER)
+                .andExpect(status().isConflict())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Already on the PRO plan")));
+    }
+
+    @Test
+    void createOrder_forAnotherHealersAccount_returns403AndNeverCallsUpstream() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        postOrder(ORDER_BODY_OTHER_HEALER).andExpect(status().isForbidden());
+
+        verify(creditServiceClient, never()).createOrder(any(), any());
+    }
+
+    @Test
+    void createOrder_clinicOwner_isForwardedAtParityWithPurchase() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.createOrder(any(), any())).thenReturn("{\"status\":\"CREATED\"}");
+
+        postOrder(ORDER_BODY_CLINIC).andExpect(status().isCreated());
+    }
+
+    @Test
+    void createOrder_paidFreePackage_clearsExhaustedFlag() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.createOrder(any(), any())).thenReturn("{\"status\":\"PAID\"}");
+
+        postOrder(ORDER_BODY_HEALER).andExpect(status().isCreated());
+
+        verify(creditGateService).clearExhausted(HEALER_ID);
+    }
+
+    @Test
+    void createOrder_pendingOrder_doesNotClearExhaustedFlag() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.createOrder(any(), any())).thenReturn("{\"status\":\"CREATED\"}");
+
+        postOrder(ORDER_BODY_HEALER).andExpect(status().isCreated());
+
+        verify(creditGateService, never()).clearExhausted(any());
+    }
+
+    @Test
+    void confirmOrder_forwardsBody_returns200_andClearsExhaustedFlag() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.confirmOrder(any(), any())).thenReturn("{\"credits_added\":50}");
+
+        postConfirm(CONFIRM_BODY_HEALER)
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"credits_added\":50}"));
+
+        verify(creditServiceClient).confirmOrder("order_1", CONFIRM_BODY_HEALER);
+        verify(creditGateService).clearExhausted(HEALER_ID);
+    }
+
+    @Test
+    void confirmOrder_upstream409_isForwardedWithStatusAndBody() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(creditServiceClient.confirmOrder(any(), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Order already confirmed"));
+
+        postConfirm(CONFIRM_BODY_HEALER)
+                .andExpect(status().isConflict())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Order already confirmed")));
+    }
+
+    @Test
+    void confirmOrder_forAnotherHealersAccount_returns403AndNeverCallsUpstream() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        postConfirm(CONFIRM_BODY_OTHER_HEALER).andExpect(status().isForbidden());
+
+        verify(creditServiceClient, never()).confirmOrder(any(), any());
+    }
+
+    @Test
+    void orderRequestWithoutOwner_returns400() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        postOrder("{\"packageId\":\"p1\"}").andExpect(status().isBadRequest());
     }
 
     @Test

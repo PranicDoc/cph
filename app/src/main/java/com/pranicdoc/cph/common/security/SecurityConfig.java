@@ -69,6 +69,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
+                        // Razorpay calls this unauthenticated; the signature is verified in creditService.
+                        .requestMatchers("/api/webhooks/razorpay").permitAll()
                         // /api/v1/internal/** never reaches this chain — see InternalApiSecurityConfig.
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()

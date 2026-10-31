@@ -65,6 +65,50 @@ public class CreditServiceClient {
                 .body(String.class);
     }
 
+    /** Starts a Razorpay checkout order (or buys a free package outright); body is forwarded verbatim. */
+    public String createOrder(String requestBody, String idempotencyKey) {
+        return restClient.post()
+                .uri("/credits/purchase/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Idempotency-Key", idempotencyKey)
+                .body(requestBody)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, resp) -> {
+                    throw new ResponseStatusException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                })
+                .body(String.class);
+    }
+
+    /** Verifies the checkout payment signature and credits the purchase. */
+    public String confirmOrder(String orderId, String requestBody) {
+        return restClient.post()
+                .uri("/credits/purchase/orders/{orderId}/confirm", orderId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, resp) -> {
+                    throw new ResponseStatusException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                })
+                .body(String.class);
+    }
+
+    /** Passes a Razorpay webhook through byte-for-byte; the signature is over the exact raw body. */
+    public void forwardRazorpayWebhook(byte[] rawBody, String signature) {
+        restClient.post()
+                .uri("/credits/webhooks/razorpay")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Razorpay-Signature", signature)
+                .body(rawBody)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, resp) -> {
+                    throw new ResponseStatusException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                })
+                .toBodilessEntity();
+    }
+
     public BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId) {
         return restClient.get()
                 .uri("/credits/balance?ownerType={ownerType}&ownerId={ownerId}", ownerType, ownerId)
