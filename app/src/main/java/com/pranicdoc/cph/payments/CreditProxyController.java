@@ -7,6 +7,7 @@ import com.pranicdoc.cph.payments.dto.PagedTransactionResponse;
 import com.pranicdoc.cph.payments.service.CreditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -62,6 +63,29 @@ public class CreditProxyController {
             @RequestBody String requestBody,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         return ResponseEntity.ok(creditService.purchase(requestBody, idempotencyKey));
+    }
+
+    /** POST /api/credits/purchase/orders - starts a Razorpay checkout order; upstream JSON forwarded verbatim. */
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
+    @PostMapping("/purchase/orders")
+    public ResponseEntity<String> createOrder(
+            @RequestBody String requestBody,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing X-Idempotency-Key header");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(creditService.createOrder(requestBody, idempotencyKey));
+    }
+
+    /** POST /api/credits/purchase/orders/{orderId}/confirm - confirms the checkout payment. */
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','WRITE')")
+    @PostMapping("/purchase/orders/{orderId}/confirm")
+    public ResponseEntity<String> confirmOrder(@PathVariable String orderId, @RequestBody String requestBody) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(creditService.confirmOrder(orderId, requestBody));
     }
 
     // D-04: CREDIT_ACCOUNTS gained the CREATE verb this phase specifically because

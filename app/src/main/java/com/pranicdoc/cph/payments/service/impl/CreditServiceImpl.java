@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.payments.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.dto.ApiResponse;
@@ -17,7 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -28,6 +32,7 @@ public class CreditServiceImpl implements CreditService {
     private final CreditServiceClient creditServiceRestClient;
     private final HealerRepository healerRepository;
     private final CreditGateService creditGateService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CreditServiceImpl(SecurityContextUtil securityContextUtil, CreditServiceClient creditServiceRestClient,
                               HealerRepository healerRepository, CreditGateService creditGateService) {
@@ -58,6 +63,73 @@ public class CreditServiceImpl implements CreditService {
         String result = creditServiceRestClient.purchase(requestBody, idempotencyKey);
         creditGateService.clearExhausted(securityContextUtil.getCurrentHealerId());
         return result;
+    }
+
+    @Override
+    // Same wholesale eviction as purchase(). A createOrder that is not a free-package purchase
+    // changes no balance, so evicting there is a harmless refresh; the exhausted flag is only
+    // cleared when the order came back PAID.
+    @Caching(
+        evict = {
+            @CacheEvict(value = "dashboard.summary", key = "@securityContextUtil.getCurrentHealerId()"),
+            @CacheEvict(value = "dashboard.credit-usage", allEntries = true)
+        }
+    )
+    public String createOrder(String requestBody, String idempotencyKey) {
+        assertCallerOwnsAccount(requestBody);
+        String result = creditServiceRestClient.createOrder(requestBody, idempotencyKey);
+        if ("PAID".equals(upstreamStatus(result))) {
+            creditGateService.clearExhausted(securityContextUtil.getCurrentHealerId());
+        }
+        return result;
+    }
+
+    @Override
+    @Caching(
+        evict = {
+            @CacheEvict(value = "dashboard.summary", key = "@securityContextUtil.getCurrentHealerId()"),
+            @CacheEvict(value = "dashboard.credit-usage", allEntries = true)
+        }
+    )
+    public String confirmOrder(String orderId, String requestBody) {
+        assertCallerOwnsAccount(requestBody);
+        String result = creditServiceRestClient.confirmOrder(orderId, requestBody);
+        creditGateService.clearExhausted(securityContextUtil.getCurrentHealerId());
+        return result;
+    }
+
+    /**
+     * The account being bought for must be the caller's. HEALER: ownerId must be the caller's
+     * healer id. Any other owner type (CLINIC) is rejected with 403.
+     */
+    private void assertCallerOwnsAccount(String requestBody) {
+        JsonNode body;
+        try {
+            body = objectMapper.readTree(requestBody);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is not valid JSON");
+        }
+        if (body == null || !body.hasNonNull("ownerType") || !body.hasNonNull("ownerId")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ownerType and ownerId are required");
+        }
+        if (!"HEALER".equals(body.get("ownerType").asText())) {
+            // Fail secure on a money path: the clinic tier is removed from cph, so there is no
+            // ownership check to run; only a HEALER may buy through checkout.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a healer account can buy through checkout");
+        }
+        UUID caller = securityContextUtil.getCurrentHealerId();
+        if (caller == null || !caller.toString().equalsIgnoreCase(body.get("ownerId").asText())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your credit account");
+        }
+    }
+
+    private String upstreamStatus(String json) {
+        try {
+            JsonNode n = objectMapper.readTree(json);
+            return n != null && n.hasNonNull("status") ? n.get("status").asText() : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override

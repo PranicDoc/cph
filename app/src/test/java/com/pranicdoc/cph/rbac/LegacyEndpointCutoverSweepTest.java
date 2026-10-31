@@ -185,6 +185,11 @@ class LegacyEndpointCutoverSweepTest {
                         + "— Meta calls it with no JWT; it runs its own verify-token + HMAC "
                         + "X-Hub-Signature-256 checks, so a capability gate would reject every real "
                         + "delivery");
+        m.put(com.pranicdoc.cph.payments.RazorpayWebhookProxyController.class.getName(),
+                "public Razorpay webhook passthrough (permitAll in SecurityConfig, no JWT) — it forwards "
+                        + "the raw body and X-Razorpay-Signature to creditService, which verifies the "
+                        + "HMAC; a capability gate would reject every real delivery. Pinned by "
+                        + "RazorpayWebhookProxyControllerTest");
         m.put(InternalNotificationController.class.getName(),
                 "machine-to-machine outbox sweep trigger (Cloud Scheduler) — no user or healerId "
                         + "in play; served by InternalApiSecurityConfig's own filter chain, where "

@@ -12,6 +12,10 @@ import java.util.UUID;
 public interface CreditService {
     ApiResponse<String> getPackages();
     String purchase(String requestBody, @Nullable String idempotencyKey);
+    /** Starts a checkout order; the body's owner must be the caller. Returns the upstream JSON verbatim. */
+    String createOrder(String requestBody, String idempotencyKey);
+    /** Confirms a checkout payment; the body's owner must be the caller. Returns the upstream JSON verbatim. */
+    String confirmOrder(String orderId, String requestBody);
     BalanceCreditResponse getBalance(OwnerType ownerType, UUID ownerId);
     PagedTransactionResponse getTransactions(OwnerType ownerType, UUID ownerId, int page, int size);
     AccountResponse createAccount(OwnerType ownerType, UUID ownerId);

@@ -249,6 +249,52 @@ class CreditProxyControllerAuthorizationTest {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  POST /api/credits/purchase/orders[/{id}/confirm] — gated CREDIT_ACCOUNT_TRANSACTIONS:WRITE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Test
+    void createOrderAndConfirm_ungrantedHealer_areForbidden() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNT_TRANSACTIONS), eq(Operation.WRITE)))
+                .thenReturn(false);
+
+        mockMvc.perform(post(PURCHASE_PATH + "/orders")
+                        .header("X-Idempotency-Key", "idem-1")
+                        .contentType(MediaType.APPLICATION_JSON).content(PURCHASE_BODY)
+                        .cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post(PURCHASE_PATH + "/orders/order_1/confirm")
+                        .contentType(MediaType.APPLICATION_JSON).content(PURCHASE_BODY)
+                        .cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(creditService);
+    }
+
+    @Test
+    void createOrderAndConfirm_grantedHealer_areNotForbidden() throws Exception {
+        authenticateAs("HEALER");
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+        when(lookupService.hasPermission(any(), eq(Resource.CREDIT_ACCOUNT_TRANSACTIONS), eq(Operation.WRITE)))
+                .thenReturn(true);
+
+        mockMvc.perform(post(PURCHASE_PATH + "/orders")
+                        .header("X-Idempotency-Key", "idem-1")
+                        .contentType(MediaType.APPLICATION_JSON).content(PURCHASE_BODY)
+                        .cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+
+        mockMvc.perform(post(PURCHASE_PATH + "/orders/order_1/confirm")
+                        .contentType(MediaType.APPLICATION_JSON).content(PURCHASE_BODY)
+                        .cookie(accessCookie()))
+                .andExpect(status().is(not(403)));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  POST /api/credits/account — gated CREDIT_ACCOUNTS:CREATE (D-04)
     // ═══════════════════════════════════════════════════════════════════════
 

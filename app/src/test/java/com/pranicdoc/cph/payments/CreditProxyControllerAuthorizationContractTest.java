@@ -59,15 +59,17 @@ class CreditProxyControllerAuthorizationContractTest {
     private static final String CREDIT_ACCOUNTS_CREATE = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','CREATE')";
     private static final String TXN_READ               = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','READ')";
 
-    /** methodName -> expected @PreAuthorize literal. All 4 request-mapped methods. */
+    /** methodName -> expected @PreAuthorize literal. All 6 request-mapped methods. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getPackages",       CREDIT_ACCOUNTS_READ},
             new String[]{"purchase",          TXN_WRITE},
+            new String[]{"createOrder",       TXN_WRITE},
+            new String[]{"confirmOrder",      TXN_WRITE},
             new String[]{"createAccount",     CREDIT_ACCOUNTS_CREATE},
             new String[]{"getMyTransactions", TXN_READ});
 
-    private static final int EXPECTED_MAPPED = 4;
-    private static final int EXPECTED_GATED = 4;
+    private static final int EXPECTED_MAPPED = 6;
+    private static final int EXPECTED_GATED = 6;
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -166,11 +168,11 @@ class CreditProxyControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("CreditProxyController has exactly 4 request-mapped methods — a method added or "
+                .as("CreditProxyController has exactly 6 request-mapped methods — a method added or "
                         + "removed here must redden the build rather than silently pass")
                 .isEqualTo(EXPECTED_MAPPED);
         assertThat(gated)
-                .as("every one of the 4 CreditProxyController methods must carry a bare capability gate "
+                .as("every one of the 6 CreditProxyController methods must carry a bare capability gate "
                         + "(SC1); a dropped gate restores the implicit any-authenticated-healer path over "
                         + "billing / credit-balance operations")
                 .isEqualTo(EXPECTED_GATED);
