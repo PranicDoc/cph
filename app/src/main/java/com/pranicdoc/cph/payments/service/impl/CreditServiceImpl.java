@@ -100,8 +100,7 @@ public class CreditServiceImpl implements CreditService {
 
     /**
      * The account being bought for must be the caller's. HEALER: ownerId must be the caller's
-     * healer id. CLINIC: cph has no clinic-membership check (the clinic tier was removed), so
-     * this stays at parity with {@link #purchase} and applies no extra restriction.
+     * healer id. Any other owner type (CLINIC) is rejected with 403.
      */
     private void assertCallerOwnsAccount(String requestBody) {
         JsonNode body;
@@ -113,11 +112,14 @@ public class CreditServiceImpl implements CreditService {
         if (body == null || !body.hasNonNull("ownerType") || !body.hasNonNull("ownerId")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ownerType and ownerId are required");
         }
-        if ("HEALER".equals(body.get("ownerType").asText())) {
-            UUID caller = securityContextUtil.getCurrentHealerId();
-            if (caller == null || !caller.toString().equalsIgnoreCase(body.get("ownerId").asText())) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your credit account");
-            }
+        if (!"HEALER".equals(body.get("ownerType").asText())) {
+            // Fail secure on a money path: the clinic tier is removed from cph, so there is no
+            // ownership check to run; only a HEALER may buy through checkout.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a healer account can buy through checkout");
+        }
+        UUID caller = securityContextUtil.getCurrentHealerId();
+        if (caller == null || !caller.toString().equalsIgnoreCase(body.get("ownerId").asText())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your credit account");
         }
     }
 

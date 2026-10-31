@@ -183,6 +183,8 @@ class CreditProxyControllerTest {
             "{\"packageId\":\"p1\",\"ownerType\":\"CLINIC\",\"ownerId\":\"" + UUID.randomUUID() + "\"}";
     private static final String CONFIRM_BODY_HEALER =
             "{\"ownerType\":\"HEALER\",\"ownerId\":\"" + HEALER_ID + "\",\"payment_id\":\"pay_1\",\"signature\":\"s\"}";
+    private static final String CONFIRM_BODY_CLINIC =
+            "{\"ownerType\":\"CLINIC\",\"ownerId\":\"" + UUID.randomUUID() + "\",\"payment_id\":\"pay_1\",\"signature\":\"s\"}";
     private static final String CONFIRM_BODY_OTHER_HEALER =
             "{\"ownerType\":\"HEALER\",\"ownerId\":\"" + UUID.randomUUID() + "\",\"payment_id\":\"pay_1\",\"signature\":\"s\"}";
 
@@ -237,12 +239,23 @@ class CreditProxyControllerTest {
     }
 
     @Test
-    void createOrder_clinicOwner_isForwardedAtParityWithPurchase() throws Exception {
+    void createOrder_clinicOwner_returns403AndNeverCallsUpstream() throws Exception {
         authenticateAsSupadm();
         when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
-        when(creditServiceClient.createOrder(any(), any())).thenReturn("{\"status\":\"CREATED\"}");
 
-        postOrder(ORDER_BODY_CLINIC).andExpect(status().isCreated());
+        postOrder(ORDER_BODY_CLINIC).andExpect(status().isForbidden());
+
+        verify(creditServiceClient, never()).createOrder(any(), any());
+    }
+
+    @Test
+    void confirmOrder_clinicOwner_returns403AndNeverCallsUpstream() throws Exception {
+        authenticateAsSupadm();
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(HEALER_ID);
+
+        postConfirm(CONFIRM_BODY_CLINIC).andExpect(status().isForbidden());
+
+        verify(creditServiceClient, never()).confirmOrder(any(), any());
     }
 
     @Test
