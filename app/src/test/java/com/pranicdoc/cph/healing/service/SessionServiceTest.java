@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -208,6 +209,71 @@ class SessionServiceTest {
 
         assertEquals(sessionDate, response.sessionDate());
         assertEquals(endTime, response.endTime());
+    }
+
+    private SessionResponse createWithScanDate(LocalDate scanDate, HealingSession session) {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        LocalDate sessionDate = LocalDate.of(2026, 5, 13);
+        CreateSessionRequest base = request(caseId, sessionDate, LocalTime.of(9, 30), LocalTime.of(10, 45), chakraId, UUID.randomUUID());
+        CreateSessionRequest request = new CreateSessionRequest(base.caseId(), base.sessionDate(), base.startTime(),
+                base.endTime(), base.scans(), base.symptomFeedbacks(), base.qualitativeFeedbacks(), scanDate);
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of());
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase(caseId));
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        when(mapper.toEntity(request)).thenReturn(session);
+        lenient().when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        return sessionService.create(request);
+    }
+
+    @Test
+    void createDefaultsTheScanDateToTheSessionDate() {
+        LocalDate sessionDate = LocalDate.of(2026, 5, 13);
+        HealingSession session = completedSessionWithReadings(sessionDate, LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        createWithScanDate(null, session);
+
+        assertEquals(sessionDate, session.getScanDate());
+    }
+
+    @Test
+    void createKeepsTheScanDateTheHealerChose() {
+        LocalDate sessionDate = LocalDate.of(2026, 5, 13);
+        HealingSession session = completedSessionWithReadings(sessionDate, LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        createWithScanDate(LocalDate.of(2026, 5, 10), session);
+
+        assertEquals(LocalDate.of(2026, 5, 10), session.getScanDate());
+    }
+
+    @Test
+    void createRejectsAScanDateInTheFuture() {
+        HealingSession session = completedSessionWithReadings(LocalDate.of(2026, 5, 13), LocalTime.of(9, 30), LocalTime.of(10, 45));
+
+        assertThrows(IllegalArgumentException.class, () -> createWithScanDate(LocalDate.now().plusDays(10), session));
+    }
+
+    @Test
+    void updateSetsACorrectedScanDateAndOtherwiseLeavesItAlone() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        HealingSession session = savedSession(healingCase);
+        session.setScanDate(LocalDate.of(2026, 5, 1));
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        stubScanMapping();
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService.update(session.getId(), edit(chakraId, "H"));
+        assertEquals(LocalDate.of(2026, 5, 1), session.getScanDate());
+
+        UpdateSessionRequest plain = edit(chakraId, "H");
+        sessionService.update(session.getId(), new UpdateSessionRequest(plain.scans(), LocalDate.of(2026, 5, 2)));
+        assertEquals(LocalDate.of(2026, 5, 2), session.getScanDate());
     }
 
     @Test
