@@ -250,6 +250,42 @@ public class AdminCreditController {
         return ResponseEntity.ok(result);
     }
 
+    // ─── Custom plan (SUPADM only) ───────────────────────────────────────────────────────────────
+
+    // Replaces the healer's plan with a super-admin-defined one (tag, credits, expiry). The RBAC
+    // gate is the same ADMIN verb as adjust, but the call also insists on SUPADM so it cannot be
+    // opened to another role by a grant.
+    @PostMapping("/accounts/{ownerType}/{ownerId}/custom-plan")
+    @PreAuthorize("@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')")
+    public ResponseEntity<String> grantCustomPlan(
+            @PathVariable String ownerType,
+            @PathVariable UUID ownerId,
+            @RequestBody String body) {
+        adminAuthz.assertSuperAdmin();
+        String forwarded;
+        try {
+            ObjectNode payload = (ObjectNode) objectMapper.readTree(body);
+            payload.put("owner_type", ownerType.toUpperCase());
+            payload.put("owner_id", ownerId.toString());
+            forwarded = objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid request body");
+        }
+        String result = creditServiceRestClient.post()
+                .uri("/credits/admin/accounts/custom-plan")
+                .body(forwarded)
+                .retrieve()
+                .onStatus(org.springframework.http.HttpStatusCode::isError, (req, resp) -> {
+                    throw UpstreamErrors.toException(resp.getStatusCode(),
+                            new String(resp.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                            objectMapper);
+                })
+                .body(String.class);
+        clearExhaustedIfHealer(ownerType, ownerId);
+        return ResponseEntity.ok(result);
+    }
+
     // ─── PAYG toggle (CREDIT_ACCOUNT_TRANSACTIONS:ADMIN, ABAC scoped) ───────────────────────────
 
     // PAYG is an admin setting on the account; ADMIN for the same reason as adjust.

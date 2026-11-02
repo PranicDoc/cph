@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SingleSelect } from "@/components/ui/single-select";
 import {
   Dialog,
   DialogContent,
@@ -297,26 +298,23 @@ export function TranscriptionReviewModal({
                         </div>
 
                         <div className="mt-2">
-                          <select
+                          <SingleSelect
                             value={
                               sel?.chakraId &&
                               !segment.candidates.some((c) => c.id === sel.chakraId)
                                 ? sel.chakraId
                                 : MANUAL
                             }
-                            onChange={(e) => {
-                              if (e.target.value === MANUAL) return;
-                              update(index, { chakraId: e.target.value, skipped: false });
+                            onChange={(v) => {
+                              if (v === MANUAL) return;
+                              update(index, { chakraId: v, skipped: false });
                             }}
-                            className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
-                          >
-                            <option value={MANUAL}>Not listed — choose manually&hellip;</option>
-                            {availableChakras.map((chakra) => (
-                              <option key={chakra.id} value={chakra.id}>
-                                {chakra.name}
-                              </option>
-                            ))}
-                          </select>
+                            options={[
+                              { value: MANUAL, label: "Not listed — choose manually…" },
+                              ...availableChakras.map((chakra) => ({ value: chakra.id, label: chakra.name })),
+                            ]}
+                            className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
+                          />
                         </div>
                       </>
                     )}

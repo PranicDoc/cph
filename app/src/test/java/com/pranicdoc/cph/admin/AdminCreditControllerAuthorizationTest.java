@@ -102,6 +102,7 @@ class AdminCreditControllerAuthorizationTest {
     private static final String LIST_ACCOUNTS       = "@rbacAuthz.hasPermission('CREDIT_ACCOUNTS','ADMIN')";
     private static final String GET_TRANSACTIONS    = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
     private static final String ADJUST             = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
+    private static final String CUSTOM_PLAN         = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
     private static final String TOGGLE_PAYG         = "@rbacAuthz.hasPermission('CREDIT_ACCOUNT_TRANSACTIONS','ADMIN')";
 
     /** methodName -> expected @PreAuthorize literal, for Section C's parametric resolution. */
@@ -115,6 +116,7 @@ class AdminCreditControllerAuthorizationTest {
             new String[]{"listAccounts", LIST_ACCOUNTS},
             new String[]{"getTransactions", GET_TRANSACTIONS},
             new String[]{"adjust", ADJUST},
+            new String[]{"grantCustomPlan", CUSTOM_PLAN},
             new String[]{"togglePayg", TOGGLE_PAYG});
 
     /**
@@ -201,6 +203,12 @@ class AdminCreditControllerAuthorizationTest {
     }
 
     @Test
+    void grantCustomPlan_isGatedByCreditAccountTransactionsAdmin() {
+        assertThat(preAuthorizeValueOf(AdminCreditController.class, "grantCustomPlan"))
+                .isEqualTo(CUSTOM_PLAN);
+    }
+
+    @Test
     void togglePayg_isGatedByCreditAccountTransactionsAdmin() {
         assertThat(preAuthorizeValueOf(AdminCreditController.class, "togglePayg"))
                 .isEqualTo(TOGGLE_PAYG);
@@ -250,8 +258,8 @@ class AdminCreditControllerAuthorizationTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 10 declared AdminCreditController endpoints")
-                .isEqualTo(10);
+                .as("the sweep must inspect exactly the 11 declared AdminCreditController endpoints")
+                .isEqualTo(11);
     }
 
     // ─── Section C — allow-list validity of every named (resource, verb) pair ──
@@ -388,9 +396,9 @@ class FilterChainAdminCreditControllerAuthorizationTest {
         return b.cookie(accessCookie()).contentType(MediaType.APPLICATION_JSON).content("{}");
     }
 
-    // ─── (a) SUPADM reaches every one of the 10 endpoints ──────────────────
+    // ─── (a) SUPADM reaches every one of the 11 endpoints ──────────────────
 
-    static Stream<Arguments> allTenEndpoints() {
+    static Stream<Arguments> allElevenEndpoints() {
         String p = "/api/admin/credit";
         return Stream.of(
                 Arguments.of("GET", p + "/packages"),
@@ -402,11 +410,12 @@ class FilterChainAdminCreditControllerAuthorizationTest {
                 Arguments.of("GET", p + "/accounts"),
                 Arguments.of("GET", p + "/accounts/HEALER/" + ROW_ID + "/transactions"),
                 Arguments.of("POST", p + "/accounts/HEALER/" + ROW_ID + "/adjust"),
+                Arguments.of("POST", p + "/accounts/HEALER/" + ROW_ID + "/custom-plan"),
                 Arguments.of("PUT", p + "/accounts/HEALER/" + ROW_ID + "/payg"));
     }
 
     @ParameterizedTest(name = "SUPADM {0} {1} is not 403")
-    @MethodSource("allTenEndpoints")
+    @MethodSource("allElevenEndpoints")
     void supadm_reachesEveryEndpoint_withoutAnyGrantLookup(String method, String path) throws Exception {
         authenticateAs("SUPADM");
         when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");

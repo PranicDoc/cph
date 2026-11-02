@@ -3,6 +3,8 @@ import { versioned } from "../../ui-version";
 import { useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
+import { useAuth } from "../../context/AuthContext";
+import CustomPlanSheet from "../../ui-new/admin/CustomPlanSheet";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatPlanEnd } from "../../lib/validity";
@@ -127,6 +129,9 @@ const accountColumns: ColumnDef<AccountRow, unknown>[] = [
 
 function ClassicAccountsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPADM";
+  const [customOpen, setCustomOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerTypeFilter, setOwnerTypeFilter] = useState<string>("");
   const { data, isLoading, isError } = useAdminAccounts(ownerTypeFilter || undefined, page);
@@ -166,6 +171,10 @@ function ClassicAccountsPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl md:text-2xl font-bold text-text">Credit Accounts</h1>
+        <div className="flex items-center gap-2">
+        {isSuperAdmin && (
+          <Button size="sm" onClick={() => setCustomOpen(true)}>Set custom plan</Button>
+        )}
         <Select
           value={ownerTypeFilter || "ALL"}
           onValueChange={(v) => {
@@ -182,7 +191,10 @@ function ClassicAccountsPage() {
             <SelectItem value="HEALER">Healer</SelectItem>
           </SelectContent>
         </Select>
+        </div>
       </div>
+
+      {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
 
       {isLoading && <p className="text-text-light">Loading accounts…</p>}
       {isError && <p className="text-red-500">Failed to load accounts.</p>}

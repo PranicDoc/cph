@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
+import { useAuth } from "../../context/AuthContext";
+import CustomPlanSheet from "./CustomPlanSheet";
 import { endsSoon, relativeFromNow, shortDate } from "../lib/format";
 
 const FILTERS = [
@@ -14,6 +16,9 @@ const titleCase = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 /** New-view Accounts: same data and navigation as the classic page, laid out as in the approved mockup. */
 export default function NewAccountsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "SUPADM";
+  const [customOpen, setCustomOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerType, setOwnerType] = useState("");
   const { data, isLoading, isError } = useAdminAccounts(ownerType || undefined, page);
@@ -28,6 +33,12 @@ export default function NewAccountsPage() {
           <h1>Credit accounts</h1>
           <p className="muted" style={{ marginTop: 6 }}>Credit balances and plans for every healer and clinic.</p>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {isSuperAdmin && (
+            <button className="btn btn-primary" type="button" onClick={() => setCustomOpen(true)}>
+              <Plus className="ico" aria-hidden="true" /> Set custom plan
+            </button>
+          )}
         <div className="seg" role="group" aria-label="Account type">
           {FILTERS.map((f) => (
             <button
@@ -44,7 +55,10 @@ export default function NewAccountsPage() {
             </button>
           ))}
         </div>
+        </div>
       </div>
+
+      {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
 
       {isLoading && <p className="muted">Loading accounts…</p>}
       {isError && <p className="err">Failed to load accounts.</p>}

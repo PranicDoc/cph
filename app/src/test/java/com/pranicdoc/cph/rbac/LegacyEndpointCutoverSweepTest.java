@@ -129,7 +129,7 @@ class LegacyEndpointCutoverSweepTest {
      * never drift apart.
      */
     private static final List<CutoverController> CONTROLLERS = List.of(
-            new CutoverController(AdminCreditController.class, 10, 10),
+            new CutoverController(AdminCreditController.class, 11, 11),
             new CutoverController(AdminInviteController.class, 4, 4),
             new CutoverController(HealerController.class, 3, 3),
             new CutoverController(ConsentController.class, 6, 1),
@@ -144,8 +144,8 @@ class LegacyEndpointCutoverSweepTest {
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 71;
-    private static final int EXPECTED_TOTAL_GATED = 66;
+    private static final int EXPECTED_TOTAL_MAPPED = 72;
+    private static final int EXPECTED_TOTAL_GATED = 67;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated
@@ -377,7 +377,7 @@ class LegacyEndpointCutoverSweepTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 66 gates on the surface, never an empty set")
+                .as("the allow-list check must run over all 67 gates on the surface, never an empty set")
                 .hasSize(EXPECTED_TOTAL_GATED);
 
         for (String literal : literals) {
@@ -423,14 +423,14 @@ class LegacyEndpointCutoverSweepTest {
     @Test
     void deliberatelyRetainedSupadmSitesStillExist() {
         Map<String, Integer> expectedCounts = new LinkedHashMap<>();
-        expectedCounts.put("com/pranicdoc/cph/admin/AdminAuthz.java", 2);
+        expectedCounts.put("com/pranicdoc/cph/admin/AdminAuthz.java", 3); // + assertSuperAdmin (custom-plan grant)
         expectedCounts.put("com/pranicdoc/cph/auth/service/impl/HealerServiceImpl.java", 1);
         expectedCounts.put("com/pranicdoc/cph/auth/controller/AdminInviteController.java", 0);
         expectedCounts.put("com/pranicdoc/cph/rbac/RbacAuthz.java", 1);
 
         String rationale =
                 "These sites are authorization controls the cutover must PRESERVE, not "
-                        + "leftovers to sweep: AdminAuthz holds two ABAC row-scoping checks that decide "
+                        + "leftovers to sweep: AdminAuthz holds two ABAC row-scoping checks (plus assertSuperAdmin, which keeps the custom-plan grant with super admins even if the RBAC permission is granted to another role) that decide "
                         + "whether a permitted admin may act on ANOTHER healer's row (healerScopeFilter "
                         + "+ assertHealerAccess); HealerServiceImpl has the self-vs-other scoping in "
                         + "setActiveStatus; RbacAuthz holds the single sanctioned SUPADM bypass the whole "

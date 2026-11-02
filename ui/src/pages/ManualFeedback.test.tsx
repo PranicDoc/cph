@@ -66,8 +66,8 @@ describe("ManualFeedback page", () => {
     expect(screen.getByText("Pick the session this feedback is for.")).toBeInTheDocument();
     expect(mPost).not.toHaveBeenCalled();
 
-    await screen.findByRole("option", { name: /Session 2/ });
-    await user.selectOptions(screen.getByLabelText("Session"), "sess-2");
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 2/ }));
     const date = screen.getByLabelText("Healing date");
     expect(date).toHaveValue("2026-10-08");
     expect(date).toBeDisabled();
@@ -79,8 +79,8 @@ describe("ManualFeedback page", () => {
     const user = userEvent.setup();
     const { router } = renderPage();
 
-    await screen.findByRole("option", { name: /Session 1/ });
-    await user.selectOptions(screen.getByLabelText("Session"), "sess-1");
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 1/ }));
     await rateSeverity(user, 2);
     await user.type(screen.getByLabelText("Comments"), "Sleeping better");
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
@@ -130,8 +130,8 @@ describe("ManualFeedback page", () => {
     const user = userEvent.setup();
     const { router } = renderPage();
 
-    await screen.findByRole("option", { name: /Session 1/ });
-    await user.selectOptions(screen.getByLabelText("Session"), "sess-1");
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 1/ }));
     await user.type(screen.getByLabelText("Comments"), "Same as before");
     await user.click(screen.getByRole("button", { name: "Save feedback" }));
 
