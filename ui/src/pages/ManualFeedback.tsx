@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SingleSelect } from "@/components/ui/single-select";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -132,19 +133,17 @@ export default function ManualFeedback() {
           {!isFinal && (
             <div className="space-y-1.5">
               <Label htmlFor="manual-feedback-session">Session</Label>
-              <select
+              <SingleSelect
                 id="manual-feedback-session"
                 value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                className="h-9 w-56 rounded-md border border-border bg-card px-2 text-sm"
-              >
-                <option value="">Select a session</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {`Session ${s.sessionNumber ?? "?"}${s.sessionDate ? ` — ${s.sessionDate}` : ""}`}
-                  </option>
-                ))}
-              </select>
+                onChange={setSessionId}
+                placeholder="Select a session"
+                options={sessions.map((s) => ({
+                  value: s.id,
+                  label: `Session ${s.sessionNumber ?? "?"}${s.sessionDate ? ` — ${s.sessionDate}` : ""}`,
+                }))}
+                className="flex h-9 w-56 items-center justify-between gap-2 rounded-md border border-border bg-card px-2 text-sm"
+              />
             </div>
           )}
           <div className="space-y-1.5">

@@ -49,6 +49,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SelectField, TextField, TextareaField } from "@/components/form/Field";
 import { MultiSelect } from "@/components/ui/multi-select/multi-select";
+import { SingleSelect } from "@/components/ui/single-select";
 import { cn, extractDetail } from "@/lib/utils";
 import {
   COLOR_CATEGORIES,
@@ -1225,19 +1226,14 @@ function ChakraColorForm({
   return (
     <div className="border border-dashed border-border rounded-lg p-3 space-y-2.5">
       <Field label="Chakra">
-        <select
+        <SingleSelect
           value={chakraId}
-          onChange={(e) => setChakraId(e.target.value)}
+          onChange={setChakraId}
           disabled={!!editing}
-          className={cn(fieldCls, "w-full rounded-md bg-background")}
-        >
-          <option value="">Select a chakra…</option>
-          {chakraOptions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Select a chakra…"
+          options={chakraOptions.map((c) => ({ value: c.id, label: c.name }))}
+          className={cn(fieldCls, "flex w-full items-center justify-between gap-2 rounded-md bg-background text-left")}
+        />
       </Field>
       <Field label="Cleansing colors">
         <MultiSelect<string>
@@ -1954,17 +1950,12 @@ function WipeMasterDataControl() {
   return (
     <div className="mb-6 border border-red-200 bg-red-50 rounded-lg p-3 flex flex-wrap items-center gap-3">
       <span className="text-sm text-red-700 font-medium">Danger zone —</span>
-      <select
+      <SingleSelect
         value={type}
-        onChange={(e) => setType(e.target.value as MasterDataType)}
-        className={cn(fieldCls, "rounded-md bg-background")}
-      >
-        {WIPE_TYPE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        onChange={(v) => setType(v as MasterDataType)}
+        options={WIPE_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        className={cn(fieldCls, "flex items-center justify-between gap-2 rounded-md bg-background text-left")}
+      />
       <Button
         type="button"
         variant="outline"

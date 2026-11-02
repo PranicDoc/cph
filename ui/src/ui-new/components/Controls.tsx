@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { SingleSelect } from "@/components/ui/single-select";
 
 /** Mockup switch (40 x 24). Pair with a visible label or give it an aria-label. */
 export function HlSwitch({
@@ -27,7 +27,7 @@ export function HlSwitch({
   );
 }
 
-/** Native select drawn like the mockup's select (chevron on the right). */
+/** Select drawn like the mockup's select; opens the shared dropdown panel (same as the chakra picker). */
 export function HlSelect({
   value,
   onChange,
@@ -42,23 +42,14 @@ export function HlSelect({
   label?: string;
 }) {
   return (
-    <div style={{ position: "relative" }}>
-      <select
-        id={id}
-        aria-label={label}
-        className="input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ appearance: "none", WebkitAppearance: "none", paddingRight: 34, cursor: "pointer" }}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="ico" aria-hidden="true" style={{ position: "absolute", right: 10, top: 11, pointerEvents: "none", color: "var(--muted)" }} />
-    </div>
+    <SingleSelect
+      id={id}
+      aria-label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      className="input select"
+    />
   );
 }
 
