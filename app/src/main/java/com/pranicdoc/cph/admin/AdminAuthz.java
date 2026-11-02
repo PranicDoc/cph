@@ -49,4 +49,14 @@ public class AdminAuthz {
                     "Access denied: healer " + healerId + " is not you");
         }
     }
+
+    /**
+     * Asserts the caller is a SUPADM. For actions that must stay with super admins even when
+     * another role has been granted the RBAC permission that opens the endpoint.
+     */
+    public void assertSuperAdmin() {
+        if (!"SUPADM".equals(securityContextUtil.getCurrentRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a super admin can do this");
+        }
+    }
 }
