@@ -61,7 +61,7 @@ describe("useHealingSessionWizard", () => {
   });
 
   it("the scan date starts at today, can be changed, and is sent with a new session", async () => {
-    (api.post as any).mockResolvedValue({ data: {} });
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
     const { result } = renderHook(
       () => useHealingSessionWizard({ caseId: "case-1", symptoms: [] }),
       { wrapper }
