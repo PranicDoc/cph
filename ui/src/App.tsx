@@ -69,6 +69,7 @@ const router = createBrowserRouter(
         <Route path="/" element={<HealerLayout />}>
           <Route index lazy={page(() => import("./pages/Dashboard"))} />
           <Route path="patients" lazy={page(() => import("./pages/Patients"))} />
+          <Route path="patients/:id/edit" lazy={page(() => import("./pages/PatientEdit"))} />
           <Route path="registration" lazy={page(() => import("./pages/Registration"))} />
           <Route path="pdf-list" lazy={page(() => import("./pages/PdfList").then((m) => ({ default: m.PdfList })))} />
           <Route path="session/:healingCaseId" lazy={page(() => import("./pages/Session"))} />

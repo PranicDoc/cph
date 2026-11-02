@@ -14,6 +14,8 @@ import com.pranicdoc.cph.patient.dto.PatientCaseResponse;
 import com.pranicdoc.cph.patient.dto.PatientCreateRequest;
 import com.pranicdoc.cph.patient.dto.PatientRegisterRequest;
 import com.pranicdoc.cph.patient.dto.PatientRegisterResponse;
+import com.pranicdoc.cph.patient.dto.PatientUpdateRequest;
+import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.patient.dto.PatientSort;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
@@ -59,6 +61,70 @@ class PatientServiceTest {
     void setUp() {
         healerId = UUID.randomUUID();
         TenantContext.set(healerId);
+    }
+
+    // ── update: only the owner edits; optional fields can be cleared, required ones cannot ──
+
+    private Patient ownedPatient(UUID owner) {
+        Patient p = Patient.create(new PatientCreateRequest("Asha", "Rao", null, null, null, null,
+                "+911111111111", null, null, null, "Pune", null, null, null), owner);
+        p.setId(UUID.randomUUID());
+        return p;
+    }
+
+    private static PatientUpdateRequest update(String first, String last, String contact, String city) {
+        return new PatientUpdateRequest(first, last, null, null, null, null, contact, null, null, null, city, null, null);
+    }
+
+    @Test
+    void update_ownerChangesOnlyTheGivenFields_andClearsAnOptionalOneWithABlank() {
+        Patient p = ownedPatient(healerId);
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        when(patientRepository.save(any(Patient.class))).thenAnswer(i -> i.getArgument(0));
+
+        patientService.update(p.getId(), update("  Asha K ", null, null, " "));
+
+        assertEquals("Asha K", p.getFirstName());
+        assertEquals("Rao", p.getLastName());
+        assertEquals("+911111111111", p.getContact());
+        assertNull(p.getCity());
+    }
+
+    @Test
+    void update_requiredFieldsCannotBeBlanked() {
+        Patient p = ownedPatient(healerId);
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        assertThrows(IllegalArgumentException.class, () -> patientService.update(p.getId(), update("", null, null, null)));
+        assertThrows(IllegalArgumentException.class, () -> patientService.update(p.getId(), update(null, null, " ", null)));
+        verify(patientRepository, never()).save(any());
+    }
+
+    @Test
+    void update_anotherHealersPatientIsNotFound() {
+        Patient p = ownedPatient(UUID.randomUUID());
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        assertThrows(ResourceNotFoundException.class, () -> patientService.update(p.getId(), update("X", null, null, null)));
+        assertEquals("Asha", p.getFirstName());
+        verify(patientRepository, never()).save(any());
+    }
+
+    @Test
+    void getById_anotherHealersPatientIsNotFound_butASuperAdminCanRead() {
+        Patient p = ownedPatient(UUID.randomUUID());
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER", "SUPADM");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        assertThrows(ResourceNotFoundException.class, () -> patientService.getById(p.getId()));
+        assertEquals("Asha", patientService.getById(p.getId()).firstName());
     }
 
     @AfterEach
