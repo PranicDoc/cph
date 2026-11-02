@@ -6,7 +6,11 @@ import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ChakraColorSelection;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ColorSelection;
 import com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding;
+import com.pranicdoc.cph.common.enums.ScanType;
+import com.pranicdoc.cph.healing.model.ChakraReading;
+import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingCase;
+import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
@@ -22,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -71,6 +76,41 @@ class HealerProtocolUnderstandingSaveTest {
         verify(hpuRepository).save(saved.capture());
         assertTrue(saved.getValue().getEnergisingColorsJson().contains("LWG_E"), saved.getValue().getEnergisingColorsJson());
         assertTrue(saved.getValue().getCleansingColorsJson().contains("LWG_C"), saved.getValue().getCleansingColorsJson());
+    }
+
+    @Test
+    void chakraReadingsKeepTheOrderTheyWereScanned() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        List<ChakraReading> readings = new ArrayList<>();
+        for (String name : List.of("Crown Chakra", "Liver", "Forehead Chakra", "Right Lungs", "Back Heart Chakra", "Basic Chakra")) {
+            readings.add(ChakraReading.builder().chakraId(UUID.randomUUID()).chakraName(name).build());
+        }
+        HealingSession session = HealingSession.builder()
+                .scans(new ArrayList<>(List.of(ChakraScan.builder().scanType(ScanType.PRE).readings(readings).build())))
+                .build();
+        HealingCase healingCase = HealingCase.builder().build();
+        healingCase.setId(caseId);
+        healingCase.setHealerId(healerId);
+        healingCase.setSessions(new ArrayList<>(List.of(session)));
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(hpuRepository.findByHealingCaseId(caseId)).thenReturn(Optional.empty());
+        when(pranaColorCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of());
+        HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
+                caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+
+        service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of()));
+
+        ArgumentCaptor<HealerProtocolUnderstanding> saved = ArgumentCaptor.forClass(HealerProtocolUnderstanding.class);
+        verify(hpuRepository).save(saved.capture());
+        String json = saved.getValue().getChakraReadingsJson();
+        int last = -1;
+        for (String name : List.of("Crown Chakra", "Liver", "Forehead Chakra", "Right Lungs", "Back Heart Chakra", "Basic Chakra")) {
+            int at = json.indexOf(name);
+            assertTrue(at > last, name + " out of order in " + json);
+            last = at;
+        }
     }
 
     private static PranaColorCatalog color(String code, String name, ColorUsageType category) {

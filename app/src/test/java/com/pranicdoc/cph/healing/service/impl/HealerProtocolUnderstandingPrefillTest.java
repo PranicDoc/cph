@@ -67,7 +67,7 @@ class HealerProtocolUnderstandingPrefillTest {
 
     private final ChakraCatalog solarPlexus = chakra("Solar Plexus Chakra");
     private final ChakraCatalog spleen = chakra("Spleen Chakra");
-    private final PranaColorCatalog green = color("Light Whitish Green");
+    private final PranaColorCatalog green = color("Light Whitish Green", "Breaking down diseased energy", "Decongesting");
     private final PranaColorCatalog violet = color("Light Whitish Violet");
     private final PranaColorCatalog orange = color("Light Whitish Orange");
 
@@ -109,8 +109,12 @@ class HealerProtocolUnderstandingPrefillTest {
         ChakraColorSelection solar = byChakra.get("solar plexus");
         assertEquals(List.of("Light Whitish Violet"), names(solar.energisingColors()));
         assertEquals(List.of("Light Whitish Green", "Light Whitish Orange"), names(solar.cleansingColors()));
-        assertTrue(solar.cleansingColors().stream().allMatch(c -> c.properties().isEmpty()),
-                "properties are left for the healer to pick");
+        // every catalog property is selected by default; a colour with none in the catalog has none
+        assertEquals(List.of("Breaking down diseased energy", "Decongesting"),
+                solar.cleansingColors().get(0).properties());
+        assertEquals("Light Whitish Orange", solar.cleansingColors().get(1).color());
+        assertTrue(solar.cleansingColors().get(1).properties().isEmpty());
+        assertTrue(solar.energisingColors().get(0).properties().isEmpty());
         assertTrue(byChakra.get("Navel").energisingColors().isEmpty());
         assertTrue(byChakra.get("Navel").cleansingColors().isEmpty());
     }
@@ -177,10 +181,11 @@ class HealerProtocolUnderstandingPrefillTest {
         return c;
     }
 
-    private static PranaColorCatalog color(String name) {
+    private static PranaColorCatalog color(String name, String... properties) {
         PranaColorCatalog c = new PranaColorCatalog();
         c.setId(UUID.randomUUID());
         c.setName(name);
+        c.setProperties(new java.util.ArrayList<>(List.of(properties)));
         return c;
     }
 

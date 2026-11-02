@@ -136,8 +136,9 @@ public class HealerProtocolUnderstandingService {
 
     /**
      * Pre-fill for the closure form: for each chakra scanned in this case, the cleansing and
-     * energising colors the case's protocol(s) prescribe for that chakra in master data, with
-     * properties left empty for the healer to pick. A chakra the protocols do not cover, or a
+     * energising colors the case's protocol(s) prescribe for that chakra in master data, each
+     * with all of its catalog properties selected (the healer can untick any; a color with no
+     * catalog properties comes back with none). A chakra the protocols do not cover, or a
      * case whose protocols have no chakra/color data, comes back with empty lists, and the
      * form falls back to manual selection.
      */
@@ -150,6 +151,14 @@ public class HealerProtocolUnderstandingService {
         Map<String, Map<ColorUsageType, Set<String>>> colorsByChakra =
                 protocolColorsByChakra(healingCase, healingCase.getHealerId());
 
+        // Same name resolution as saveFromHealerSelection: per category first, then by name alone.
+        List<PranaColorCatalog> catalog = pranaColorCatalogRepository
+                .findByHealerIdIsNullOrHealerId(healingCase.getHealerId());
+        Map<String, PranaColorCatalog> catalogByName = catalog.stream()
+                .collect(Collectors.toMap(PranaColorCatalog::getName, c -> c, (a, b) -> a));
+        Map<String, PranaColorCatalog> energisingByName = byNameIn(catalog, ColorUsageType.ENERGISING, catalogByName);
+        Map<String, PranaColorCatalog> cleansingByName = byNameIn(catalog, ColorUsageType.CLEANSING, catalogByName);
+
         List<ChakraColorSelection> prefill = sessionRepository.findAllScannedChakras(healingCaseId)
                 .stream()
                 .sorted()
@@ -158,8 +167,8 @@ public class HealerProtocolUnderstandingService {
                             colorsByChakra.getOrDefault(normalizeChakraName(chakra), Map.of());
                     return new ChakraColorSelection(
                             chakra,
-                            toUnselectedColors(colors.get(ColorUsageType.ENERGISING)),
-                            toUnselectedColors(colors.get(ColorUsageType.CLEANSING)));
+                            toDefaultColors(colors.get(ColorUsageType.ENERGISING), energisingByName),
+                            toDefaultColors(colors.get(ColorUsageType.CLEANSING), cleansingByName));
                 })
                 .toList();
         return new HealerProtocolUnderstandingRequest(prefill);
@@ -228,9 +237,18 @@ public class HealerProtocolUnderstandingService {
                 : normalized;
     }
 
-    private static List<ColorSelection> toUnselectedColors(Set<String> colorNames) {
+    /** Each color with all of its catalog properties selected; a color without any (or not in the catalog) has none. */
+    private static List<ColorSelection> toDefaultColors(Set<String> colorNames,
+                                                        Map<String, PranaColorCatalog> catalogByName) {
         if (colorNames == null || colorNames.isEmpty()) return Collections.emptyList();
-        return colorNames.stream().map(name -> new ColorSelection(name, List.of())).toList();
+        return colorNames.stream()
+                .map(name -> {
+                    PranaColorCatalog color = catalogByName.get(name);
+                    List<String> properties = color == null || color.getProperties() == null
+                            ? List.of() : List.copyOf(color.getProperties());
+                    return new ColorSelection(name, properties);
+                })
+                .toList();
     }
 
     // ── Deserializers (used by mapper) ───────────────────────────────────────
@@ -303,8 +321,8 @@ public class HealerProtocolUnderstandingService {
                 .filter(s -> s.getScanType() == ScanType.PRE)
                 .findFirst()
                 .map(scan -> scan.getReadings().stream()
-                        .collect(Collectors.toMap(ChakraReading::getChakraId, r -> r)))
-                .orElse(Collections.emptyMap());
+                        .collect(Collectors.toMap(ChakraReading::getChakraId, r -> r, (a, b) -> a, LinkedHashMap::new)))
+                .orElse(new LinkedHashMap<>());
 
         Map<UUID, ChakraReading> postMap = session.getScans().stream()
                 .filter(s -> s.getScanType() == ScanType.POST)
