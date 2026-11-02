@@ -6,6 +6,7 @@ import { resolvePrefillChakras } from "../lib/resolveScanChakras";
 import { buildBackendChakraCatalog } from "./ChakraScan";
 import type { ChakraCatalogEntry, ChakraDocEntry } from "./ChakraScan/types/spatial-chakra";
 import { createDefaultEntry } from "./ChakraScan/utils";
+import { getCurrentDateAndTime } from "../lib/utils";
 import { CompletionScreen } from "./HealingSessionWizard/CompletionScreen";
 import { StepPostScan } from "./HealingSessionWizard/StepPostScan";
 import { StepPreScan } from "./HealingSessionWizard/StepPreScan";
@@ -23,7 +24,12 @@ interface HealingSessionWizardProps {
    * data still leaves every chakra available to add manually. */
   protocolIds?: string[];
   /** A saved session to correct: its scans are loaded and saving updates it. */
-  session?: { id: string; scans: { scanType: "PRE" | "POST"; readings: any[] }[] };
+  session?: {
+    id: string;
+    scanDate?: string | null;
+    sessionDate?: string | null;
+    scans: { scanType: "PRE" | "POST"; readings: any[] }[];
+  };
 }
 
 const NO_CHAKRAS: ChakraCatalogEntry[] = [];
@@ -41,11 +47,19 @@ export const HealingSessionWizard = ({
     preScanChakraData,
     postScanChakraData,
     isSubmitting,
+    scanDate,
+    setScanDate,
     setPreScanChakraData,
     setPostScanChakraData,
     handleBack,
     handleNext,
-  } = useHealingSessionWizard({ caseId, symptoms, sessionId: session?.id, onSaved: onClose });
+  } = useHealingSessionWizard({
+    caseId,
+    symptoms,
+    sessionId: session?.id,
+    initialScanDate: session ? (session.scanDate ?? session.sessionDate ?? undefined) : undefined,
+    onSaved: onClose,
+  });
 
   const navigate = useNavigate();
 
@@ -135,6 +149,22 @@ export const HealingSessionWizard = ({
       <WizardProgress step={step} totalSteps={2} />
 
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+        {step <= 2 && (
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <label htmlFor="scan-date" className="text-sm font-medium text-text-dark">
+              Scan date
+            </label>
+            <input
+              id="scan-date"
+              type="date"
+              value={scanDate}
+              max={getCurrentDateAndTime().currentDate}
+              onChange={(e) => e.target.value && setScanDate(e.target.value)}
+              className="rounded-lg border-2 border-border bg-white px-3 py-2 text-sm"
+            />
+            <span className="text-xs text-text-light">Shown on this session's scan sheet in the PDF.</span>
+          </div>
+        )}
         {step === 1 && (
           <StepPreScan
             value={preScanChakraData}

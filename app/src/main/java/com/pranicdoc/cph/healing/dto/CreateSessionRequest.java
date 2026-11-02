@@ -23,6 +23,14 @@ public record CreateSessionRequest(
         @Valid
         List<SymptomFeedbackRequest> symptomFeedbacks,
         @Valid
-        List<QualitativeFeedbackRequest> qualitativeFeedbacks
+        List<QualitativeFeedbackRequest> qualitativeFeedbacks,
+        /** The date the scan was done; optional, defaults to the session date. */
+        LocalDate scanDate
 ) {
+    /** Without a scan date (the scan date then defaults to the session date). */
+    public CreateSessionRequest(UUID caseId, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
+                                List<ScanRequest> scans, List<SymptomFeedbackRequest> symptomFeedbacks,
+                                List<QualitativeFeedbackRequest> qualitativeFeedbacks) {
+        this(caseId, sessionDate, startTime, endTime, scans, symptomFeedbacks, qualitativeFeedbacks, null);
+    }
 }

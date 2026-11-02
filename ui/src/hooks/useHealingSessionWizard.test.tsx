@@ -55,7 +55,41 @@ describe("useHealingSessionWizard", () => {
         expect.objectContaining({ scanType: "PRE", readings: [expect.objectContaining({ chakraId: "chakra-1", energyLevel: "C" })] }),
         expect.objectContaining({ scanType: "POST" }),
       ],
+      scanDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("the scan date starts at today, can be changed, and is sent with a new session", async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    const { result } = renderHook(
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [] }),
+      { wrapper }
+    );
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    expect(result.current.scanDate).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+
+    act(() => {
+      result.current.setScanDate("2026-11-01");
+      result.current.setPreScanChakraData([crown]);
+      result.current.setPostScanChakraData([crown]);
+    });
+    await act(() => result.current.handleNext());
+    await act(() => result.current.handleNext());
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/api/v1/sessions/case",
+      expect.objectContaining({ scanDate: "2026-11-01" }),
+      expect.anything()
+    );
+  });
+
+  it("correcting a saved session starts from its own scan date", () => {
+    const { result } = renderHook(
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], sessionId: "s-1", initialScanDate: "2026-10-20" }),
+      { wrapper }
+    );
+    expect(result.current.scanDate).toBe("2026-10-20");
   });
 });

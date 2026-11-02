@@ -27,6 +27,7 @@ public abstract class CphCaseMapper {
 
     @Mapping(target = "caseClosure", source = "closure")
     @Mapping(target = "sessions",    qualifiedByName = "toSortedSessions")
+    @Mapping(target = "healerProtocolUnderstanding", expression = "java(caseProtocolUnderstanding(c))")
     public abstract com.pranicdoc.common.dto.CaseSnapshot toCaseSnapshot(HealingCase c);
 
     @Mapping(target = "patientMedicalHistory", source = "medicalHistory")
@@ -87,21 +88,21 @@ public abstract class CphCaseMapper {
 
     // ── Sorted sessions with HPU enrichment ──────────────────────────────────
 
+    /**
+     * The healer's protocol understanding is one per case (it is keyed by the case), so it goes on the
+     * case snapshot next to the closure instead of being copied onto every session.
+     */
+    protected HealerProtocolUnderstandingSnapshot caseProtocolUnderstanding(HealingCase c) {
+        if (c == null || c.getId() == null) return null;
+        return hpuRepository.findByHealingCaseId(c.getId()).map(this::toHpuSnapshot).orElse(null);
+    }
+
     @Named("toSortedSessions")
     public List<SessionSnapshot> toSortedSessions(List<HealingSession> sessions) {
         if (sessions == null || sessions.isEmpty()) return Collections.emptyList();
-        // D-25/INFRA-01: hpuRepository.findByHealingCaseId(...) is keyed by
-        // healingCaseId, not sessionId — every session in this list resolves
-        // to the SAME row. Hoisted out of the per-session map() below: this
-        // was a confirmed N+1 (one identical query per session) on the
-        // PDF-generation snapshot load path.
-        HealerProtocolUnderstandingSnapshot hpu = hpuRepository
-                .findByHealingCaseId(sessions.get(0).getHealingCase().getId())
-                .map(this::toHpuSnapshot)
-                .orElse(null);
         return sessions.stream()
                 .sorted(Comparator.comparingInt(HealingSession::getSessionNumber))
-                .map(s -> toSessionSnapshot(s).withHealerProtocolUnderstanding(hpu))
+                .map(this::toSessionSnapshot)
                 .toList();
     }
 

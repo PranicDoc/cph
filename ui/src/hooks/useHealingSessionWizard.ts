@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { ChakraDocEntry } from "../components/ChakraScan";
 import { useReferenceData } from "./useReferenceData";
 import { useHealingSessionForm } from "./useHealingSessionForm";
-import { constructHealingSessionPayload, extractDetail } from "../lib/utils";
+import { constructHealingSessionPayload, extractDetail, getCurrentDateAndTime } from "../lib/utils";
 import api from "../lib/axios";
 import { toast } from "sonner";
 
@@ -15,6 +15,8 @@ interface UseHealingSessionWizardParams {
   symptoms: any[];
   /** Set when correcting a saved session: saving updates it instead of creating a new one. */
   sessionId?: string;
+  /** The saved session's scan date when correcting one; otherwise the scan date starts at today. */
+  initialScanDate?: string;
   onSaved?: () => void;
 }
 
@@ -32,6 +34,7 @@ export function useHealingSessionWizard({
   caseId,
   symptoms,
   sessionId,
+  initialScanDate,
   onSaved,
 }: UseHealingSessionWizardParams) {
   const [step, setStep] = useState(1);
@@ -50,6 +53,10 @@ export function useHealingSessionWizard({
 
   const referenceData = useReferenceData();
   const { form } = useHealingSessionForm(symptoms);
+  // The date the scan was done: today unless the healer changes it (or the saved session's own date).
+  const [scanDate, setScanDate] = useState<string>(
+    initialScanDate ?? getCurrentDateAndTime().currentDate
+  );
 
   const handleBack = useCallback(() => {
     setStep((current) => Math.max(1, current - 1));
@@ -99,6 +106,7 @@ export function useHealingSessionWizard({
       const payload = constructHealingSessionPayload({
         caseId,
         sessionDate: values.sessionDate,
+        scanDate,
         startTime: values.startTime,
         endTime: values.endTime,
         preScanData: preScanChakraData.map(mapScanEntry),
@@ -111,7 +119,7 @@ export function useHealingSessionWizard({
       });
 
       if (sessionId) {
-        await api.put(`/api/v1/sessions/${sessionId}`, { scans: payload.scans });
+        await api.put(`/api/v1/sessions/${sessionId}`, { scans: payload.scans, scanDate });
         await queryClient.invalidateQueries({ queryKey: ["patients"] });
         toast.success("Session updated");
         onSaved?.();
@@ -140,7 +148,7 @@ export function useHealingSessionWizard({
     } finally {
       setIsSubmitting(false);
     }
-  }, [caseId, form, isSubmitting, onSaved, postScanChakraData, preScanChakraData, queryClient, sessionId, step]);
+  }, [caseId, form, isSubmitting, onSaved, postScanChakraData, preScanChakraData, queryClient, scanDate, sessionId, step]);
 
   return {
     step,
@@ -149,6 +157,8 @@ export function useHealingSessionWizard({
     preScanChakraData,
     postScanChakraData,
     isSubmitting,
+    scanDate,
+    setScanDate,
     setPreScanChakraData,
     setPostScanChakraData,
     handleBack,
