@@ -11,6 +11,8 @@ type Draft = { fullName: string; email: string; phone: string };
 type PwDraft = { current: string; newPwd: string; confirm: string };
 
 /** Everything the classic Profile page owns; the new view only lays it out differently. */
+import { DeleteMyAccount } from "../../components/DeleteMyAccount";
+
 export interface ProfilePageState {
   isLoading: boolean;
   displayName: string;
@@ -219,6 +221,9 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
             {page.isLoading ? <RowsSkeleton rows={1} /> : <InfoRow icon={Activity} label="Healing level" value={page.displayLevel} />}
           </section>
         </div>
+      </div>
+      <div style={{ marginTop: 24 }}>
+        <DeleteMyAccount name={page.displayName} email={page.displayEmail} />
       </div>
     </div>
   );

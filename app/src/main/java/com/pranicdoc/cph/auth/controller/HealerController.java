@@ -1,6 +1,10 @@
 package com.pranicdoc.cph.auth.controller;
 
+import com.pranicdoc.cph.auth.dto.EraseAccountRequest;
+import com.pranicdoc.cph.auth.dto.EraseAccountResponse;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.service.HealerEraseService;
+import jakarta.validation.Valid;
 import com.pranicdoc.cph.auth.service.HealerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +20,7 @@ import java.util.UUID;
 public class HealerController {
 
     private final HealerService healerService;
+    private final HealerEraseService healerEraseService;
 
     @GetMapping
     @PreAuthorize("@rbacAuthz.hasPermission('ACCOUNTS','READ')")
@@ -37,6 +42,14 @@ public class HealerController {
      * HealerServiceImpl.removeHealer. The self-vs-other ABAC scoping in
      * HealerServiceImpl.setActiveStatus is unaffected by this change.
      */
+    /** Permanently erases a healer account and all of its data (type-to-confirm: the account's e-mail). */
+    @PostMapping("/{id}/erase")
+    @PreAuthorize("@rbacAuthz.hasPermission('ACCOUNTS','DELETE')")
+    public ResponseEntity<EraseAccountResponse> erase(@PathVariable UUID id,
+                                                      @Valid @RequestBody EraseAccountRequest request) {
+        return ResponseEntity.ok(healerEraseService.eraseAsAdmin(id, request.confirmation()));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("@rbacAuthz.hasPermission('ACCOUNTS','DELETE')")
     public ResponseEntity<Void> remove(@PathVariable UUID id) {

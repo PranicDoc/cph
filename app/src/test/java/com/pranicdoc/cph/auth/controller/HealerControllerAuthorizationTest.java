@@ -97,7 +97,8 @@ class HealerControllerAuthorizationTest {
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"getAllHealers", ACCOUNTS_READ_LITERAL},
             new String[]{"setActive", ACCOUNTS_UPDATE_LITERAL},
-            new String[]{"remove", ACCOUNTS_DELETE_LITERAL});
+            new String[]{"remove", ACCOUNTS_DELETE_LITERAL},
+            new String[]{"erase", ACCOUNTS_DELETE_LITERAL});
 
     /**
      * Returns the {@code @PreAuthorize} value of the single public method named
@@ -190,8 +191,8 @@ class HealerControllerAuthorizationTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 3 declared HealerController endpoints")
-                .isEqualTo(3);
+                .as("the sweep must inspect exactly the 4 declared HealerController endpoints")
+                .isEqualTo(4);
     }
 
     // ─── Section C — allow-list validity of every named (resource, verb) pair ──
@@ -278,6 +279,9 @@ class FilterChainHealerControllerAuthorizationTest {
     // ─── per-controller collaborator ──────────────────────────────────────
     @MockBean
     private HealerService healerService;
+
+    @MockBean
+    private com.pranicdoc.cph.auth.service.HealerEraseService healerEraseService;
 
     // ─── consumed by RbacAuthz ───────────────────────────────────────────
     @MockBean

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DeleteMyAccount } from "../components/DeleteMyAccount";
 import NewProfile from "../ui-new/pages/NewProfile";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
@@ -582,6 +583,8 @@ export default function Profile() {
       </div>
 
       <CreditHistory />
+
+      <DeleteMyAccount name={displayName} email={displayEmail} />
 
       {dialogs}
     </div>

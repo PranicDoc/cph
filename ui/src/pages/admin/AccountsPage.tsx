@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
 import CustomPlanSheet from "../../ui-new/admin/CustomPlanSheet";
+import { EraseHealerSheet } from "../../components/admin/EraseHealerSheet";
 import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -133,6 +134,7 @@ function ClassicAccountsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
   const [customOpen, setCustomOpen] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerTypeFilter, setOwnerTypeFilter] = useState<string>("");
   const { data, isLoading, isError } = useAdminAccounts(ownerTypeFilter || undefined, page);
@@ -176,6 +178,9 @@ function ClassicAccountsPage() {
         {isSuperAdmin && (
           <Button size="sm" onClick={() => setCustomOpen(true)}>Set custom plan</Button>
         )}
+        {isSuperAdmin && (
+          <Button size="sm" variant="destructive-soft" onClick={() => setEraseOpen(true)}>Erase healer</Button>
+        )}
         <Select
           value={ownerTypeFilter || "ALL"}
           onValueChange={(v) => {
@@ -196,6 +201,7 @@ function ClassicAccountsPage() {
       </div>
 
       {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
+      {eraseOpen && <EraseHealerSheet onClose={() => setEraseOpen(false)} />}
 
       {isLoading && <p className="text-text-light">Loading accounts…</p>}
       {isError && <p className="text-red-500">Failed to load accounts.</p>}
