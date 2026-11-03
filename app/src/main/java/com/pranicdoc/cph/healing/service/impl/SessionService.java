@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -116,6 +118,7 @@ public class SessionService {
         session.setHealingCase(healingCase);
         activateCaseIfDraftOrContinued(healingCase);
         HealingSession saved = sessionRepository.save(session);
+        renumberByDate(saved.getHealingCase().getId());
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
     }
@@ -161,7 +164,42 @@ public class SessionService {
             });
         }
         validatePrePostAndProtocolExists(session);
-        return toResponse(sessionRepository.save(session));
+        HealingSession saved = sessionRepository.save(session);
+        if (request.sessionDate() != null) {
+            renumberByDate(healingCase.getId());
+        }
+        return toResponse(saved);
+    }
+
+    /**
+     * Session numbers follow the session date: the earlier the date, the lower the number
+     * (ties keep creation order). Two passes through negative numbers because
+     * (healing_case_id, session_number) is unique and Hibernate flushes row by row.
+     */
+    private void renumberByDate(UUID caseId) {
+        sessionRepository.flush();
+        List<HealingSession> sessions = new ArrayList<>(sessionRepository
+                .findByHealingCaseIdOrderBySessionNumberAsc(caseId));
+        sessions.sort(Comparator
+                .comparing(HealingSession::getSessionDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(HealingSession::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(HealingSession::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        boolean inOrder = true;
+        for (int i = 0; i < sessions.size(); i++) {
+            if (!Objects.equals(sessions.get(i).getSessionNumber(), i + 1)) {
+                inOrder = false;
+                break;
+            }
+        }
+        if (inOrder) return;
+        for (int i = 0; i < sessions.size(); i++) {
+            sessions.get(i).setSessionNumber(-(i + 1));
+        }
+        sessionRepository.flush();
+        for (int i = 0; i < sessions.size(); i++) {
+            sessions.get(i).setSessionNumber(i + 1);
+        }
+        sessionRepository.flush();
     }
 
     /**

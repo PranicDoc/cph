@@ -238,7 +238,7 @@ export const consentDeclarationSchema = (
       {
         name: "consent3",
         label:
-          "I hereby give my consent to the healer to use this testimonial for his Pranic Healing Certification program.",
+          "I confirm that I have obtained the patient's consent to use this testimonial for my Pranic Healing Certification program.",
         type: "checkbox",
         required: true,
       },
