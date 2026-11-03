@@ -237,7 +237,18 @@ public class CaseController {
     // boundary; a distinct, separately grantable verb from PDF:READ (listing != downloading).
     @PreAuthorize("@rbacAuthz.hasPermission('PDF','EXPORT')")
     @GetMapping("/download")
-    public ResponseEntity<ApiResponse<PreSignedUrlResponse>> getDownloadLink(@RequestParam String fileUrl) {
+    public ResponseEntity<?> getDownloadLink(@RequestParam String fileUrl,
+                                             @RequestParam(defaultValue = "false") boolean stream) {
+        if (stream) {
+            // The file itself, as an attachment: the browser cannot save a cross-origin storage link
+            // under a chosen name, and fetching it from the page needs CORS on the bucket.
+            String name = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                            org.springframework.http.ContentDisposition.attachment().filename(name).build().toString())
+                    .body(caseService.downloadFile(fileUrl));
+        }
         return ResponseEntity.ok().body(
                 new ApiResponse<>(true, "Successfully retrieved download link",
                     caseService.getPreSignedDownloadUrl(fileUrl)

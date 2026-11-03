@@ -209,28 +209,53 @@ function ProtocolsPopup({ protocols, onClose }: { protocols: Protocol[]; onClose
   );
 }
 
-/** One protocol is shown as is; several open in a popup, like lab findings and medications. */
-export function ProtocolsView({ protocols, fallback }: { protocols: Protocol[]; fallback?: string }) {
-  const [open, setOpen] = useState(false);
+function DetailedProtocolPopup({ text, onClose }: { text: string; onClose: () => void }) {
+  return (
+    <Popup title="Protocol" onClose={onClose}>
+      <p className="text-sm text-text whitespace-pre-wrap break-words">{text}</p>
+    </Popup>
+  );
+}
 
-  if (!protocols || protocols.length === 0) {
+/**
+ * The case's protocols. One is shown as is; several open in a popup, like lab findings and medications.
+ * When the healer wrote out the protocol (`detailed`), a "View protocol" button opens it in full.
+ */
+export function ProtocolsView({
+  protocols,
+  fallback,
+  detailed,
+}: {
+  protocols: Protocol[];
+  fallback?: string;
+  detailed?: string | null;
+}) {
+  const [listOpen, setListOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detailedText = (detailed ?? "").trim();
+  const linkClass =
+    "h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary";
+
+  if ((!protocols || protocols.length === 0) && !detailedText) {
     return <span className="text-sm text-text-light">{fallback || "—"}</span>;
-  }
-  if (protocols.length === 1) {
-    return <span className="text-sm text-text">{protocols[0].name}</span>;
   }
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="link"
-        onClick={() => setOpen(true)}
-        className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary"
-      >
-        {protocols.length} protocols · Click to view
-      </Button>
-      {open && <ProtocolsPopup protocols={protocols} onClose={() => setOpen(false)} />}
-    </>
+    <div className="flex flex-col items-start gap-1.5">
+      {protocols.length === 1 && <span className="text-sm text-text">{protocols[0].name}</span>}
+      {protocols.length === 0 && fallback && <span className="text-sm text-text">{fallback}</span>}
+      {protocols.length > 1 && (
+        <Button type="button" variant="link" onClick={() => setListOpen(true)} className={linkClass}>
+          {protocols.length} protocols · Click to view
+        </Button>
+      )}
+      {detailedText && (
+        <Button type="button" variant="link" onClick={() => setDetailOpen(true)} className={linkClass}>
+          View protocol
+        </Button>
+      )}
+      {listOpen && <ProtocolsPopup protocols={protocols} onClose={() => setListOpen(false)} />}
+      {detailOpen && <DetailedProtocolPopup text={detailedText} onClose={() => setDetailOpen(false)} />}
+    </div>
   );
 }
