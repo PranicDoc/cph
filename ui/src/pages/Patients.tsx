@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useUiVersion } from "../ui-version";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
@@ -80,6 +80,16 @@ const getStoredDefaultSort = (): PatientSortOption => {
   const stored = localStorage.getItem(SORT_STORAGE_KEY);
   return isSortOption(stored) ? stored : BACKEND_DEFAULT_SORT;
 };
+
+// The table's cell renderers are treated as components by TanStack Table, so a new function on each
+// render remounts every cell (and closes an open menu). The cells below are stable; the latest
+// renderer reaches them through context, which re-renders them in place.
+type RenderActions = (patient: ComputedPatient, variant: "table" | "card") => ReactNode;
+const PatientActionsContext = createContext<RenderActions>(() => null);
+function ActionsCell({ patient }: { patient: ComputedPatient }) {
+  const render = useContext(PatientActionsContext);
+  return <>{render(patient, "table")}</>;
+}
 
 export default function Patients() {
   const { isNewView } = useUiVersion();
@@ -224,7 +234,8 @@ export default function Patients() {
     },
   });
 
-  const columns: ColumnDef<ComputedPatient>[] = [
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const columns = useMemo<ColumnDef<ComputedPatient>[]>(() => [
     {
       accessorKey: "firstName",
       header: "First Name",
@@ -259,9 +270,9 @@ export default function Patients() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => renderActions(row.original),
+      cell: ({ row }) => <ActionsCell patient={row.original} />,
     },
-  ];
+  ], [isNewView]);
 
   const handleSelectPatient = (patient: Patient) => {
     selectPatient(patient.id);
@@ -317,8 +328,13 @@ export default function Patients() {
     });
   };
 
+  // Which row's menu is open. Kept here, not inside the menu: the table's cell renderers are new functions
+  // on every render of this page, so React remounts the cells and a menu that kept its own open state
+  // snapped shut whenever anything on the page re-rendered.
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+
   // Every action for a patient lives in one plain dropdown behind the three dots.
-  const renderActions = (patient: ComputedPatient) => {
+  const renderActions = (patient: ComputedPatient, variant: "table" | "card") => {
     const hasCase = !!patient.healingCaseId;
     const isLocked = patient.status === "LOCKED";
     const isDraft = patient.status === "DRAFT";
@@ -329,7 +345,10 @@ export default function Patients() {
     const unlocking = unlockMutation.isPending && unlockMutation.variables?.id === patient.id;
     return (
       <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-        <DropdownMenu>
+        <DropdownMenu
+          open={openMenu === `${variant}:${patient.id}`}
+          onOpenChange={(isOpen) => setOpenMenu(isOpen ? `${variant}:${patient.id}` : null)}
+        >
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -629,6 +648,7 @@ export default function Patients() {
         </div>
 
         <div className="hidden md:block overflow-x-auto">
+          <PatientActionsContext.Provider value={renderActions}>
           <DataTable<ComputedPatient>
             columns={columns}
             data={filteredPatients}
@@ -639,6 +659,7 @@ export default function Patients() {
             emptyMessage="No patients found."
             className="rounded-none border-0"
           />
+          </PatientActionsContext.Provider>
         </div>
 
         <div className="md:hidden p-4 space-y-3">
@@ -672,7 +693,7 @@ export default function Patients() {
                   <span className="font-semibold text-text">{patient.fullName}</span>
                   <span className="flex items-center gap-2">
                     {renderStatusPill(patient.status)}
-                    {renderActions(patient)}
+                    {renderActions(patient, "card")}
                   </span>
                 </div>
                 <p className="text-xs text-text-light mt-1">
