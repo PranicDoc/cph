@@ -17,11 +17,12 @@ type HealingSessionFormValues = {
 };
 
 // Symptoms will seed the per-symptom feedback once that step is back in the wizard.
-export function useHealingSessionForm(_symptoms: any[]) {
+/** `initialSessionDate`: a saved session's own date when correcting one (otherwise today). */
+export function useHealingSessionForm(_symptoms: any[], initialSessionDate?: string) {
   const { currentDate, startTime, endTime } = getCurrentDateAndTime();
 
   const defaultValues: HealingSessionFormValues = {
-    sessionDate: currentDate,
+    sessionDate: initialSessionDate ?? currentDate,
     startTime,
     endTime,
     protocolName: "",
