@@ -1,33 +1,34 @@
+import api from "./axios";
+
 /**
- * Saves a file to the device AND shows it.
+ * Saves a stored PDF to the device AND shows it.
  *
- * A plain `<a download>` is ignored for a cross-origin link (the storage URL), and on phones the
- * browser then just opens the file. Fetching it as a blob makes the download attribute work, and the
- * same blob is opened in a tab so the person can read it straight away.
+ * - Save: the file is fetched through our own API (which sends it as an attachment), then handed to the
+ *   browser as a download. A link straight to the storage bucket cannot be saved this way: the
+ *   `download` attribute is ignored for another origin, so phones just open the file.
+ * - Show: `tab` is pointed at the storage link. The caller opens it first, inside the tap, because
+ *   browsers block a tab opened after an await.
  *
- * The tab is opened first, inside the tap, because browsers block a tab opened after an await.
- * If the file cannot be fetched (e.g. storage CORS) the tab is pointed at the link instead.
+ * If saving fails the tab still shows the file, and the error is thrown so the caller can say so.
  */
-export async function saveAndViewFile(url: string, fileName: string): Promise<void> {
-  const tab = window.open("", "_blank");
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Download failed (${res.status})`);
-    const blob = new Blob([await res.blob()], { type: "application/pdf" });
-    const blobUrl = URL.createObjectURL(blob);
+export async function saveAndViewFile(
+  tab: Window | null,
+  fileKey: string,
+  viewUrl: string,
+  fileName: string
+): Promise<void> {
+  if (tab) tab.location.href = viewUrl; // pop-ups blocked: the download below still happens
 
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    if (tab) tab.location.href = blobUrl;
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 5 * 60 * 1000);
-  } catch (e) {
-    if (tab) tab.location.href = url;
-    else window.location.href = url;
-    console.error("Could not save the file, opened it instead:", e);
-  }
+  const res = await api.get("/api/v1/cases/download", {
+    params: { fileUrl: fileKey, stream: true },
+    responseType: "blob",
+  });
+  const blobUrl = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }

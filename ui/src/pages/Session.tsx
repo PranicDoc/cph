@@ -502,6 +502,7 @@ export default function Session() {
                 sessionData.healingDetails ? (
                   <div>
                     <ProtocolsView
+                      detailed={sessionData.healingDetails.detailedProtocol}
                       protocols={reconstructSelectedProtocols(sessionData.healingDetails.protocolName || "")}
                     />
                     {sessionData?.basicBookPg && (

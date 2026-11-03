@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Search, Download } from "lucide-react";
+import { toast } from "sonner";
 import api from "../lib/axios";
 import { useUiVersion } from "../ui-version";
 import { saveAndViewFile } from "../lib/saveAndViewFile";
@@ -119,6 +120,8 @@ export function PdfList() {
   );
 
   const handleDownloadPdf = async (record: PDFJob) => {
+    // Opened now, inside the tap: a tab opened after the awaits below would be blocked on phones.
+    const tab = window.open("", "_blank");
     try {
       let presignedUrl = "";
       const now = Date.now();
@@ -156,8 +159,14 @@ export function PdfList() {
 
       // 3. Save it to the device and show it
       const fileName = `${record.fullName.replace(/\s+/g, "_")}_Case.pdf`;
-      await saveAndViewFile(presignedUrl, fileName);
+      await saveAndViewFile(tab, record.fileUrl, presignedUrl, fileName);
     } catch (error) {
+      try {
+        if (tab && tab.location.href === "about:blank") tab.close(); // never got a page
+      } catch {
+        // it already shows the file (another origin): leave it open
+      }
+      toast.error("Could not download the PDF. Please try again.");
       console.error("Failed to generate or download PDF:", error);
     }
   };
