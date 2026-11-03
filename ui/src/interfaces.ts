@@ -161,7 +161,6 @@ export interface ChakraOption {
 export interface CreateSessionPayload {
   caseId: string;
   sessionDate: string;
-  scanDate?: string;
   startTime: string;
   endTime: string;
   scans: ChakraScanRequest[];

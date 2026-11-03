@@ -26,7 +26,6 @@ interface HealingSessionWizardProps {
   /** A saved session to correct: its scans are loaded and saving updates it. */
   session?: {
     id: string;
-    scanDate?: string | null;
     sessionDate?: string | null;
     scans: { scanType: "PRE" | "POST"; readings: any[] }[];
   };
@@ -47,8 +46,8 @@ export const HealingSessionWizard = ({
     preScanChakraData,
     postScanChakraData,
     isSubmitting,
-    scanDate,
-    setScanDate,
+    sessionDate,
+    setSessionDate,
     setPreScanChakraData,
     setPostScanChakraData,
     handleBack,
@@ -57,7 +56,7 @@ export const HealingSessionWizard = ({
     caseId,
     symptoms,
     sessionId: session?.id,
-    initialScanDate: session ? (session.scanDate ?? session.sessionDate ?? undefined) : undefined,
+    initialSessionDate: session?.sessionDate ?? undefined,
     onSaved: onClose,
   });
 
@@ -151,18 +150,18 @@ export const HealingSessionWizard = ({
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
         {step <= 2 && (
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <label htmlFor="scan-date" className="text-sm font-medium text-text-dark">
-              Scan date
+            <label htmlFor="session-date" className="text-sm font-medium text-text-dark">
+              Session date
             </label>
             <input
-              id="scan-date"
+              id="session-date"
               type="date"
-              value={scanDate}
+              value={sessionDate}
               max={getCurrentDateAndTime().currentDate}
-              onChange={(e) => e.target.value && setScanDate(e.target.value)}
+              onChange={(e) => e.target.value && setSessionDate(e.target.value)}
               className="rounded-lg border-2 border-border bg-white px-3 py-2 text-sm"
             />
-            <span className="text-xs text-text-light">Shown on this session's scan sheet in the PDF.</span>
+            <span className="text-xs text-text-light">Defaults to today. Shown on this session's scan sheet in the PDF.</span>
           </div>
         )}
         {step === 1 && (

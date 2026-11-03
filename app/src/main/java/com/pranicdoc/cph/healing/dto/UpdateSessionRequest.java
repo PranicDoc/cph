@@ -9,8 +9,8 @@ import java.util.List;
 public record UpdateSessionRequest(
         @NotNull @Valid
         List<ScanRequest> scans,
-        /** A corrected scan date; null leaves the saved one as it is. */
-        LocalDate scanDate
+        /** A corrected session date (shown on the scan sheet); null leaves the saved one as it is. */
+        LocalDate sessionDate
 ) {
     public UpdateSessionRequest(List<ScanRequest> scans) {
         this(scans, null);

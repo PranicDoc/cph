@@ -108,7 +108,6 @@ public class SessionService {
         int nextNumber = nextSessionNumber(existing);
         validateMasterDataReferences(sessionRequest.scans());
         HealingSession session = mapper.toEntity(sessionRequest);
-        session.setScanDate(resolveScanDate(sessionRequest.scanDate(), sessionRequest.sessionDate()));
         session.setSessionNumber(nextNumber);
         session.setClientRequestId(idempotencyKey);
         // TODO this is a basic validation, add few more checks comparing with the base data
@@ -135,8 +134,11 @@ public class SessionService {
             throw new AccessDeniedException("Case does not belong to you");
         }
         validateMasterDataReferences(request.scans());
-        if (request.scanDate() != null) {
-            session.setScanDate(resolveScanDate(request.scanDate(), session.getSessionDate()));
+        if (request.sessionDate() != null) {
+            if (request.sessionDate().isAfter(LocalDate.now().plusDays(1))) {
+                throw new IllegalArgumentException("Session date cannot be in the future");
+            }
+            session.setSessionDate(request.sessionDate());
         }
         for (ScanRequest scanRequest : request.scans()) {
             ChakraScan edited = mapper.toChakraScan(scanRequest);
@@ -272,15 +274,6 @@ public class SessionService {
                 .mapToInt(Integer::intValue)
                 .max()
                 .orElse(0) + 1;
-    }
-
-    /** The scan date, defaulting to the session date; a scan cannot be dated in the future. */
-    private static LocalDate resolveScanDate(LocalDate scanDate, LocalDate sessionDate) {
-        if (scanDate == null) return sessionDate;
-        if (scanDate.isAfter(LocalDate.now().plusDays(1))) {
-            throw new IllegalArgumentException("Scan date cannot be in the future");
-        }
-        return scanDate;
     }
 
     private SessionResponse toResponse(HealingSession s) {

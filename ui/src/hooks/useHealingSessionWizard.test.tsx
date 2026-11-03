@@ -9,14 +9,20 @@ import api from "../lib/axios";
 vi.mock("../lib/axios", () => ({ default: { post: vi.fn(), put: vi.fn() } }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("./useReferenceData", () => ({ useReferenceData: () => ({ chakras: [], loading: false }) }));
-vi.mock("./useHealingSessionForm", () => ({
-  useHealingSessionForm: () => ({
-    form: {
-      validateAllFields: vi.fn(),
-      state: { fieldMeta: {}, values: { sessionDate: "2026-10-25", startTime: "10:00", endTime: "10:30" } },
+const mockForm = vi.hoisted(() => {
+  const state = {
+    fieldMeta: {},
+    values: { sessionDate: "2026-10-25", startTime: "10:00", endTime: "10:30" } as Record<string, string>,
+  };
+  return {
+    state,
+    validateAllFields: () => Promise.resolve(),
+    setFieldValue: (name: string, value: string) => {
+      state.values[name] = value;
     },
-  }),
-}));
+  };
+});
+vi.mock("./useHealingSessionForm", () => ({ useHealingSessionForm: () => ({ form: mockForm }) }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
@@ -32,7 +38,10 @@ const crown = {
 };
 
 describe("useHealingSessionWizard", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockForm.state.values.sessionDate = "2026-10-25";
+  });
 
   it("saving a corrected session updates it instead of creating a new one", async () => {
     const onSaved = vi.fn();
@@ -55,23 +64,21 @@ describe("useHealingSessionWizard", () => {
         expect.objectContaining({ scanType: "PRE", readings: [expect.objectContaining({ chakraId: "chakra-1", energyLevel: "C" })] }),
         expect.objectContaining({ scanType: "POST" }),
       ],
-      scanDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      sessionDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it("the scan date starts at today, can be changed, and is sent with a new session", async () => {
+  it("the session date starts at today, can be changed in the scan step, and is sent with a new session", async () => {
     vi.mocked(api.post).mockResolvedValue({ data: {} });
     const { result } = renderHook(
       () => useHealingSessionWizard({ caseId: "case-1", symptoms: [] }),
       { wrapper }
     );
-    const today = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    expect(result.current.scanDate).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+    expect(result.current.sessionDate).toBe("2026-10-25"); // the form's default (today in the real form)
 
     act(() => {
-      result.current.setScanDate("2026-11-01");
+      result.current.setSessionDate("2026-11-01");
       result.current.setPreScanChakraData([crown]);
       result.current.setPostScanChakraData([crown]);
     });
@@ -80,16 +87,16 @@ describe("useHealingSessionWizard", () => {
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/v1/sessions/case",
-      expect.objectContaining({ scanDate: "2026-11-01" }),
+      expect.objectContaining({ sessionDate: "2026-11-01" }),
       expect.anything()
     );
   });
 
-  it("correcting a saved session starts from its own scan date", () => {
+  it("correcting a saved session starts from its own date", () => {
     const { result } = renderHook(
-      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], sessionId: "s-1", initialScanDate: "2026-10-20" }),
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], sessionId: "s-1", initialSessionDate: "2026-10-20" }),
       { wrapper }
     );
-    expect(result.current.scanDate).toBe("2026-10-20");
+    expect(result.current.sessionDate).toBe("2026-10-20");
   });
 });

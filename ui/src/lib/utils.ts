@@ -73,7 +73,6 @@ export const getChakraColor = (chakraName: string): string => {
 export function constructHealingSessionPayload({
   caseId,
   sessionDate,
-  scanDate,
   startTime,
   endTime,
   preScanData,
@@ -81,8 +80,6 @@ export function constructHealingSessionPayload({
 }: {
   caseId: string;
   sessionDate: string;
-  /** The date the scan was done (defaults to today in the wizard). */
-  scanDate?: string;
   startTime: string;
   endTime: string;
   preScanData: Array<{
@@ -112,7 +109,6 @@ export function constructHealingSessionPayload({
   return {
     caseId,
     sessionDate,
-    ...(scanDate ? { scanDate } : {}),
     startTime,
     endTime,
     scans: [
