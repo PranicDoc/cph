@@ -18,6 +18,7 @@ import {
   Filter,
   Check,
   MessageSquareText,
+  Pencil,
 } from "lucide-react";
 import {
   Popover,
@@ -204,7 +205,17 @@ export default function Patients() {
       accessorKey: "firstName",
       header: "First Name",
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.firstName}</span>
+        <span className="inline-flex items-center gap-2">
+          <span className="font-medium">{row.original.firstName}</span>
+          <Link
+            to={`/patients/${row.original.id}/edit`}
+            aria-label={`Edit ${row.original.firstName} ${row.original.lastName}`}
+            title="Edit patient details"
+            className="text-text-light hover:text-primary"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </Link>
+        </span>
       ),
     },
     { accessorKey: "lastName", header: "Last Name" },
@@ -664,8 +675,16 @@ export default function Patients() {
                 className="border border-border rounded-xl p-4"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-semibold text-text">
+                  <span className="font-semibold text-text inline-flex items-center gap-2">
                     {patient.fullName}
+                    <Link
+                      to={`/patients/${patient.id}/edit`}
+                      aria-label={`Edit ${patient.fullName}`}
+                      title="Edit patient details"
+                      className="text-text-light hover:text-primary"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Link>
                   </span>
                   {renderStatusPill(patient.status)}
                 </div>

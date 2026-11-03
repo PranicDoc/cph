@@ -88,6 +88,12 @@ public class Patient extends TenantEntity {
     @JsonManagedReference
     private PatientMedicalHistory medicalHistory;
 
+    /** Changes the contact number and keeps its lookup hash in step. */
+    public void changeContact(String contact) {
+        setContact(contact);
+        setContactHash(hashContact(contact));
+    }
+
     public static Patient create(PatientCreateRequest req, UUID healerId) {
         Patient p = new Patient();
         populateIds(p);

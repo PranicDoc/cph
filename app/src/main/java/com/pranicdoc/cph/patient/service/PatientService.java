@@ -137,7 +137,7 @@ public class PatientService {
 
     @Transactional(readOnly = true)
     public PatientResponse getById(UUID id) {
-        return toResponse(findOrThrow(id));
+        return toResponse(findOwnedOrThrow(id));
     }
 
     @Transactional(readOnly = true)
@@ -149,21 +149,33 @@ public class PatientService {
 
     @Auditable(action = "UPDATE_PATIENT")
     public PatientResponse update(UUID id, PatientUpdateRequest request) {
-        Patient patient = findOrThrow(id);
-        if (request.firstName() != null) patient.setFirstName(request.firstName());
-        if (request.lastName() != null) patient.setLastName(request.lastName());
+        Patient patient = findOwnedOrThrow(id);
+        // Required fields cannot be blanked; optional ones can be cleared with an empty value.
+        if (request.firstName() != null) patient.setFirstName(requireText(request.firstName(), "First name"));
+        if (request.lastName() != null) patient.setLastName(requireText(request.lastName(), "Last name"));
         if (request.dob() != null) patient.setDob(request.dob());
         if (request.gender() != null) patient.setGender(request.gender());
         if (request.maritalStatus() != null) patient.setMaritalStatus(request.maritalStatus());
-        if (request.email() != null) patient.setEmail(request.email());
-        if (request.contactWhatsapp() != null) patient.setContact(request.contactWhatsapp());
-        if (request.occupation() != null) patient.setOccupation(request.occupation());
-        if (request.addressLine1() != null) patient.setAddressLine1(request.addressLine1());
-        if (request.addressLine2() != null) patient.setAddressLine2(request.addressLine2());
-        if (request.city() != null) patient.setCity(request.city());
-        if (request.state() != null) patient.setState(request.state());
-        if (request.zip() != null) patient.setZip(request.zip());
+        if (request.email() != null) patient.setEmail(blankToNull(request.email()));
+        if (request.contactWhatsapp() != null) {
+            patient.changeContact(requireText(request.contactWhatsapp(), "Contact"));
+        }
+        if (request.occupation() != null) patient.setOccupation(blankToNull(request.occupation()));
+        if (request.addressLine1() != null) patient.setAddressLine1(blankToNull(request.addressLine1()));
+        if (request.addressLine2() != null) patient.setAddressLine2(blankToNull(request.addressLine2()));
+        if (request.city() != null) patient.setCity(blankToNull(request.city()));
+        if (request.state() != null) patient.setState(blankToNull(request.state()));
+        if (request.zip() != null) patient.setZip(blankToNull(request.zip()));
         return toResponse(patientRepository.save(patient));
+    }
+
+    private static String requireText(String value, String label) {
+        if (value.isBlank()) throw new IllegalArgumentException(label + " cannot be empty");
+        return value.strip();
+    }
+
+    private static String blankToNull(String value) {
+        return value.isBlank() ? null : value.strip();
     }
 
     @Auditable(action = "DELETE_PATIENT")
@@ -177,7 +189,7 @@ public class PatientService {
 
     @Auditable(action = "UPDATE_MEDICAL_HISTORY")
     public MedicalHistoryResponse updateMedicalHistory(UUID patientId, MedicalHistoryRequest request) {
-        Patient patient = findOrThrow(patientId);
+        Patient patient = findOwnedOrThrow(patientId);
         PatientMedicalHistory history = patient.getMedicalHistory();
 
         if (history == null) {
@@ -205,7 +217,7 @@ public class PatientService {
 
     @Transactional(readOnly = true)
     public MedicalHistoryResponse getMedicalHistory(UUID patientId) {
-        Patient patient = findOrThrow(patientId);
+        Patient patient = findOwnedOrThrow(patientId);
         if (patient.getMedicalHistory() == null) {
             throw new ResourceNotFoundException("Medical history not found for patient: " + patientId);
         }
@@ -217,6 +229,21 @@ public class PatientService {
     private Patient findOrThrow(UUID id) {
         return patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", id));
+    }
+
+    /**
+     * Loading by id skips the tenant filter, so check the owner here: a healer reaches only their own
+     * patients (a super admin reaches any); anyone else gets "not found", as if it did not exist.
+     */
+    private Patient findOwnedOrThrow(UUID id) {
+        Patient patient = findOrThrow(id);
+        if (!"SUPADM".equals(securityContextUtil.getCurrentRole())) {
+            UUID healerId = securityContextUtil.getCurrentHealerIdOrNull();
+            if (healerId == null || !healerId.equals(patient.getHealerId())) {
+                throw new ResourceNotFoundException("Patient", id);
+            }
+        }
+        return patient;
     }
 
     private PatientResponse toResponse(Patient p) {
