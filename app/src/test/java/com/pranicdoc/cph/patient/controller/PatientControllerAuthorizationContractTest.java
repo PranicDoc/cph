@@ -141,6 +141,12 @@ class PatientControllerAuthorizationContractTest {
     @Test @DisplayName("getMedicalHistory is gated PATIENT:READ")
     void getMedicalHistory_isGatedByPatientRead() { assertGate("getMedicalHistory", PATIENT_READ); }
 
+    @Test @DisplayName("trash (super-admin list of deleted patients) is gated PATIENT:DELETE")
+    void trash_isGatedByPatientDelete() { assertGate("trash", PATIENT_DELETE); }
+
+    @Test @DisplayName("restore (super-admin undelete) is gated PATIENT:DELETE")
+    void restore_isGatedByPatientDelete() { assertGate("restore", PATIENT_DELETE); }
+
     // ─── Section B — anti-vacuous over-reach guard ───────────────────────
 
     @Test
@@ -172,14 +178,14 @@ class PatientControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 11 declared PatientController request-mapped methods — "
+                .as("the sweep must inspect exactly the 13 declared PatientController request-mapped methods — "
                         + "a method added or removed here changes the highest-PII surface in the phase and must "
                         + "redden the build rather than silently pass")
-                .isEqualTo(11);
+                .isEqualTo(13);
         assertThat(gated)
-                .as("exactly 9 of the 11 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
+                .as("exactly 11 of the 13 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
                         + "a dropped gate restores the implicit any-authenticated-healer path over patient PII")
-                .isEqualTo(9);
+                .isEqualTo(11);
 
         TreeSet<String> ungatedSet = new TreeSet<>(ungated);
         assertThat(ungatedSet)

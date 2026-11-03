@@ -17,6 +17,7 @@ export type CaseStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "CANCELLED";
 export type Patient = {
   id: string;
   healingCaseId?: string | null; // Added to match your Patients.tsx component
+  patientCode?: string; // PT-xxxxxx, never changes
   firstName: string;
   lastName: string;
   dob: string;

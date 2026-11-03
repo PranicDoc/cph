@@ -23,5 +23,6 @@ public record PatientResponse(
         String state,
         String zip,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String patientCode
 ) {}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Plus } from "lucide-react";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
+import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import CustomPlanSheet from "./CustomPlanSheet";
 import { endsSoon, relativeFromNow, shortDate } from "../lib/format";
 
@@ -142,6 +143,7 @@ export default function NewAccountsPage() {
           </div>
         </>
       )}
+      {isSuperAdmin && <DeletedPatientsPanel />}
     </div>
   );
 }

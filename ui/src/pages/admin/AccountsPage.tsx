@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
 import CustomPlanSheet from "../../ui-new/admin/CustomPlanSheet";
+import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatPlanEnd } from "../../lib/validity";
@@ -254,6 +255,8 @@ function ClassicAccountsPage() {
           <Pagination />
         </>
       )}
+
+      {isSuperAdmin && <DeletedPatientsPanel />}
     </div>
   );
 }

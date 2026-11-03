@@ -154,7 +154,7 @@ class PatientControllerAuthorizationTest {
 
     private static final PatientResponse PATIENT_RESPONSE = new PatientResponse(
             ROW_ID, "Test", "Patient", null, null, null, null, "1234567890",
-            null, null, null, null, null, null, Instant.now(), Instant.now());
+            null, null, null, null, null, null, Instant.now(), Instant.now(), "PT-000001");
     private static final MedicalHistoryResponse MED_HISTORY_RESPONSE = new MedicalHistoryResponse(
             ROW_ID, ROW_ID, "Good", null, null, null, null, null, null, null, null, null, null, null);
     private static final PatientRegisterResponse REGISTER_RESPONSE =

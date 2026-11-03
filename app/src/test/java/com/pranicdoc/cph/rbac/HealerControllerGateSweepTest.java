@@ -140,7 +140,7 @@ class HealerControllerGateSweepTest {
      * 21 are handler methods only (Pitfall 6 / D-18, recorded in 42-03).
      */
     private static final List<SweptController> CONTROLLERS = List.of(
-            new SweptController(PatientController.class, 11, 9),
+            new SweptController(PatientController.class, 13, 11),
             new SweptController(SessionController.class, 6, 6),
             new SweptController(CaseController.class, 24, 20),
             new SweptController(ScanController.class, 1, 1),
@@ -148,8 +148,8 @@ class HealerControllerGateSweepTest {
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 49;
-    private static final int EXPECTED_TOTAL_GATED = 41;
+    private static final int EXPECTED_TOTAL_MAPPED = 51;
+    private static final int EXPECTED_TOTAL_GATED = 43;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,

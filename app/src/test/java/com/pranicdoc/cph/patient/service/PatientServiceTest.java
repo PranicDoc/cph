@@ -50,6 +50,7 @@ class PatientServiceTest {
     @Mock private CaseRepository caseRepository;
     @Mock private DeclarationMapper declarationMapper;
     @Mock private SecurityContextUtil securityContextUtil;
+    @Mock private PatientTrashService trashService;
 
     @InjectMocks private PatientService patientService;
 
@@ -325,5 +326,55 @@ class PatientServiceTest {
         when(patientRepository.findById(id)).thenReturn(Optional.empty());
 
         assertFalse(patientService.discardUnclaimedSelfRegistered(id));
+    }
+
+    @Test
+    void softDelete_movesAnOwnedPatientToTheTrash() {
+        UUID id = UUID.randomUUID();
+        Patient patient = mock(Patient.class);
+        when(patient.getHealerId()).thenReturn(healerId);
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+        when(securityContextUtil.getCurrentRole()).thenReturn("PRACTITIONER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        patientService.softDelete(id);
+
+        verify(trashService).moveToTrash(id);
+    }
+
+    @Test
+    void softDelete_ofAnotherHealersPatientIsNotFoundAndDeletesNothing() {
+        UUID id = UUID.randomUUID();
+        Patient patient = mock(Patient.class);
+        when(patient.getHealerId()).thenReturn(UUID.randomUUID());
+        when(patientRepository.findById(id)).thenReturn(Optional.of(patient));
+        when(securityContextUtil.getCurrentRole()).thenReturn("PRACTITIONER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+
+        assertThrows(ResourceNotFoundException.class, () -> patientService.softDelete(id));
+
+        verify(trashService, never()).moveToTrash(any());
+    }
+
+    @Test
+    void trashAndRestore_areForSuperAdminsOnly() {
+        UUID id = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("PRACTITIONER");
+
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> patientService.listTrash());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> patientService.restore(id));
+
+        verify(trashService, never()).listTrash();
+        verify(trashService, never()).restore(any());
+    }
+
+    @Test
+    void restore_bringsThePatientBackForASuperAdmin() {
+        UUID id = UUID.randomUUID();
+        when(securityContextUtil.getCurrentRole()).thenReturn("SUPADM");
+
+        patientService.restore(id);
+
+        verify(trashService).restore(id);
     }
 }

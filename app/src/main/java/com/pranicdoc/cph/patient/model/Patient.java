@@ -33,6 +33,14 @@ import java.util.UUID;
 @Audited
 public class Patient extends TenantEntity {
 
+    /** Short code support can quote (PT-000001). Assigned at registration, never changes. */
+    @Column(name = "patient_code", nullable = false, updatable = false, length = 12)
+    private String patientCode;
+
+    /** When the patient was moved to the trash; the retention window counts from here. */
+    @Column(name = "deleted_at")
+    private java.time.Instant deletedAt;
+
     @Column(name = "first_name", nullable = false)
     private String firstName;
 
@@ -97,6 +105,7 @@ public class Patient extends TenantEntity {
     public static Patient create(PatientCreateRequest req, UUID healerId) {
         Patient p = new Patient();
         populateIds(p);
+        p.setPatientCode(PatientCodes.next());
         p.setHealerId(healerId);
         // business fields
         p.setFirstName(req.firstName());

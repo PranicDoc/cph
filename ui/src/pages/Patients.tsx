@@ -19,6 +19,7 @@ import {
   Check,
   MessageSquareText,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   Popover,
@@ -137,6 +138,32 @@ export default function Patients() {
   const skipUnlockKey = `unlockCase.skipConfirm.${user?.id ?? ""}`;
   const [unlockTarget, setUnlockTarget] = useState<ComputedPatient | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
+
+  // Deleting moves the patient and their cases to a trash; only a super admin can bring them back.
+  const [deleteTarget, setDeleteTarget] = useState<ComputedPatient | null>(null);
+  const deleteMutation = useMutation({
+    mutationFn: (patient: ComputedPatient) => api.delete(`/api/v1/patients/${patient.id}`),
+    onSuccess: () => {
+      toast.success("Patient deleted");
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["patients"] });
+    },
+    onError: (err: unknown) => {
+      toast.error(extractDetail(err) || "Could not delete the patient");
+      setDeleteTarget(null);
+    },
+  });
+  const deleteButton = (patient: ComputedPatient) => (
+    <button
+      type="button"
+      aria-label={`Delete ${patient.firstName} ${patient.lastName}`}
+      title="Delete patient"
+      className="text-text-light hover:text-danger"
+      onClick={() => setDeleteTarget(patient)}
+    >
+      <Trash2 className="w-3.5 h-3.5" />
+    </button>
+  );
   const unlockMutation = useMutation({
     mutationFn: (patient: ComputedPatient) =>
       api.post(`/api/v1/cases/${patient.healingCaseId}/unlock`),
@@ -215,10 +242,16 @@ export default function Patients() {
           >
             <Pencil className="w-3.5 h-3.5" />
           </Link>
+          {deleteButton(row.original)}
         </span>
       ),
     },
     { accessorKey: "lastName", header: "Last Name" },
+    {
+      accessorKey: "patientCode",
+      header: "Patient ID",
+      cell: ({ row }) => <span className="font-mono text-xs">{row.original.patientCode ?? "—"}</span>,
+    },
     { accessorKey: "dob", header: "Date of Birth" },
     { accessorKey: "gender", header: "Gender" },
     { accessorKey: "contact", header: "Phone" },
@@ -685,11 +718,13 @@ export default function Patients() {
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Link>
+                    {deleteButton(patient)}
                   </span>
                   {renderStatusPill(patient.status)}
                 </div>
                 <p className="text-xs text-text-light mt-1">
                   {[
+                    patient.patientCode,
                     patient.dob && `DOB ${patient.dob}`,
                     patient.gender,
                     patient.contact,
@@ -727,6 +762,32 @@ export default function Patients() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this patient?"
+        destructive
+        description={
+          deleteTarget && (
+            <span className="flex flex-col gap-3">
+              <span>
+                <strong>
+                  {deleteTarget.firstName} {deleteTarget.lastName}
+                </strong>{" "}
+                ({deleteTarget.patientCode ?? "no ID"}) and all of their cases will be removed from your list.
+              </span>
+              <span>
+                You cannot undo this yourself. If it was a mistake, contact HealingARK support within 45 days
+                with the patient ID above and we can restore it. After 45 days the patient and their cases are
+                erased permanently.
+              </span>
+            </span>
+          )
+        }
+        confirmLabel="Delete patient"
+        loading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+      />
       <ConfirmDialog
         open={!!unlockTarget}
         onOpenChange={(open) => !open && setUnlockTarget(null)}
