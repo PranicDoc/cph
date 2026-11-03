@@ -90,7 +90,7 @@ describe("Patients: manual feedback action", () => {
     renderPatients();
 
     expect(await menuItems(user, "Patient c")).toEqual([
-      "View", "Generate PDF", "Feedback", "Case Summary", "Edit patient", "Delete patient",
+      "View", "Generate PDF", "Feedback", "Case Summary", "Edit", "Delete",
     ]);
     await user.keyboard("{Escape}");
     expect(await menuItems(user, "Patient a")).toContain("Complete");
