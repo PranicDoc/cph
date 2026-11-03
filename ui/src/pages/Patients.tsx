@@ -357,7 +357,7 @@ export default function Patients() {
               <MoreVertical className="w-4 h-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="min-w-44 [&_[role=menuitem]]:whitespace-nowrap">
             {hasCase && isLocked && (
               <DropdownMenuItem disabled={unlocking} onSelect={() => openPatient(patient)}>
                 {outOfCredits ? <CreditCard /> : <Play />}
