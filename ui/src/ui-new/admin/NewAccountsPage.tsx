@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Plus } from "lucide-react";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
+import { EraseHealerSheet } from "../../components/admin/EraseHealerSheet";
+import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import CustomPlanSheet from "./CustomPlanSheet";
 import { endsSoon, relativeFromNow, shortDate } from "../lib/format";
 
@@ -19,6 +21,7 @@ export default function NewAccountsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "SUPADM";
   const [customOpen, setCustomOpen] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerType, setOwnerType] = useState("");
   const { data, isLoading, isError } = useAdminAccounts(ownerType || undefined, page);
@@ -37,6 +40,11 @@ export default function NewAccountsPage() {
           {isSuperAdmin && (
             <button className="btn btn-primary" type="button" onClick={() => setCustomOpen(true)}>
               <Plus className="ico" aria-hidden="true" /> Set custom plan
+            </button>
+          )}
+          {isSuperAdmin && (
+            <button className="btn btn-danger" type="button" onClick={() => setEraseOpen(true)}>
+              Erase healer
             </button>
           )}
         <div className="seg" role="group" aria-label="Account type">
@@ -59,6 +67,7 @@ export default function NewAccountsPage() {
       </div>
 
       {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
+      {eraseOpen && <EraseHealerSheet onClose={() => setEraseOpen(false)} />}
 
       {isLoading && <p className="muted">Loading accounts…</p>}
       {isError && <p className="err">Failed to load accounts.</p>}
@@ -142,6 +151,7 @@ export default function NewAccountsPage() {
           </div>
         </>
       )}
+      {isSuperAdmin && <DeletedPatientsPanel />}
     </div>
   );
 }

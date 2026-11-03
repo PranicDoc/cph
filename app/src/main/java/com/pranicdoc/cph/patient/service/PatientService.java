@@ -22,7 +22,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ import java.util.UUID;
 public class PatientService {
 
     private final PatientRepository patientRepository;
+    private final PatientTrashService trashService;
     private final RegistrationLinkRepository registrationLinkRepository;
     private final CaseRepository caseRepository;
     private final DeclarationMapper declarationMapper;
@@ -180,9 +183,26 @@ public class PatientService {
 
     @Auditable(action = "DELETE_PATIENT")
     public void softDelete(UUID id) {
-        Patient patient = findOrThrow(id);
-        patient.softDelete();
-        patientRepository.save(patient);
+        findOwnedOrThrow(id);
+        trashService.moveToTrash(id);
+    }
+
+    private void assertSuperAdmin() {
+        if (!"SUPADM".equals(securityContextUtil.getCurrentRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a super admin can do this");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<TrashedPatientResponse> listTrash() {
+        assertSuperAdmin();
+        return trashService.listTrash();
+    }
+
+    @Auditable(action = "RESTORE_PATIENT")
+    public void restore(UUID id) {
+        assertSuperAdmin();
+        trashService.restore(id);
     }
 
     // --- Medical History ---
@@ -252,7 +272,7 @@ public class PatientService {
                 p.getGender(), p.getMaritalStatus(), p.getEmail(), p.getContact(),
                 p.getOccupation(), p.getAddressLine1(), p.getAddressLine2(),
                 p.getCity(), p.getState(), p.getZip(),
-                p.getCreatedAt(), p.getUpdatedAt()
+                p.getCreatedAt(), p.getUpdatedAt(), p.getPatientCode()
         );
     }
 

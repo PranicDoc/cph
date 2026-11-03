@@ -15,7 +15,6 @@ import {
 import {
   useAdminHealers,
   useSetHealerActive,
-  useRemoveHealer,
   type AdminHealer,
 } from "../../hooks/admin/useAdminHealers";
 import { cn } from "../../lib/utils";
@@ -61,7 +60,6 @@ function ClassicHealerRegistrationPage() {
   const canManageInvites = can("HEALER_REG", "UPDATE");
   const canSeeHealers = can("ACCOUNTS", "READ");
   const canSetHealerActive = can("ACCOUNTS", "UPDATE");
-  const canRemoveHealer = can("ACCOUNTS", "DELETE");
 
   const [page, setPage] = useState(0);
   const { data, isLoading, isError } = useAdminInvites(page);
@@ -74,8 +72,6 @@ function ClassicHealerRegistrationPage() {
 
   const { data: healers, isLoading: healersLoading } = useAdminHealers(canSeeHealers);
   const setHealerActive = useSetHealerActive();
-  const removeHealer = useRemoveHealer();
-  const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
 
   const inviteForm = useForm({
     defaultValues: {
@@ -206,14 +202,6 @@ function ClassicHealerRegistrationPage() {
         >
           {healer.active ? "Deactivate" : "Activate"}
         </Button>}
-        {canRemoveHealer && <Button
-          type="button"
-          variant="link"
-          onClick={() => setRemoveTarget(healer)}
-          className="h-auto p-0 text-xs font-medium text-danger hover:text-danger"
-        >
-          Remove
-        </Button>}
       </div>
     );
   };
@@ -245,7 +233,7 @@ function ClassicHealerRegistrationPage() {
       header: "Status",
       cell: (info) => <HealerStatusBadge active={Boolean(info.getValue())} />,
     },
-    ...(canSetHealerActive || canRemoveHealer
+    ...(canSetHealerActive
       ? [{
           id: "actions",
           header: "Actions",
@@ -389,7 +377,7 @@ function ClassicHealerRegistrationPage() {
                     </div>
                     <p className="text-xs text-text-light">{healer.email}</p>
                     <p className="text-xs text-text-light">{healer.role}</p>
-                    {(canSetHealerActive || canRemoveHealer) && (
+                    {(canSetHealerActive) && (
                       <div className="mt-3">
                         <HealerActions healer={healer} />
                       </div>
@@ -401,28 +389,6 @@ function ClassicHealerRegistrationPage() {
           )}
         </div>
       )}
-
-      <ConfirmDialog
-        open={removeTarget !== null}
-        onOpenChange={(open) => !open && setRemoveTarget(null)}
-        title="Remove healer?"
-        description={
-          removeTarget
-            ? `${removeTarget.fullName} will no longer be able to sign in. Their patients, cases, and PDFs are kept as-is.`
-            : undefined
-        }
-        confirmLabel="Confirm Remove"
-        cancelLabel="Cancel"
-        destructive
-        loading={removeHealer.isPending}
-        onConfirm={() => {
-          if (removeTarget) {
-            removeHealer.mutate(removeTarget.id, {
-              onSettled: () => setRemoveTarget(null),
-            });
-          }
-        }}
-      />
 
       <ConfirmDialog
         open={revokeTarget !== null}

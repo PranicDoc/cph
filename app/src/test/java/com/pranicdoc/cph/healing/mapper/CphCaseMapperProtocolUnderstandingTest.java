@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 class CphCaseMapperProtocolUnderstandingTest {
 
     @Test
-    void protocolUnderstandingIsOnTheCaseOnce_andSessionsCarryTheirScanDate() {
+    void protocolUnderstandingIsOnTheCaseOnce_andSessionsKeepTheirSessionDate() {
         UUID caseId = UUID.randomUUID();
         HealerProtocolUnderstanding saved = new HealerProtocolUnderstanding();
         saved.setHealingCaseId(caseId);
@@ -48,8 +48,7 @@ class CphCaseMapperProtocolUnderstandingTest {
         assertThat(snapshot.healerProtocolUnderstanding().protocolName()).isEqualTo("Fever");
         assertThat(snapshot.sessions()).hasSize(2);
         assertThat(snapshot.sessions()).allSatisfy(s -> assertThat(s.healerProtocolUnderstanding()).isNull());
-        assertThat(snapshot.sessions().get(0).scanDate()).isEqualTo(LocalDate.of(2026, 11, 5));
-        assertThat(snapshot.sessions().get(1).effectiveScanDate()).isEqualTo(LocalDate.of(2026, 11, 2));
+        assertThat(snapshot.sessions().get(0).sessionDate()).isEqualTo(LocalDate.of(2026, 11, 2));
     }
 
     private static HealingSession session(int number, UUID caseId, HealingCase healingCase) {
@@ -57,7 +56,6 @@ class CphCaseMapperProtocolUnderstandingTest {
         s.setHealingCase(healingCase);
         s.setSessionNumber(number);
         s.setSessionDate(LocalDate.of(2026, 11, 2));
-        s.setScanDate(number == 1 ? LocalDate.of(2026, 11, 5) : null);
         return s;
     }
 }

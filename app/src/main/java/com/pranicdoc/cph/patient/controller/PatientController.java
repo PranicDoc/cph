@@ -80,6 +80,20 @@ public class PatientController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Super admin only: the deleted patients still inside the retention window. */
+    @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','DELETE')")
+    @GetMapping("/trash")
+    public ResponseEntity<List<TrashedPatientResponse>> trash() {
+        return ResponseEntity.ok(patientService.listTrash());
+    }
+
+    @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','DELETE')")
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<Void> restore(@PathVariable UUID id) {
+        patientService.restore(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // --- Medical History ---
 
     @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','UPDATE')")

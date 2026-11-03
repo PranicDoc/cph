@@ -131,7 +131,7 @@ class LegacyEndpointCutoverSweepTest {
     private static final List<CutoverController> CONTROLLERS = List.of(
             new CutoverController(AdminCreditController.class, 11, 11),
             new CutoverController(AdminInviteController.class, 4, 4),
-            new CutoverController(HealerController.class, 3, 3),
+            new CutoverController(HealerController.class, 4, 4),
             new CutoverController(ConsentController.class, 6, 1),
             new CutoverController(ConsentTypeController.class, 5, 5),
             // 23 from Phase 40 + the 2 protocol->chakra->color relationship reads, + 4
@@ -144,8 +144,8 @@ class LegacyEndpointCutoverSweepTest {
             new CutoverController(RbacCatalogController.class, 1, 1),
             new CutoverController(RoleUserAssignmentController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 72;
-    private static final int EXPECTED_TOTAL_GATED = 67;
+    private static final int EXPECTED_TOTAL_MAPPED = 73;
+    private static final int EXPECTED_TOTAL_GATED = 68;
 
     /**
      * The seven Phase-42 healer controllers. Their per-controller mapped/gated

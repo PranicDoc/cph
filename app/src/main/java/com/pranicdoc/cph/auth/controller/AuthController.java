@@ -2,6 +2,9 @@ package com.pranicdoc.cph.auth.controller;
 
 import com.pranicdoc.cph.auth.dto.AcceptInviteRequest;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
+import com.pranicdoc.cph.auth.dto.EraseAccountRequest;
+import com.pranicdoc.cph.auth.dto.EraseAccountResponse;
+import com.pranicdoc.cph.auth.service.HealerEraseService;
 import com.pranicdoc.cph.auth.dto.FeedbackSessionResponse;
 import com.pranicdoc.cph.auth.dto.ForgotPasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
@@ -34,6 +37,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final HealerEraseService healerEraseService;
     private final InviteService inviteService;
     private final PasswordResetService passwordResetService;
     private final MyPermissionsService myPermissionsService;
@@ -160,6 +164,12 @@ public class AuthController {
     @PutMapping("/ui-version")
     public ResponseEntity<HealerResponse> updateUiVersion(@Valid @RequestBody UiVersionRequest request) {
         return ResponseEntity.ok(authService.updateUiVersion(request));
+    }
+
+    /** Permanently erases the signed-in healer's own account and data (type-to-confirm: their e-mail). */
+    @PostMapping("/erase-account")
+    public ResponseEntity<EraseAccountResponse> eraseAccount(@Valid @RequestBody EraseAccountRequest request) {
+        return ResponseEntity.ok(healerEraseService.eraseOwn(request.confirmation()));
     }
 
     @PostMapping("/change-password")

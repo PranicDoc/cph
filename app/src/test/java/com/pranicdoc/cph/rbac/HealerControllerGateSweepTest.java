@@ -112,7 +112,7 @@ class HealerControllerGateSweepTest {
      */
     private static final Set<String> AUTH_SELF_SERVICE_ROUTES = Set.of(
             "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion",
-            "changePassword", "linkGoogle", "unlinkGoogle", "clearPatientSession");
+            "changePassword", "eraseAccount", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
     // ─── Phase 42 seven-controller healer surface (added by plan 42-11) ──────
 
@@ -140,7 +140,7 @@ class HealerControllerGateSweepTest {
      * 21 are handler methods only (Pitfall 6 / D-18, recorded in 42-03).
      */
     private static final List<SweptController> CONTROLLERS = List.of(
-            new SweptController(PatientController.class, 11, 9),
+            new SweptController(PatientController.class, 13, 11),
             new SweptController(SessionController.class, 6, 6),
             new SweptController(CaseController.class, 24, 20),
             new SweptController(ScanController.class, 1, 1),
@@ -148,8 +148,8 @@ class HealerControllerGateSweepTest {
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 49;
-    private static final int EXPECTED_TOTAL_GATED = 41;
+    private static final int EXPECTED_TOTAL_MAPPED = 51;
+    private static final int EXPECTED_TOTAL_GATED = 43;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
@@ -291,18 +291,18 @@ class HealerControllerGateSweepTest {
                 .as("AuthController request-mapped method count — an added or removed endpoint must "
                         + "redden the build rather than silently escape this open-list (anti-vacuous "
                         + "guard T-42-Assurance-O1)")
-                .isEqualTo(18);
+                .isEqualTo(19);
 
         TreeSet<String> ungated = ungatedMethodNames(AuthController.class);
         assertThat(ungated)
                 .as("every AuthController request-mapped method must carry NO @PreAuthorize — D-07: "
                         + "openness is proven by annotation absence plus this named allow-list, never "
                         + "a @PreAuthorize(\"permitAll()\") marker annotation")
-                .hasSize(18)
+                .hasSize(19)
                 .containsExactlyInAnyOrder(
                         "login", "refresh", "logout", "acceptInvite", "signup", "forgotPassword", "resetPassword", "initSession",
                         "initFeedbackSession", "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion",
-                        "changePassword", "linkGoogle", "unlinkGoogle", "clearPatientSession");
+                        "changePassword", "eraseAccount", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
         assertThat(AUTH_PERMIT_ALL_ROUTES)
                 .as("pre-auth 9 — permitAll in SecurityConfig; there is no authenticated principal "
@@ -312,11 +312,11 @@ class HealerControllerGateSweepTest {
                 .allMatch(ungated::contains);
 
         assertThat(AUTH_SELF_SERVICE_ROUTES)
-                .as("self-service 9 — every authenticated principal must reach their own identity, own permissions, "
+                .as("self-service 10 — every authenticated principal must reach their own identity, own permissions, "
                         + "profile and UI preference (classic / new view) without a grant, the same posture Phase 40 locked for "
                         + "ConsentController's self-service endpoints; gating /me or /profile would "
                         + "break a freshly-onboarded healer who holds no grants at all (T-42-DoS-O2)")
-                .hasSize(9)
+                .hasSize(10)
                 .allMatch(ungated::contains);
 
         TreeSet<String> union = new TreeSet<>(AUTH_PERMIT_ALL_ROUTES);

@@ -44,6 +44,9 @@ class AuthControllerTest {
     private AuthService authService;
 
     @MockBean
+    private com.pranicdoc.cph.auth.service.HealerEraseService healerEraseService;
+
+    @MockBean
     private InviteService inviteService;
 
     @MockBean

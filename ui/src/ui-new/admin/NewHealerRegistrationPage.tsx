@@ -4,7 +4,7 @@ import { UserPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useCan } from "../../hooks/useMyPermissions";
 import { useAdminInvites, useCreateInvite, useResendInvite, useRevokeInvite, type AdminInvite } from "../../hooks/admin/useAdminInvites";
-import { useAdminHealers, useRemoveHealer, useSetHealerActive, type AdminHealer } from "../../hooks/admin/useAdminHealers";
+import { useAdminHealers, useSetHealerActive } from "../../hooks/admin/useAdminHealers";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { HlField } from "../components/Controls";
 import { shortDate } from "../lib/format";
@@ -26,7 +26,6 @@ export default function NewHealerRegistrationPage() {
   const canManageInvites = can("HEALER_REG", "UPDATE");
   const canSeeHealers = can("ACCOUNTS", "READ");
   const canSetHealerActive = can("ACCOUNTS", "UPDATE");
-  const canRemoveHealer = can("ACCOUNTS", "DELETE");
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("ALL");
   const { data, isLoading, isError } = useAdminInvites(page);
@@ -36,8 +35,6 @@ export default function NewHealerRegistrationPage() {
   const [revokeTarget, setRevokeTarget] = useState<AdminInvite | null>(null);
   const { data: healers, isLoading: healersLoading } = useAdminHealers(canSeeHealers);
   const setHealerActive = useSetHealerActive();
-  const removeHealer = useRemoveHealer();
-  const [removeTarget, setRemoveTarget] = useState<AdminHealer | null>(null);
 
   const inviteForm = useForm({
     defaultValues: { email: "" },
@@ -192,11 +189,6 @@ export default function NewHealerRegistrationPage() {
                                 {h.active ? "Deactivate" : "Activate"}
                               </button>
                             )}
-                            {canRemoveHealer && (
-                              <button className="btn btn-danger" type="button" style={{ height: 34 }} onClick={() => setRemoveTarget(h)}>
-                                Remove
-                              </button>
-                            )}
                           </div>
                         )}
                       </td>
@@ -209,19 +201,6 @@ export default function NewHealerRegistrationPage() {
         </>
       )}
 
-      <ConfirmDialog
-        open={removeTarget !== null}
-        onOpenChange={(open) => !open && setRemoveTarget(null)}
-        title="Remove healer?"
-        description={removeTarget ? `${removeTarget.fullName} will no longer be able to sign in. Their patients, cases, and PDFs are kept as-is.` : undefined}
-        confirmLabel="Confirm Remove"
-        cancelLabel="Cancel"
-        destructive
-        loading={removeHealer.isPending}
-        onConfirm={() => {
-          if (removeTarget) removeHealer.mutate(removeTarget.id, { onSettled: () => setRemoveTarget(null) });
-        }}
-      />
       <ConfirmDialog
         open={revokeTarget !== null}
         onOpenChange={(open) => !open && setRevokeTarget(null)}

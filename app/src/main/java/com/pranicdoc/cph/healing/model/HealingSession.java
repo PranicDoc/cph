@@ -43,10 +43,6 @@ public class HealingSession extends TenantEntity {
     @Column(name = "session_date")
     private LocalDate sessionDate;
 
-    /** When this session's scan was done; shown on the scan sheet. Defaults to the session date. */
-    @Column(name = "scan_date")
-    private LocalDate scanDate;
-
     @Column(name = "start_time")
     private LocalTime startTime;
 

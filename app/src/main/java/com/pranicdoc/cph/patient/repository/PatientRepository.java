@@ -50,7 +50,8 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
             p.updatedAt,
             hc.status,
             hc.id,
-            hc.createdAt
+            hc.createdAt,
+            p.patientCode
         )
         FROM Patient p
         LEFT JOIN HealingCase hc
