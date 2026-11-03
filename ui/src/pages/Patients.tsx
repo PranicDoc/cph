@@ -234,7 +234,6 @@ export default function Patients() {
     },
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const columns = useMemo<ColumnDef<ComputedPatient>[]>(() => [
     {
       accessorKey: "firstName",
@@ -272,6 +271,7 @@ export default function Patients() {
       header: "Actions",
       cell: ({ row }) => <ActionsCell patient={row.original} />,
     },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [isNewView]);
 
   const handleSelectPatient = (patient: Patient) => {
