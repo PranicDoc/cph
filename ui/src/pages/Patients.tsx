@@ -26,7 +26,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -405,14 +404,13 @@ export default function Patients() {
                 Case Summary
               </DropdownMenuItem>
             )}
-            {hasCase && <DropdownMenuSeparator />}
             <DropdownMenuItem onSelect={() => navigate(`/patients/${patient.id}/edit`)}>
               <Pencil />
-              Edit patient
+              Edit
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(patient)}>
               <Trash2 />
-              Delete patient
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
