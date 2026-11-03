@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Search, Download } from "lucide-react";
 import api from "../lib/axios";
 import { useUiVersion } from "../ui-version";
+import { saveAndViewFile } from "../lib/saveAndViewFile";
 
 type PDFJob = ComputedPatient & {
   healingCaseId: string;
@@ -153,16 +154,9 @@ export function PdfList() {
         };
       }
 
-      // 3. Trigger the file download
-      const link = document.createElement("a");
-      link.href = presignedUrl;
+      // 3. Save it to the device and show it
       const fileName = `${record.fullName.replace(/\s+/g, "_")}_Case.pdf`;
-      link.setAttribute("download", fileName);
-      link.target = "_blank";
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await saveAndViewFile(presignedUrl, fileName);
     } catch (error) {
       console.error("Failed to generate or download PDF:", error);
     }

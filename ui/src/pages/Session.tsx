@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractDetail } from "../lib/utils";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { buildSessionSchema } from "./schemas/sessionSchema";
 import { sessionStep0Errors } from "./schemas/sessionValidation";
@@ -17,6 +18,7 @@ import { HealingSessionWizard } from "../components/HealingSession";
 import {
   LabFindingsView,
   MedicationsView,
+  ProtocolsView,
 } from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
@@ -195,8 +197,8 @@ export default function Session() {
     symptoms: data.symptoms || [],
     medications: data.medications || [],
     labFindings: data.labFindings || [],
-    complementaryDetails: data.complementaryModalities || "",
-    infectiousDetails: data.infectiousIllness || "",
+    complementaryDetails: data.complementaryDetails || "",
+    infectiousDetails: data.infectiousDetails || "",
     healingDetails: {
       protocolName: data.healingDetails?.protocolName || "",
       bookReference: data.healingDetails?.bookReference || "",
@@ -299,6 +301,21 @@ export default function Session() {
     const { data } = await api.get(`/api/v1/cases/${healingCaseId}`);
     setSessionData(data);
   };
+
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const generatePdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      await api.post("/api/v1/cases/generate-pdf", null, { params: { healingCaseId } });
+      toast.success("PDF queued successfully");
+    } catch (err) {
+      toast.error(extractDetail(err) || "Failed to generate PDF", { duration: 5000 });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+  const canComplete = sessionData?.status === "ACTIVE";
+  const canGeneratePdf = sessionData?.status === "CLOSED" || sessionData?.status === "CONTINUED";
 
   const closeSessionEdit = () => {
     setEditingSession(null);
@@ -411,6 +428,9 @@ export default function Session() {
             onEdit={toggleEdit}
             onEditSession={setEditingSession}
             onEditClosure={canEditClosure ? () => setIsEditingClosure(true) : undefined}
+            onComplete={canComplete ? () => setIsEditingClosure(true) : undefined}
+            onGeneratePdf={canGeneratePdf ? generatePdf : undefined}
+            generatingPdf={generatingPdf}
             onBack={() => navigate("/patients")}
             onNext={handleNextAction}
             nextLabel={getNextButtonLabel()}
@@ -474,14 +494,16 @@ export default function Session() {
             />
             <FieldDisplay
               label="Infectious Details"
-              value={sessionData.infectiousIllness}
+              value={sessionData.infectiousDetails}
             />
             <FieldDisplay
               label="Protocol Details"
               value={
                 sessionData.healingDetails ? (
                   <div>
-                    <p>{sessionData.healingDetails.protocolName}</p>
+                    <ProtocolsView
+                      protocols={reconstructSelectedProtocols(sessionData.healingDetails.protocolName || "")}
+                    />
                     {sessionData?.basicBookPg && (
                       <p>Basic book pg: {sessionData?.basicBookPg}</p>
                     )}
@@ -507,6 +529,9 @@ export default function Session() {
                     >
                       <AccordionTrigger>
                         Session {session.sessionNumber}
+                        {session.sessionDate
+                          ? ` · ${new Date(`${session.sessionDate}T00:00:00`).toLocaleDateString()}`
+                          : ""}
                       </AccordionTrigger>
 
                       <AccordionContent className="space-y-6">
@@ -557,6 +582,27 @@ export default function Session() {
               Back to Patients
             </Button>
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              {canComplete && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditingClosure(true)}
+                  className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
+                >
+                  Complete case
+                </Button>
+              )}
+              {canGeneratePdf && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={generatePdf}
+                  disabled={generatingPdf}
+                  className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
+                >
+                  {generatingPdf ? "Generating…" : "Generate PDF"}
+                </Button>
+              )}
               {canEditClosure && (
                 <Button
                   type="button"

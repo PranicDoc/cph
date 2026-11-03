@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { ChevronDown, Pencil } from "lucide-react";
-import { LabFindingsView, MedicationsView } from "../../components/CaseViewWidgets";
+import { LabFindingsView, MedicationsView, ProtocolsView } from "../../components/CaseViewWidgets";
 import type { HealingSession } from "../../interfaces";
 import type { Protocol } from "../../hooks/admin/useMasterData";
-import { isLegacyProtocol } from "../../lib/protocolSelection";
 
 interface Props {
   sessionData: HealingSession;
@@ -12,10 +11,17 @@ interface Props {
   onEditSession: (session: any) => void;
   /** Present only once the case has a closure (CLOSED or CONTINUED). */
   onEditClosure?: () => void;
+  /** Present while the case is ACTIVE: close it with the closure form. */
+  onComplete?: () => void;
+  /** Present once the case is closed or continuing: queue the case PDF. */
+  onGeneratePdf?: () => void;
+  generatingPdf?: boolean;
   onBack: () => void;
   onNext: () => void;
   nextLabel: string;
 }
+
+const formatDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString();
 
 const label = { fontWeight: 550, marginBottom: 4 } as const;
 
@@ -29,7 +35,7 @@ function Field({ title, children, wide }: { title: string; children: React.React
 }
 
 /** Step 0 of a session in view mode, laid out as in the approved mockup (details and past sessions, next step on the right). */
-export default function NewSessionView({ sessionData, protocols, onEdit, onEditSession, onEditClosure, onBack, onNext, nextLabel }: Props) {
+export default function NewSessionView({ sessionData, protocols, onEdit, onEditSession, onEditClosure, onComplete, onGeneratePdf, generatingPdf, onBack, onNext, nextLabel }: Props) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -68,27 +74,9 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
             <Field title="Lab findings"><LabFindingsView keys={sessionData.labFindings ?? []} /></Field>
             <Field title="Medications" wide><MedicationsView medications={sessionData.medications ?? []} /></Field>
             <Field title="Complementary details">{sessionData.complementaryDetails || "—"}</Field>
-            <Field title="Infectious illness">{(sessionData.infectiousIllness as unknown as string) || "—"}</Field>
+            <Field title="Infectious illness">{sessionData.infectiousDetails || "—"}</Field>
             <Field title="Protocols" wide>
-              {protocols.length ? (
-                <div style={{ marginTop: -10 }}>
-                  {protocols.map((p) => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: "1px solid var(--hair)" }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600 }}>{p.name}</div>
-                        {!isLegacyProtocol(p) && p.sourceBook && (
-                          <div className="small muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.sourceBook}</div>
-                        )}
-                      </div>
-                      {!isLegacyProtocol(p) && p.pageNumber ? <span className="badge" style={{ flex: "none" }}>p. {p.pageNumber}</span> : null}
-                    </div>
-                  ))}
-                </div>
-              ) : hasProtocolText ? (
-                sessionData.healingDetails?.protocolName
-              ) : (
-                "—"
-              )}
+              <ProtocolsView protocols={protocols} fallback={hasProtocolText ? sessionData.healingDetails?.protocolName : undefined} />
             </Field>
             {(sessionData.basicBookPg || sessionData.advancedBookPg || sessionData.psychotherapyPg) && (
               <Field title="Book pages" wide>
@@ -119,7 +107,10 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
                     onClick={() => toggle(id)}
                     style={{ all: "unset", cursor: "pointer", display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}
                   >
-                    <span style={{ fontWeight: 600 }}>Session {session.sessionNumber}</span>
+                    <span style={{ fontWeight: 600 }}>
+                      Session {session.sessionNumber}
+                      {session.sessionDate ? <span className="small muted" style={{ fontWeight: 400, marginLeft: 8 }}>{formatDate(session.sessionDate)}</span> : null}
+                    </span>
                     <ChevronDown className="ico" style={{ color: "var(--muted)", transform: isOpen ? "rotate(180deg)" : undefined }} />
                   </button>
                   {isOpen && (
@@ -168,6 +159,16 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
           <button className="btn btn-primary" type="button" style={{ width: "100%", height: 44 }} onClick={onNext}>
             {nextLabel}
           </button>
+          {onComplete && (
+            <button className="btn btn-secondary" type="button" style={{ width: "100%", marginTop: 10 }} onClick={onComplete}>
+              Complete case
+            </button>
+          )}
+          {onGeneratePdf && (
+            <button className="btn btn-secondary" type="button" style={{ width: "100%", marginTop: 10 }} onClick={onGeneratePdf} disabled={generatingPdf}>
+              {generatingPdf ? "Generating…" : "Generate PDF"}
+            </button>
+          )}
           {onEditClosure && (
             <button className="btn btn-secondary" type="button" style={{ width: "100%", marginTop: 10 }} onClick={onEditClosure}>
               Edit closure

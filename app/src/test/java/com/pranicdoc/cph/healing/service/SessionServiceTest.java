@@ -187,6 +187,34 @@ class SessionServiceTest {
     }
 
     @Test
+    void sessionNumbersFollowTheSessionDate() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        HealingSession first = savedSession(healingCase);
+        first.setSessionNumber(1);
+        first.setSessionDate(LocalDate.of(2026, 5, 10));
+        HealingSession second = savedSession(healingCase);
+        second.setSessionNumber(2);
+        second.setSessionDate(LocalDate.of(2026, 5, 20));
+        when(sessionRepository.findById(second.getId())).thenReturn(Optional.of(second));
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(List.of(first, second));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        stubScanMapping();
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // The second session is corrected to a date before the first: it becomes session 1.
+        UpdateSessionRequest plain = edit(chakraId, "H");
+        sessionService.update(second.getId(), new UpdateSessionRequest(plain.scans(), LocalDate.of(2026, 5, 1)));
+
+        assertEquals(1, second.getSessionNumber());
+        assertEquals(2, first.getSessionNumber());
+    }
+
+    @Test
     void updateCorrectsTheSessionDateAndRejectsAFutureOne() {
         UUID caseId = UUID.randomUUID();
         UUID chakraId = UUID.randomUUID();
