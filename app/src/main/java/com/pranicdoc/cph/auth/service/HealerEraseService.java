@@ -34,7 +34,7 @@ public class HealerEraseService {
     /** Shared master data tables a healer may own; their rows move to another super admin. */
     private static final List<String> HANDED_OVER = List.of(
             "chakra_catalog", "prana_color_catalog", "protocol_catalog", "protocol_chakra",
-            "protocol_chakra_color_usage", "protocol_color_mapping");
+            "protocol_color_mapping");
 
     /** Tables whose rows are only meaningful to the healer: erased with them. */
     private static final List<String> PERSONAL = List.of(
