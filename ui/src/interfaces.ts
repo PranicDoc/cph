@@ -46,6 +46,7 @@ export interface MedicalSnapshot {
 
 interface HealingDetails {
   protocolName: string;
+  detailedProtocol?: string;
   bookReference: string;
   treatmentSteps: TreatmentStep[];
 }

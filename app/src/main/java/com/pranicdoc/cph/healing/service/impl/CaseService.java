@@ -632,6 +632,27 @@ public class CaseService {
         });
     }
 
+    @Auditable(action = "DOWNLOAD_PDF_FILE")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public byte[] downloadFile(String fileUrl) {
+        try {
+            var request = java.net.http.HttpRequest.newBuilder(
+                    java.net.URI.create(storageService.generatePresignedDownloadUrl(fileUrl).toString()))
+                    .timeout(Duration.ofSeconds(30)).GET().build();
+            var response = java.net.http.HttpClient.newHttpClient()
+                    .send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() != 200) {
+                throw new ResourceNotFoundException("File", fileUrl);
+            }
+            return response.body();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read the file from storage", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while reading the file from storage", e);
+        }
+    }
+
     @Auditable(action = "DOWNLOAD_PDF")
     @Transactional
     public PreSignedUrlResponse getPreSignedDownloadUrl(String fileUrl) {

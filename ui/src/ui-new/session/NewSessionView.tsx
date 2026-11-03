@@ -76,7 +76,7 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
             <Field title="Complementary details">{sessionData.complementaryDetails || "—"}</Field>
             <Field title="Infectious illness">{sessionData.infectiousDetails || "—"}</Field>
             <Field title="Protocols" wide>
-              <ProtocolsView protocols={protocols} fallback={hasProtocolText ? sessionData.healingDetails?.protocolName : undefined} />
+              <ProtocolsView protocols={protocols} detailed={sessionData.healingDetails?.detailedProtocol} fallback={hasProtocolText ? sessionData.healingDetails?.protocolName : undefined} />
             </Field>
             {(sessionData.basicBookPg || sessionData.advancedBookPg || sessionData.psychotherapyPg) && (
               <Field title="Book pages" wide>
