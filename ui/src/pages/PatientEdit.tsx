@@ -4,9 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
-import { buildPatientUpdate } from "../lib/patientUpdate";
+import { buildMedicalHistoryUpdate, buildPatientUpdate } from "../lib/patientUpdate";
+import { parseExercise } from "../lib/exercise";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { patientDemographicsSchema } from "./schemas/RegistrationSchemas";
+import { patientDemographicsSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
 
@@ -28,7 +29,23 @@ export type PatientDetails = {
   zip: string | null;
 };
 
-function PatientEditForm({ patient }: { patient: PatientDetails }) {
+/** The patient's medical history as the API returns it; null when none was ever saved. */
+export type MedicalHistoryDetails = {
+  generalHealth: string | null;
+  diet: string | null;
+  exercise: string | null;
+  exerciseFrequency: string | null;
+  hypertension: boolean | null;
+  giIssues: boolean | null;
+  stressDepressionAnxiety: boolean | null;
+  pregnant: boolean | null;
+  cancer: boolean | null;
+  cancerLocation: string | null;
+  cancerDetails: string | null;
+  additionalNotes: string | null;
+};
+
+function PatientEditForm({ patient, history }: { patient: PatientDetails; history: MedicalHistoryDetails | null }) {
   const { isNewView } = useUiVersion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -48,11 +65,27 @@ function PatientEditForm({ patient }: { patient: PatientDetails }) {
       city: patient.city ?? null,
       state: patient.state ?? null,
       zip: patient.zip ?? null,
+      // medical history (the second registration screen)
+      generalHealth: history?.generalHealth ?? null,
+      diet: history?.diet ?? null,
+      exercise: parseExercise(history?.exercise),
+      exerciseFrequency: history?.exerciseFrequency ?? null,
+      hypertension: history?.hypertension ?? false,
+      giIssues: history?.giIssues ?? false,
+      stressDepressionAnxiety: history?.stressDepressionAnxiety ?? false,
+      pregnant: history?.pregnant ?? false,
+      cancer: history?.cancer ?? false,
+      cancerLocation: history?.cancerLocation ?? null,
+      cancerDetails: history?.cancerDetails ?? null,
+      additionalNotes: history?.additionalNotes ?? null,
     },
     onSubmit: async ({ value }) => {
       try {
         await api.put(`/api/v1/patients/${patient.id}`, buildPatientUpdate(value));
+        await api.put(`/api/v1/patients/${patient.id}/medical-history`, buildMedicalHistoryUpdate(value));
         await queryClient.invalidateQueries({ queryKey: ["patients"] });
+        await queryClient.invalidateQueries({ queryKey: ["patient", patient.id] });
+        await queryClient.invalidateQueries({ queryKey: ["patient-history", patient.id] });
         toast.success("Patient details updated");
         navigate("/patients");
       } catch (error) {
@@ -70,7 +103,15 @@ function PatientEditForm({ patient }: { patient: PatientDetails }) {
       }}
       className="space-y-6"
     >
-      <DynamicFormEngine form={form} schema={patientDemographicsSchema} />
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-text">Personal details</h2>
+        <DynamicFormEngine form={form} schema={patientDemographicsSchema} />
+      </section>
+
+      <section className="space-y-4 pt-6 border-t border-border">
+        <h2 className="text-base font-semibold text-text">Medical history</h2>
+        <DynamicFormEngine form={form} schema={patientMedicalHistorySchema} />
+      </section>
 
       <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
         <Button
@@ -101,6 +142,20 @@ export default function PatientEdit() {
     queryFn: () => api.get(`/api/v1/patients/${id}`).then((r) => r.data),
     enabled: !!id,
   });
+  // A patient registered without a history has none yet (the server answers 404): start with a blank one.
+  const { data: history, isLoading: historyLoading } = useQuery<MedicalHistoryDetails | null>({
+    queryKey: ["patient-history", id],
+    queryFn: () =>
+      api
+        .get(`/api/v1/patients/${id}/medical-history`)
+        .then((r) => r.data)
+        .catch((error) => {
+          if (error?.response?.status === 404) return null;
+          throw error;
+        }),
+    enabled: !!id,
+    retry: false,
+  });
 
   return (
     <div className={isNewView ? "hlx" : "space-y-6"}>
@@ -109,9 +164,11 @@ export default function PatientEdit() {
         <p className="text-sm text-text-light mt-1">Update the patient's personal details.</p>
       </div>
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
-        {isLoading && <p className="text-text-light">Loading patient…</p>}
+        {(isLoading || (!!patient && historyLoading)) && <p className="text-text-light">Loading patient…</p>}
         {isError && <p className="text-red-500">Could not load this patient.</p>}
-        {patient && <PatientEditForm key={patient.id} patient={patient} />}
+        {patient && !historyLoading && (
+          <PatientEditForm key={patient.id} patient={patient} history={history ?? null} />
+        )}
       </div>
     </div>
   );

@@ -35,8 +35,29 @@ const patient = {
   zip: "411001",
 };
 
-function renderPage() {
-  mGet.mockResolvedValue({ data: patient });
+const history = {
+  generalHealth: "GOOD",
+  diet: "MIXED",
+  exercise: "YOGA,WALKING",
+  exerciseFrequency: "WEEKLY",
+  hypertension: true,
+  giIssues: false,
+  stressDepressionAnxiety: false,
+  pregnant: false,
+  cancer: false,
+  cancerLocation: null,
+  cancerDetails: null,
+  additionalNotes: "Knee pain",
+};
+
+function renderPage(historyReply: "ok" | "none" = "ok") {
+  mGet.mockImplementation((url: string) =>
+    url.endsWith("/medical-history")
+      ? historyReply === "ok"
+        ? Promise.resolve({ data: history })
+        : Promise.reject({ response: { status: 404 } })
+      : Promise.resolve({ data: patient })
+  );
   return renderWithDataRouter(
     [
       { path: "/patients/:id/edit", element: <PatientEdit /> },
@@ -65,10 +86,24 @@ describe("PatientEdit page", () => {
     await user.type(first, "Ashwini");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(mPut).toHaveBeenCalled());
+    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(2));
     expect(mPut).toHaveBeenCalledWith(
       "/api/v1/patients/p-1",
       expect.objectContaining({ firstName: "Ashwini", lastName: "Rao", contactWhatsapp: "+911111111111", city: "Pune" })
+    );
+    // the medical history screen is saved with it, exercise stored as one string
+    expect(mPut).toHaveBeenCalledWith(
+      "/api/v1/patients/p-1/medical-history",
+      expect.objectContaining({
+        generalHealth: "GOOD",
+        diet: "MIXED",
+        exercise: "YOGA,WALKING",
+        exerciseFrequency: "WEEKLY",
+        hypertension: true,
+        cancer: false,
+        cancerLocation: null,
+        additionalNotes: "Knee pain",
+      })
     );
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
     expect(await screen.findByText("patients-page")).toBeInTheDocument();
@@ -95,5 +130,22 @@ describe("PatientEdit page", () => {
 
     expect(await screen.findByText("patients-page")).toBeInTheDocument();
     expect(mPut).not.toHaveBeenCalled();
+  });
+
+  it("shows the medical history section pre-filled, and no declaration", async () => {
+    renderPage();
+
+    await screen.findByDisplayValue("Asha");
+    expect(screen.getByText("Medical history")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Knee pain")).toBeInTheDocument();
+    expect(screen.queryByText(/declaration/i)).not.toBeInTheDocument();
+  });
+
+  it("a patient with no saved history gets a blank medical history section", async () => {
+    renderPage("none");
+
+    await screen.findByDisplayValue("Asha");
+    expect(screen.getByText("Medical history")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Knee pain")).not.toBeInTheDocument();
   });
 });

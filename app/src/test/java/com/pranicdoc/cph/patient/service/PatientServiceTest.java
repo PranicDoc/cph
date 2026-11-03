@@ -127,6 +127,20 @@ class PatientServiceTest {
         assertEquals("Asha", patientService.getById(p.getId()).firstName());
     }
 
+    @Test
+    void medicalHistory_anotherHealersPatientIsNotFound_forReadAndWrite() {
+        Patient p = ownedPatient(UUID.randomUUID());
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        MedicalHistoryRequest request = new MedicalHistoryRequest("GOOD", "MIXED", "YOGA", "WEEKLY",
+                false, false, false, false, false, null, null, null);
+
+        assertThrows(ResourceNotFoundException.class, () -> patientService.getMedicalHistory(p.getId()));
+        assertThrows(ResourceNotFoundException.class, () -> patientService.updateMedicalHistory(p.getId(), request));
+        verify(patientRepository, never()).save(any());
+    }
+
     @AfterEach
     void tearDown() {
         TenantContext.clear();

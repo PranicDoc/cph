@@ -189,7 +189,7 @@ public class PatientService {
 
     @Auditable(action = "UPDATE_MEDICAL_HISTORY")
     public MedicalHistoryResponse updateMedicalHistory(UUID patientId, MedicalHistoryRequest request) {
-        Patient patient = findOrThrow(patientId);
+        Patient patient = findOwnedOrThrow(patientId);
         PatientMedicalHistory history = patient.getMedicalHistory();
 
         if (history == null) {
@@ -217,7 +217,7 @@ public class PatientService {
 
     @Transactional(readOnly = true)
     public MedicalHistoryResponse getMedicalHistory(UUID patientId) {
-        Patient patient = findOrThrow(patientId);
+        Patient patient = findOwnedOrThrow(patientId);
         if (patient.getMedicalHistory() == null) {
             throw new ResourceNotFoundException("Medical history not found for patient: " + patientId);
         }
