@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -54,6 +54,10 @@ function renderPatients() {
   );
 }
 
+async function openMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getAllByRole("button", { name: /actions for/i })[0]);
+}
+
 describe("Patients: a LOCKED case", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,17 +65,16 @@ describe("Patients: a LOCKED case", () => {
     credits = { free_balance: 3, paid_balance: 0 };
   });
 
-  it("with no credits left shows only an Upgrade button", async () => {
+  it("with no credits left offers Upgrade instead of Start", async () => {
     credits = { free_balance: 0, paid_balance: 0 };
     const user = userEvent.setup();
     renderPatients();
 
-    const row = screen.getAllByRole("button", { name: /upgrade/i })[0].parentElement!;
-    expect(screen.queryByRole("button", { name: /^start$/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/locked:/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/generate pdf/i)).not.toBeInTheDocument();
+    await openMenu(user);
+    expect(screen.queryByRole("menuitem", { name: /^start$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /generate pdf/i })).not.toBeInTheDocument();
 
-    await user.click(within(row).getByRole("button", { name: /upgrade/i }));
+    await user.click(screen.getByRole("menuitem", { name: /upgrade/i }));
     expect(screen.getByText("upgrade-modal")).toBeInTheDocument();
   });
 
@@ -80,7 +83,8 @@ describe("Patients: a LOCKED case", () => {
     const user = userEvent.setup();
     renderPatients();
 
-    await user.click(screen.getAllByRole("button", { name: /^start$/i })[0]);
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: /^start$/i }));
     expect(screen.getByText(/uses 1 credit\. you have 3 left/i)).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /use 1 credit and start/i }));
@@ -96,7 +100,8 @@ describe("Patients: a LOCKED case", () => {
     const user = userEvent.setup();
     renderPatients();
 
-    await user.click(screen.getAllByRole("button", { name: /^start$/i })[0]);
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: /^start$/i }));
 
     expect(screen.queryByText(/uses 1 credit\. you have/i)).not.toBeInTheDocument();
     expect(api.post).toHaveBeenCalledWith("/api/v1/cases/case-1/unlock");

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { FileText, Download } from "lucide-react";
 import api from "../lib/axios";
 import { Medication } from "../interfaces";
+import type { Protocol } from "../hooks/admin/useMasterData";
+import { isLegacyProtocol } from "../lib/protocolSelection";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -179,6 +181,56 @@ export function MedicationsView({
           onClose={() => setOpen(false)}
         />
       )}
+    </>
+  );
+}
+
+function ProtocolsPopup({ protocols, onClose }: { protocols: Protocol[]; onClose: () => void }) {
+  return (
+    <Popup title={`Protocols (${protocols.length})`} onClose={onClose}>
+      <ul className="space-y-3">
+        {protocols.map((p) => (
+          <li key={p.id ?? p.name} className="p-3 border border-border rounded-lg space-y-1.5">
+            <p className="font-semibold text-sm text-text-dark">{p.name}</p>
+            {!isLegacyProtocol(p) && p.sourceBook && (
+              <p className="text-xs text-text-light">
+                Book: <span className="text-text">{p.sourceBook}</span>
+              </p>
+            )}
+            {!isLegacyProtocol(p) && p.pageNumber ? (
+              <p className="text-xs text-text-light">
+                Page: <span className="text-text">{p.pageNumber}</span>
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </Popup>
+  );
+}
+
+/** One protocol is shown as is; several open in a popup, like lab findings and medications. */
+export function ProtocolsView({ protocols, fallback }: { protocols: Protocol[]; fallback?: string }) {
+  const [open, setOpen] = useState(false);
+
+  if (!protocols || protocols.length === 0) {
+    return <span className="text-sm text-text-light">{fallback || "—"}</span>;
+  }
+  if (protocols.length === 1) {
+    return <span className="text-sm text-text">{protocols[0].name}</span>;
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="link"
+        onClick={() => setOpen(true)}
+        className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary"
+      >
+        {protocols.length} protocols · Click to view
+      </Button>
+      {open && <ProtocolsPopup protocols={protocols} onClose={() => setOpen(false)} />}
     </>
   );
 }

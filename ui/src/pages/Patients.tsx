@@ -20,7 +20,15 @@ import {
   MessageSquareText,
   Pencil,
   Trash2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -153,17 +161,6 @@ export default function Patients() {
       setDeleteTarget(null);
     },
   });
-  const deleteButton = (patient: ComputedPatient) => (
-    <button
-      type="button"
-      aria-label={`Delete ${patient.firstName} ${patient.lastName}`}
-      title="Delete patient"
-      className="text-text-light hover:text-danger"
-      onClick={() => setDeleteTarget(patient)}
-    >
-      <Trash2 className="w-3.5 h-3.5" />
-    </button>
-  );
   const unlockMutation = useMutation({
     mutationFn: (patient: ComputedPatient) =>
       api.post(`/api/v1/cases/${patient.healingCaseId}/unlock`),
@@ -232,18 +229,7 @@ export default function Patients() {
       accessorKey: "firstName",
       header: "First Name",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-2">
-          <span className="font-medium">{row.original.firstName}</span>
-          <Link
-            to={`/patients/${row.original.id}/edit`}
-            aria-label={`Edit ${row.original.firstName} ${row.original.lastName}`}
-            title="Edit patient details"
-            className="text-text-light hover:text-primary"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Link>
-          {deleteButton(row.original)}
-        </span>
+        <span className="font-medium">{row.original.firstName}</span>
       ),
     },
     { accessorKey: "lastName", header: "Last Name" },
@@ -273,7 +259,7 @@ export default function Patients() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => renderActions(row.original, "table"),
+      cell: ({ row }) => renderActions(row.original),
     },
   ];
 
@@ -306,146 +292,111 @@ export default function Patients() {
     </span>
     );
 
-  const renderActions = (
-    patient: ComputedPatient,
-    variant: "table" | "card"
-  ) => {
-    if (!patient.healingCaseId)
-      return <span className="text-xs text-text-light">No case</span>;
+  // Clicking a patient does the "view" action: open the case (or unlock it first when locked).
+  const openPatient = (patient: ComputedPatient) => {
+    if (!patient.healingCaseId) return;
+    if (patient.status === "LOCKED") {
+      if (outOfCredits) openUpgrade(() => handleStart(patient));
+      else handleStart(patient);
+      return;
+    }
+    handleSelectPatient(patient);
+    navigate(`/session/${patient.healingCaseId}`);
+  };
 
-    if (patient.status === "LOCKED") return renderLockedActions(patient, variant);
+  const generatePdf = (patient: ComputedPatient) => {
+    if (generatingCaseIds.has(patient.healingCaseId)) return;
+    setGeneratingCaseIds((prev) => new Set(prev).add(patient.healingCaseId));
+    generatePdfMutation.mutate(patient.healingCaseId, {
+      onSettled: () =>
+        setGeneratingCaseIds((prev) => {
+          const next = new Set(prev);
+          next.delete(patient.healingCaseId);
+          return next;
+        }),
+    });
+  };
+
+  // Every action for a patient lives in one plain dropdown behind the three dots.
+  const renderActions = (patient: ComputedPatient) => {
+    const hasCase = !!patient.healingCaseId;
+    const isLocked = patient.status === "LOCKED";
     const isDraft = patient.status === "DRAFT";
     const isActive = patient.status === "ACTIVE";
     const isCompleted = patient.status === "CLOSED";
     const isHealingContinued = patient.status === "CONTINUED";
-    const isCard = variant === "card";
-    const buttonSize = isCard
-      ? "flex-1 justify-center min-w-[100px] px-3 py-2"
-      : "px-3 py-1.5";
-
-    const handleClosureButtonClick = (patient: Patient) => {
-      if (isActive) {
-        setClosurePatient(patient);
-      }
-
-      if (isCompleted || isHealingContinued) {
-        setGeneratingCaseIds((prev) => {
-          const next = new Set(prev);
-          next.add(patient.healingCaseId);
-          return next;
-        });
-
-        generatePdfMutation.mutate(patient.healingCaseId, {
-          onSettled: () => {
-            setGeneratingCaseIds((prev) => {
-              const next = new Set(prev);
-              next.delete(patient.healingCaseId);
-              return next;
-            });
-          },
-        });
-      }
-    };
-
-    const isGenerating = generatingCaseIds.has(patient.healingCaseId);
-
-    return (
-      <div
-        className={isCard ? "flex flex-wrap gap-2" : "flex items-center gap-2"}
-      >
-        <Link
-          to={`/session/${patient.healingCaseId}`}
-          onClick={() => handleSelectPatient(patient)}
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-primary
-           ${buttonSize} text-white text-xs font-medium hover:bg-primary-dark transition-colors`}
-        >
-          {isDraft ? (
-            <>
-              <Play className="w-3.5 h-3.5 fill-white" />
-              Start
-            </>
-          ) : (
-            <>
-              <Eye className="w-3.5 h-3.5" />
-              View
-            </>
-          )}
-        </Link>
-        <div
-          onClick={() =>
-            !isGenerating && handleClosureButtonClick(patient)
-          }
-          className={`inline-flex items-center gap-1.5 rounded-lg
-            ${
-              isActive || isCompleted || isHealingContinued
-                ? isGenerating
-                  ? "bg-border pointer-events-none"
-                  : "bg-primary hover:bg-primary-dark cursor-pointer"
-                : "bg-border pointer-events-none"
-            }
-            ${buttonSize} text-white text-xs font-medium transition-colors`}
-        >
-          {isCompleted || isHealingContinued ? (
-            <>
-              <BookText className="w-3.5 h-3.5" />
-              Generate PDF
-            </>
-          ) : (
-            <>
-              <CircleCheck className="w-3.5 h-3.5" />
-              Complete
-            </>
-          )}
-        </div>
-        {/* Feedback can be recorded on any started case; a DRAFT has had no healing yet
-            (a LOCKED case never reaches here: it renders renderLockedActions). */}
-        {!isDraft && (
-          <button
-            type="button"
-            onClick={() =>
-              navigate(`/cases/${patient.healingCaseId}/feedback`, {
-                state: { patientName: patient.fullName },
-              })
-            }
-            title="Record the patient's feedback"
-            className={`inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary ${buttonSize} text-xs font-medium hover:bg-primary/5 transition-colors`}
-          >
-            <MessageSquareText className="w-3.5 h-3.5" />
-            Feedback
-          </button>
-        )}
-        {isCompleted && (
-          <button
-            onClick={() => navigate(`/cases/${patient.healingCaseId}/summary`)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border border-primary text-primary ${buttonSize} text-xs font-medium hover:bg-primary/5 transition-colors`}
-          >
-            <ClipboardList className="w-3.5 h-3.5" />
-            Case Summary
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  // A locked case offers one action, full width: Start (unlock for a credit) or, with no credits
-  // left, Upgrade.
-  const renderLockedActions = (patient: ComputedPatient, variant: "table" | "card") => {
-    const size = variant === "card" ? "py-2" : "py-1.5";
+    const canGeneratePdf = isCompleted || isHealingContinued;
     const unlocking = unlockMutation.isPending && unlockMutation.variables?.id === patient.id;
-    const buttonClass = `w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary ${size} text-white text-xs font-medium hover:bg-primary-dark transition-colors disabled:opacity-60`;
     return (
-      <div className="w-full">
-        {outOfCredits ? (
-          <button className={buttonClass} onClick={() => openUpgrade(() => handleStart(patient))}>
-            <CreditCard className="w-3.5 h-3.5" />
-            Upgrade
-          </button>
-        ) : (
-          <button className={buttonClass} onClick={() => handleStart(patient)} disabled={unlocking}>
-            <Play className="w-3.5 h-3.5 fill-white" />
-            Start
-          </button>
-        )}
+      <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Actions for ${patient.firstName} ${patient.lastName}`}
+              className="p-1.5 rounded-md text-text-light hover:bg-muted hover:text-text"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {hasCase && isLocked && (
+              <DropdownMenuItem disabled={unlocking} onSelect={() => openPatient(patient)}>
+                {outOfCredits ? <CreditCard /> : <Play />}
+                {outOfCredits ? "Upgrade" : "Start"}
+              </DropdownMenuItem>
+            )}
+            {hasCase && !isLocked && (
+              <DropdownMenuItem onSelect={() => openPatient(patient)}>
+                {isDraft ? <Play /> : <Eye />}
+                {isDraft ? "Start" : "View"}
+              </DropdownMenuItem>
+            )}
+            {hasCase && isActive && (
+              <DropdownMenuItem onSelect={() => setClosurePatient(patient)}>
+                <CircleCheck />
+                Complete
+              </DropdownMenuItem>
+            )}
+            {hasCase && canGeneratePdf && (
+              <DropdownMenuItem
+                disabled={generatingCaseIds.has(patient.healingCaseId)}
+                onSelect={() => generatePdf(patient)}
+              >
+                <BookText />
+                Generate PDF
+              </DropdownMenuItem>
+            )}
+            {/* Feedback can be recorded on any started case; a DRAFT has had no healing yet. */}
+            {hasCase && !isLocked && !isDraft && (
+              <DropdownMenuItem
+                onSelect={() =>
+                  navigate(`/cases/${patient.healingCaseId}/feedback`, {
+                    state: { patientName: patient.fullName },
+                  })
+                }
+              >
+                <MessageSquareText />
+                Feedback
+              </DropdownMenuItem>
+            )}
+            {hasCase && isCompleted && (
+              <DropdownMenuItem onSelect={() => navigate(`/cases/${patient.healingCaseId}/summary`)}>
+                <ClipboardList />
+                Case Summary
+              </DropdownMenuItem>
+            )}
+            {hasCase && <DropdownMenuSeparator />}
+            <DropdownMenuItem onSelect={() => navigate(`/patients/${patient.id}/edit`)}>
+              <Pencil />
+              Edit patient
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(patient)}>
+              <Trash2 />
+              Delete patient
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   };
@@ -684,6 +635,7 @@ export default function Patients() {
             isLoading={isLoading}
             loadingRowCount={5}
             enableSorting={false}
+            onRowClick={(row) => openPatient(row.original)}
             emptyMessage="No patients found."
             className="rounded-none border-0"
           />
@@ -705,22 +657,23 @@ export default function Patients() {
             filteredPatients.map((patient) => (
               <div
                 key={patient.id}
-                className="border border-border rounded-xl p-4"
+                role="button"
+                tabIndex={0}
+                onClick={() => openPatient(patient)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    openPatient(patient);
+                  }
+                }}
+                className="border border-border rounded-xl p-4 cursor-pointer hover:bg-muted/40"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-semibold text-text inline-flex items-center gap-2">
-                    {patient.fullName}
-                    <Link
-                      to={`/patients/${patient.id}/edit`}
-                      aria-label={`Edit ${patient.fullName}`}
-                      title="Edit patient details"
-                      className="text-text-light hover:text-primary"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Link>
-                    {deleteButton(patient)}
+                  <span className="font-semibold text-text">{patient.fullName}</span>
+                  <span className="flex items-center gap-2">
+                    {renderStatusPill(patient.status)}
+                    {renderActions(patient)}
                   </span>
-                  {renderStatusPill(patient.status)}
                 </div>
                 <p className="text-xs text-text-light mt-1">
                   {[
@@ -734,9 +687,6 @@ export default function Patients() {
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
-                <div className="border-t border-border pt-3 mt-3">
-                  {renderActions(patient, "card")}
-                </div>
               </div>
             ))
           ) : (
