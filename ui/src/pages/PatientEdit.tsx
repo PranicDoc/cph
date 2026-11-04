@@ -4,10 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
-import { buildMedicalHistoryUpdate, buildPatientUpdate } from "../lib/patientUpdate";
+import { buildMedicalHistoryUpdate } from "../lib/patientUpdate";
 import { parseExercise } from "../lib/exercise";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { patientDemographicsSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
+import { patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
 
@@ -52,20 +52,6 @@ function PatientEditForm({ patient, history }: { patient: PatientDetails; histor
 
   const form = useForm({
     defaultValues: {
-      firstName: patient.firstName ?? "",
-      lastName: patient.lastName ?? "",
-      dob: patient.dob ?? null,
-      gender: patient.gender ?? null,
-      maritalStatus: patient.maritalStatus ?? null,
-      email: patient.email ?? null,
-      contact: patient.contact ?? null,
-      occupation: patient.occupation ?? null,
-      addressLine1: patient.addressLine1 ?? null,
-      addressLine2: patient.addressLine2 ?? null,
-      city: patient.city ?? null,
-      state: patient.state ?? null,
-      zip: patient.zip ?? null,
-      // medical history (the second registration screen)
       generalHealth: history?.generalHealth ?? null,
       diet: history?.diet ?? null,
       exercise: parseExercise(history?.exercise),
@@ -81,15 +67,14 @@ function PatientEditForm({ patient, history }: { patient: PatientDetails; histor
     },
     onSubmit: async ({ value }) => {
       try {
-        await api.put(`/api/v1/patients/${patient.id}`, buildPatientUpdate(value));
         await api.put(`/api/v1/patients/${patient.id}/medical-history`, buildMedicalHistoryUpdate(value));
         await queryClient.invalidateQueries({ queryKey: ["patients"] });
         await queryClient.invalidateQueries({ queryKey: ["patient", patient.id] });
         await queryClient.invalidateQueries({ queryKey: ["patient-history", patient.id] });
-        toast.success("Patient details updated");
+        toast.success("Medical history updated");
         navigate("/patients");
       } catch (error) {
-        toast.error(extractDetail(error) || "Failed to update the patient — please try again", { duration: 5000 });
+        toast.error(extractDetail(error) || "Failed to update the medical history — please try again", { duration: 5000 });
       }
     },
   });
@@ -104,11 +89,6 @@ function PatientEditForm({ patient, history }: { patient: PatientDetails; histor
       className="space-y-6"
     >
       <section className="space-y-4">
-        <h2 className="text-base font-semibold text-text">Personal details</h2>
-        <DynamicFormEngine form={form} schema={patientDemographicsSchema} />
-      </section>
-
-      <section className="space-y-4 pt-6 border-t border-border">
         <h2 className="text-base font-semibold text-text">Medical history</h2>
         <DynamicFormEngine form={form} schema={patientMedicalHistorySchema} />
       </section>
@@ -160,8 +140,10 @@ export default function PatientEdit() {
   return (
     <div className={isNewView ? "hlx" : "space-y-6"}>
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-text">Edit patient</h1>
-        <p className="text-sm text-text-light mt-1">Update the patient's personal details.</p>
+        <h1 className="text-xl md:text-2xl font-bold text-text">Edit medical history</h1>
+        <p className="text-sm text-text-light mt-1">
+          {patient ? `${patient.firstName} ${patient.lastName} · ` : ""}Personal details cannot be changed here; only the medical history can be updated.
+        </p>
       </div>
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
         {(isLoading || (!!patient && historyLoading)) && <p className="text-text-light">Loading patient…</p>}
