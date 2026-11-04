@@ -80,11 +80,11 @@ describe("PatientEdit page", () => {
 
     expect(await screen.findByDisplayValue("Knee pain")).toBeInTheDocument();
     expect(mGet).toHaveBeenCalledWith("/api/v1/patients/p-1");
-    // personal details are not editable here: no inputs for them, only the name as context
+    // personal details are not shown or editable here
     expect(screen.queryByDisplayValue("Asha")).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue("Pune")).not.toBeInTheDocument();
     expect(screen.queryByText("Personal details")).not.toBeInTheDocument();
-    expect(screen.getByText(/Asha Rao/)).toBeInTheDocument();
+    expect(screen.queryByText(/Asha Rao/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 

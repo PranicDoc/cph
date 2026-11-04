@@ -141,9 +141,6 @@ export default function PatientEdit() {
     <div className={isNewView ? "hlx" : "space-y-6"}>
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-text">Edit medical history</h1>
-        <p className="text-sm text-text-light mt-1">
-          {patient ? `${patient.firstName} ${patient.lastName} · ` : ""}Personal details cannot be changed here; only the medical history can be updated.
-        </p>
       </div>
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
         {(isLoading || (!!patient && historyLoading)) && <p className="text-text-light">Loading patient…</p>}
