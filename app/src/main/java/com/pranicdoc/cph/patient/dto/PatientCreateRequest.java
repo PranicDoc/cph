@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.patient.dto;
 
+import com.pranicdoc.cph.common.validation.TextLimits;
+import jakarta.validation.constraints.Size;
 import com.pranicdoc.cph.common.enums.Gender;
 import com.pranicdoc.cph.common.enums.MaritalStatus;
 import jakarta.annotation.Nullable;
@@ -16,11 +18,11 @@ public record PatientCreateRequest(
         MaritalStatus maritalStatus,
         @Email String email,
         @NotBlank @Pattern(regexp = "^\\+?[0-9]{10,15}$") String contact,
-        String occupation,
+        @Size(max = TextLimits.SHORT_TEXT, message = "Occupation can be at most {max} characters") String occupation,
         @Size(max = 255) String addressLine1,
         @Size(max = 255) String addressLine2,
         @Size(max = 255) String city,
         @Size(max = 255) String state,
         @Pattern(regexp = "^[0-9]{5,10}$") String zip,
-        MedicalHistoryRequest medicalHistory
+        @jakarta.validation.Valid MedicalHistoryRequest medicalHistory
 ) {}

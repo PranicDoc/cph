@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.healing.dto;
 
+import com.pranicdoc.cph.common.validation.TextLimits;
+import jakarta.validation.constraints.Size;
 import com.pranicdoc.cph.common.enums.ScanType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -8,7 +10,7 @@ import java.util.UUID;
 
 public record ScanRequest(
         @NotNull ScanType scanType,
-        String notes,
+        @Size(max = TextLimits.NOTE, message = "Notes can be at most {max} characters") String notes,
         @NotNull @Valid List<ChakraReadingRequest> readings
 ) {
     public record ChakraReadingRequest(
@@ -16,6 +18,6 @@ public record ScanRequest(
             @NotNull String chakraName,
             String energyLevel,
             String activationLevel,
-            String notes
+            @Size(max = TextLimits.NOTE, message = "Notes can be at most {max} characters") String notes
     ) {}
 }

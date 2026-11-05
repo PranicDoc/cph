@@ -18,13 +18,16 @@ const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
 
 let sessions: { id: string; sessionNumber: number; sessionDate: string }[] = [];
+let recorded: unknown = { interims: [], finalFeedbackText: null };
 
 function renderPage() {
   mGet.mockImplementation((url: string) =>
     Promise.resolve(
       url.startsWith("/api/v1/sessions/case/")
         ? { data: sessions }
-        : { data: { content: [{ caseSymptomId: "s1", name: "Headache" }] } }
+        : url === "/api/v1/cases/case-1/feedback"
+          ? { data: recorded }
+          : { data: { content: [{ caseSymptomId: "s1", name: "Headache" }] } }
     )
   );
   return renderWithDataRouter(
@@ -48,6 +51,7 @@ describe("ManualFeedback page", () => {
     vi.clearAllMocks();
     view.isNewView = false;
     sessions = [];
+    recorded = { interims: [], finalFeedbackText: null };
   });
 
   const twoSessions = () => [
@@ -137,6 +141,92 @@ describe("ManualFeedback page", () => {
 
     expect(await screen.findByText("Feedback for this healing is already recorded.")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/cases/case-1/feedback");
+  }, 15_000);
+
+  it("opens a session's recorded interim for editing, and saves the change", async () => {
+    sessions = twoSessions();
+    recorded = {
+      interims: [{ sessionId: "sess-1", feedbackText: "Old note", ratings: [{ caseSymptomId: "s1", rating: 8 }] }],
+      finalFeedbackText: null,
+    };
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 1/ }));
+    const comments = screen.getByLabelText("Comments");
+    await waitFor(() => expect(comments).toHaveValue("Old note"));
+
+    await user.clear(comments);
+    await user.type(comments, "New note");
+    await user.click(screen.getByRole("button", { name: "Update feedback" }));
+
+    await waitFor(() =>
+      expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", {
+        feedbackType: "INTERIM",
+        sessionId: "sess-1",
+        // The stored rating 8 came back as severity 2 and goes out unchanged.
+        symptoms: [{ caseSymptomId: "s1", rating: 8, notes: "" }],
+        feedbackText: "New note",
+      })
+    );
+  }, 15_000);
+
+  it("a session with nothing recorded starts empty", async () => {
+    sessions = twoSessions();
+    recorded = {
+      interims: [{ sessionId: "sess-1", feedbackText: "Old note", ratings: [] }],
+      finalFeedbackText: null,
+    };
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 2/ }));
+
+    expect(screen.getByLabelText("Comments")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Save feedback" })).toBeInTheDocument();
+  }, 15_000);
+
+  it("opens the recorded final feedback for editing", async () => {
+    sessions = twoSessions();
+    recorded = { interims: [], finalFeedbackText: "Fully recovered" };
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Comments")).toHaveValue("Fully recovered"));
+    expect(screen.getByRole("button", { name: "Update feedback" })).toBeInTheDocument();
+  }, 15_000);
+
+  it("limits the comment by feedback type, shows the count, and has no example text", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const comments = await screen.findByLabelText("Comments");
+    expect(comments).toHaveAttribute("maxlength", "400");
+    expect(comments).not.toHaveAttribute("placeholder");
+    expect(screen.getByText("0/400")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Final" }));
+    expect(comments).toHaveAttribute("maxlength", "1500");
+    expect(screen.getByText("0/1500")).toBeInTheDocument();
+  });
+
+  it("older text over the limit must be shortened before it saves", async () => {
+    sessions = twoSessions();
+    recorded = { interims: [], finalFeedbackText: "x".repeat(1501) };
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+    await waitFor(() => expect(screen.getByText("1501/1500")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Update feedback" }));
+
+    expect(screen.getByText("Shorten the comment to 1500 characters.")).toBeInTheDocument();
+    expect(mPost).not.toHaveBeenCalled();
   }, 15_000);
 
   it("renders inside the new view's styles, where its severity slider lives", async () => {

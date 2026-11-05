@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -22,6 +23,7 @@ export function TreatmentPlanHeader({
         </Label>
         <Input
           type="text"
+          maxLength={TEXT_LIMITS.note}
           value={protocolName}
           onChange={(e) => onProtocolNameChange(e.target.value)}
           placeholder="e.g., Headache Relief"
@@ -34,6 +36,7 @@ export function TreatmentPlanHeader({
         </Label>
         <Input
           type="text"
+          maxLength={TEXT_LIMITS.note}
           value={bookReference}
           onChange={(e) => onBookReferenceChange(e.target.value)}
           placeholder="e.g., Advanced Pranic Healing p. 77"

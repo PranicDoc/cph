@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 // components/HealingSessionWizard/StepSymptomsFeedback.tsx
 import { DynamicFormEngine } from "../DynamicFormEngine";
 import { qualitativeFeedbackSchema } from "../../pages/schemas/HealingSessionSchemas";
@@ -89,6 +90,7 @@ export function StepSymptomsFeedback({
               <Input
                 type="text"
                 placeholder="Notes (optional)"
+                maxLength={TEXT_LIMITS.note}
                 value={feedback.notes || ""}
                 onChange={(e) => onUpdateSymptom(idx, "notes", e.target.value)}
                 className="border px-3 py-2 rounded-md"

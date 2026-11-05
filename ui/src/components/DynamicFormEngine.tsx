@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import React, { useCallback, useEffect, useState } from "react";
 import { CustomDOBPicker } from "./CustomDOBPicker";
 import { TagInput } from "./TagInput";
@@ -42,6 +43,8 @@ export type FieldConfig = {
   options?: { label: string; value: string }[];
   placeholder?: string;
   required?: boolean;
+  /** Most characters this typed field may hold; unset fields get the note limit (see typedFieldLimit). */
+  maxLength?: number;
   className?: string;
   wrapperClassName?: string;
   labelClassName?: string;
@@ -77,6 +80,10 @@ export type FieldConfig = {
     fieldName: string
   ) => string | undefined;
 };
+
+/** The limit of a typed field. Passwords and numbers have none: their own rules apply. */
+const typedFieldLimit = (type: FieldType | undefined, maxLength: number | undefined) =>
+  maxLength ?? (type === "password" || type === "number" || type === "time" ? undefined : TEXT_LIMITS.note);
 
 // Blank strings and empty arrays count as "not filled in", not just falsy values.
 const isEmptyValue = (value: unknown) =>
@@ -199,6 +206,7 @@ export function DynamicField({
                 valueKey={fieldConfig.valueKey}
                 createNewTag={fieldConfig.createNewTag}
                 editableFields={fieldConfig.editableFields}
+                maxLength={fieldConfig.maxLength}
               />
               <FieldError errors={field.state.meta.errors} />
             </div>
@@ -297,6 +305,7 @@ export function DynamicField({
                 disabled={isDisabled}
                 className={className}
                 placeholder={isDisabled ? "Enable toggle to fill" : placeholder}
+                maxLength={typedFieldLimit(type, fieldConfig.maxLength)}
               />
             ) : type === "date" ? (
               <CustomDOBPicker
@@ -314,6 +323,8 @@ export function DynamicField({
                 disabled={isDisabled || fieldConfig.readOnly}
                 className={className}
                 placeholder={isDisabled ? "Enable toggle to fill" : placeholder}
+                maxLength={typedFieldLimit(type, fieldConfig.maxLength)}
+                showCount={fieldConfig.maxLength !== undefined}
               />
             )}
 

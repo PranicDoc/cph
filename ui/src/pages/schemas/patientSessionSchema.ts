@@ -1,4 +1,5 @@
 import { FormSchema } from "../../components/DynamicFormEngine";
+import { TEXT_LIMITS } from "../../lib/textLimits";
 import { COMMON_SYMPTOMS } from "./sessionSchema";
 
 export const patientSessionSchema: FormSchema = [
@@ -7,6 +8,7 @@ export const patientSessionSchema: FormSchema = [
     fields: [
       {
         name: "medicalCondition",
+        maxLength: TEXT_LIMITS.mediumBox,
         label: "Chief Complaint",
         type: "textarea",
         placeholder: "Please state the main ailment that will be treated...", // TODO add examples
@@ -25,6 +27,7 @@ export const patientSessionSchema: FormSchema = [
     fields: [
       {
         name: "symptoms",
+        maxLength: TEXT_LIMITS.symptomName,
         label: "Symptoms",
         type: "tag",
         placeholder: "Type to add symptoms...",
@@ -77,12 +80,14 @@ export const patientSessionSchema: FormSchema = [
     fields: [
       {
         name: "healingDetails.protocolName",
+        maxLength: TEXT_LIMITS.note,
         label: "Protocol Name",
         display: false,
         wrapperClassName: "col-span-1",
       },
       {
         name: "healingDetails.detailedProtocol",
+        maxLength: TEXT_LIMITS.mediumBox,
         label: "Marilltte Protocol",
         type: "textarea",
         display: false,
@@ -106,6 +111,7 @@ export const patientSessionSchema: FormSchema = [
     fields: [
       {
         name: "complementaryDetails",
+        maxLength: TEXT_LIMITS.explain,
         label: "Complementary Modalities (Treatments other than main doctor consulting)",
         type: "textarea",
         placeholder: "Example: Accupunture, Cupping, Osteopathy, Flower medicine...",
@@ -114,6 +120,7 @@ export const patientSessionSchema: FormSchema = [
       },
       {
         name: "infectiousDetails",
+        maxLength: TEXT_LIMITS.explain,
         label: "Infectious Illness",
         type: "textarea",
         placeholder: "Example: Cold...",

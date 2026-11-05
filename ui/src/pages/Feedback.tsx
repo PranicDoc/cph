@@ -15,6 +15,8 @@ import {
   type FeedbackSymptom,
 } from "../components/feedback/SymptomRatingList";
 import { toSymptomRating } from "../lib/symptomRating";
+import { TEXT_LIMITS } from "../lib/textLimits";
+import { CharacterCount } from "../components/form/CharacterCount";
 
 export default function PatientFeedback() {
   const { isNewView } = useUiVersion();
@@ -30,6 +32,7 @@ export default function PatientFeedback() {
     searchParams.get("caseId") ?? sessionStorage.getItem("feedbackCaseId");
 
   const isFinal = readIsFinalFlag(searchParams, sessionStorage);
+  const textLimit = isFinal ? TEXT_LIMITS.finalFeedback : TEXT_LIMITS.interimFeedback;
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,8 +253,10 @@ export default function PatientFeedback() {
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
             placeholder="Type your feedback here..."
+            maxLength={textLimit}
             className="min-h-[120px] p-3 border text-text resize-y"
           />
+          <CharacterCount value={feedbackText} max={textLimit} />
         </section>
       </div>
 

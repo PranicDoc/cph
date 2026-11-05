@@ -1,3 +1,5 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
+import { CharacterCount } from "@/components/form/CharacterCount";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
@@ -383,9 +385,11 @@ const ClosureForm = ({
               <Textarea
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
+                maxLength={TEXT_LIMITS.closureComments}
                 className="border px-3 py-2 min-h-[100px] resize-none"
                 placeholder="Describe the unique thing identified for this case and healer's understanding of the case"
               />
+              <CharacterCount value={comments} max={TEXT_LIMITS.closureComments} />
             </div>
 
             <Label className="flex items-center gap-2 cursor-pointer w-fit">

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { CharacterCount } from "@/components/form/CharacterCount"
 import {
   Select,
   SelectContent,
@@ -86,6 +87,8 @@ export function TextField({
   disabled,
   className,
   trimSpaces = false,
+  maxLength,
+  showCount = false,
 }: {
   field: TanstackField
   type?: string
@@ -93,22 +96,33 @@ export function TextField({
   disabled?: boolean
   className?: string
   trimSpaces?: boolean
+  maxLength?: number
+  /** Show the live count too. Off by default: an extra element would break inline layouts. */
+  showCount?: boolean
 }) {
   const value =
     trimSpaces && typeof field.state.value === "string"
       ? field.state.value.replace(/\s+/g, "")
       : field.state.value ?? ""
-  return (
+  const input = (
     <Input
       type={type}
       value={value}
       onBlur={field.handleBlur}
       onChange={(e) => field.handleChange(e.target.value)}
       disabled={disabled}
+      maxLength={maxLength}
       aria-invalid={field.state.meta.errors.length > 0 || undefined}
       className={cn(disabled && "bg-gray-50", className)}
       placeholder={placeholder}
     />
+  )
+  if (!showCount || !maxLength) return input
+  return (
+    <>
+      {input}
+      <CharacterCount value={value == null ? "" : String(value)} max={maxLength} />
+    </>
   )
 }
 
@@ -118,24 +132,30 @@ export function TextareaField({
   placeholder,
   disabled,
   className,
+  maxLength,
 }: {
   field: TanstackField
   rows?: number
   placeholder?: string
   disabled?: boolean
   className?: string
+  maxLength?: number
 }) {
   return (
-    <Textarea
-      rows={rows}
-      value={field.state.value ?? ""}
-      onBlur={field.handleBlur}
-      onChange={(e) => field.handleChange(e.target.value)}
-      disabled={disabled}
-      aria-invalid={field.state.meta.errors.length > 0 || undefined}
-      className={cn("p-3", disabled && "bg-gray-50", className)}
-      placeholder={placeholder}
-    />
+    <>
+      <Textarea
+        rows={rows}
+        value={field.state.value ?? ""}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+        disabled={disabled}
+        maxLength={maxLength}
+        aria-invalid={field.state.meta.errors.length > 0 || undefined}
+        className={cn("p-3", disabled && "bg-gray-50", className)}
+        placeholder={placeholder}
+      />
+      {maxLength && <CharacterCount value={field.state.value} max={maxLength} />}
+    </>
   )
 }
 

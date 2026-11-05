@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SingleSelect } from "@/components/ui/single-select";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import api from "@/lib/axios";
@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toSymptomRating } from "@/lib/symptomRating";
+import { fromSymptomRating, toSymptomRating } from "@/lib/symptomRating";
+import { TEXT_LIMITS } from "@/lib/textLimits";
+import { CharacterCount } from "@/components/form/CharacterCount";
 import { SymptomRatingList, type FeedbackSymptom } from "@/components/feedback/SymptomRatingList";
 
 type FeedbackType = "INTERIM" | "FINAL";
@@ -22,17 +24,25 @@ interface CaseSession {
   sessionDate: string | null;
 }
 
+/** GET /api/v1/cases/{id}/feedback: what is already recorded, shown again for editing. */
+interface RecordedFeedback {
+  interims: {
+    sessionId: string;
+    feedbackText: string | null;
+    ratings: { caseSymptomId: string; rating: number }[];
+  }[];
+  finalFeedbackText: string | null;
+}
+
 const ALREADY_SUBMITTED = "https://pranicdoc.com/errors/feedback-already-submitted";
 
-const INTERIM_PLACEHOLDER = "e.g. Headache is less frequent, sleeping better since the last session";
-const FINAL_PLACEHOLDER = "e.g. Fully recovered, no symptoms for two weeks, no further sessions needed";
-
 /**
- * The healer records a patient's feedback by hand, as an alternative to the WhatsApp link:
- * the same symptom sliders and comment the patient's form collects. Interim feedback is for a
- * session the healer picks (its date is shown for reference, not editable); final feedback is one
- * comment per case, kept on the latest session. A full page rather than a dialog, so it renders
- * inside the new view's styles like every other page.
+ * The healer records or edits a patient's feedback by hand, as an alternative to the WhatsApp link:
+ * the same symptom sliders and comment the patient's form collects. Interim feedback is one per
+ * session, for the session the healer picks (its date is shown for reference, not editable); final
+ * feedback is one comment per case, kept on the latest session. Picking one that is already recorded
+ * opens it for editing. A full page rather than a dialog, so it renders inside the new view's styles
+ * like every other page.
  */
 export default function ManualFeedback() {
   const { isNewView } = useUiVersion();
@@ -62,7 +72,37 @@ export default function ManualFeedback() {
   });
   const sessions = Array.isArray(sessionsQuery.data) ? sessionsQuery.data : [];
 
+  const queryClient = useQueryClient();
+  const recordedQuery = useQuery<RecordedFeedback>({
+    queryKey: ["case-feedback", healingCaseId],
+    queryFn: () => api.get(`/api/v1/cases/${healingCaseId}/feedback`).then((res) => res.data),
+    enabled: !!healingCaseId,
+  });
+  const recorded = recordedQuery.data;
+
   const isFinal = feedbackType === "FINAL";
+  const recordedInterim = recorded?.interims?.find((i) => i.sessionId === sessionId);
+  const isEditing = isFinal ? !!recorded?.finalFeedbackText : !!recordedInterim;
+  const textLimit = isFinal ? TEXT_LIMITS.finalFeedback : TEXT_LIMITS.interimFeedback;
+
+  // Picking a session or the final feedback shows what is recorded for it, ready to edit.
+  useEffect(() => {
+    if (!recorded) return;
+    if (isFinal) {
+      setFeedbackText(recorded.finalFeedbackText ?? "");
+      setRatings({});
+    } else {
+      const interim = recorded.interims?.find((i) => i.sessionId === sessionId);
+      setFeedbackText(interim?.feedbackText ?? "");
+      setRatings(
+        Object.fromEntries(
+          (interim?.ratings ?? []).map((r) => [r.caseSymptomId, fromSymptomRating(r.rating)])
+        )
+      );
+    }
+    setError(null);
+  }, [recorded, isFinal, sessionId]);
+
   const latestSession = sessions.reduce<CaseSession | null>(
     (latest, s) => (!latest || (s.sessionNumber ?? 0) > (latest.sessionNumber ?? 0) ? s : latest),
     null
@@ -84,8 +124,9 @@ export default function ManualFeedback() {
         })),
         feedbackText,
       }),
-    onSuccess: () => {
-      toast.success("Feedback saved");
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["case-feedback", healingCaseId] });
+      toast.success(isEditing ? "Feedback updated" : "Feedback saved");
       backToPatients();
     },
     onError: (err: unknown) =>
@@ -98,6 +139,10 @@ export default function ManualFeedback() {
 
   const submit = () => {
     setError(null);
+    if (feedbackText.trim().length > textLimit) {
+      setError(`Shorten the comment to ${textLimit} characters.`);
+      return;
+    }
     if (isFinal) {
       if (!feedbackText.trim()) {
         setError("Add the final feedback comment.");
@@ -124,7 +169,8 @@ export default function ManualFeedback() {
           Patient feedback{patientName ? ` — ${patientName}` : ""}
         </h1>
         <p className="text-sm text-text-light">
-          Record what the patient reported, the same way the WhatsApp feedback form does.
+          Record what the patient reported, the same way the WhatsApp feedback form does. One interim
+          feedback per session and one final feedback per case; saved feedback opens here to edit.
         </p>
       </div>
 
@@ -191,9 +237,10 @@ export default function ManualFeedback() {
             id="manual-feedback-text"
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder={isFinal ? FINAL_PLACEHOLDER : INTERIM_PLACEHOLDER}
+            maxLength={textLimit}
             className="min-h-[100px] p-3"
           />
+          <CharacterCount value={feedbackText} max={textLimit} />
         </section>
       </div>
 
@@ -204,7 +251,7 @@ export default function ManualFeedback() {
           Cancel
         </Button>
         <Button type="button" onClick={submit} disabled={save.isPending}>
-          {save.isPending ? "Saving…" : "Save feedback"}
+          {save.isPending ? "Saving…" : isEditing ? "Update feedback" : "Save feedback"}
         </Button>
       </div>
     </div>

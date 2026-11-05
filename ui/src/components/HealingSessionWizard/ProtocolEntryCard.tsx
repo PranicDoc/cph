@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import type {
   ChakraOption,
   ColorOption,
@@ -65,6 +66,7 @@ export function ProtocolEntryCard({
         <Input
           type="text"
           placeholder="Target Area *"
+          maxLength={TEXT_LIMITS.note}
           required
           value={entry.targetArea}
           onChange={(e) => onUpdate(index, "targetArea", e.target.value)}
@@ -75,6 +77,7 @@ export function ProtocolEntryCard({
       <Input
         type="text"
         placeholder="Technique *"
+        maxLength={TEXT_LIMITS.note}
         required
         value={entry.technique}
         onChange={(e) => onUpdate(index, "technique", e.target.value)}
@@ -83,6 +86,7 @@ export function ProtocolEntryCard({
 
       <Textarea
         placeholder="Notes (optional)"
+        maxLength={TEXT_LIMITS.note}
         rows={2}
         value={entry.notes || ""}
         onChange={(e) => onUpdate(index, "notes", e.target.value)}

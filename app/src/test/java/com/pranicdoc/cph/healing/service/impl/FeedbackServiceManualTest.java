@@ -1,9 +1,13 @@
 package com.pranicdoc.cph.healing.service.impl;
 
+import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.FeedbackSource;
 import com.pranicdoc.cph.common.enums.FeedbackType;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.FeedbackAlreadySubmittedException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.common.validation.TextLimits;
+import com.pranicdoc.cph.healing.dto.CaseFeedbackResponse;
 import com.pranicdoc.cph.healing.dto.ManualFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
@@ -27,7 +31,6 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -129,17 +132,109 @@ class FeedbackServiceManualTest {
     }
 
     @Test
-    void manualInterim_whenTheSessionAlreadyHasOne_reportsAlreadySubmitted() {
-        when(qualitativeFeedbackRepository.existsByHealingSessionIdAndFeedbackType(first.getId(), FeedbackType.INTERIM))
-                .thenReturn(true);
+    void manualInterim_whenTheSessionAlreadyHasOne_updatesItAndKeepsItsSource() {
+        QualitativeFeedback existing = QualitativeFeedback.builder().healingSession(first)
+                .feedbackType(FeedbackType.INTERIM).feedbackText("old").source(FeedbackSource.WHATSAPP).build();
+        when(qualitativeFeedbackRepository.findByHealingSessionIdAndFeedbackTypeOrderByCreatedAtDesc(
+                first.getId(), FeedbackType.INTERIM)).thenReturn(List.of(existing));
 
-        assertThrows(FeedbackAlreadySubmittedException.class, () ->
-                feedbackService.saveManualFeedback(caseId, interim(first, "again")));
+        feedbackService.saveManualFeedback(caseId, interim(first, " corrected "));
+
+        verify(qualitativeFeedbackRepository).save(existing);
+        assertEquals("corrected", existing.getFeedbackText());
+        assertEquals(FeedbackSource.WHATSAPP, existing.getSource());
+    }
+
+    @Test
+    void manualInterim_updatesASymptomAlreadyRatedInThatSession_andAddsNewOnes() {
+        UUID newSymptom = UUID.randomUUID();
+        SymptomFeedback rated = SymptomFeedback.builder().healingSession(first).caseSymptomId(symptomId)
+                .rating(2).source(FeedbackSource.WHATSAPP).build();
+        when(symptomFeedbackRepository.findByHealingSessionId(first.getId())).thenReturn(List.of(rated));
+
+        feedbackService.saveManualFeedback(caseId, new ManualFeedbackRequest(FeedbackType.INTERIM, first.getId(),
+                List.of(new SymptomFeedbackRequest(symptomId, 7, ""), new SymptomFeedbackRequest(newSymptom, 5, "")), null));
+
+        List<SymptomFeedback> saved = savedSymptoms();
+        assertEquals(2, saved.size());
+        assertSame(rated, saved.get(0));
+        assertEquals(7, rated.getRating());
+        assertEquals(FeedbackSource.WHATSAPP, rated.getSource());
+        assertEquals(newSymptom, saved.get(1).getCaseSymptomId());
+        assertEquals(FeedbackSource.MANUAL, saved.get(1).getSource());
+    }
+
+    @Test
+    void manualInterim_overItsLimit_isRejected_thoughAFinalCouldHoldIt() {
+        String tooLong = "x".repeat(TextLimits.INTERIM_FEEDBACK + 1);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                feedbackService.saveManualFeedback(caseId, interim(first, tooLong)));
         verifyNoInteractions(symptomFeedbackRepository);
     }
 
     @Test
-    void manualInterim_forASymptomAlreadyRatedInThatSession_reportsAlreadySubmitted() {
+    void manualFeedback_onALockedCase_isRefused() {
+        HealingCase locked = HealingCase.builder().build();
+        locked.setHealerId(healerId);
+        locked.setStatus(CaseStatus.LOCKED);
+        when(caseService.findOrThrow(caseId)).thenReturn(locked);
+
+        assertThrows(CaseLockedException.class, () ->
+                feedbackService.saveManualFeedback(caseId, interim(first, "x")));
+        verifyNoInteractions(symptomFeedbackRepository, qualitativeFeedbackRepository);
+    }
+
+    @Test
+    void getManualFeedback_returnsEachSessionsInterimAndTheFinal_newestWhenThereAreDuplicates() {
+        QualitativeFeedback newest = QualitativeFeedback.builder().feedbackText("newest").build();
+        QualitativeFeedback older = QualitativeFeedback.builder().feedbackText("older").build();
+        when(qualitativeFeedbackRepository.findByHealingSessionIdAndFeedbackTypeOrderByCreatedAtDesc(
+                first.getId(), FeedbackType.INTERIM)).thenReturn(List.of(newest, older));
+        when(symptomFeedbackRepository.findByHealingSessionId(first.getId())).thenReturn(List.of(
+                SymptomFeedback.builder().caseSymptomId(symptomId).rating(6).build()));
+        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
+                caseId, FeedbackType.FINAL)).thenReturn(List.of(QualitativeFeedback.builder().feedbackText("done").build()));
+
+        CaseFeedbackResponse response = feedbackService.getManualFeedback(caseId);
+
+        assertEquals(1, response.interims().size(), "the second session has nothing recorded");
+        assertEquals(first.getId(), response.interims().get(0).sessionId());
+        assertEquals("newest", response.interims().get(0).feedbackText());
+        assertEquals(6, response.interims().get(0).ratings().get(0).rating());
+        assertEquals("done", response.finalFeedbackText());
+    }
+
+    @Test
+    void getManualFeedback_onAnotherHealersCase_isDenied() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
+
+        assertThrows(AccessDeniedException.class, () -> feedbackService.getManualFeedback(caseId));
+    }
+
+    @Test
+    void whatsappInterim_whenTheSessionAlreadyHasOne_reportsAlreadySubmitted() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+        when(qualitativeFeedbackRepository.existsByHealingSessionIdAndFeedbackType(second.getId(), FeedbackType.INTERIM))
+                .thenReturn(true);
+
+        assertThrows(FeedbackAlreadySubmittedException.class, () -> feedbackService.saveQualitativeFeedback(caseId,
+                new QualitativeFeedbackRequest(FeedbackType.INTERIM, "again", "")));
+        verify(qualitativeFeedbackRepository, never()).save(any());
+    }
+
+    @Test
+    void whatsappFinal_whenOneAlreadyExists_reportsAlreadySubmitted() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
+                caseId, FeedbackType.FINAL)).thenReturn(List.of(QualitativeFeedback.builder().build()));
+
+        assertThrows(FeedbackAlreadySubmittedException.class, () -> feedbackService.saveQualitativeFeedback(caseId,
+                new QualitativeFeedbackRequest(FeedbackType.FINAL, "again", "")));
+    }
+
+    @Test
+    void manualInterim_losingARaceOnANewRating_reportsAlreadySubmitted() {
         when(symptomFeedbackRepository.saveAllAndFlush(anyList())).thenThrow(new DataIntegrityViolationException("dup"));
 
         assertThrows(FeedbackAlreadySubmittedException.class, () ->
@@ -172,13 +267,17 @@ class FeedbackServiceManualTest {
     }
 
     @Test
-    void manualFinal_whenAFinalAlreadyExists_isRejected() {
-        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackType(caseId, FeedbackType.FINAL))
-                .thenReturn(Optional.of(QualitativeFeedback.builder().build()));
+    void manualFinal_whenAFinalAlreadyExists_updatesItWhereItIs() {
+        QualitativeFeedback existing = QualitativeFeedback.builder().healingSession(first)
+                .feedbackType(FeedbackType.FINAL).feedbackText("old").healingDate(first.getSessionDate()).build();
+        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
+                caseId, FeedbackType.FINAL)).thenReturn(List.of(existing));
 
-        assertThrows(FeedbackAlreadySubmittedException.class, () ->
-                feedbackService.saveManualFeedback(caseId, finalFeedback("Done")));
-        verify(qualitativeFeedbackRepository, never()).save(any());
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done"));
+
+        verify(qualitativeFeedbackRepository).save(existing);
+        assertEquals("Done", existing.getFeedbackText());
+        assertSame(first, existing.getHealingSession());
     }
 
     @Test
