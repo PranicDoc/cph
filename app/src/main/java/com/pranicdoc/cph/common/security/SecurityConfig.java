@@ -82,6 +82,9 @@ public class SecurityConfig {
                         // CaseController route split from being a bypass of the new
                         // CASE:UPDATE / CASE:READ gates.
                         .requestMatchers("/api/v1/cases/self-service", "/api/v1/cases/self-service/**").hasRole("PATIENT")
+                        // A SELF_REG patient link's subject is the owning healer, so without this
+                        // rule the link could read and change that healer's profile.
+                        .requestMatchers("/api/v1/auth/profile").not().hasRole("PATIENT")
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

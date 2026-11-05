@@ -3,8 +3,10 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useRef,
   ReactNode,
 } from "react";
+import { isAxiosError } from "axios";
 import api, {
   SESSION_EXPIRED_EVENT,
   isRefreshDue,
@@ -29,6 +31,7 @@ const USER_STORAGE_KEY = "user_profile_data";
 // How often to check whether a proactive refresh is due. The refresh itself is gated on
 // isRefreshDue() (token older than 45 min), so this only needs to be well under that.
 const REFRESH_CHECK_INTERVAL = 60 * 1000;
+const PROFILE_RETRY_INTERVAL = 3 * 1000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,6 +51,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // A 403 means this session may not have a profile at all (a patient link's cookie also passes
+  // /auth/me), so it is final. Any other failure can be retried.
+  const profileDenied = useRef(false);
+  const loadProfile = async () => {
+    try {
+      const res = await api.get("/api/v1/auth/profile");
+      setUser(res.data);
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 403) profileDenied.current = true;
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -58,14 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (res.status === 200) {
+          // The cookies outlive the saved user, so a valid session can arrive without one.
+          // Load it before the app opens: the permissions, tabs and profile menu all need it.
+          if (!user?.id) await loadProfile();
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
-          setUser(null);
         }
-      } catch {
+      } catch (error) {
+        // Not signed in right now, but only a rejected session may forget the user: an outage
+        // or network drop says nothing about the session. A rejected refresh token clears the
+        // user through SESSION_EXPIRED_EVENT below.
         setIsAuthenticated(false);
-        setUser(null);
+        if (isAxiosError(error) && error.response?.status === 403) setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -73,6 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     init();
   }, []);
+
+  // Signed in without a user means the profile request above failed. Keep trying, so a brief
+  // outage doesn't leave the healer without tabs or a way to log out until they reload.
+  useEffect(() => {
+    if (!isAuthenticated || user?.id) return;
+    const interval = setInterval(() => {
+      if (profileDenied.current) clearInterval(interval);
+      else loadProfile();
+    }, PROFILE_RETRY_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.id]);
 
   // The refresh token was rejected: the session is really over, so drop local state and let
   // the route guards send the user to sign in. No logout call, the cookies are already dead.
