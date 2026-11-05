@@ -2,6 +2,7 @@ package com.pranicdoc.cph.healing.service.impl;
 
 import com.pranicdoc.cph.common.enums.FeedbackSource;
 import com.pranicdoc.cph.common.enums.FeedbackType;
+import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.exception.FeedbackAlreadySubmittedException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.ManualFeedbackRequest;
@@ -25,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -193,6 +196,10 @@ class FeedbackServiceManualTest {
     @Test
     void whatsappFeedback_isDatedWithItsSessionAndMarkedWhatsapp() {
         when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+        // The patient's feedback token is bound to this case and its final-feedback link is live.
+        when(securityContextUtil.getCurrentCaseId()).thenReturn(caseId);
+        when(feedbackLinkRepository.existsActiveFinalLink(eq(caseId), eq(LinkStatus.ACTIVE), any(Instant.class)))
+                .thenReturn(true);
 
         feedbackService.saveSymptomFeedback(caseId, List.of(new SymptomFeedbackRequest(symptomId, 4, "")));
         feedbackService.saveQualitativeFeedback(caseId, new QualitativeFeedbackRequest(FeedbackType.FINAL, "Good", ""));

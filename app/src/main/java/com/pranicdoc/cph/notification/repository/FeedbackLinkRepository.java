@@ -24,6 +24,14 @@ public interface FeedbackLinkRepository extends JpaRepository<FeedbackLink, Stri
                             @Param("used") LinkStatus used,
                             @Param("active") LinkStatus active);
 
+    /** True when the case has an unexpired link of the given status flagged as the final-feedback link. */
+    @Query("SELECT COUNT(fl) > 0 FROM FeedbackLink fl " +
+           "WHERE fl.caseId = :caseId AND fl.isFinal = true " +
+           "AND fl.status = :status AND fl.expiresAt > :now")
+    boolean existsActiveFinalLink(@Param("caseId") UUID caseId,
+                                  @Param("status") LinkStatus status,
+                                  @Param("now") Instant now);
+
     @Query(nativeQuery = true, value = """
         SELECT hc.id         AS caseId,
                p.first_name  AS patientFirstName,

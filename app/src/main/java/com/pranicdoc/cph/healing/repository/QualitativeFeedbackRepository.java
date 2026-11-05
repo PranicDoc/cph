@@ -22,4 +22,5 @@ public interface QualitativeFeedbackRepository extends JpaRepository<Qualitative
      */
     Optional<QualitativeFeedback> findByHealingSession_HealingCase_IdAndFeedbackType(
             UUID caseId, FeedbackType feedbackType);
+
 }
