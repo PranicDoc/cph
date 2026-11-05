@@ -127,7 +127,7 @@ export function CustomDOBPicker({ value, onChange, onBlur, className, disabled }
     <div className={cn('relative', className)} ref={containerRef}>
       <div
         className={cn(
-          'flex items-center gap-2 rounded-lg border-2 border-border bg-white pr-2.5 text-sm transition-colors focus-within:border-primary',
+          'hl-date-field flex items-center gap-2 rounded-lg border-2 border-border bg-white pr-2.5 text-sm transition-colors focus-within:border-primary',
           disabled && 'pointer-events-none cursor-not-allowed opacity-50'
         )}
       >
