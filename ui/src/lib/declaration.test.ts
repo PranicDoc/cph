@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDeclaration } from "./declaration";
+import { buildDeclaration, todayAsDate } from "./declaration";
 
 const base = { consent1: true, consent2: true, consent3: true, patientSignature: "Asha Rao" };
 
@@ -25,5 +25,17 @@ describe("buildDeclaration", () => {
 
   it("stamps the signing time", () => {
     expect(new Date(buildDeclaration(base, false).signedAt).getTime()).not.toBeNaN();
+  });
+
+  it("sends the date a healer chose", () => {
+    expect(buildDeclaration({ ...base, declarationDate: "2026-08-15" }, true).signedAt).toBe("2026-08-15");
+  });
+
+  it("ignores a date on a patient's own registration: they sign today", () => {
+    expect(buildDeclaration({ ...base, declarationDate: "2026-08-15" }, false).signedAt).not.toBe("2026-08-15");
+  });
+
+  it("gives today's own calendar date, padded", () => {
+    expect(todayAsDate(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
   });
 });

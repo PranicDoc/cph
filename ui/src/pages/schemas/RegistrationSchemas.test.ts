@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { consentDeclarationSchema } from "./RegistrationSchemas";
+import { consentDeclarationSchema, patientEditSchema, patientMedicalHistorySchema } from "./RegistrationSchemas";
 
 const fieldsOf = (schema: ReturnType<typeof consentDeclarationSchema>) => schema.flatMap((g) => g.fields);
 
@@ -27,5 +27,36 @@ describe("consentDeclarationSchema", () => {
 
   it("defaults to the patient's own flow", () => {
     expect(fieldsOf(consentDeclarationSchema("Asha Rao")).some((f) => f.name === "healerConsentAttestation")).toBe(false);
+  });
+
+  it("asks a healer for the declaration date, but not a patient registering themselves", () => {
+    const date = fieldsOf(consentDeclarationSchema("Asha Rao", { onBehalf: true })).find((f) => f.name === "declarationDate");
+    expect(date?.type).toBe("date");
+    expect(date?.required).toBe(true);
+
+    expect(fieldsOf(consentDeclarationSchema("Asha Rao", { onBehalf: false })).some((f) => f.name === "declarationDate")).toBe(false);
+  });
+});
+
+describe("patientEditSchema", () => {
+  it("puts the declaration date straight after the exercise fields, and only here", () => {
+    const names = patientEditSchema({ required: true, readOnly: false }).flatMap((g) => g.fields).map((f) => f.name);
+
+    expect(names.slice(names.indexOf("exercise"), names.indexOf("exercise") + 3)).toEqual([
+      "exercise",
+      "exerciseFrequency",
+      "declarationDate",
+    ]);
+    expect(patientMedicalHistorySchema.flatMap((g) => g.fields).some((f) => f.name === "declarationDate")).toBe(false);
+  });
+
+  it("marks the field read-only while the case is locked", () => {
+    const date = patientEditSchema({ required: false, readOnly: true })
+      .flatMap((g) => g.fields)
+      .find((f) => f.name === "declarationDate");
+
+    expect(date?.readOnly).toBe(true);
+    expect(date?.required).toBe(false);
+    expect(date?.label).toMatch(/read-only/);
   });
 });

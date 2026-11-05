@@ -15,7 +15,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
 import { Button } from "@/components/ui/button";
 import { serializeExercise } from "../lib/exercise";
-import { buildDeclaration } from "../lib/declaration";
+import { buildDeclaration, todayAsDate } from "../lib/declaration";
 import { useUiVersion } from "../ui-version";
 
 export default function Registration() {
@@ -158,6 +158,7 @@ export default function Registration() {
       consent3: false,
       healerConsentAttestation: false,
       patientSignature: "",
+      declarationDate: todayAsDate(),
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);

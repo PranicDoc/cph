@@ -28,6 +28,7 @@ public abstract class CphCaseMapper {
     @Mapping(target = "caseClosure", source = "closure")
     @Mapping(target = "sessions",    qualifiedByName = "toSortedSessions")
     @Mapping(target = "healerProtocolUnderstanding", expression = "java(caseProtocolUnderstanding(c))")
+    @Mapping(target = "declarationDate", expression = "java(declarationDate(c))")
     public abstract com.pranicdoc.common.dto.CaseSnapshot toCaseSnapshot(HealingCase c);
 
     @Mapping(target = "patientMedicalHistory", source = "medicalHistory")
@@ -84,6 +85,11 @@ public abstract class CphCaseMapper {
                 .filter(Objects::nonNull)
                 .max(LocalDate::compareTo)
                 .orElse(closure.getLastFeedbackDate());
+    }
+
+    /** The date the declaration was signed; null for a case with no declaration or no stored date. */
+    protected LocalDate declarationDate(HealingCase c) {
+        return c.getDeclaration() == null ? null : DeclarationDates.toDate(c.getDeclaration().getSignedAt());
     }
 
     // ── Sorted sessions with HPU enrichment ──────────────────────────────────

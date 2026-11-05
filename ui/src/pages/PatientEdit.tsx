@@ -7,7 +7,7 @@ import { extractDetail } from "../lib/utils";
 import { buildMedicalHistoryUpdate } from "../lib/patientUpdate";
 import { parseExercise } from "../lib/exercise";
 import { DynamicFormEngine } from "../components/DynamicFormEngine";
-import { patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
+import { patientEditSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
 
@@ -45,10 +45,26 @@ export type MedicalHistoryDetails = {
   additionalNotes: string | null;
 };
 
-function PatientEditForm({ patient, history }: { patient: PatientDetails; history: MedicalHistoryDetails | null }) {
+/** The declaration date of the patient's latest case (GET /api/v1/patients/{id}/declaration-date). */
+export type DeclarationDateDetails = {
+  declarationDate: string | null;
+  exists: boolean;
+  editable: boolean;
+};
+
+function PatientEditForm({
+  patient,
+  history,
+  declaration,
+}: {
+  patient: PatientDetails;
+  history: MedicalHistoryDetails | null;
+  declaration: DeclarationDateDetails | null;
+}) {
   const { isNewView } = useUiVersion();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const savedDate = declaration?.declarationDate ?? "";
 
   const form = useForm({
     defaultValues: {
@@ -64,10 +80,17 @@ function PatientEditForm({ patient, history }: { patient: PatientDetails; histor
       cancerLocation: history?.cancerLocation ?? null,
       cancerDetails: history?.cancerDetails ?? null,
       additionalNotes: history?.additionalNotes ?? null,
+      declarationDate: savedDate,
     },
     onSubmit: async ({ value }) => {
       try {
         await api.put(`/api/v1/patients/${patient.id}/medical-history`, buildMedicalHistoryUpdate(value));
+        if (declaration?.editable && value.declarationDate && value.declarationDate !== savedDate) {
+          await api.put(`/api/v1/patients/${patient.id}/declaration-date`, {
+            declarationDate: value.declarationDate,
+          });
+          await queryClient.invalidateQueries({ queryKey: ["patient-declaration-date", patient.id] });
+        }
         await queryClient.invalidateQueries({ queryKey: ["patients"] });
         await queryClient.invalidateQueries({ queryKey: ["patient", patient.id] });
         await queryClient.invalidateQueries({ queryKey: ["patient-history", patient.id] });
@@ -90,7 +113,14 @@ function PatientEditForm({ patient, history }: { patient: PatientDetails; histor
     >
       <section className="space-y-4">
         <h2 className="text-base font-semibold text-text">Medical history</h2>
-        <DynamicFormEngine form={form} schema={patientMedicalHistorySchema} />
+        <DynamicFormEngine
+          form={form}
+          schema={
+            declaration?.exists
+              ? patientEditSchema({ required: declaration.editable && !!savedDate, readOnly: !declaration.editable })
+              : patientMedicalHistorySchema
+          }
+        />
       </section>
 
       <div className={`flex justify-end gap-4 pt-6 border-t border-border mt-8${isNewView ? " hl-actions" : ""}`}>
@@ -136,6 +166,14 @@ export default function PatientEdit() {
     enabled: !!id,
     retry: false,
   });
+  // If this can't be read the date field is simply left off, so the medical history can still be edited.
+  const { data: declaration, isLoading: declarationLoading } = useQuery<DeclarationDateDetails>({
+    queryKey: ["patient-declaration-date", id],
+    queryFn: () => api.get(`/api/v1/patients/${id}/declaration-date`).then((r) => r.data),
+    enabled: !!id,
+    retry: false,
+  });
+  const detailsLoading = historyLoading || declarationLoading;
 
   return (
     <div className={isNewView ? "hlx" : "space-y-6"}>
@@ -143,10 +181,15 @@ export default function PatientEdit() {
         <h1 className="text-xl md:text-2xl font-bold text-text">Edit medical history</h1>
       </div>
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6">
-        {(isLoading || (!!patient && historyLoading)) && <p className="text-text-light">Loading patient…</p>}
+        {(isLoading || (!!patient && detailsLoading)) && <p className="text-text-light">Loading patient…</p>}
         {isError && <p className="text-red-500">Could not load this patient.</p>}
-        {patient && !historyLoading && (
-          <PatientEditForm key={patient.id} patient={patient} history={history ?? null} />
+        {patient && !detailsLoading && (
+          <PatientEditForm
+            key={patient.id}
+            patient={patient}
+            history={history ?? null}
+            declaration={declaration ?? null}
+          />
         )}
       </div>
     </div>
