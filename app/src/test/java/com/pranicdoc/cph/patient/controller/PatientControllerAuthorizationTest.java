@@ -59,7 +59,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Request-level authorization suite for {@link PatientController} — the SC3 / SC4 half of
  * plan 42-08 (the reflection/contract half is {@code PatientControllerAuthorizationContractTest},
- * plan 42-02). Plan 42-02 proves the 9 {@code @PreAuthorize} annotations are present and
+ * plan 42-02). Plan 42-02 proves the 8 {@code @PreAuthorize} annotations are present and
  * well-formed; it cannot prove the Spring Security filter chain <em>evaluates</em> them. This
  * class is that request-time proof: a {@code standaloneSetup} MockMvc or a mis-assembled
  * slice would report a green suite while {@code @PreAuthorize} is inert (40-RESEARCH Pitfall 2).
@@ -149,7 +149,6 @@ class PatientControllerAuthorizationTest {
                     + "\"declaration\":{\"patientConsent\":true,\"healerDeclaration\":true,"
                     + "\"patientSignature\":\"Test Patient\",\"healerSignature\":\"Test Healer\","
                     + "\"signedAt\":\"2026-01-01T00:00:00Z\"}}";
-    private static final String UPDATE_JSON = "{\"firstName\":\"Updated\"}";
     private static final String MED_HISTORY_JSON = "{\"generalHealth\":\"Good\"}";
 
     private static final PatientResponse PATIENT_RESPONSE = new PatientResponse(
@@ -189,7 +188,6 @@ class PatientControllerAuthorizationTest {
         when(patientService.getAllPatients(any(), any(), any(), any())).thenReturn(List.of());
         when(patientService.getById(any())).thenReturn(PATIENT_RESPONSE);
         when(patientService.search(any(), any())).thenReturn(PAGE_RESPONSE);
-        when(patientService.update(any(), any())).thenReturn(PATIENT_RESPONSE);
         when(patientService.updateMedicalHistory(any(), any())).thenReturn(MED_HISTORY_RESPONSE);
         when(patientService.getMedicalHistory(any())).thenReturn(MED_HISTORY_RESPONSE);
         when(patientService.generateLink())
@@ -213,7 +211,7 @@ class PatientControllerAuthorizationTest {
     }
 
     /**
-     * Exactly the 9 gated PatientController methods, one schema-valid request each, per the
+     * Exactly the 8 gated PatientController methods, one schema-valid request each, per the
      * plan's {@code <interfaces>} table. Consumed by all three trio sweeps so coverage cannot
      * drift between the SUPADM, granted, and ungranted cases.
      */
@@ -231,9 +229,6 @@ class PatientControllerAuthorizationTest {
                         get(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("search", Operation.READ,
                         get(BASE + "/search").param("query", "smith").cookie(accessCookie())),
-                spec("update", Operation.UPDATE,
-                        put(BASE + "/" + ROW_ID).contentType(MediaType.APPLICATION_JSON)
-                                .content(UPDATE_JSON).cookie(accessCookie())),
                 spec("delete", Operation.DELETE,
                         delete(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("updateMedicalHistory", Operation.UPDATE,
@@ -251,19 +246,19 @@ class PatientControllerAuthorizationTest {
     @Test
     void gatedEndpointsSourceSuppliesExactlyThe9GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 9 gated PatientController methods")
-                .isEqualTo(9L);
+                .as("the trio @MethodSource must supply exactly the 8 gated PatientController methods")
+                .isEqualTo(8L);
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
                 .toList())
                 .as("a shrunken @MethodSource must redden the build, not quietly reduce coverage")
                 .containsExactlyInAnyOrder(
                         "create", "register", "getAllPatients", "getById", "search",
-                        "update", "delete", "updateMedicalHistory", "getMedicalHistory");
+                        "delete", "updateMedicalHistory", "getMedicalHistory");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  (a) SUPADM sweep — all 9 gated endpoints, zero grant lookups
+    //  (a) SUPADM sweep — all 8 gated endpoints, zero grant lookups
     // ═══════════════════════════════════════════════════════════════════════
 
     @ParameterizedTest(name = "SUPADM reaches {0} without a grant lookup")
@@ -339,8 +334,9 @@ class PatientControllerAuthorizationTest {
                 .andExpect(status().isForbidden());
         verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(Operation.DELETE));
 
-        mockMvc.perform(put(BASE + "/" + ROW_ID).contentType(MediaType.APPLICATION_JSON)
-                        .content(UPDATE_JSON).cookie(accessCookie()))
+        mockMvc.perform(put(BASE + "/" + ROW_ID + "/medical-history")
+                        .contentType(MediaType.APPLICATION_JSON).content(MED_HISTORY_JSON)
+                        .cookie(accessCookie()))
                 .andExpect(status().isForbidden());
         verify(lookupService).hasPermission(any(), eq(Resource.PATIENT), eq(Operation.UPDATE));
     }

@@ -150,37 +150,6 @@ public class PatientService {
         return PageResponse.from(page);
     }
 
-    @Auditable(action = "UPDATE_PATIENT")
-    public PatientResponse update(UUID id, PatientUpdateRequest request) {
-        Patient patient = findOwnedOrThrow(id);
-        // Required fields cannot be blanked; optional ones can be cleared with an empty value.
-        if (request.firstName() != null) patient.setFirstName(requireText(request.firstName(), "First name"));
-        if (request.lastName() != null) patient.setLastName(requireText(request.lastName(), "Last name"));
-        if (request.dob() != null) patient.setDob(request.dob());
-        if (request.gender() != null) patient.setGender(request.gender());
-        if (request.maritalStatus() != null) patient.setMaritalStatus(request.maritalStatus());
-        if (request.email() != null) patient.setEmail(blankToNull(request.email()));
-        if (request.contactWhatsapp() != null) {
-            patient.changeContact(requireText(request.contactWhatsapp(), "Contact"));
-        }
-        if (request.occupation() != null) patient.setOccupation(blankToNull(request.occupation()));
-        if (request.addressLine1() != null) patient.setAddressLine1(blankToNull(request.addressLine1()));
-        if (request.addressLine2() != null) patient.setAddressLine2(blankToNull(request.addressLine2()));
-        if (request.city() != null) patient.setCity(blankToNull(request.city()));
-        if (request.state() != null) patient.setState(blankToNull(request.state()));
-        if (request.zip() != null) patient.setZip(blankToNull(request.zip()));
-        return toResponse(patientRepository.save(patient));
-    }
-
-    private static String requireText(String value, String label) {
-        if (value.isBlank()) throw new IllegalArgumentException(label + " cannot be empty");
-        return value.strip();
-    }
-
-    private static String blankToNull(String value) {
-        return value.isBlank() ? null : value.strip();
-    }
-
     @Auditable(action = "DELETE_PATIENT")
     public void softDelete(UUID id) {
         findOwnedOrThrow(id);

@@ -66,13 +66,6 @@ public class PatientController {
         return ResponseEntity.ok(patientService.search(query, pageable));
     }
 
-    @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','UPDATE')")
-    @PutMapping("/{id}")
-    public ResponseEntity<PatientResponse> update(@PathVariable UUID id,
-                                                  @Valid @RequestBody PatientUpdateRequest request) {
-        return ResponseEntity.ok(patientService.update(id, request));
-    }
-
     @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','DELETE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
