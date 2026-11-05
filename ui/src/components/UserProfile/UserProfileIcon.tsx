@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfileIconProps } from "./types/user-profile";
-import { CreditCard, LogOut, MessageSquare, Settings, ShieldCheck, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { CreditCard, LogOut, MessageSquare, Settings, ShieldCheck } from "lucide-react";
 import { useUiVersion, type ThemeChoice } from "../../ui-version";
 import { UpgradePlanDialog } from "../UpgradePlanDialog";
 import { useMyPermissions } from "../../hooks/useMyPermissions";
@@ -42,20 +41,11 @@ export function UserProfileIcon({
 }: UserProfileIconProps) {
   const { user, logout } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { isNewView, canSwitch, setUiVersion, theme, setTheme } = useUiVersion();
+  const { isNewView, theme, setTheme } = useUiVersion();
   const { data: permissions } = useMyPermissions();
   const { pathname } = useLocation();
   // Anyone whose roles open at least one admin screen gets a way in (no longer tied to the ADMIN role).
   const adminPath = pathname.startsWith("/admin") ? null : firstAdminPath(permissions, adminNavItems);
-
-  const switchView = () => {
-    if (isNewView) {
-      void setUiVersion("classic");
-    } else {
-      void setUiVersion("new");
-      toast.success("New view is on. You can switch back anytime from your profile menu.");
-    }
-  };
 
   if (!user) return null;
 
@@ -121,18 +111,7 @@ export function UserProfileIcon({
                 Settings
               </DropdownMenuItem>
             )}
-            {canSwitch && (
-              <DropdownMenuItem onSelect={switchView}>
-                <Sparkles className="w-4 h-4 text-gray-400" />
-                <span className="flex-1">
-                  {isNewView ? "Switch to classic view" : "Try the new view"}
-                </span>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                  {isNewView ? "Beta" : "New"}
-                </span>
-              </DropdownMenuItem>
-            )}
-            {canSwitch && isNewView && (
+            {isNewView && (
               <DropdownMenuItem asChild>
                 <a href={FEEDBACK_HREF}>
                   <MessageSquare className="w-4 h-4 text-gray-400" />
@@ -148,7 +127,7 @@ export function UserProfileIcon({
               Logout
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          {canSwitch && isNewView && (
+          {isNewView && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">

@@ -323,6 +323,31 @@ html[data-ui="new"] [data-slot="textarea"]::placeholder { color: var(--color-tex
 html[data-ui="new"] [data-slot="button"] { border-radius: 0.75rem; }
 html[data-ui="new"] [data-slot="badge"] { border-radius: 999px; }
 
+/* Date fields and calendars: fixed theme colours, never the page's inherited text or the library's blue. */
+html[data-ui="new"] input[type="date"],
+html[data-ui="new"] .hl-date-field {
+  background: var(--hl-field);
+  border-color: var(--hl-hair-strong);
+  border-width: 1px;
+  border-radius: 0.75rem;
+  color: var(--color-text);
+}
+html[data-ui="new"] .hl-date-field input { color: var(--color-text); }
+html[data-ui="new"] .hl-date-field input::placeholder { color: var(--color-text-light); opacity: 0.8; }
+html[data-ui="new"] .rdp-root {
+  --rdp-accent-color: var(--hl-accent-text);
+  --rdp-accent-background-color: var(--hl-primary-soft);
+  color: var(--color-popover-foreground);
+}
+html[data-ui="new"] .rdp-dropdown option { background: var(--color-popover); color: var(--color-popover-foreground); }
+html[data-ui="new"] .bg-card:has(> .rdp-root),
+html[data-ui="new"][data-theme] .hl-canvas .hlx .bg-card:has(> .rdp-root) {
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* Tables: header row tinted, hairline rows, hover tint. */
 html[data-ui="new"] [data-slot="table-head"] { color: var(--color-text-light); font-size: 12.5px; font-weight: 600; }
 html[data-ui="new"] [data-slot="table-header"] tr { background: var(--hl-primary-soft); }

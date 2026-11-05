@@ -3,16 +3,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
-const { mockUseAuth, mockUseUiVersion, mockToastSuccess, mockUseMyPermissions } = vi.hoisted(() => ({
+const { mockUseAuth, mockUseUiVersion, mockUseMyPermissions } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockUseUiVersion: vi.fn(),
-  mockToastSuccess: vi.fn(),
   mockUseMyPermissions: vi.fn(),
 }));
 
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => mockUseAuth() }));
 vi.mock("../../ui-version", () => ({ useUiVersion: () => mockUseUiVersion() }));
-vi.mock("sonner", () => ({ toast: { success: mockToastSuccess, error: vi.fn() } }));
 vi.mock("../PlanPicker", () => ({ PlanPicker: () => <div>plan picker</div> }));
 vi.mock("../../hooks/useMyPermissions", () => ({ useMyPermissions: () => mockUseMyPermissions() }));
 
@@ -21,15 +19,12 @@ import { UserProfileIcon } from "./UserProfileIcon";
 // The first Radix menu render is slow when the whole suite runs in parallel.
 vi.setConfig({ testTimeout: 20000 });
 
-const setUiVersion = vi.fn();
 const setTheme = vi.fn();
 
 function view(overrides: Record<string, unknown> = {}) {
   mockUseUiVersion.mockReturnValue({
     uiVersion: "classic",
     isNewView: false,
-    canSwitch: true,
-    setUiVersion,
     theme: "dark",
     resolvedTheme: "dark",
     setTheme,
@@ -48,7 +43,7 @@ async function openMenu(path = "/") {
   return user;
 }
 
-describe("UserProfileIcon, view switch", () => {
+describe("UserProfileIcon, view items", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
@@ -58,27 +53,19 @@ describe("UserProfileIcon, view switch", () => {
     mockUseMyPermissions.mockReturnValue({ data: { grants: {} } });
   });
 
-  it("offers 'Try the new view' in the classic view and switches when chosen", async () => {
-    view();
-    const user = await openMenu();
-    await user.click(await screen.findByRole("menuitem", { name: /try the new view/i }));
-    expect(setUiVersion).toHaveBeenCalledWith("new");
-    expect(mockToastSuccess).toHaveBeenCalled();
+  it("offers no way to switch views", async () => {
+    view({ uiVersion: "new", isNewView: true });
+    await openMenu();
+    await screen.findByRole("menuitem", { name: /upgrade plan/i });
+    expect(screen.queryByRole("menuitem", { name: /classic view|new view/i })).not.toBeInTheDocument();
   });
 
-  it("does not show theme or feedback items in the classic view", async () => {
+  it("hides theme and feedback items when the kill switch brings back classic", async () => {
     view();
     await openMenu();
-    await screen.findByRole("menuitem", { name: /try the new view/i });
+    await screen.findByRole("menuitem", { name: /upgrade plan/i });
     expect(screen.queryByText(/share feedback/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitemradio")).not.toBeInTheDocument();
-  });
-
-  it("offers 'Switch to classic view' in the new view and switches back when chosen", async () => {
-    view({ uiVersion: "new", isNewView: true });
-    const user = await openMenu();
-    await user.click(await screen.findByRole("menuitem", { name: /switch to classic view/i }));
-    expect(setUiVersion).toHaveBeenCalledWith("classic");
   });
 
   it("links feedback to the HealingARK mailbox in the new view", async () => {
@@ -96,8 +83,6 @@ describe("UserProfileIcon, view switch", () => {
     expect(setTheme).toHaveBeenCalledWith("light");
   });
 
-  it("hides every view item when the new view is switched off for this build", async () => {
-    view({ canSwitch: false });
     await openMenu();
     await screen.findByRole("menuitem", { name: /upgrade plan/i });
     expect(screen.queryByRole("menuitem", { name: /new view/i })).not.toBeInTheDocument();

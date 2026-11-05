@@ -1,35 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   THEME_KEY,
-  UI_VERSION_KEY,
   applyToDocument,
-  fromServerValue,
   newViewEnabled,
   readTheme,
-  readUiVersion,
   resolveTheme,
-  toServerValue,
   writeTheme,
-  writeUiVersion,
 } from "./storage";
 
 describe("ui version storage", () => {
   beforeEach(() => localStorage.clear());
-
-  it("defaults to the classic view when nothing is stored", () => {
-    expect(readUiVersion()).toBe("classic");
-  });
-
-  it("ignores a stored value it does not recognise", () => {
-    localStorage.setItem(UI_VERSION_KEY, "future");
-    expect(readUiVersion()).toBe("classic");
-  });
-
-  it("round-trips the chosen view", () => {
-    writeUiVersion("new");
-    expect(localStorage.getItem(UI_VERSION_KEY)).toBe("new");
-    expect(readUiVersion()).toBe("new");
-  });
 
   it("defaults the theme to dark and ignores unknown values", () => {
     expect(readTheme()).toBe("dark");
@@ -64,20 +44,6 @@ describe("resolveTheme", () => {
   });
 });
 
-describe("server value mapping", () => {
-  it("maps the API enum to the client value and back", () => {
-    expect(fromServerValue("NEW")).toBe("new");
-    expect(fromServerValue("CLASSIC")).toBe("classic");
-    expect(toServerValue("new")).toBe("NEW");
-    expect(toServerValue("classic")).toBe("CLASSIC");
-  });
-
-  it("returns undefined for a missing or unknown server value", () => {
-    expect(fromServerValue(undefined)).toBeUndefined();
-    expect(fromServerValue("FUTURE")).toBeUndefined();
-  });
-});
-
 describe("applyToDocument", () => {
   it("sets data-ui and data-theme for the new view", () => {
     const el = document.createElement("html");
@@ -98,22 +64,13 @@ describe("applyToDocument", () => {
 describe("newViewEnabled", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("is on in development", () => {
-    vi.stubEnv("DEV", true);
-    vi.stubEnv("VITE_NEW_VIEW", "");
-    expect(newViewEnabled()).toBe(true);
-  });
-
-  it("is off in a production build unless VITE_NEW_VIEW is 'on'", () => {
+  it("is on in a production build with no flag set", () => {
     vi.stubEnv("DEV", false);
     vi.stubEnv("VITE_NEW_VIEW", "");
-    expect(newViewEnabled()).toBe(false);
-    vi.stubEnv("VITE_NEW_VIEW", "on");
     expect(newViewEnabled()).toBe(true);
   });
 
-  it("can be switched off explicitly, even in development", () => {
-    vi.stubEnv("DEV", true);
+  it("is off only when the kill switch is set", () => {
     vi.stubEnv("VITE_NEW_VIEW", "off");
     expect(newViewEnabled()).toBe(false);
   });

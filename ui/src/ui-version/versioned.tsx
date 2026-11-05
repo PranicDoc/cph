@@ -3,8 +3,8 @@ import { useUiVersion } from "./UiVersionContext";
 
 /**
  * Picks the classic or the redesigned version of a page. Both take the same props and use the
- * same routes, hooks and API calls; only the markup differs. The new page is loaded lazily, so
- * people on the classic view never download it. A page with no new version simply isn't wrapped.
+ * same routes, hooks and API calls; only the markup differs. Classic only shows when the kill
+ * switch is on. A page with no new version simply isn't wrapped.
  */
 export function versioned<P extends object>(
   Classic: ComponentType<P>,
