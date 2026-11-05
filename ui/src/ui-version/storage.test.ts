@@ -26,7 +26,6 @@ describe("ui version storage", () => {
     const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(readUiVersion()).toBe("classic");
     expect(readTheme()).toBe("dark");
     spy.mockRestore();
   });

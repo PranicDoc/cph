@@ -82,11 +82,6 @@ describe("UserProfileIcon, view items", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
     expect(setTheme).toHaveBeenCalledWith("light");
   });
-
-    await openMenu();
-    await screen.findByRole("menuitem", { name: /upgrade plan/i });
-    expect(screen.queryByRole("menuitem", { name: /new view/i })).not.toBeInTheDocument();
-  });
 });
 
 describe("UserProfileIcon, admin entry", () => {
