@@ -73,25 +73,23 @@ describe("PatientEdit page", () => {
     view.isNewView = false;
   });
 
-  it("loads the patient, shows their details, and saves the changes back to the patient", async () => {
+  it("shows only the medical history, not the patient's personal details, and saves just the history", async () => {
     mPut.mockResolvedValue({ data: {} });
     const user = userEvent.setup();
     renderPage();
 
-    const first = await screen.findByDisplayValue("Asha");
+    expect(await screen.findByDisplayValue("Knee pain")).toBeInTheDocument();
     expect(mGet).toHaveBeenCalledWith("/api/v1/patients/p-1");
-    expect(screen.getByDisplayValue("Pune")).toBeInTheDocument();
+    // personal details are not shown or editable here
+    expect(screen.queryByDisplayValue("Asha")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Pune")).not.toBeInTheDocument();
+    expect(screen.queryByText("Personal details")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Asha Rao/)).not.toBeInTheDocument();
 
-    await user.clear(first);
-    await user.type(first, "Ashwini");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(2));
-    expect(mPut).toHaveBeenCalledWith(
-      "/api/v1/patients/p-1",
-      expect.objectContaining({ firstName: "Ashwini", lastName: "Rao", contactWhatsapp: "+911111111111", city: "Pune" })
-    );
-    // the medical history screen is saved with it, exercise stored as one string
+    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(1));
+    // exercise stored as one string; the patient record itself is never written
     expect(mPut).toHaveBeenCalledWith(
       "/api/v1/patients/p-1/medical-history",
       expect.objectContaining({
@@ -105,19 +103,20 @@ describe("PatientEdit page", () => {
         additionalNotes: "Knee pain",
       })
     );
+    expect(mPut).not.toHaveBeenCalledWith("/api/v1/patients/p-1", expect.anything());
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
     expect(await screen.findByText("patients-page")).toBeInTheDocument();
   });
 
   it("stays on the page and shows the server's reason when the save is refused", async () => {
-    mPut.mockRejectedValue({ response: { data: { detail: "Contact cannot be empty" } } });
+    mPut.mockRejectedValue({ response: { data: { detail: "Medical history is invalid" } } });
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByDisplayValue("Asha");
+    await screen.findByDisplayValue("Knee pain");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Contact cannot be empty", expect.anything()));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Medical history is invalid", expect.anything()));
     expect(screen.queryByText("patients-page")).not.toBeInTheDocument();
   });
 
@@ -125,7 +124,7 @@ describe("PatientEdit page", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByDisplayValue("Asha");
+    await screen.findByDisplayValue("Knee pain");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(await screen.findByText("patients-page")).toBeInTheDocument();
@@ -135,7 +134,7 @@ describe("PatientEdit page", () => {
   it("shows the medical history section pre-filled, and no declaration", async () => {
     renderPage();
 
-    await screen.findByDisplayValue("Asha");
+    await screen.findByDisplayValue("Knee pain");
     expect(screen.getByText("Medical history")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Knee pain")).toBeInTheDocument();
     expect(screen.queryByText(/declaration/i)).not.toBeInTheDocument();
@@ -144,7 +143,7 @@ describe("PatientEdit page", () => {
   it("a patient with no saved history gets a blank medical history section", async () => {
     renderPage("none");
 
-    await screen.findByDisplayValue("Asha");
+    await screen.findByText("Medical history");
     expect(screen.getByText("Medical history")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Knee pain")).not.toBeInTheDocument();
   });

@@ -39,9 +39,9 @@ import static org.assertj.core.api.Assertions.fail;
  * (plan 42-08).
  *
  * <ul>
- *   <li><b>Section A</b> — 9 independent literal pins, one per gated method.</li>
+ *   <li><b>Section A</b> — 8 independent literal pins, one per gated method.</li>
  *   <li><b>Section B</b> — anti-vacuous over-reach guard: inspected == 11,
- *       gated == 9, ungated == {generateLink, selfRegister}.</li>
+ *       gated == 8, ungated == {generateLink, selfRegister}.</li>
  *   <li><b>Section C</b> — every named (resource, verb) pair resolves through the
  *       {@link Resource}/{@link Operation} allow-list; PATIENT:SHARE is proven not.</li>
  * </ul>
@@ -55,14 +55,13 @@ class PatientControllerAuthorizationContractTest {
     private static final String PATIENT_UPDATE = "@rbacAuthz.hasPermission('PATIENT','UPDATE')";
     private static final String PATIENT_DELETE = "@rbacAuthz.hasPermission('PATIENT','DELETE')";
 
-    /** methodName -> expected @PreAuthorize literal. All 9 gated endpoints. */
+    /** methodName -> expected @PreAuthorize literal. All 8 gated endpoints. */
     private static final List<String[]> EXPECTED_GATES = List.of(
             new String[]{"create",               PATIENT_CREATE},
             new String[]{"register",              PATIENT_CREATE},
             new String[]{"getAllPatients",        PATIENT_READ},
             new String[]{"getById",               PATIENT_READ},
             new String[]{"search",                PATIENT_READ},
-            new String[]{"update",                PATIENT_UPDATE},
             new String[]{"delete",                PATIENT_DELETE},
             new String[]{"updateMedicalHistory",  PATIENT_UPDATE},
             new String[]{"getMedicalHistory",     PATIENT_READ});
@@ -112,7 +111,7 @@ class PatientControllerAuthorizationContractTest {
                 .isEqualTo(expected);
     }
 
-    // ─── Section A — 9 independent literal pins ───────────────────────────
+    // ─── Section A — 8 independent literal pins ───────────────────────────
 
     @Test @DisplayName("create is gated PATIENT:CREATE")
     void create_isGatedByPatientCreate() { assertGate("create", PATIENT_CREATE); }
@@ -128,9 +127,6 @@ class PatientControllerAuthorizationContractTest {
 
     @Test @DisplayName("search is gated PATIENT:READ")
     void search_isGatedByPatientRead() { assertGate("search", PATIENT_READ); }
-
-    @Test @DisplayName("update is gated PATIENT:UPDATE")
-    void update_isGatedByPatientUpdate() { assertGate("update", PATIENT_UPDATE); }
 
     @Test @DisplayName("delete is gated PATIENT:DELETE")
     void delete_isGatedByPatientDelete() { assertGate("delete", PATIENT_DELETE); }
@@ -178,14 +174,14 @@ class PatientControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 13 declared PatientController request-mapped methods — "
+                .as("the sweep must inspect exactly the 12 declared PatientController request-mapped methods — "
                         + "a method added or removed here changes the highest-PII surface in the phase and must "
                         + "redden the build rather than silently pass")
-                .isEqualTo(13);
+                .isEqualTo(12);
         assertThat(gated)
-                .as("exactly 11 of the 13 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
+                .as("exactly 10 of the 12 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
                         + "a dropped gate restores the implicit any-authenticated-healer path over patient PII")
-                .isEqualTo(11);
+                .isEqualTo(10);
 
         TreeSet<String> ungatedSet = new TreeSet<>(ungated);
         assertThat(ungatedSet)
@@ -211,8 +207,8 @@ class PatientControllerAuthorizationContractTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 9 PatientController gates, never an empty list")
-                .hasSize(9);
+                .as("the allow-list check must run over all 8 PatientController gates, never an empty list")
+                .hasSize(8);
 
         for (String literal : literals) {
             Matcher matcher = BARE_GATE.matcher(literal);
@@ -235,7 +231,7 @@ class PatientControllerAuthorizationContractTest {
         assertThat(Resource.PATIENT.supports(Operation.SHARE))
                 .as("PATIENT:SHARE is NOT allow-listed — Resource.PATIENT permits only "
                         + "{READ, CREATE, UPDATE, DELETE, EXPORT}. This proves the Section-C loop can tell an "
-                        + "allow-listed pair from a rejected one, so its 9 positive assertions are not vacuous.")
+                        + "allow-listed pair from a rejected one, so its 8 positive assertions are not vacuous.")
                 .isFalse();
     }
 }
