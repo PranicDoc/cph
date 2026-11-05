@@ -340,7 +340,10 @@ html[data-ui="new"] .hlx .tabs > a { cursor: pointer; }
 html[data-ui="new"] .hlx .tabs button { height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); font: inherit; font-weight: 550; white-space: nowrap; cursor: pointer; }
 html[data-ui="new"] .hlx .tabs button.on { background: var(--primary-soft); color: var(--accent-text); font-weight: 600; }
 html[data-ui="new"][data-theme="light"] .hlx .page-head .ongr, html[data-ui="new"][data-theme="light"] .hlx .ongr { color: rgba(255,255,255,.92); }
-html[data-ui="new"][data-theme="light"] .hlx .hl-mdbody p.text-text-light:not([data-slot="table-container"] *) { color: rgba(255,255,255,.92); }
+/* Master data sits on the violet ground (see .hl-canvas:has(> .hlx)): a solid white panel keeps its text, buttons and tables readable. */
+html[data-ui="new"][data-theme="light"] .hlx .hl-mdbody { background: #fff; color: var(--text); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+html[data-ui="new"][data-theme="light"] .hl-canvas .hlx .hl-mdbody .bg-card { background: #fff; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+@media (max-width: 767px) { html[data-ui="new"][data-theme="light"] .hlx .hl-mdbody { padding: 14px; } }
 html[data-ui="new"] .hlx .hl-banner-title { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
 html[data-ui="new"] .hlx .bg-card { background: var(--glass-strong); border-color: var(--hair); border-radius: 16px; box-shadow: var(--shadow); }
 html[data-ui="new"] .hlx .bg-card [data-slot="table-container"] { background: transparent; }
