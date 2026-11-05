@@ -87,6 +87,9 @@ spring:
     throw-exception-if-no-handler-found: true
 
 logging:
+  pattern:
+    # The IDs that tie a line to its request and flow (common/tracing/RequestContext).
+    level: "%5p [req=%X{requestId:-} corr=%X{correlationId:-}]"
   level:
     # D-19's spring.jpa.properties.hibernate.generate_statistics: true (above)
     # is a permanent regression guard for SqlCountAssertionTest, not a logging

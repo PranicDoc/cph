@@ -54,6 +54,26 @@ class AuditAspectFailureTest {
     }
 
     @Test
+    void auditRowCarriesTheRequestAndCorrelationIds() throws Throwable {
+        com.pranicdoc.cph.common.tracing.RequestContext.set("request-1234", "flow-1234");
+        try {
+            when(joinPoint.getArgs()).thenReturn(new Object[0]);
+            when(joinPoint.proceed()).thenThrow(new RuntimeException("db exploded"));
+            Auditable auditable = mock(Auditable.class);
+            when(auditable.action()).thenReturn("PUBLISH_POLICY");
+
+            assertThrows(RuntimeException.class, () -> auditAspect.audit(joinPoint, auditable));
+
+            ArgumentCaptor<AuditLog> row = ArgumentCaptor.forClass(AuditLog.class);
+            org.mockito.Mockito.verify(auditLogWriter).enqueue(row.capture());
+            org.junit.jupiter.api.Assertions.assertEquals("request-1234", row.getValue().getRequestId());
+            org.junit.jupiter.api.Assertions.assertEquals("flow-1234", row.getValue().getCorrelationId());
+        } finally {
+            com.pranicdoc.cph.common.tracing.RequestContext.clear();
+        }
+    }
+
+    @Test
     void proceedThrows_originalExceptionStillPropagates() throws Throwable {
         RuntimeException boom = new RuntimeException("db exploded");
         when(joinPoint.getArgs()).thenReturn(new Object[0]);

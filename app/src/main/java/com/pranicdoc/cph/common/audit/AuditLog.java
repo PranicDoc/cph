@@ -42,6 +42,12 @@ public class AuditLog extends BaseEntity {
     @Column(name = "ip_address")
     private String ipAddress;
 
+    @Column(name = "request_id")
+    private String requestId;
+
+    @Column(name = "correlation_id")
+    private String correlationId;
+
     @Column(name = "performed_at", nullable = false)
     private Instant performedAt;
 

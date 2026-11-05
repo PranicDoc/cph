@@ -101,11 +101,9 @@ public class WhatsappWebhookController {
                 List<WhatsappWebhookPayload.StatusUpdate> statuses = value.statuses();
                 if (statuses != null) {
                     for (WhatsappWebhookPayload.StatusUpdate status : statuses) {
-                        log.info("WhatsApp delivery status — wamid: {}, status: {}, recipient: {}",
-                                status.id(), status.status(), status.recipientId());
+                        log.info("WhatsApp delivery status — wamid: {}, status: {}", status.id(), status.status());
                         if ("failed".equals(status.status())) {
-                            log.warn("WhatsApp delivery FAILED for wamid: {}, recipient: {}",
-                                    status.id(), status.recipientId());
+                            log.warn("WhatsApp delivery FAILED for wamid: {}", status.id());
                         }
                     }
                 }

@@ -43,6 +43,7 @@ public class ProtocolImportAsyncRunner {
             return;
         }
 
+        log.info("Protocol import started jobId={}", jobId);
         job.setStatus(ImportJobStatus.PROCESSING);
         job.setStartedAt(Instant.now());
         jobRepo.save(job);
@@ -55,8 +56,10 @@ public class ProtocolImportAsyncRunner {
             job.setUpdatedCount(result.updated());
             job.setSkippedCount(result.skipped());
             job.setErrorsJson(writeErrorsJson(result.errors()));
+            log.info("Protocol import finished jobId={} rows={} created={} updated={} skipped={}", jobId,
+                    result.totalRows(), result.created(), result.updated(), result.skipped());
         } catch (Exception e) {
-            log.warn("Protocol import job {} failed", jobId, e);
+            log.error("Protocol import failed jobId={}", jobId, e);
             job.setStatus(ImportJobStatus.FAILED);
             job.setFailureMessage(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
         }

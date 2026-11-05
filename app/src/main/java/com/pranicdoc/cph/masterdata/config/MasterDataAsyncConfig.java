@@ -25,6 +25,7 @@ public class MasterDataAsyncConfig {
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("protocol-import-");
+        executor.setTaskDecorator(new com.pranicdoc.cph.common.tracing.MdcTaskDecorator());
         executor.initialize();
         return executor;
     }

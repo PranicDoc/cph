@@ -17,6 +17,7 @@ public class NotificationChannelsConfig {
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(500);
         executor.setThreadNamePrefix("notify-");
+        executor.setTaskDecorator(new com.pranicdoc.cph.common.tracing.MdcTaskDecorator());
         executor.initialize();
         return executor;
     }

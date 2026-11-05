@@ -120,7 +120,6 @@ public class GlobalExceptionHandler {
                     .collect(Collectors.joining(".")).replace(".[", "[");
             detail = "Invalid value for field '" + field + "'";
         }
-        log.warn("Unreadable request body: {}", detail);
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
         pd.setTitle("Bad Request");
         pd.setType(URI.create("https://pranicdoc.com/errors/bad-request"));

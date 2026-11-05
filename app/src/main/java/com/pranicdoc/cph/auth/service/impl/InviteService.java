@@ -212,7 +212,7 @@ public class InviteService {
         } catch (DataIntegrityViolationException ex) {
             // Two concurrent first-time requests both tried to insert — the partial unique
             // index (D-09) rejected the loser. Still no enumeration signal on the response.
-            log.warn("Self-signup insert race for email {}: {}", email, ex.getMessage());
+            log.warn("Self-signup insert race: {}", ex.getClass().getSimpleName());
         }
 
         return genericResponse;
