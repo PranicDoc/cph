@@ -142,14 +142,14 @@ class HealerControllerGateSweepTest {
     private static final List<SweptController> CONTROLLERS = List.of(
             new SweptController(PatientController.class, 13, 11),
             new SweptController(SessionController.class, 6, 6),
-            new SweptController(CaseController.class, 24, 20),
+            new SweptController(CaseController.class, 25, 21),
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 51;
-    private static final int EXPECTED_TOTAL_GATED = 43;
+    private static final int EXPECTED_TOTAL_MAPPED = 52;
+    private static final int EXPECTED_TOTAL_GATED = 44;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,

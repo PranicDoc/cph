@@ -1,5 +1,6 @@
 // src/schemas/sessionSchema.ts
 import { createElement } from "react";
+import { TEXT_LIMITS } from "../../lib/textLimits";
 import { ProtocolOption } from "../../components/ProtocolOption";
 import { FormSchema } from "../../components/DynamicFormEngine";
 import type { Protocol } from "../../hooks/admin/useMasterData";
@@ -26,6 +27,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
     fields: [
       {
         name: "medicalCondition",
+        maxLength: TEXT_LIMITS.mediumBox,
         label: "Chief Complaint",
         type: "textarea",
         placeholder: "E.g. Stomachache for 4 days or Neck pain for 5 days...",
@@ -46,6 +48,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
     fields: [
       {
         name: "symptoms",
+        maxLength: TEXT_LIMITS.symptomName,
         label: "Symptoms",
         type: "tag",
         placeholder: "Type to add symptoms...",
@@ -112,6 +115,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
       },
       {
         name: "healingDetails.detailedProtocol",
+        maxLength: TEXT_LIMITS.mediumBox,
         label: "Marilltte Protocol",
         type: "textarea",
         wrapperClassName: "row-span-2",
@@ -124,6 +128,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
     fields: [
       {
         name: "complementaryDetails",
+        maxLength: TEXT_LIMITS.explain,
         label: "Complementary Modalities",
         type: "textarea",
         placeholder: "Example: Accupunture, Cupping, Osteopathy, Flower medicine...",
@@ -131,6 +136,7 @@ export function buildSessionSchema(protocols: Protocol[]): FormSchema {
       },
       {
         name: "infectiousDetails",
+        maxLength: TEXT_LIMITS.explain,
         label: "Infectious Illness",
         type: "textarea",
         placeholder: "Please mention infectious illness if any...",

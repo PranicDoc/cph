@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import { GripVertical, X } from "lucide-react";
 import { TagInput } from "../TagInput";
 import type { TreatmentStep } from "../../interfaces";
@@ -167,6 +168,7 @@ export function TreatmentStepCard({
           </Label>
           <Input
             type="text"
+            maxLength={TEXT_LIMITS.note}
             value={step.notes || ""}
             onChange={(e) => onUpdate(index, "notes", e.target.value)}
             placeholder="Optional description..."

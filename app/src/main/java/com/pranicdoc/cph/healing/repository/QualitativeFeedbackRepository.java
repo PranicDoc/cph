@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -16,10 +15,14 @@ public interface QualitativeFeedbackRepository extends JpaRepository<Qualitative
 
     boolean existsByHealingSessionIdAndFeedbackType(UUID sessionId, FeedbackType feedbackType);
 
+    /** A session's feedback of one type, newest first. Older data can hold more than one. */
+    List<QualitativeFeedback> findByHealingSessionIdAndFeedbackTypeOrderByCreatedAtDesc(
+            UUID sessionId, FeedbackType feedbackType);
+
     /**
-     * Check if a FINAL feedback already exists for any session in this case.
-     * Used to enforce the partial unique constraint (1 final per case).
+     * A case's feedback of one type on any of its sessions, newest first. Used to keep to one FINAL
+     * per case; a plain list, as older data can hold more than one and a single result would throw.
      */
-    Optional<QualitativeFeedback> findByHealingSession_HealingCase_IdAndFeedbackType(
+    List<QualitativeFeedback> findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
             UUID caseId, FeedbackType feedbackType);
 }

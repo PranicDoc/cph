@@ -314,6 +314,8 @@ class CaseControllerAuthorizationTest {
                         post(BASE + "/" + ROW_ID + "/feedback")
                                 .contentType(MediaType.APPLICATION_JSON).content(MANUAL_FEEDBACK_JSON)
                                 .cookie(accessCookie())),
+                spec("getManualFeedback", Resource.CASE, Operation.READ,
+                        get(BASE + "/" + ROW_ID + "/feedback").cookie(accessCookie())),
                 spec("delete", Resource.CASE, Operation.DELETE,
                         delete(BASE + "/" + ROW_ID).cookie(accessCookie())),
                 spec("generatePdf", Resource.PDF, Operation.CREATE,
@@ -348,8 +350,8 @@ class CaseControllerAuthorizationTest {
     @Test
     void gatedEndpointsSourceSuppliesExactlyThe19GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 19 gated CaseController methods")
-                .isEqualTo(19L);
+                .as("the trio @MethodSource must supply exactly the 20 gated CaseController methods")
+                .isEqualTo(20L);
 
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
@@ -358,7 +360,7 @@ class CaseControllerAuthorizationTest {
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
                         "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding",
-                        "getProtocolUnderstandingPrefill", "saveManualFeedback", "delete",
+                        "getProtocolUnderstandingPrefill", "saveManualFeedback", "getManualFeedback", "delete",
                         "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
                         "updateCaseDetails", "getById", "getSymptomsForFeedback");
 
@@ -366,10 +368,10 @@ class CaseControllerAuthorizationTest {
                 .map(a -> ((EndpointSpec) a.get()[0]).resource())
                 .collect(Collectors.groupingBy(r -> r, Collectors.counting()));
         assertThat(byResource)
-                .as("CaseController's 19 gates must partition CASE 15 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
+                .as("CaseController's 20 gates must partition CASE 16 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
                         + "copy-paste that duplicates a CASE endpoint instead of covering getDownloadLink fails here")
                 .containsOnly(
-                        entry(Resource.CASE, 15L),
+                        entry(Resource.CASE, 16L),
                         entry(Resource.PDF, 3L),
                         entry(Resource.FEEDBACK, 1L));
     }

@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUiVersion } from "../../ui-version";
 import { useForm } from "@tanstack/react-form";
@@ -257,14 +258,14 @@ function ColorModal({
         <Field label="Name">
           <form.Field
             name="name"
-            children={(field) => <TextField field={field} className={fieldCls} />}
+            children={(field) => <TextField field={field} maxLength={TEXT_LIMITS.shortText} className={fieldCls} />}
           />
         </Field>
         <Field label="Code (e.g. VIOLET)">
           <form.Field
             name="code"
             children={(field) => (
-              <TextField field={field} disabled={!!initial} className={fieldCls} />
+              <TextField field={field} disabled={!!initial} maxLength={TEXT_LIMITS.colorCode} className={fieldCls} />
             )}
           />
         </Field>
@@ -279,7 +280,7 @@ function ColorModal({
                   onChange={(e) => field.handleChange(e.target.value)}
                   className="w-10 h-10 rounded cursor-pointer border p-0.5"
                 />
-                <TextField field={field} placeholder="#ffffff" className={fieldCls} />
+                <TextField field={field} placeholder="#ffffff" maxLength={7} className={fieldCls} />
               </div>
             )}
           />

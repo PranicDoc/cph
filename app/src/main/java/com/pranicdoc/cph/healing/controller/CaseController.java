@@ -187,7 +187,7 @@ public class CaseController {
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','UPDATE')")
     @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CaseResponse> updateCaseDetails(
-            @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
+            @Valid @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
             @RequestPart(value = "labFindings", required = false) List<MultipartFile> labFindings) {
         return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest, labFindings));
     }
@@ -205,7 +205,7 @@ public class CaseController {
      */
     @PatchMapping(path = "/self-service", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CaseResponse> updateCaseDetailsSelfService(
-            @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
+            @Valid @RequestPart("data") CaseUpdateRequest caseUpdateRequest,
             @RequestPart(value = "labFindings", required = false) List<MultipartFile> labFindings) {
         return ResponseEntity.ok(caseService.updateCaseDetails(caseUpdateRequest, labFindings));
     }
@@ -337,5 +337,12 @@ public class CaseController {
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public void saveManualFeedback(@PathVariable UUID id, @Valid @RequestBody ManualFeedbackRequest request) {
         feedbackService.saveManualFeedback(id, request);
+    }
+
+    // What is recorded for the case, so the healer's feedback form can open it for editing.
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
+    @GetMapping("/{id}/feedback")
+    public CaseFeedbackResponse getManualFeedback(@PathVariable UUID id) {
+        return feedbackService.getManualFeedback(id);
     }
 }

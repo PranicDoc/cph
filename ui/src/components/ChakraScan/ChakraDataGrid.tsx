@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CHAKRA_CATALOG } from "./utils";
@@ -210,6 +211,7 @@ export function ChakraDataGrid({
         <Input
           type="text"
           placeholder="Notes..."
+          maxLength={TEXT_LIMITS.note}
           value={row.original.entry.notes || ""}
           onChange={(e) =>
             handleUpdate(row.original.chakra.id, "notes", e.target.value)
@@ -296,6 +298,7 @@ export function ChakraDataGrid({
               <Input
                 type="text"
                 placeholder="Add notes..."
+                maxLength={TEXT_LIMITS.note}
                 value={entry.notes || ""}
                 onChange={(e) =>
                   handleUpdate(chakra.id, "notes", e.target.value)

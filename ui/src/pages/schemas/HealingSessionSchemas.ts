@@ -1,4 +1,5 @@
 import { FormSchema } from "../../components/DynamicFormEngine";
+import { TEXT_LIMITS } from "../../lib/textLimits";
 
 export const sessionDetailsSchema: FormSchema = [
   {
@@ -35,6 +36,7 @@ export const qualitativeFeedbackSchema: FormSchema = [
       },
       {
         name: "feedbackText",
+        maxLength: TEXT_LIMITS.finalFeedback,
         label: "Feedback Text",
         type: "textarea",
         required: true,
@@ -42,6 +44,7 @@ export const qualitativeFeedbackSchema: FormSchema = [
       },
       {
         name: "patientRemarks",
+        maxLength: TEXT_LIMITS.interimFeedback,
         label: "Patient Remarks (Optional)",
         type: "textarea",
         placeholder: "Enter any remarks provided by the patient...",

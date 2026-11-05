@@ -1,4 +1,5 @@
 import { FormSchema } from "../../components/DynamicFormEngine";
+import { TEXT_LIMITS } from "../../lib/textLimits";
 import { EXERCISE_OPTIONS } from "../../lib/exercise";
 
 export const patientDemographicsSchema: FormSchema = [
@@ -7,12 +8,14 @@ export const patientDemographicsSchema: FormSchema = [
     fields: [
       {
         name: "firstName",
+        maxLength: TEXT_LIMITS.firstNameLimit,
         label: "First Name",
         required: true,
         placeholder: "Enter first name",
       },
       {
         name: "lastName",
+        maxLength: TEXT_LIMITS.firstNameLimit,
         label: "Last Name",
         required: true,
         placeholder: "Enter last name",
@@ -45,6 +48,7 @@ export const patientDemographicsSchema: FormSchema = [
       },
       {
         name: "occupation",
+        maxLength: TEXT_LIMITS.shortText,
         label: "Occupation",
         placeholder: "E.g. Software Engineer",
       },
@@ -69,11 +73,13 @@ export const patientDemographicsSchema: FormSchema = [
     fields: [
       {
         name: "addressLine1",
+        maxLength: TEXT_LIMITS.note,
         label: "Address Line 1",
         placeholder: "Street address, P.O. box",
       },
       {
         name: "addressLine2",
+        maxLength: TEXT_LIMITS.note,
         label: "Address Line 2",
         placeholder: "Apartment, suite, unit, building, floor, etc.",
       },
@@ -82,8 +88,8 @@ export const patientDemographicsSchema: FormSchema = [
   {
     fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-3 gap-6 mt-6",
     fields: [
-      { name: "city", label: "City" },
-      { name: "state", label: "State" },
+      { name: "city", label: "City", maxLength: TEXT_LIMITS.shortText },
+      { name: "state", label: "State", maxLength: TEXT_LIMITS.shortText },
       { name: "zip", label: "ZIP Code" },
     ],
   },
@@ -171,12 +177,14 @@ export const patientMedicalHistorySchema: FormSchema = [
       },
       {
         name: "cancerLocation",
+        maxLength: TEXT_LIMITS.shortText,
         label: "Cancer Location",
         placeholder: "E.g. Breast, Lung",
         condition: (values) => values.cancer,
       },
       {
         name: "cancerDetails",
+        maxLength: TEXT_LIMITS.historyBox,
         label: "Cancer Details",
         placeholder: "Stage, current treatment, etc.",
         condition: (values) => values.cancer,
@@ -188,6 +196,7 @@ export const patientMedicalHistorySchema: FormSchema = [
     fields: [
       {
         name: "additionalNotes",
+        maxLength: TEXT_LIMITS.historyBox,
         label: "Additional Notes",
         type: "textarea",
         placeholder: "Any other relevant medical history...",
@@ -252,6 +261,7 @@ export const consentDeclarationSchema = (
     fields: [
       {
         name: "patientSignature",
+        maxLength: TEXT_LIMITS.note,
         label: onBehalf ? "Patient Signature (filled in automatically)" : "Patient Signature (Type Full Name)",
         type: "text",
         required: true,

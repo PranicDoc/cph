@@ -1,3 +1,4 @@
+import { TEXT_LIMITS } from "@/lib/textLimits";
 import { X, Search } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { useUiVersion } from "../ui-version";
 
 interface TagInputProps {
+  /** Most characters one new tag may hold. */
+  maxLength?: number;
   value: any[];
   onChange: (value: any[]) => void;
   suggestions?: string[];
@@ -21,6 +24,7 @@ interface TagInputProps {
 }
 
 export function TagInput({
+  maxLength,
   value,
   onChange,
   suggestions = [],
@@ -283,6 +287,7 @@ export function TagInput({
         <Input
           ref={inputRef}
           type="text"
+          maxLength={maxLength}
           value={input}
           onChange={handleInputChange}
           onFocus={handleFocus}
@@ -303,6 +308,7 @@ export function TagInput({
               </Label>
               <Input
                 type="text"
+                maxLength={TEXT_LIMITS.note}
                 value={editingValues[key] ?? ""}
                 onChange={(e) =>
                   setEditingValues((prev) => ({ ...prev, [key]: e.target.value }))

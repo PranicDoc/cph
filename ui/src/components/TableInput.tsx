@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
+import { TEXT_LIMITS } from "@/lib/textLimits";
 
 interface EditableFieldConfig {
   label: string;
@@ -246,6 +247,7 @@ export function TableInput({
             return (
               <Input
                 type="text"
+                maxLength={TEXT_LIMITS.shortText}
                 value={rowData[col.key] ?? ""}
                 onChange={(e) => meta?.updateCell(rowIdx, col.key, e.target.value)}
                 placeholder={col.placeholder}
