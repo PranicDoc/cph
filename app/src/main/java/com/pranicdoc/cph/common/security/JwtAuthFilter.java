@@ -8,6 +8,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,6 +29,7 @@ import java.util.UUID;
  *   - accessToken  → HttpOnly cookie set on login/register/bootstrap
  *   - refreshToken → HttpOnly cookie set on login/register/bootstrap
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -116,6 +118,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         } catch (Exception ex) {
             // Token parsing failed — clear any stale auth, let Spring Security reject downstream
+            log.debug("Access token rejected: {}", ex.getClass().getSimpleName());
             SecurityContextHolder.clearContext();
         }
 

@@ -4,6 +4,7 @@ import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import com.pranicdoc.cph.common.tracing.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
@@ -65,6 +66,8 @@ public class RequestFailureAuditResolver implements HandlerExceptionResolver, Or
             auditLog.setEntityType(handlerMethod.getBeanType().getSimpleName());
             auditLog.setStatus(AuditStatus.FAILURE);
             auditLog.setPerformedAt(Instant.now());
+            auditLog.setRequestId(RequestContext.requestId());
+            auditLog.setCorrelationId(RequestContext.correlationId());
             auditLog.setIpAddress(request.getRemoteAddr());
             auditLog.setMessage(truncate(
                     ex.getClass().getSimpleName() + ": " + ex.getMessage(), MESSAGE_MAX_LENGTH));

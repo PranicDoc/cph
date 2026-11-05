@@ -29,6 +29,8 @@ public class PdfJobEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private JobStatus status;
     private String fileUrl;
+    /** The flow that asked for this PDF; pdfWorker logs under it whichever way it picks the job up. */
+    private String correlationId;
 
     public static PdfJobEntity create(String jobId, UUID healingCaseId, String healingCaseData) {
         PdfJobEntity pdfJobEntity = new PdfJobEntity();
@@ -38,6 +40,7 @@ public class PdfJobEntity extends BaseEntity {
         pdfJobEntity.setStatus(JobStatus.DRAFT);
         pdfJobEntity.setDocumentVersion(1);
         pdfJobEntity.setRetryCount(0);
+        pdfJobEntity.setCorrelationId(com.pranicdoc.cph.common.tracing.RequestContext.correlationId());
         return pdfJobEntity;
     }
 }

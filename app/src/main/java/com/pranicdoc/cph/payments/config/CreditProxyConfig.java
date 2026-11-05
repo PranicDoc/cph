@@ -25,6 +25,7 @@ public class CreditProxyConfig {
                 .baseUrl(baseUrl)
                 .defaultHeader("X-Api-Key", apiKey)
                 .defaultHeader("Content-Type", "application/json")
+                .requestInterceptor(new com.pranicdoc.cph.common.tracing.TraceHeadersInterceptor())
                 .build();
     }
 }

@@ -41,8 +41,10 @@ public class CreditGateServiceImpl implements CreditGateService {
         DeductResponse response = creditServiceClient.deduct(healerId, idempotencyKey);
         if ("INSUFFICIENT".equals(response.result())) {
             markExhausted(healerId);
+            log.warn("Credit deduction refused: none left healerId={} caseId={}", healerId, healingCaseId);
             throw new InsufficientCreditsException();
         }
+        log.info("Credit deducted healerId={} caseId={}", healerId, healingCaseId);
     }
 
     @Override
@@ -61,6 +63,8 @@ public class CreditGateServiceImpl implements CreditGateService {
             StringRedisTemplate template = redis.getIfAvailable();
             return template != null && Boolean.TRUE.equals(template.hasKey(EXHAUSTED_KEY + healerId));
         } catch (RuntimeException e) {
+            log.warn("Credit-exhausted check unavailable, asking the credit service instead healerId={} error={}",
+                    healerId, e.getClass().getSimpleName());
             return false;
         }
     }

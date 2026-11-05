@@ -49,9 +49,11 @@ public class NotificationSender {
         }
         try {
             channel.send(message);
+            log.info("{} notification sent to {}", message.channel(), message.maskedRecipient());
             return true;
         } catch (RuntimeException ex) {
-            log.warn("{} notification to {} failed: {}", message.channel(), message.maskedRecipient(), ex.getMessage());
+            // The stack trace, not just the message: the message alone rarely says what the provider refused.
+            log.error("{} notification to {} failed", message.channel(), message.maskedRecipient(), ex);
             return false;
         }
     }

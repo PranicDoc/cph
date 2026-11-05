@@ -478,6 +478,7 @@ public class CaseService {
         try {
             return objectMapper.readValue(labFindings, new TypeReference<List<String>>() {});
         } catch (Exception e) {
+            log.warn("Stored lab finding keys could not be read: {}", e.getClass().getSimpleName());
             return List.of();
         }
     }
@@ -743,8 +744,10 @@ public class CaseService {
                 // the template and pdfWorker's rendering, which can change between generations.
                 existingJob.setHealingCaseData(healingCaseData);
                 existingJob.setStatus(JobStatus.DRAFT);
+                existingJob.setCorrelationId(com.pranicdoc.cph.common.tracing.RequestContext.correlationId());
                 pdfJobRepository.save(existingJob);
                 String existingJobId = existingJob.getJobId();
+                log.info("PDF job requeued jobId={} caseId={}", existingJobId, healingCaseId);
                 publishJobMessage(existingJobId, healingCaseId);
                 return new JobAckResponse(existingJobId, JobStatus.PROCESSING);
             }
@@ -756,6 +759,7 @@ public class CaseService {
                 .replace("-", "").substring(0, 8).toUpperCase() + "-" + UUID.randomUUID();
         PdfJobEntity entity = PdfJobEntity.create(jobId, healingCaseId, healingCaseData);
         pdfJobRepository.save(entity);
+        log.info("PDF job created jobId={} caseId={}", jobId, healingCaseId);
         publishJobMessage(jobId, healingCaseId);
         return new JobAckResponse(jobId, JobStatus.PROCESSING);
     }

@@ -23,6 +23,7 @@ public class NotificationInfraConfig {
         executor.setMaxPoolSize(10);
         executor.setQueueCapacity(1000);
         executor.setThreadNamePrefix("WA-Worker-");
+        executor.setTaskDecorator(new com.pranicdoc.cph.common.tracing.MdcTaskDecorator());
         executor.initialize();
         return executor;
     }

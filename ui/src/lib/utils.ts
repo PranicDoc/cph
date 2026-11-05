@@ -164,5 +164,11 @@ export function constructHealingSessionPayload({
 }
 
 export function extractDetail(error: unknown): string | null {
-  return (error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail ?? null;
+  const response = (error as { response?: { status?: number; data?: { detail?: string; requestId?: string } } } | null)
+    ?.response;
+  // A server fault is ours to look into, so it comes with the ID to find it in the logs.
+  if (response?.data?.detail && response.data.requestId && (response.status ?? 0) >= 500) {
+    return `${response.data.detail} (Ref: ${response.data.requestId})`;
+  }
+  return response?.data?.detail ?? null;
 }

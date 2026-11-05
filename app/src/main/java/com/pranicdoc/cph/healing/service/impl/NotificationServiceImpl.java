@@ -52,6 +52,8 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             patientNumber = phoneNumberFormatter.formatToE164(patientNumber);
         } catch (IllegalArgumentException e) {
+            log.warn("Feedback notification skipped: the patient's number is invalid caseId={} isFinal={}",
+                    healingCase.getId(), isFinal);
             return;
         }
         NotificationOutbox outbox = getNotificationOutbox(session, patientNumber, isFinal);

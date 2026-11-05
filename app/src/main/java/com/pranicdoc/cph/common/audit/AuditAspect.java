@@ -2,6 +2,7 @@ package com.pranicdoc.cph.common.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.common.tracing.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +72,8 @@ public class AuditAspect {
             AuditLog auditLog = new AuditLog();
             auditLog.setAction(auditable.action());
             auditLog.setPerformedAt(Instant.now());
+            auditLog.setRequestId(RequestContext.requestId());
+            auditLog.setCorrelationId(RequestContext.correlationId());
             auditLog.setIpAddress(httpServletRequest.getRemoteAddr());
             auditLog.setEntityType(joinPoint.getTarget().getClass().getSimpleName());
             auditLog.setStatus(status);
@@ -96,6 +99,7 @@ public class AuditAspect {
                     .findFirst()
                     .orElseGet(() -> resolveEntityIdFromResult(result));
             auditLog.setEntityId(entityId);
+            logOutcome(auditable.action(), entityId, status, failure);
 
             // payload: serialize all method args as JSON, capped at 4000 chars.
             // Captured on both outcomes so a failed call's incoming request is
@@ -104,7 +108,10 @@ public class AuditAspect {
                 try {
                     String json = objectMapper.writeValueAsString(args[0]);
                     auditLog.setPayload(truncate(json, PAYLOAD_MAX_LENGTH));
-                } catch (Exception ignored) {}
+                } catch (Exception payloadFailure) {
+                    log.warn("Could not serialize the audit payload of action {}: {}", auditable.action(),
+                            payloadFailure.getClass().getSimpleName());
+                }
             }
 
             // Queued, not saved here: this thread may already hold a pooled connection, and a
@@ -112,6 +119,15 @@ public class AuditAspect {
             auditLogWriter.enqueue(auditLog);
         } catch (Exception ex) {
             log.error("Failed to write audit log for action: {}", auditable.action(), ex);
+        }
+    }
+
+    /** One line per audited action, so the logs tell the same story as the audit trail. IDs only: never the payload. */
+    private static void logOutcome(String action, UUID entityId, AuditStatus status, Throwable failure) {
+        if (status == AuditStatus.SUCCESS) {
+            log.info("{} succeeded entityId={}", action, entityId);
+        } else {
+            log.warn("{} failed entityId={} error={}", action, entityId, failure.getClass().getSimpleName());
         }
     }
 
