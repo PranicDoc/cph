@@ -103,6 +103,22 @@ public class PatientController {
         return ResponseEntity.ok(patientService.getMedicalHistory(id));
     }
 
+    // --- Declaration date ---
+
+    @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','READ')")
+    @GetMapping("/{id}/declaration-date")
+    public ResponseEntity<DeclarationDateResponse> getDeclarationDate(@PathVariable UUID id) {
+        return ResponseEntity.ok(patientService.getDeclarationDate(id));
+    }
+
+    @PreAuthorize("@rbacAuthz.hasPermission('PATIENT','UPDATE')")
+    @PutMapping("/{id}/declaration-date")
+    public ResponseEntity<DeclarationDateResponse> updateDeclarationDate(
+            @PathVariable UUID id,
+            @Valid @RequestBody DeclarationDateRequest request) {
+        return ResponseEntity.ok(patientService.updateDeclarationDate(id, request));
+    }
+
     /**
      * Deliberately UNGATED (SC4 / D-09). Emits a patient self-registration link scoped
      * server-side to the calling healer and takes no healer-scoped request input. SC4 locks it

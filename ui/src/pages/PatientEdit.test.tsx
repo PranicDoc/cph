@@ -50,14 +50,24 @@ const history = {
   additionalNotes: "Knee pain",
 };
 
-function renderPage(historyReply: "ok" | "none" = "ok") {
-  mGet.mockImplementation((url: string) =>
-    url.endsWith("/medical-history")
+type DeclarationReply = { declarationDate: string | null; exists: boolean; editable: boolean } | "fails";
+
+function renderPage(
+  historyReply: "ok" | "none" = "ok",
+  declarationReply: DeclarationReply = { declarationDate: "2026-08-15", exists: true, editable: true }
+) {
+  mGet.mockImplementation((url: string) => {
+    if (url.endsWith("/declaration-date")) {
+      return declarationReply === "fails"
+        ? Promise.reject({ response: { status: 500 } })
+        : Promise.resolve({ data: declarationReply });
+    }
+    return url.endsWith("/medical-history")
       ? historyReply === "ok"
         ? Promise.resolve({ data: history })
         : Promise.reject({ response: { status: 404 } })
-      : Promise.resolve({ data: patient })
-  );
+      : Promise.resolve({ data: patient });
+  });
   return renderWithDataRouter(
     [
       { path: "/patients/:id/edit", element: <PatientEdit /> },
@@ -131,13 +141,87 @@ describe("PatientEdit page", () => {
     expect(mPut).not.toHaveBeenCalled();
   });
 
-  it("shows the medical history section pre-filled, and no declaration", async () => {
+  it("shows the medical history section pre-filled, with the declaration date", async () => {
     renderPage();
 
     await screen.findByDisplayValue("Knee pain");
     expect(screen.getByText("Medical history")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Knee pain")).toBeInTheDocument();
-    expect(screen.queryByText(/declaration/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Declaration date/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("15/08/2026")).toBeEnabled();
+  });
+
+  it("saves a changed declaration date after the history", async () => {
+    mPut.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    const date = await screen.findByDisplayValue("15/08/2026");
+    await user.clear(date);
+    await user.type(date, "01082026");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(2));
+    expect(mPut.mock.calls[0][0]).toBe("/api/v1/patients/p-1/medical-history");
+    expect(mPut.mock.calls[0][1]).not.toHaveProperty("declarationDate");
+    expect(mPut.mock.calls[1]).toEqual(["/api/v1/patients/p-1/declaration-date", { declarationDate: "2026-08-01" }]);
+    expect(await screen.findByText("patients-page")).toBeInTheDocument();
+  });
+
+  it("a cleared date blocks the save instead of being silently ignored", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.clear(await screen.findByDisplayValue("15/08/2026"));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
+    expect(mPut).not.toHaveBeenCalled();
+  });
+
+  it("stays on the page and shows the reason when the date is refused", async () => {
+    mPut.mockImplementation((url: string) =>
+      url.endsWith("/declaration-date")
+        ? Promise.reject({ response: { data: { detail: "The declaration date cannot be in the future" } } })
+        : Promise.resolve({ data: {} })
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const date = await screen.findByDisplayValue("15/08/2026");
+    await user.clear(date);
+    await user.type(date, "01082026");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("The declaration date cannot be in the future", expect.anything())
+    );
+    expect(screen.queryByText("patients-page")).not.toBeInTheDocument();
+  });
+
+  it("a locked case shows the date read-only and never sends it", async () => {
+    mPut.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage("ok", { declarationDate: "2026-08-15", exists: true, editable: false });
+
+    expect(await screen.findByDisplayValue("15/08/2026")).toBeDisabled();
+    expect(screen.getByText(/read-only until the case is unlocked/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(mPut).toHaveBeenCalledTimes(1));
+    expect(mPut).toHaveBeenCalledWith("/api/v1/patients/p-1/medical-history", expect.anything());
+  });
+
+  it.each([
+    ["has no declaration", { declarationDate: null, exists: false, editable: false }],
+    ["can't be read", "fails"],
+  ] as [string, DeclarationReply][])("leaves the date off when it %s, and the history stays editable", async (_, reply) => {
+    renderPage("ok", reply);
+
+    await screen.findByDisplayValue("Knee pain");
+    expect(screen.queryByText(/Declaration date/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
   it("a patient with no saved history gets a blank medical history section", async () => {

@@ -4,12 +4,14 @@ import com.pranicdoc.cph.analytics.dto.DashboardPatientGrowth;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.PageResponse;
 import com.pranicdoc.cph.common.enums.CaseStatus;
+import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantContext;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
 import com.pranicdoc.cph.healing.model.Declaration;
+import com.pranicdoc.cph.healing.model.DeclarationDates;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.patient.dto.*;
@@ -211,6 +213,38 @@ public class PatientService {
             throw new ResourceNotFoundException("Medical history not found for patient: " + patientId);
         }
         return toMedicalHistoryResponse(patient.getMedicalHistory());
+    }
+
+    // --- Declaration date (of the patient's latest case) ---
+
+    @Transactional(readOnly = true)
+    public DeclarationDateResponse getDeclarationDate(UUID patientId) {
+        findOwnedOrThrow(patientId);
+        HealingCase latest = caseRepository.findFirstByPatientIdOrderByCreatedAtDesc(patientId).orElse(null);
+        if (latest == null || latest.getDeclaration() == null) {
+            return new DeclarationDateResponse(null, false, false);
+        }
+        return new DeclarationDateResponse(
+                DeclarationDates.toDate(latest.getDeclaration().getSignedAt()),
+                true,
+                latest.getStatus() != CaseStatus.LOCKED);
+    }
+
+    @Auditable(action = "UPDATE_DECLARATION_DATE")
+    public DeclarationDateResponse updateDeclarationDate(UUID patientId, DeclarationDateRequest request) {
+        findOwnedOrThrow(patientId);
+        HealingCase latest = caseRepository.findFirstByPatientIdOrderByCreatedAtDesc(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("No case found for patient: " + patientId));
+        if (latest.getStatus() == CaseStatus.LOCKED) {
+            throw new CaseLockedException();
+        }
+        Declaration declaration = latest.getDeclaration();
+        if (declaration == null) {
+            throw new ResourceNotFoundException("No declaration found for patient: " + patientId);
+        }
+        declaration.setSignedAt(DeclarationDates.toSignedAt(request.declarationDate()));
+        caseRepository.save(latest);
+        return new DeclarationDateResponse(request.declarationDate(), true, true);
     }
 
     // --- Helpers ---

@@ -206,6 +206,35 @@ export const patientMedicalHistorySchema: FormSchema = [
 ];
 
 /**
+ * The patient edit page: the medical history with the declaration date straight after the exercise
+ * fields. Registration shares the medical history schema, so the date is added only here.
+ */
+export const patientEditSchema = ({
+  required,
+  readOnly,
+}: {
+  required: boolean;
+  readOnly: boolean;
+}): FormSchema =>
+  patientMedicalHistorySchema.map((group) => ({
+    ...group,
+    fields: group.fields.flatMap((field) =>
+      field.name === "exerciseFrequency"
+        ? [
+            field,
+            {
+              name: "declarationDate",
+              label: readOnly ? "Declaration date (read-only until the case is unlocked)" : "Declaration date",
+              type: "date" as const,
+              required,
+              readOnly,
+            },
+          ]
+        : [field]
+    ),
+  }));
+
+/**
  * `onBehalf`: a healer is filling the form in for the patient. They must confirm they have the
  * patient's consent to do so, and the signature is the patient's name, filled in automatically.
  */
@@ -267,8 +296,11 @@ export const consentDeclarationSchema = (
         required: true,
         readOnly: onBehalf,
         placeholder: "Enter patient's full name",
-        validate: (value) => value != patientName ? "Signature mismatch" : undefined  
+        validate: (value) => value != patientName ? "Signature mismatch" : undefined
       },
+      ...(onBehalf
+        ? [{ name: "declarationDate", label: "Declaration date", type: "date" as const, required: true }]
+        : []),
     ],
   },
 ];

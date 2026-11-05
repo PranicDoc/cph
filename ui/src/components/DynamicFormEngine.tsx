@@ -312,7 +312,7 @@ export function DynamicField({
                 value={field.state.value}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
-                disabled={isDisabled}
+                disabled={isDisabled || !!fieldConfig.readOnly}
                 className={className}
               />
             ) : (

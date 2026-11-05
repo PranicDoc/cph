@@ -138,6 +138,10 @@ public class CaseService {
             throw new IllegalStateException("Draft already exists for this patient");
         }
         Declaration declaration = declarationMapper.toEntity(request.declaration());
+        // A patient registering themselves signs today; only a healer may enter another date.
+        if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {
+            declaration.setSignedAt(Instant.now());
+        }
         String healerName = healerService.getName(securityContextUtil.getCurrentHealerId());
         declaration.setHealerSignature(healerName);
         if(!checkSignature(declaration, patient)) throw new IllegalStateException("Signature Mismatch in declaration");
@@ -314,7 +318,7 @@ public class CaseService {
                 .healingCase(healingCase)
                 .patientConsent(request.patientConsent())
                 .healerDeclaration(request.healerDeclaration())
-                .signedAt(Instant.now())
+                .signedAt(DeclarationDates.parseSignedAt(request.signedAt()))
                 .patientSignature(request.patientSignature())
                 .healerSignature(request.healerSignature())
                 .build();

@@ -24,6 +24,8 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
 
     Page<HealingCase> findByPatientId(UUID patientId, Pageable pageable);
 
+    Optional<HealingCase> findFirstByPatientIdOrderByCreatedAtDesc(UUID patientId);
+
     Page<HealingCase> findByHealerId(UUID healerId, Pageable pageable);
 
     boolean existsByPatientId(UUID patientId);

@@ -236,7 +236,14 @@ class PatientControllerAuthorizationTest {
                                 .contentType(MediaType.APPLICATION_JSON).content(MED_HISTORY_JSON)
                                 .cookie(accessCookie())),
                 spec("getMedicalHistory", Operation.READ,
-                        get(BASE + "/" + ROW_ID + "/medical-history").cookie(accessCookie())));
+                        get(BASE + "/" + ROW_ID + "/medical-history").cookie(accessCookie())),
+                spec("getDeclarationDate", Operation.READ,
+                        get(BASE + "/" + ROW_ID + "/declaration-date").cookie(accessCookie())),
+                spec("updateDeclarationDate", Operation.UPDATE,
+                        put(BASE + "/" + ROW_ID + "/declaration-date")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"declarationDate\":\"2026-01-15\"}")
+                                .cookie(accessCookie())));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -246,15 +253,16 @@ class PatientControllerAuthorizationTest {
     @Test
     void gatedEndpointsSourceSuppliesExactlyThe9GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 8 gated PatientController methods")
-                .isEqualTo(8L);
+                .as("the trio @MethodSource must supply exactly the 10 covered PatientController methods")
+                .isEqualTo(10L);
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
                 .toList())
                 .as("a shrunken @MethodSource must redden the build, not quietly reduce coverage")
                 .containsExactlyInAnyOrder(
                         "create", "register", "getAllPatients", "getById", "search",
-                        "delete", "updateMedicalHistory", "getMedicalHistory");
+                        "delete", "updateMedicalHistory", "getMedicalHistory",
+                        "getDeclarationDate", "updateDeclarationDate");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

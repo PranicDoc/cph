@@ -64,7 +64,9 @@ class PatientControllerAuthorizationContractTest {
             new String[]{"search",                PATIENT_READ},
             new String[]{"delete",                PATIENT_DELETE},
             new String[]{"updateMedicalHistory",  PATIENT_UPDATE},
-            new String[]{"getMedicalHistory",     PATIENT_READ});
+            new String[]{"getMedicalHistory",     PATIENT_READ},
+            new String[]{"getDeclarationDate",    PATIENT_READ},
+            new String[]{"updateDeclarationDate", PATIENT_UPDATE});
 
     private static final List<Class<? extends Annotation>> REQUEST_MAPPING_ANNOTATIONS = List.of(
             GetMapping.class, PostMapping.class, PutMapping.class, PatchMapping.class,
@@ -137,6 +139,12 @@ class PatientControllerAuthorizationContractTest {
     @Test @DisplayName("getMedicalHistory is gated PATIENT:READ")
     void getMedicalHistory_isGatedByPatientRead() { assertGate("getMedicalHistory", PATIENT_READ); }
 
+    @Test @DisplayName("getDeclarationDate is gated PATIENT:READ")
+    void getDeclarationDate_isGatedByPatientRead() { assertGate("getDeclarationDate", PATIENT_READ); }
+
+    @Test @DisplayName("updateDeclarationDate is gated PATIENT:UPDATE")
+    void updateDeclarationDate_isGatedByPatientUpdate() { assertGate("updateDeclarationDate", PATIENT_UPDATE); }
+
     @Test @DisplayName("trash (super-admin list of deleted patients) is gated PATIENT:DELETE")
     void trash_isGatedByPatientDelete() { assertGate("trash", PATIENT_DELETE); }
 
@@ -174,14 +182,14 @@ class PatientControllerAuthorizationContractTest {
         }
 
         assertThat(inspected)
-                .as("the sweep must inspect exactly the 12 declared PatientController request-mapped methods — "
+                .as("the sweep must inspect exactly the 14 declared PatientController request-mapped methods — "
                         + "a method added or removed here changes the highest-PII surface in the phase and must "
                         + "redden the build rather than silently pass")
-                .isEqualTo(12);
+                .isEqualTo(14);
         assertThat(gated)
-                .as("exactly 10 of the 12 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
+                .as("exactly 12 of the 14 PatientController methods carry a bare PATIENT:* capability gate (SC1); "
                         + "a dropped gate restores the implicit any-authenticated-healer path over patient PII")
-                .isEqualTo(10);
+                .isEqualTo(12);
 
         TreeSet<String> ungatedSet = new TreeSet<>(ungated);
         assertThat(ungatedSet)
@@ -207,8 +215,8 @@ class PatientControllerAuthorizationContractTest {
         }
 
         assertThat(literals)
-                .as("the allow-list check must run over all 8 PatientController gates, never an empty list")
-                .hasSize(8);
+                .as("the allow-list check must run over all 10 pinned PatientController gates, never an empty list")
+                .hasSize(10);
 
         for (String literal : literals) {
             Matcher matcher = BARE_GATE.matcher(literal);
