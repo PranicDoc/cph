@@ -82,7 +82,19 @@ async function panelsFor(chakra: string) {
 describe("ClosureForm protocol pre-fill", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("pre-fills a chakra with no saved selection from the protocol pre-fill", async () => {
+  it("leaves a chakra with no saved selection empty while pre-fill is switched off", async () => {
+    renderForm({
+      prefill: [{ chakra: "Solar Plexus", energisingColors: [sel("Violet")], cleansingColors: [sel("Green")] }],
+    });
+
+    const { energising, cleansing } = await panelsFor("Solar Plexus");
+    expect(within(energising).getByRole("button", { name: /Violet/ })).toHaveAttribute("aria-pressed", "false");
+    expect(within(cleansing).getByRole("button", { name: /Green/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // NOTE: Design not yet completed, so the pre-fill call is commented out in ClosureForm.
+  // Switch this back on, and remove the test above, when the call is restored.
+  it.skip("pre-fills a chakra with no saved selection from the protocol pre-fill", async () => {
     renderForm({
       prefill: [
         // Violet is energising-only in the catalog but the protocol also uses it for cleansing.
