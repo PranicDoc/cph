@@ -27,7 +27,9 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -90,6 +92,43 @@ class AuthControllerTest {
         when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
         when(healerCacheService.isActive(any())).thenReturn(true);
         when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
+
+    /** Makes the JWT filter accept {@link #accessCookie()} as a patient link: its subject is the owning healer. */
+    private void openPatientLink() throws Exception {
+        Claims claims = mock(Claims.class);
+        when(claims.getSubject()).thenReturn(UUID.randomUUID().toString());
+        when(claims.get("role", String.class)).thenReturn("PATIENT");
+        when(jwtService.isTokenValid(ACCESS_TOKEN)).thenReturn(true);
+        when(jwtService.extractTokenType(ACCESS_TOKEN)).thenReturn("SELF_REG");
+        when(jwtService.parseToken(ACCESS_TOKEN)).thenReturn(claims);
+        when(healerCacheService.isActive(any())).thenReturn(true);
+        when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
+
+    @Test
+    void profile_healer_canRead() throws Exception {
+        signIn();
+        mockMvc.perform(get("/api/v1/auth/profile").cookie(accessCookie()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void profile_patientLink_cannotReadTheOwningHealersProfile() throws Exception {
+        openPatientLink();
+        mockMvc.perform(get("/api/v1/auth/profile").cookie(accessCookie()))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void profile_patientLink_cannotChangeTheOwningHealersProfile() throws Exception {
+        openPatientLink();
+        mockMvc.perform(put("/api/v1/auth/profile").cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"Someone Else\",\"email\":\"someone@example.com\",\"phone\":\"9999999999\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(authService);
     }
 
     @Test

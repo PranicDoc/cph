@@ -43,9 +43,10 @@ export function refreshSession(): Promise<void> {
     })
     .catch((error: AxiosError) => {
       const status = error.response?.status;
-      // 401/403: the refresh token is gone or expired. Anything else (network blip, 5xx)
-      // is transient, so keep the session and let the next call retry.
-      if (status === 401 || status === 403) {
+      // 400/401/403: the refresh token is gone or expired (the server answers 400 for a missing
+      // or invalid one). Anything else (network blip, 5xx) is transient, so keep the session
+      // and let the next call retry.
+      if (status === 400 || status === 401 || status === 403) {
         window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
       }
       throw error;
