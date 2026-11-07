@@ -29,13 +29,13 @@ function summary(row: HPUTable) {
   return parts.join(" · ");
 }
 
-/** New-view step 1 of the close-case dialog: one accordion row per scanned chakra. */
+/** New-view protocol understanding: one accordion row per scanned chakra, its reason first. */
 export default function ProtocolUnderstanding({ rows, energisingColors, cleansingColors, colorsLoading, getEnergisingProperties, getCleansingProperties, getEnergisingHex, getCleansingHex, onChange }: Props) {
   const [open, setOpen] = useState<string | null>(rows[0]?.chakra ?? null);
   return (
     <div className="hl-acc">
       {rows.map((row, index) => {
-        const filled = row.energisingColors.length + row.cleansingColors.length > 0;
+        const filled = !!row.reason?.trim(); // the reason is required; colours are optional
         const isOpen = open === row.chakra;
         return (
           <section key={row.chakra} className="hl-acc-item" data-open={isOpen}>
@@ -46,12 +46,23 @@ export default function ProtocolUnderstanding({ rows, energisingColors, cleansin
               onClick={() => setOpen(isOpen ? null : row.chakra)}
             >
               <span className="hl-acc-name">{row.chakra}</span>
-              <span className={`hl-badge ${filled ? "hl-badge-ok" : "hl-badge-off"}`}>{filled ? "Filled in" : "Not filled"}</span>
+              <span className={`hl-badge ${filled ? "hl-badge-ok" : "hl-badge-off"}`}>{filled ? "Filled in" : "Reason needed"}</span>
               {!isOpen && <span className="hl-acc-sum">{summary(row)}</span>}
               <ChevronDown className="hl-acc-chev" aria-hidden="true" />
             </button>
             {isOpen && (
               <div className="hl-acc-body">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`reason-${index}`}>Why this chakra?</Label>
+                  <Textarea
+                    id={`reason-${index}`}
+                    value={row.reason ?? ""}
+                    onChange={(e) => onChange(index, "reason", e.target.value)}
+                    maxLength={TEXT_LIMITS.chakraReason}
+                    required
+                  />
+                  <CharacterCount value={row.reason} max={TEXT_LIMITS.chakraReason} />
+                </div>
                 <ColorChipPicker
                   label="Cleansing colors"
                   value={row.cleansingColors}
@@ -70,16 +81,6 @@ export default function ProtocolUnderstanding({ rows, energisingColors, cleansin
                   loading={colorsLoading}
                   onChange={(v) => onChange(index, "energisingColors", v)}
                 />
-                <div className="space-y-1.5">
-                  <Label htmlFor={`reason-${index}`}>Why this chakra? (optional)</Label>
-                  <Textarea
-                    id={`reason-${index}`}
-                    value={row.reason ?? ""}
-                    onChange={(e) => onChange(index, "reason", e.target.value)}
-                    maxLength={TEXT_LIMITS.chakraReason}
-                  />
-                  <CharacterCount value={row.reason} max={TEXT_LIMITS.chakraReason} />
-                </div>
               </div>
             )}
           </section>
