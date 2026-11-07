@@ -17,6 +17,8 @@ export interface HealerProfile {
   hasGoogleLinked: boolean;
   /** Which web UI the user chose in the profile menu. */
   uiVersion?: "CLASSIC" | "NEW";
+  /** Credits the next full-name change costs; 0 when it is free. */
+  nextNameChangeCost?: number;
 }
 
 export function useHealerProfile() {
@@ -34,6 +36,7 @@ export function useUpdateProfile() {
       api.put<HealerProfile>("/api/v1/auth/profile", body).then((r) => r.data),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["healer-profile"] });
+      qc.invalidateQueries({ queryKey: ["credit-account"] });
       if (user) setUser({ ...user, fullName: data.fullName, email: data.email, phone: data.phone });
       toast.success("Profile updated");
     },

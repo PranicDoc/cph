@@ -87,11 +87,6 @@ public class HealerServiceImpl implements HealerService {
     }
 
     private HealerResponse toResponse(Healer h) {
-        return new HealerResponse(
-                h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
-                h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
-                h.getPasswordHash() != null, h.getProviderUserId() != null,
-                h.getUiVersion()
-        );
+        return HealerResponse.from(h);
     }
 }

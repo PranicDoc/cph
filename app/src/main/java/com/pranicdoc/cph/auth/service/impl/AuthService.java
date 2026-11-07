@@ -12,6 +12,7 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
 import com.pranicdoc.cph.common.security.CookieUtil;
@@ -22,6 +23,7 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
+import com.pranicdoc.cph.payments.CreditServiceClient;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,6 +58,7 @@ public class AuthService {
     private final FeedbackLinkRepository feedbackLinkRepository;
     private final SessionRepository sessionRepository;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final CreditServiceClient creditServiceClient;
     private static final String PATIENT = "PATIENT";
 
     // ─── Login ──────────────────────────────────────────────────
@@ -165,7 +168,23 @@ public class AuthService {
     public HealerResponse updateProfile(HealerRequest request) {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
-        healer.setFullName(request.fullName());
+        String fullName = request.fullName().trim();
+        // Refused up front: failing on the unique email after a paid name change would waste the credits.
+        if (!request.email().equalsIgnoreCase(healer.getEmail()) && healerRepository.existsByEmail(request.email())) {
+            throw new IllegalArgumentException("A healer with this email already exists");
+        }
+        if (!fullName.equals(healer.getFullName().trim())) {
+            // Charge before saving; the key makes a retry of the same change a no-op on the credit side.
+            int n = healer.getNameChangeCount() + 1;
+            int cost = Healer.nameChangeCost(n);
+            if (cost > 0 && "INSUFFICIENT".equals(
+                    creditServiceClient.deduct(healerId, "name-change:" + healerId + ":" + n, cost).result())) {
+                throw new InsufficientCreditsException(
+                        "You need " + cost + " credits to change your name. Buy credits to continue.");
+            }
+            healer.setNameChangeCount(n);
+        }
+        healer.setFullName(fullName);
         healer.setEmail(request.email());
         healer.setPhone(request.phone());
         Healer saved = healerRepository.save(healer);
@@ -276,11 +295,6 @@ public class AuthService {
     }
 
     private HealerResponse toResponse(Healer h) {
-        return new HealerResponse(
-                h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
-                h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
-                h.getPasswordHash() != null, h.getProviderUserId() != null,
-                h.getUiVersion()
-        );
+        return HealerResponse.from(h);
     }
 }
