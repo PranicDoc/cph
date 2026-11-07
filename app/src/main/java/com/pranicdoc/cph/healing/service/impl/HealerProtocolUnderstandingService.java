@@ -29,7 +29,10 @@ import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +56,7 @@ public class HealerProtocolUnderstandingService {
     private final ProtocolChakraColorRepository protocolChakraColorRepository;
     private final ChakraCatalogRepository chakraCatalogRepository;
     private final ObjectMapper objectMapper;
+    private final SecurityContextUtil securityContextUtil;
 
     /**
      * Synchronous replacement for the old AFTER_COMMIT event-listener auto-generation.
@@ -147,6 +151,7 @@ public class HealerProtocolUnderstandingService {
     }
 
     private static final int USUAL_PICKS_LIMIT = 4;
+    private static final int USUAL_PICKS_MAX_CASES = 200;
 
     /**
      * The case healer's most-used (colour, first property) pairs per category from their OTHER
@@ -154,20 +159,21 @@ public class HealerProtocolUnderstandingService {
      */
     @Transactional(readOnly = true)
     public UsualPicksResponse getUsualPicks(UUID healingCaseId) {
-        UUID healerId = caseRepository.findById(healingCaseId)
+        HealingCase healingCase = caseRepository.findById(healingCaseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Healing case not found for id %s"
-                        .formatted(healingCaseId)))
-                .getHealerId();
-        List<HealerProtocolUnderstanding> others = hpuRepository.findByHealerId(healerId).stream()
-                .filter(hpu -> !healingCaseId.equals(hpu.getHealingCaseId()))
-                .toList();
+                        .formatted(healingCaseId)));
+        if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Case does not belong to you");
+        }
+        var others = hpuRepository.findColorsByHealerIdExcludingCase(
+                healingCase.getHealerId(), healingCaseId, PageRequest.of(0, USUAL_PICKS_MAX_CASES));
 
         // Picks are collected under their chakra and under "" (all chakras), duplicates kept to count them.
         Map<String, List<Pick>> cleansing = new LinkedHashMap<>();
         Map<String, List<Pick>> energising = new LinkedHashMap<>();
-        for (HealerProtocolUnderstanding hpu : others) {
-            collectPicks(deserializeColors(hpu.getCleansingColorsJson()), cleansing);
-            collectPicks(deserializeColors(hpu.getEnergisingColorsJson()), energising);
+        for (var hpu : others) {
+            collectPicks(deserializeColors(hpu.cleansingColorsJson()), cleansing);
+            collectPicks(deserializeColors(hpu.energisingColorsJson()), energising);
         }
         Set<String> chakras = new LinkedHashSet<>(cleansing.keySet());
         chakras.addAll(energising.keySet());
@@ -181,6 +187,7 @@ public class HealerProtocolUnderstandingService {
         colors.forEach((chakra, snapshots) -> {
             if (snapshots == null) return;
             for (ColorUsedSnapshot s : snapshots) {
+                if (s.colorName() == null || s.colorName().isBlank()) continue;
                 String props = s.properties();
                 Pick pick = new Pick(s.colorName(), props == null || props.isBlank() ? null : props.split(", ")[0]);
                 into.computeIfAbsent(chakra, k -> new ArrayList<>()).add(pick);

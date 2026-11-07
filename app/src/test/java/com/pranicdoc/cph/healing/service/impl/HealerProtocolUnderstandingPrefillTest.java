@@ -75,7 +75,7 @@ class HealerProtocolUnderstandingPrefillTest {
     void setUp() {
         service = new HealerProtocolUnderstandingService(caseRepository, hpuRepository, pranaColorCatalogRepository,
                 sessionRepository, protocolCatalogRepository, protocolChakraRepository, protocolChakraColorRepository,
-                chakraCatalogRepository, new ObjectMapper());
+                chakraCatalogRepository, new ObjectMapper(), null);
         healingCase.setId(caseId);
         healingCase.setHealerId(healerId);
         lenient().when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));

@@ -67,7 +67,7 @@ class HealerProtocolUnderstandingSaveTest {
                 color("LWG_C", "Light Whitish Green", ColorUsageType.CLEANSING)));
         HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
                 caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
-                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper(), null);
 
         service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of(
                 new ChakraColorSelection("Solar Plexus",
@@ -101,7 +101,7 @@ class HealerProtocolUnderstandingSaveTest {
         when(pranaColorCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of());
         HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
                 caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
-                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper(), null);
 
         service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of()));
 
@@ -128,7 +128,7 @@ class HealerProtocolUnderstandingSaveTest {
         when(pranaColorCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of());
         HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
                 caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
-                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper(), null);
 
         service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of(
                 new ChakraColorSelection("Crown", List.of(), List.of(), "  Headache  "),
@@ -149,7 +149,7 @@ class HealerProtocolUnderstandingSaveTest {
     void missingReasonsColumnReadsAsEmptyMap() {
         HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
                 caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
-                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper(), null);
 
         assertTrue(service.deserializeReasons(null).isEmpty());
     }

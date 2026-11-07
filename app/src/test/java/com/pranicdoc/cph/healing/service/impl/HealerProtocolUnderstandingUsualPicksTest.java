@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.healing.dto.UsualPicksResponse;
 import com.pranicdoc.cph.healing.dto.UsualPicksResponse.Pick;
-import com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository.ColorsOnly;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,6 +22,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +34,8 @@ class HealerProtocolUnderstandingUsualPicksTest {
     @Mock private CaseRepository caseRepository;
     @Mock private HealerProtocolUnderstandingRepository hpuRepository;
 
+    @Mock private SecurityContextUtil securityContextUtil;
+
     private HealerProtocolUnderstandingService service;
     private final UUID caseId = UUID.randomUUID();
     private final UUID healerId = UUID.randomUUID();
@@ -37,19 +43,21 @@ class HealerProtocolUnderstandingUsualPicksTest {
     @BeforeEach
     void setUp() {
         service = new HealerProtocolUnderstandingService(caseRepository, hpuRepository, null, null, null, null,
-                null, null, new ObjectMapper());
+                null, null, new ObjectMapper(), securityContextUtil);
         HealingCase healingCase = HealingCase.builder().build();
         healingCase.setId(caseId);
         healingCase.setHealerId(healerId);
+        lenient().when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         lenient().when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
     }
 
-    private static HealerProtocolUnderstanding row(UUID forCase, String cleansing, String energising) {
-        HealerProtocolUnderstanding hpu = new HealerProtocolUnderstanding();
-        hpu.setHealingCaseId(forCase);
-        hpu.setCleansingColorsJson(cleansing);
-        hpu.setEnergisingColorsJson(energising);
-        return hpu;
+    private static ColorsOnly row(UUID forCase, String cleansing, String energising) {
+        return new ColorsOnly(forCase, cleansing, energising);
+    }
+
+    private void rows(ColorsOnly... rows) {
+        when(hpuRepository.findColorsByHealerIdExcludingCase(eq(healerId), eq(caseId), any()))
+                .thenReturn(List.of(rows));
     }
 
     /** JSON map for one chakra from alternating colour name / properties arguments. */
@@ -66,10 +74,10 @@ class HealerProtocolUnderstandingUsualPicksTest {
 
     @Test
     void ranksByCountThenName_limitsToFour_andSplitsOverallFromPerChakra() {
-        when(hpuRepository.findByHealerId(healerId)).thenReturn(List.of(
+        rows(
                 row(UUID.randomUUID(), colors("Heart", "Green", "Calm", "Green", "Calm", "Blue", "Cool"), "{}"),
                 row(UUID.randomUUID(), colors("Throat", "Green", "Calm", "Red", "Heat", "Amber", "A", "Violet", "V"), "{}"),
-                row(UUID.randomUUID(), colors("Heart", "Zed", "Z"), "{}")));
+                row(UUID.randomUUID(), colors("Heart", "Zed", "Z"), "{}"));
 
         UsualPicksResponse result = service.getUsualPicks(caseId);
 
@@ -82,11 +90,9 @@ class HealerProtocolUnderstandingUsualPicksTest {
     }
 
     @Test
-    void excludesCurrentCase_usesFirstPropertyOrNull_andKeepsCategoriesApart() {
-        when(hpuRepository.findByHealerId(healerId)).thenReturn(List.of(
-                row(caseId, colors("Heart", "Mine", "X"), "{}"),
-                row(UUID.randomUUID(), colors("Heart", "Green", "Calm, Cool", "Plain", null),
-                        colors("Heart", "Gold", "Boost"))));
+    void usesFirstPropertyOrNull_skipsBlankColour_andKeepsCategoriesApart() {
+        rows(row(UUID.randomUUID(), colors("Heart", "Green", "Calm, Cool", "Plain", null, "", "X"),
+                colors("Heart", "Gold", "Boost")));
 
         UsualPicksResponse result = service.getUsualPicks(caseId);
 
@@ -96,7 +102,7 @@ class HealerProtocolUnderstandingUsualPicksTest {
 
     @Test
     void noOtherCases_returnsEmptyLists() {
-        when(hpuRepository.findByHealerId(healerId)).thenReturn(List.of());
+        rows();
 
         UsualPicksResponse result = service.getUsualPicks(caseId);
 
@@ -110,5 +116,11 @@ class HealerProtocolUnderstandingUsualPicksTest {
         UUID other = UUID.randomUUID();
         when(caseRepository.findById(other)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getUsualPicks(other)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void anotherHealersCase_isAccessDenied() {
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(UUID.randomUUID());
+        assertThatThrownBy(() -> service.getUsualPicks(caseId)).isInstanceOf(AccessDeniedException.class);
     }
 }
