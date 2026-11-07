@@ -13,6 +13,7 @@ vi.mock("@/ui-version", () => ({ useUiVersion: () => view }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import api from "@/lib/axios";
+import { toast } from "sonner";
 
 const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
@@ -89,7 +90,7 @@ describe("ManualFeedback page", () => {
     expect(screen.getByLabelText("Comments")).toBeEnabled();
   });
 
-  it("posts an interim's ratings, comment and session, then returns to Patients", async () => {
+  it("posts an interim's ratings, comment and session, and stays on the page", async () => {
     sessions = twoSessions();
     mPost.mockResolvedValue({ data: {} });
     const user = userEvent.setup();
@@ -110,7 +111,8 @@ describe("ManualFeedback page", () => {
         feedbackText: "Sleeping better",
       })
     );
-    await waitFor(() => expect(router.state.location.pathname).toBe("/patients"));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Feedback saved"));
+    expect(router.state.location.pathname).not.toBe("/patients");
   }, 15_000);
 
   it("final feedback is a comment on the latest session: no session picker, no ratings, date shown", async () => {
