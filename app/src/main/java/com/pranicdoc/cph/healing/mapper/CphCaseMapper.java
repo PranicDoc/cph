@@ -152,7 +152,8 @@ public abstract class CphCaseMapper {
                 hpu.getProtocolName(),
                 hpuService.deserializeColors(hpu.getCleansingColorsJson()),
                 hpuService.deserializeColors(hpu.getEnergisingColorsJson()),
-                hpuService.deserializeChakraReadings(hpu.getChakraReadingsJson())
+                hpuService.deserializeChakraReadings(hpu.getChakraReadingsJson()),
+                hpuService.deserializeReasons(hpu.getChakraReasonsJson())
         );
     }
 }

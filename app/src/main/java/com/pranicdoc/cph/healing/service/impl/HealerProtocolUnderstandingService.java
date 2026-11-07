@@ -75,7 +75,11 @@ public class HealerProtocolUnderstandingService {
         Map<String, List<ColorUsedSnapshot>> energisingColors = new LinkedHashMap<>();
         Map<String, List<ColorUsedSnapshot>> cleansingColors = new LinkedHashMap<>();
 
+        Map<String, String> chakraReasons = new LinkedHashMap<>();
         for (ChakraColorSelection selection : request.chakraSelections()) {
+            if (selection.reason() != null && !selection.reason().isBlank()) {
+                chakraReasons.put(selection.chakra(), selection.reason().trim());
+            }
             energisingColors.put(selection.chakra(), toColorSnapshots(selection.energisingColors(), energisingByName));
             cleansingColors.put(selection.chakra(), toColorSnapshots(selection.cleansingColors(), cleansingByName));
         }
@@ -98,6 +102,7 @@ public class HealerProtocolUnderstandingService {
         hpu.setCleansingColorsJson(serialize(cleansingColors));
         hpu.setEnergisingColorsJson(serialize(energisingColors));
         hpu.setChakraReadingsJson(serialize(chakraReadings));
+        hpu.setChakraReasonsJson(serialize(chakraReasons));
 
         hpuRepository.save(hpu);
     }
@@ -120,15 +125,18 @@ public class HealerProtocolUnderstandingService {
         Map<String, List<ColorUsedSnapshot>> energisingColors = deserializeColors(hpu.getEnergisingColorsJson());
         Map<String, List<ColorUsedSnapshot>> cleansingColors = deserializeColors(hpu.getCleansingColorsJson());
 
+        Map<String, String> chakraReasons = deserializeReasons(hpu.getChakraReasonsJson());
         Set<String> chakraNames = new LinkedHashSet<>();
         chakraNames.addAll(energisingColors.keySet());
         chakraNames.addAll(cleansingColors.keySet());
+        chakraNames.addAll(chakraReasons.keySet());
 
         List<ChakraColorSelection> chakraSelections = chakraNames.stream()
                 .map(chakra -> new ChakraColorSelection(
                         chakra,
                         toColorSelections(energisingColors.get(chakra)),
-                        toColorSelections(cleansingColors.get(chakra))))
+                        toColorSelections(cleansingColors.get(chakra)),
+                        chakraReasons.get(chakra)))
                 .toList();
 
         return new HealerProtocolUnderstandingRequest(chakraSelections);
@@ -168,7 +176,8 @@ public class HealerProtocolUnderstandingService {
                     return new ChakraColorSelection(
                             chakra,
                             toDefaultColors(colors.get(ColorUsageType.ENERGISING), energisingByName),
-                            toDefaultColors(colors.get(ColorUsageType.CLEANSING), cleansingByName));
+                            toDefaultColors(colors.get(ColorUsageType.CLEANSING), cleansingByName),
+                            null);
                 })
                 .toList();
         return new HealerProtocolUnderstandingRequest(prefill);
@@ -260,6 +269,16 @@ public class HealerProtocolUnderstandingService {
             });
         } catch (Exception e) {
             log.warn("Failed to deserialize colors JSON", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    public Map<String, String> deserializeReasons(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyMap();
+        try {
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to deserialize chakra reasons JSON", e);
             return Collections.emptyMap();
         }
     }

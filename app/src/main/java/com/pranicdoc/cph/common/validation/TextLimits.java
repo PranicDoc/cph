@@ -19,6 +19,8 @@ public final class TextLimits {
     public static final int MEDIUM_BOX = 500;
     /** The wide boxes on the medical history page. */
     public static final int HISTORY_BOX = 600;
+    /** The optional reason for healing a chakra. */
+    public static final int CHAKRA_REASON = 300;
     public static final int FINAL_FEEDBACK = 1500;
     public static final int CLOSURE_COMMENTS = 3000;
 

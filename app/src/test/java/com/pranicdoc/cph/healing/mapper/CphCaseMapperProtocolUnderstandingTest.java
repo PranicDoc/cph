@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ class CphCaseMapperProtocolUnderstandingTest {
         HealerProtocolUnderstandingService service = mock(HealerProtocolUnderstandingService.class);
         when(service.deserializeColors(any())).thenReturn(Collections.emptyMap());
         when(service.deserializeChakraReadings(any())).thenReturn(List.of());
+        when(service.deserializeReasons(any())).thenReturn(Map.of("Crown", "Headache"));
 
         CphCaseMapperImpl mapper = new CphCaseMapperImpl();
         mapper.hpuRepository = repo;
@@ -46,6 +48,7 @@ class CphCaseMapperProtocolUnderstandingTest {
         CaseSnapshot snapshot = mapper.toCaseSnapshot(healingCase);
 
         assertThat(snapshot.healerProtocolUnderstanding().protocolName()).isEqualTo("Fever");
+        assertThat(snapshot.healerProtocolUnderstanding().chakraReasons()).containsEntry("Crown", "Headache");
         assertThat(snapshot.sessions()).hasSize(2);
         assertThat(snapshot.sessions()).allSatisfy(s -> assertThat(s.healerProtocolUnderstanding()).isNull());
         assertThat(snapshot.sessions().get(0).sessionDate()).isEqualTo(LocalDate.of(2026, 11, 2));
