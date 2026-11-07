@@ -556,3 +556,20 @@ html[data-ui="new"] .hlx .md-swatch { width: 22px; height: 22px; border-radius: 
   html[data-ui="new"] .hl-cmdk-list { max-height: calc(100vh - 220px); }
   html[data-ui="new"] .hl-cmdk-input input:focus-visible { outline: none; box-shadow: none; }
 }
+
+/* ───────── Close case: chakra list + selected item ───────── */
+html[data-ui="new"] .hl-cc { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 16px; align-items: start; }
+html[data-ui="new"] .hlx .hl-cc-list { padding: 0; overflow: hidden; }
+html[data-ui="new"] .hl-cc-list-h { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 6px; }
+html[data-ui="new"] .hl-prog { height: 6px; margin: 4px 16px 10px; border-radius: 3px; background: var(--hl-hair); overflow: hidden; }
+html[data-ui="new"] .hl-prog > i { display: block; height: 100%; background: var(--color-success); transition: width 0.2s; }
+html[data-ui="new"] .hl-cc-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 16px; text-align: left; color: var(--color-text); border-top: 1px solid var(--hl-hair); cursor: pointer; }
+html[data-ui="new"] .hl-cc-row:hover { background: var(--hl-primary-soft); }
+html[data-ui="new"] .hl-cc-row[aria-current="step"] { background: var(--hl-primary-soft); box-shadow: inset 3px 0 0 var(--hl-accent-text); }
+html[data-ui="new"] .hl-cc-row.hl-cc-last { border-top-color: var(--hl-hair-strong); }
+html[data-ui="new"] .hl-cc-name { display: block; font-weight: 600; font-size: 13.5px; }
+html[data-ui="new"] .hl-cc-sum { display: block; font-size: 12px; color: var(--color-text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-ui="new"] .hl-cc-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hl-hair); }
+html[data-ui="new"] .hl-link { color: var(--hl-accent-text); font-size: 13px; font-weight: 550; cursor: pointer; }
+html[data-ui="new"] .hl-link:hover { text-decoration: underline; }
+@media (max-width: 767px) { html[data-ui="new"] .hl-cc { grid-template-columns: minmax(0, 1fr); } }

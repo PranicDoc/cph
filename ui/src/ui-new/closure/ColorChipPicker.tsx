@@ -8,6 +8,10 @@ interface ColorChipPickerProps {
   getColorHex?: (color: string) => string | undefined;
   loading?: boolean;
   onChange: (value: ColorSelection[]) => void;
+  /** At most one property per colour (UI only): picking one replaces the others. */
+  singleProperty?: boolean;
+  /** Shows each picked colour's property toggles (default). */
+  showProperties?: boolean;
 }
 
 function Swatch({ hex }: { hex?: string }) {
@@ -20,7 +24,7 @@ function Swatch({ hex }: { hex?: string }) {
  * properties) as chips. Pick colours in the first row; each picked colour gets a group of
  * property toggles underneath.
  */
-export function ColorChipPicker({ label, value, colors, getProperties, getColorHex, loading, onChange }: ColorChipPickerProps) {
+export function ColorChipPicker({ label, value, colors, getProperties, getColorHex, loading, onChange, singleProperty, showProperties = true }: ColorChipPickerProps) {
   // A picked colour stays listed even when it is outside this panel's category (e.g. saved
   // before categories existed), so it can still be seen and un-picked.
   const options = [...colors, ...value.map((v) => v.color).filter((c) => !colors.includes(c))];
@@ -35,9 +39,14 @@ export function ColorChipPicker({ label, value, colors, getProperties, getColorH
           ? v
           : {
               ...v,
-              properties: v.properties.includes(property)
-                ? v.properties.filter((p) => p !== property)
-                : [...v.properties, property],
+              properties: singleProperty
+                ? // a legacy record may hold several; picking any one leaves just that one
+                  v.properties.length === 1 && v.properties[0] === property
+                  ? []
+                  : [property]
+                : v.properties.includes(property)
+                  ? v.properties.filter((p) => p !== property)
+                  : [...v.properties, property],
             }
       )
     );
@@ -73,7 +82,7 @@ export function ColorChipPicker({ label, value, colors, getProperties, getColorH
           })}
         </div>
       )}
-      {value.map((sel) => {
+      {showProperties && value.map((sel) => {
         const props = (getProperties(sel.color) as string[]) ?? [];
         return (
           <div key={sel.color} className="hl-cgroup">

@@ -14,14 +14,16 @@ vi.mock("../../ui-version", () => ({
 }));
 vi.mock("@/hooks/useReferenceData", () => ({
   useReferenceData: () => ({
-    colors: [{ id: "g", code: "G", name: "Green", properties: [], category: "CLEANSING" }],
+    colors: [{ id: "g", code: "G", name: "Green", properties: ["Cooling", "Soothing"], category: "CLEANSING" }],
     loading: false,
     error: null,
   }),
 }));
-vi.mock("@/hooks/admin/useMasterData", () => ({
-  useProtocols: () => ({ data: [], isLoading: false }),
-}));
+vi.mock("@/hooks/admin/useMasterData", () => {
+  // One array, as react-query hands back the same data on every render.
+  const data = [{ id: "pr1", name: "General sweeping" }];
+  return { useProtocols: () => ({ data, isLoading: false }) };
+});
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import api from "@/lib/axios";
@@ -30,24 +32,18 @@ const mGet = api.get as unknown as ReturnType<typeof vi.fn>;
 const mPost = api.post as unknown as ReturnType<typeof vi.fn>;
 
 const patient = { id: "p1", firstName: "Asha", lastName: "Rao", healingCaseId: "c1" };
+const solarPlexus = {
+  chakra: "Solar Plexus",
+  energisingColors: [],
+  cleansingColors: [{ color: "Green", properties: [] }],
+  reason: "Anger held here",
+};
 
-function renderPage() {
+function renderPage({ selections = [solarPlexus] as unknown[], closure = undefined as unknown } = {}) {
   mGet.mockImplementation((url: string) => {
     if (url.endsWith("/chakras")) return Promise.resolve({ data: { data: ["Solar Plexus", "Spleen"] } });
-    if (url.endsWith("/protocol-understanding")) {
-      return Promise.resolve({
-        data: {
-          chakraSelections: [
-            {
-              chakra: "Solar Plexus",
-              energisingColors: [],
-              cleansingColors: [{ color: "Green", properties: [] }],
-              reason: "Anger held here",
-            },
-          ],
-        },
-      });
-    }
+    if (url.endsWith("/protocol-understanding")) return Promise.resolve({ data: { chakraSelections: selections } });
+    if (url === "/api/v1/cases/c1") return Promise.resolve({ data: closure ? { closure } : {} });
     return Promise.resolve({ data: {} });
   });
   mPost.mockResolvedValue({ data: {} });
@@ -60,11 +56,9 @@ function renderPage() {
   );
 }
 
-/** Opens the Spleen row (rows start collapsed but the first) and types its reason. */
-async function fillSpleenReason(user: ReturnType<typeof userEvent.setup>, text: string) {
-  await user.click(await screen.findByRole("button", { name: /Spleen/ }));
-  await user.type(await screen.findByLabelText("Why this chakra?"), text);
-}
+const list = () => screen.getByRole("navigation", { name: "Close case steps" });
+const closeButtons = () => screen.getAllByRole("button", { name: "Close case" });
+const panelTitle = () => screen.getByRole("heading", { level: 2 });
 
 describe("CloseCase page", () => {
   beforeEach(() => {
@@ -72,94 +66,160 @@ describe("CloseCase page", () => {
     vi.restoreAllMocks();
   });
 
-  it("lists the scanned chakras with their saved colours and reason", async () => {
+  it("lists every scanned chakra with its status and reason, the progress, and the wrap-up step", async () => {
     renderPage();
 
-    expect(await screen.findByRole("button", { name: /Spleen/ })).toBeInTheDocument();
-    const cleansing = await screen.findByRole("group", { name: "Cleansing colors" });
-    expect(within(cleansing).getByRole("button", { name: /Green/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Why this chakra?")).toHaveValue("Anger held here");
+    const solar = await screen.findByRole("button", { name: /Solar Plexus/ });
+    expect(solar).toHaveTextContent("Anger held here");
+    expect(solar).toHaveTextContent("Done");
+    const spleen = within(list()).getByRole("button", { name: /Spleen/ });
+    expect(spleen).toHaveTextContent("Needs a reason");
+    expect(spleen).toHaveTextContent("To do");
+    expect(within(list()).getByRole("button", { name: /Wrap up/ })).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 done")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("heading", { level: 1, name: "Close case" })).toBeInTheDocument();
+    expect(screen.getByText(/Asha Rao/)).toBeInTheDocument();
   });
 
-  it("needs a reason for every chakra before it goes on, and shows which are missing", async () => {
+  it("shows only the selected chakra, its required reason above the colours, with a 300 character count", async () => {
+    renderPage();
+
+    const reason = await screen.findByLabelText(/Why did you work on this chakra/);
+    expect(panelTitle()).toHaveTextContent("Solar Plexus");
+    expect(within(list()).getByRole("button", { name: /Solar Plexus/ })).toHaveAttribute("aria-current", "step");
+    expect(reason).toHaveValue("Anger held here");
+    expect(reason).toBeRequired();
+    expect(reason).toHaveAttribute("maxLength", "300");
+    expect(screen.getByText("15/300")).toBeInTheDocument();
+    const cleansing = screen.getByRole("group", { name: "Cleansing colours" });
+    expect(reason.compareDocumentPosition(cleansing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(cleansing).getByRole("button", { name: /Green/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("group", { name: "Energising colours" })).toBeInTheDocument();
+  });
+
+  it("keeps Close case off until every chakra has a reason", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByRole("button", { name: /Spleen.*Reason needed/ })).toBeInTheDocument();
-    expect(screen.getByText("Add why you worked on each chakra to continue.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    closeButtons().forEach((b) => expect(b).toBeDisabled());
 
-    await fillSpleenReason(user, "   ");
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await user.click(within(list()).getByRole("button", { name: /Spleen/ }));
+    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "   ");
+    closeButtons().forEach((b) => expect(b).toBeDisabled());
 
-    await user.type(screen.getByLabelText("Why this chakra?"), "Sluggish");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
-    expect(screen.queryByText("Add why you worked on each chakra to continue.")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "Sluggish");
+    await waitFor(() => closeButtons().forEach((b) => expect(b).toBeEnabled()));
+    expect(screen.getByText("2 of 2 done")).toBeInTheDocument();
     expect(mPost).not.toHaveBeenCalled();
   });
 
-  it("asks for the reason above the colours", async () => {
+  it("Save & next saves only the chakras with a reason and moves to the next one", async () => {
+    const user = userEvent.setup();
     renderPage();
 
-    const reason = await screen.findByLabelText("Why this chakra?");
-    const cleansing = screen.getByRole("group", { name: "Cleansing colors" });
-    expect(reason.compareDocumentPosition(cleansing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(reason).toBeRequired();
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+
+    expect(mPost).toHaveBeenCalledTimes(1);
+    expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", { chakraSelections: [solarPlexus] });
+    await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
+    expect(screen.getByRole("button", { name: "Solar Plexus" })).toBeInTheDocument(); // the "back" button
   });
 
-  it("limits the reason to 300 characters and shows the count", async () => {
+  it("after the last chakra goes to Wrap up", async () => {
+    const user = userEvent.setup();
     renderPage();
 
-    const reason = await screen.findByLabelText("Why this chakra?");
-    expect(reason).toHaveAttribute("maxLength", "300");
-    expect(screen.getByText("15/300")).toBeInTheDocument();
+    await user.click(await within(await screen.findByRole("navigation", { name: "Close case steps" })).findByRole("button", { name: /Spleen/ }));
+    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "Sluggish");
+    await user.click(screen.getByRole("button", { name: "Save & next: Wrap up" }));
+
+    expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", {
+      chakraSelections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
+    });
+    await waitFor(() => expect(panelTitle()).toHaveTextContent("Wrap up"));
+    expect(screen.getByText("Recommended protocols for the patient")).toBeInTheDocument();
+    expect(screen.getByLabelText("Comments")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Healing will continue" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("button", { name: "Spleen" })).toBeInTheDocument();
   });
 
-  it("saves the reasons, then closes the case without the understanding step and goes back", async () => {
+  it("selecting an item in the list opens it without saving", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.click(within(list()).getByRole("button", { name: /Wrap up/ }));
+    expect(panelTitle()).toHaveTextContent("Wrap up");
+    expect(mPost).not.toHaveBeenCalled();
+  });
+
+  it("Close case saves the understanding, then closes with the same body as before, refreshes patients and goes back", async () => {
     const user = userEvent.setup();
     const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
     const { router } = renderPage();
 
-    const reason = await screen.findByLabelText("Why this chakra?");
-    await user.clear(reason);
-    await user.type(reason, "Fear");
-    await fillSpleenReason(user, "Sluggish");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", {
-      chakraSelections: [
-        {
-          chakra: "Solar Plexus",
-          energisingColors: [],
-          cleansingColors: [{ color: "Green", properties: [] }],
-          reason: "Fear",
-        },
-        { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" },
-      ],
-    });
-
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Is healing continued?")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole("button", { name: "Close Case" }));
+    await user.click(await within(await screen.findByRole("navigation", { name: "Close case steps" })).findByRole("button", { name: /Spleen/ }));
+    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "Sluggish");
+    await user.click(within(list()).getByRole("button", { name: /Wrap up/ }));
+    await user.type(screen.getByLabelText("Comments"), "Gentle progress");
+    await user.click(screen.getByRole("switch", { name: "Healing will continue" }));
+    mPost.mockClear();
+    await user.click(closeButtons()[1]);
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
-    expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/close", expect.anything());
+    expect(mPost.mock.calls).toEqual([
+      [
+        "/api/v1/cases/c1/protocol-understanding",
+        {
+          chakraSelections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
+        },
+      ],
+      ["/api/v1/cases/c1/close", { additionalComments: "Gentle progress", isHealingContinued: true }],
+    ]);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["patients"] });
   });
 
-  it("keeps the page open when the closure dialog is cancelled", async () => {
+  it("keeps one property per colour: picking a second replaces the first", async () => {
     const user = userEvent.setup();
-    const { router } = renderPage();
+    renderPage();
 
-    await fillSpleenReason(user, "Sluggish");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    expect(screen.queryByRole("button", { name: "Cooling" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Add properties/ }));
+    await user.click(screen.getByRole("button", { name: "Cooling" }));
+    await user.click(screen.getByRole("button", { name: "Soothing" }));
+    expect(screen.getByRole("button", { name: "Cooling" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(router.state.location.pathname).toBe("/cases/c1/close");
+    expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", {
+      chakraSelections: [{ ...solarPlexus, cleansingColors: [{ color: "Green", properties: ["Soothing"] }] }],
+    });
+  });
+
+  it("editing a closed case loads its closure into Wrap up, and the header Close case closes it again", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPage({
+      selections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
+      closure: {
+        additionalComments: "The patient is advised to follow: \nGeneral sweeping\n\nKeep calm",
+        isHealingContinued: true,
+      },
+    });
+
+    await screen.findByText("2 of 2 done");
+    await user.click(within(list()).getByRole("button", { name: /Wrap up/ }));
+    await waitFor(() => expect(screen.getByLabelText("Comments")).toHaveValue("Keep calm"));
+    expect(screen.getByRole("switch", { name: "Healing will continue" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("General sweeping")).toBeInTheDocument();
+
+    await user.click(closeButtons()[0]);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
+    expect(mPost).toHaveBeenLastCalledWith("/api/v1/cases/c1/close", {
+      additionalComments: "The patient is advised to follow: \nGeneral sweeping\n\nKeep calm",
+      isHealingContinued: true,
+    });
   });
 });

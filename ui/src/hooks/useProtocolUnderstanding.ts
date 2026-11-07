@@ -80,10 +80,12 @@ export function useProtocolUnderstanding(healingCaseId: string) {
     fetchScannedChakrasAndExisting();
   }, [healingCaseId]);
 
+  // Saves every row, or only `selections` when given (the new view saves just the chakras that
+  // already have a reason).
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (selections?: HPUTable[]) =>
       api.post(`/api/v1/cases/${healingCaseId}/protocol-understanding`, {
-        chakraSelections: rows,
+        chakraSelections: selections ?? rows,
       }),
     onError: (err) =>
       toast.error(

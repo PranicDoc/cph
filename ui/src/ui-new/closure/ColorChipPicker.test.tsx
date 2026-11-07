@@ -35,3 +35,26 @@ describe("ColorChipPicker", () => {
     expect(p.onChange).toHaveBeenCalledWith([]);
   });
 });
+
+describe("ColorChipPicker with one property per colour", () => {
+  it("replaces the colour's property when another one is picked", async () => {
+    const p = props({ value: [{ color: "Red", properties: ["Heating"] }], singleProperty: true });
+    render(<ColorChipPicker {...p} />);
+    await userEvent.click(screen.getByRole("button", { name: "Cooling" }));
+    expect(p.onChange).toHaveBeenCalledWith([{ color: "Red", properties: ["Cooling"] }]);
+  });
+
+  it("keeps a legacy record's several properties until one is picked", async () => {
+    const p = props({ value: [{ color: "Red", properties: ["Heating", "Cooling"] }], singleProperty: true });
+    render(<ColorChipPicker {...p} />);
+    expect(screen.getByRole("button", { name: "Heating" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Cooling" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Cooling" }));
+    expect(p.onChange).toHaveBeenCalledWith([{ color: "Red", properties: ["Cooling"] }]);
+  });
+
+  it("hides the property groups when properties are not shown", () => {
+    render(<ColorChipPicker {...props({ value: [{ color: "Red", properties: [] }], showProperties: false })} />);
+    expect(screen.queryByRole("button", { name: "Heating" })).not.toBeInTheDocument();
+  });
+});

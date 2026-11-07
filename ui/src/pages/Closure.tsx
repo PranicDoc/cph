@@ -29,12 +29,11 @@ type ClosurePopupProps = {
   skipUnderstanding?: boolean;
 };
 
-export function ClosurePopup({
-  patient,
-  onClose,
-  onSuccess,
-  skipUnderstanding,
-}: ClosurePopupProps) {
+/**
+ * The closing step's state: recommended protocols, comments and "healing continued", loaded from
+ * the case's existing closure when there is one, and the mutation that closes the case with them.
+ */
+export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
   const [comments, setComments] = useState("");
   const [isHealingContinued, setIsHealingContinued] = useState(false);
   const [selectedProtocols, setSelectedProtocols] = useState<Protocol[]>([]);
@@ -59,7 +58,7 @@ export function ClosurePopup({
     let cancelled = false;
     const fetchExistingClosure = async () => {
       try {
-        const { data } = await api.get(`/api/v1/cases/${patient.healingCaseId}`);
+        const { data } = await api.get(`/api/v1/cases/${healingCaseId}`);
         if (cancelled || !data?.closure) return;
         const saved = splitClosureComments(data.closure.additionalComments ?? "");
         setComments(saved.comments);
@@ -77,7 +76,7 @@ export function ClosurePopup({
     return () => {
       cancelled = true;
     };
-  }, [patient.healingCaseId]);
+  }, [healingCaseId]);
 
   const closeMutation = useMutation({
     mutationFn: () => {
@@ -88,20 +87,48 @@ export function ClosurePopup({
       const finalComments = [protocolNote, comments.trim()]
         .filter(Boolean)
         .join("\n\n");
-      return api.post(`/api/v1/cases/${patient.healingCaseId}/close`, {
+      return api.post(`/api/v1/cases/${healingCaseId}/close`, {
         additionalComments: finalComments,
         isHealingContinued,
       });
     },
     onSuccess: () => {
       toast.success("Case closed");
-      onSuccess();
+      onClosed();
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to close case", {
         duration: 5000,
       }),
   });
+
+
+  return {
+    comments,
+    setComments,
+    isHealingContinued,
+    setIsHealingContinued,
+    selectedProtocols,
+    setSelectedProtocols,
+    closeMutation,
+  };
+}
+
+export function ClosurePopup({
+  patient,
+  onClose,
+  onSuccess,
+  skipUnderstanding,
+}: ClosurePopupProps) {
+  const {
+    comments,
+    setComments,
+    isHealingContinued,
+    setIsHealingContinued,
+    selectedProtocols,
+    setSelectedProtocols,
+    closeMutation,
+  } = useCaseClosure(patient.healingCaseId, onSuccess);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
