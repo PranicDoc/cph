@@ -24,6 +24,7 @@ public record HealerProtocolUnderstandingRequest(
             @Valid
             List<ColorSelection> cleansingColors,
 
+            @NotBlank(message = "Add why you worked on this chakra")
             @Size(max = TextLimits.CHAKRA_REASON)
             String reason
     ) {}

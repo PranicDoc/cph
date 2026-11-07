@@ -20,6 +20,7 @@ export default function CloseCase() {
   const { rows, ready, loading, updateRow, save } = useProtocolUnderstanding(healingCaseId);
   const colorProps = useProtocolColors();
   const [closing, setClosing] = useState(false);
+  const reasonMissing = rows.some((row) => !row.reason?.trim());
 
   return (
     <div className="hlx mx-auto max-w-3xl pb-10">
@@ -40,6 +41,10 @@ export default function CloseCase() {
         {ready && <ProtocolUnderstanding rows={rows} {...colorProps} onChange={updateRow} />}
       </div>
 
+      {ready && reasonMissing && (
+        <p role="note" className="text-sm text-text-light text-right mt-3">Add why you worked on each chakra to continue.</p>
+      )}
+
       <div className="flex justify-end gap-2 mt-4">
         <Button type="button" variant="outline" onClick={() => navigate(-1)}>
           Cancel
@@ -47,7 +52,7 @@ export default function CloseCase() {
         <Button
           type="button"
           onClick={() => save.mutate(undefined, { onSuccess: () => setClosing(true) })}
-          disabled={save.isPending || !ready}
+          disabled={save.isPending || !ready || reasonMissing}
         >
           {save.isPending ? "Saving..." : loading ? "Loading..." : "Save"}
         </Button>

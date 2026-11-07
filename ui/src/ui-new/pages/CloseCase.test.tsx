@@ -60,6 +60,12 @@ function renderPage() {
   );
 }
 
+/** Opens the Spleen row (rows start collapsed but the first) and types its reason. */
+async function fillSpleenReason(user: ReturnType<typeof userEvent.setup>, text: string) {
+  await user.click(await screen.findByRole("button", { name: /Spleen/ }));
+  await user.type(await screen.findByLabelText("Why this chakra?"), text);
+}
+
 describe("CloseCase page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -72,13 +78,39 @@ describe("CloseCase page", () => {
     expect(await screen.findByRole("button", { name: /Spleen/ })).toBeInTheDocument();
     const cleansing = await screen.findByRole("group", { name: "Cleansing colors" });
     expect(within(cleansing).getByRole("button", { name: /Green/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Why this chakra? (optional)")).toHaveValue("Anger held here");
+    expect(screen.getByLabelText("Why this chakra?")).toHaveValue("Anger held here");
+  });
+
+  it("needs a reason for every chakra before it goes on, and shows which are missing", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: /Spleen.*Reason needed/ })).toBeInTheDocument();
+    expect(screen.getByText("Add why you worked on each chakra to continue.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    await fillSpleenReason(user, "   ");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Why this chakra?"), "Sluggish");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    expect(screen.queryByText("Add why you worked on each chakra to continue.")).not.toBeInTheDocument();
+    expect(mPost).not.toHaveBeenCalled();
+  });
+
+  it("asks for the reason above the colours", async () => {
+    renderPage();
+
+    const reason = await screen.findByLabelText("Why this chakra?");
+    const cleansing = screen.getByRole("group", { name: "Cleansing colors" });
+    expect(reason.compareDocumentPosition(cleansing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reason).toBeRequired();
   });
 
   it("limits the reason to 300 characters and shows the count", async () => {
     renderPage();
 
-    const reason = await screen.findByLabelText("Why this chakra? (optional)");
+    const reason = await screen.findByLabelText("Why this chakra?");
     expect(reason).toHaveAttribute("maxLength", "300");
     expect(screen.getByText("15/300")).toBeInTheDocument();
   });
@@ -88,9 +120,10 @@ describe("CloseCase page", () => {
     const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
     const { router } = renderPage();
 
-    const reason = await screen.findByLabelText("Why this chakra? (optional)");
+    const reason = await screen.findByLabelText("Why this chakra?");
     await user.clear(reason);
     await user.type(reason, "Fear");
+    await fillSpleenReason(user, "Sluggish");
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -102,7 +135,7 @@ describe("CloseCase page", () => {
           cleansingColors: [{ color: "Green", properties: [] }],
           reason: "Fear",
         },
-        { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: undefined },
+        { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" },
       ],
     });
 
@@ -121,6 +154,7 @@ describe("CloseCase page", () => {
     const user = userEvent.setup();
     const { router } = renderPage();
 
+    await fillSpleenReason(user, "Sluggish");
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Save" }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));

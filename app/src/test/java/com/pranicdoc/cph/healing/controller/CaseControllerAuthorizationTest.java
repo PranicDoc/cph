@@ -182,7 +182,7 @@ class CaseControllerAuthorizationTest {
     private static final String CLOSURE_JSON =
             "{\"additionalComments\":\"done\",\"isHealingContinued\":false}";
     private static final String PROTOCOL_UNDERSTANDING_JSON =
-            "{\"chakraSelections\":[{\"chakra\":\"HEART\",\"energisingColors\":[],\"cleansingColors\":[]}]}";
+            "{\"chakraSelections\":[{\"chakra\":\"HEART\",\"energisingColors\":[],\"cleansingColors\":[],\"reason\":\"Grief\"}]}";
     private static final String MANUAL_FEEDBACK_JSON =
             "{\"feedbackType\":\"INTERIM\",\"healingDate\":\"2026-01-01\",\"feedbackText\":\"Better\"}";
     static final String CASE_CREATE_JSON =
