@@ -17,6 +17,8 @@ export function useProtocolUnderstanding(healingCaseId: string) {
   // still-empty table would overwrite what the healer filled in earlier.
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
+  // The chakras that had a saved selection when this loaded (a save replaces the whole set).
+  const [savedChakras, setSavedChakras] = useState<string[]>([]);
 
   useEffect(() => {
     if (!healingCaseId) return;
@@ -64,6 +66,7 @@ export function useProtocolUnderstanding(healingCaseId: string) {
           };
         });
         setRows(tableData);
+        setSavedChakras(data.filter((chakraName: string) => existingByChakra.has(chakraName)));
         setReady(true);
       } catch (err) {
         toast.error(
@@ -80,11 +83,17 @@ export function useProtocolUnderstanding(healingCaseId: string) {
     fetchScannedChakrasAndExisting();
   }, [healingCaseId]);
 
+  // Saves every row, or only `selections` when given (the new view saves just the chakras that
+  // already have a reason).
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (selections?: HPUTable[]) =>
       api.post(`/api/v1/cases/${healingCaseId}/protocol-understanding`, {
-        chakraSelections: rows,
+        chakraSelections: selections ?? rows,
       }),
+    onSuccess: (_res, selections) => {
+      const sent = (selections ?? rows).map((row) => row.chakra);
+      setSavedChakras((prev) => Array.from(new Set([...prev, ...sent])));
+    },
     onError: (err) =>
       toast.error(
         extractDetail(err) ||
@@ -104,7 +113,7 @@ export function useProtocolUnderstanding(healingCaseId: string) {
     []
   );
 
-  return { rows, ready, loading, updateRow, save };
+  return { rows, ready, loading, savedChakras, updateRow, save };
 }
 
 /** The prana colors each protocol-understanding column offers, with their properties and swatches. */

@@ -166,6 +166,13 @@ public class CaseController {
         return ResponseEntity.ok(healerProtocolUnderstandingService.getProtocolPrefill(id));
     }
 
+    // Same CASE:READ gate: the healer's most-used colour/property pairs from their other cases.
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','READ')")
+    @GetMapping("/{id}/protocol-understanding/usual-picks")
+    public ResponseEntity<UsualPicksResponse> getUsualPicks(@PathVariable UUID id) {
+        return ResponseEntity.ok(healerProtocolUnderstandingService.getUsualPicks(id));
+    }
+
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','DELETE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {

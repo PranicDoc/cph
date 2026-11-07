@@ -12,6 +12,9 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ChakraColorSelection;
 import com.pranicdoc.cph.healing.dto.HealerProtocolUnderstandingRequest.ColorSelection;
+import com.pranicdoc.cph.healing.dto.UsualPicksResponse;
+import com.pranicdoc.cph.healing.dto.UsualPicksResponse.Pick;
+import com.pranicdoc.cph.healing.dto.UsualPicksResponse.Picks;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
@@ -26,7 +29,10 @@ import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
+import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +56,7 @@ public class HealerProtocolUnderstandingService {
     private final ProtocolChakraColorRepository protocolChakraColorRepository;
     private final ChakraCatalogRepository chakraCatalogRepository;
     private final ObjectMapper objectMapper;
+    private final SecurityContextUtil securityContextUtil;
 
     /**
      * Synchronous replacement for the old AFTER_COMMIT event-listener auto-generation.
@@ -141,6 +148,65 @@ public class HealerProtocolUnderstandingService {
                 .toList();
 
         return new HealerProtocolUnderstandingRequest(chakraSelections);
+    }
+
+    private static final int USUAL_PICKS_LIMIT = 4;
+    private static final int USUAL_PICKS_MAX_CASES = 200;
+
+    /**
+     * The case healer's most-used (colour, first property) pairs per category from their OTHER
+     * cases' saved understandings, overall and per chakra (name as stored); at most four each.
+     */
+    @Transactional(readOnly = true)
+    public UsualPicksResponse getUsualPicks(UUID healingCaseId) {
+        HealingCase healingCase = caseRepository.findById(healingCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Healing case not found for id %s"
+                        .formatted(healingCaseId)));
+        if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Case does not belong to you");
+        }
+        var others = hpuRepository.findColorsByHealerIdExcludingCase(
+                healingCase.getHealerId(), healingCaseId, PageRequest.of(0, USUAL_PICKS_MAX_CASES));
+
+        // Picks are collected under their chakra and under "" (all chakras), duplicates kept to count them.
+        Map<String, List<Pick>> cleansing = new LinkedHashMap<>();
+        Map<String, List<Pick>> energising = new LinkedHashMap<>();
+        for (var hpu : others) {
+            collectPicks(deserializeColors(hpu.cleansingColorsJson()), cleansing);
+            collectPicks(deserializeColors(hpu.energisingColorsJson()), energising);
+        }
+        Set<String> chakras = new LinkedHashSet<>(cleansing.keySet());
+        chakras.addAll(energising.keySet());
+        chakras.remove("");
+        Map<String, Picks> byChakra = new LinkedHashMap<>();
+        chakras.forEach(c -> byChakra.put(c, new Picks(rank(cleansing.get(c)), rank(energising.get(c)))));
+        return new UsualPicksResponse(new Picks(rank(cleansing.get("")), rank(energising.get(""))), byChakra);
+    }
+
+    private static void collectPicks(Map<String, List<ColorUsedSnapshot>> colors, Map<String, List<Pick>> into) {
+        colors.forEach((chakra, snapshots) -> {
+            if (snapshots == null) return;
+            for (ColorUsedSnapshot s : snapshots) {
+                if (s.colorName() == null || s.colorName().isBlank()) continue;
+                String props = s.properties();
+                Pick pick = new Pick(s.colorName(), props == null || props.isBlank() ? null : props.split(", ")[0]);
+                into.computeIfAbsent(chakra, k -> new ArrayList<>()).add(pick);
+                into.computeIfAbsent("", k -> new ArrayList<>()).add(pick);
+            }
+        });
+    }
+
+    private static List<Pick> rank(List<Pick> picks) {
+        if (picks == null) return List.of();
+        return picks.stream()
+                .collect(Collectors.groupingBy(p -> p, Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<Pick, Long>comparingByValue().reversed()
+                        .thenComparing(e -> e.getKey().color())
+                        .thenComparing(e -> Objects.toString(e.getKey().property(), "")))
+                .limit(USUAL_PICKS_LIMIT)
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     /**

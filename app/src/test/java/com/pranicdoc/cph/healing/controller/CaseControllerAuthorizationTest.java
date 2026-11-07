@@ -310,6 +310,8 @@ class CaseControllerAuthorizationTest {
                         get(BASE + "/" + ROW_ID + "/protocol-understanding").cookie(accessCookie())),
                 spec("getProtocolUnderstandingPrefill", Resource.CASE, Operation.READ,
                         get(BASE + "/" + ROW_ID + "/protocol-understanding/prefill").cookie(accessCookie())),
+                spec("getUsualPicks", Resource.CASE, Operation.READ,
+                        get(BASE + "/" + ROW_ID + "/protocol-understanding/usual-picks").cookie(accessCookie())),
                 spec("saveManualFeedback", Resource.CASE, Operation.UPDATE,
                         post(BASE + "/" + ROW_ID + "/feedback")
                                 .contentType(MediaType.APPLICATION_JSON).content(MANUAL_FEEDBACK_JSON)
@@ -350,8 +352,8 @@ class CaseControllerAuthorizationTest {
     @Test
     void gatedEndpointsSourceSuppliesExactlyThe19GatedMethods() {
         assertThat(gatedEndpoints().count())
-                .as("the trio @MethodSource must supply exactly the 20 gated CaseController methods")
-                .isEqualTo(20L);
+                .as("the trio @MethodSource must supply exactly the 21 gated CaseController methods")
+                .isEqualTo(21L);
 
         assertThat(gatedEndpoints()
                 .map(a -> ((EndpointSpec) a.get()[0]).methodName())
@@ -360,7 +362,7 @@ class CaseControllerAuthorizationTest {
                 .containsExactlyInAnyOrder(
                         "getByPatientId", "addSymptom", "resolveSymptom", "addMedication", "signDeclaration",
                         "closeCase", "saveProtocolUnderstanding", "getProtocolUnderstanding",
-                        "getProtocolUnderstandingPrefill", "saveManualFeedback", "getManualFeedback", "delete",
+                        "getProtocolUnderstandingPrefill", "getUsualPicks", "saveManualFeedback", "getManualFeedback", "delete",
                         "generatePdf", "getAllPdfs", "getDownloadLink", "getCaseSummary", "resendFeedback",
                         "updateCaseDetails", "getById", "getSymptomsForFeedback");
 
@@ -368,10 +370,10 @@ class CaseControllerAuthorizationTest {
                 .map(a -> ((EndpointSpec) a.get()[0]).resource())
                 .collect(Collectors.groupingBy(r -> r, Collectors.counting()));
         assertThat(byResource)
-                .as("CaseController's 20 gates must partition CASE 16 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
+                .as("CaseController's 21 gates must partition CASE 17 / PDF 3 / FEEDBACK 1 (plan 42-13) — a "
                         + "copy-paste that duplicates a CASE endpoint instead of covering getDownloadLink fails here")
                 .containsOnly(
-                        entry(Resource.CASE, 16L),
+                        entry(Resource.CASE, 17L),
                         entry(Resource.PDF, 3L),
                         entry(Resource.FEEDBACK, 1L));
     }
