@@ -9,7 +9,7 @@ import ColourStepCard from "./ColourStepCard";
 interface Props {
   row: HPUTable;
   colors: ReturnType<typeof useProtocolColors>;
-  picksFor: (chakra: string, category: UsualPickCategory) => UsualPick[];
+  picksFor: (chakra: string, category: UsualPickCategory, catalog: string[]) => UsualPick[];
   onChange: <K extends keyof HPUTable>(field: K, value: HPUTable[K]) => void;
 }
 
@@ -26,7 +26,7 @@ export default function ChakraDetail({ row, colors, picksFor, onChange }: Props)
         <Textarea
           id={id}
           rows={2}
-          className="resize-none"
+          className="resize-none hl-reason"
           value={row.reason ?? ""}
           onChange={(e) => onChange("reason", e.target.value)}
           maxLength={TEXT_LIMITS.chakraReason}
@@ -39,22 +39,24 @@ export default function ChakraDetail({ row, colors, picksFor, onChange }: Props)
           title="1. Cleanse"
           kind="cleansing"
           chakra={row.chakra}
-          picks={picksFor(row.chakra, "cleansing")}
+          picks={picksFor(row.chakra, "cleansing", colors.cleansingColors)}
           value={row.cleansingColors}
           colors={colors.cleansingColors}
           getProperties={colors.getCleansingProperties}
           getHex={colors.getCleansingHex}
+          loading={colors.colorsLoading}
           onChange={(v) => onChange("cleansingColors", v)}
         />
         <ColourStepCard
           title="2. Energise"
           kind="energising"
           chakra={row.chakra}
-          picks={picksFor(row.chakra, "energising")}
+          picks={picksFor(row.chakra, "energising", colors.energisingColors)}
           value={row.energisingColors}
           colors={colors.energisingColors}
           getProperties={colors.getEnergisingProperties}
           getHex={colors.getEnergisingHex}
+          loading={colors.colorsLoading}
           onChange={(v) => onChange("energisingColors", v)}
         />
       </div>

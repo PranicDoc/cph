@@ -12,14 +12,17 @@ vi.mock("@/lib/axios", () => ({
 vi.mock("../../ui-version", () => ({
   useUiVersion: () => ({ isNewView: true }),
 }));
+const ref = vi.hoisted(() => ({ loading: false }));
 vi.mock("@/hooks/useReferenceData", () => ({
   useReferenceData: () => ({
-    colors: [
-      { id: "g", code: "G", name: "Green", properties: ["Cooling", "Soothing"], category: "CLEANSING" },
-      { id: "b", code: "B", name: "Blue", properties: ["Calming"], category: "CLEANSING" },
-      { id: "y", code: "Y", name: "Yellow", properties: [], category: "ENERGISING" },
-    ],
-    loading: false,
+    colors: ref.loading
+      ? []
+      : [
+          { id: "g", code: "G", name: "Green", properties: ["Cooling", "Soothing"], category: "CLEANSING" },
+          { id: "b", code: "B", name: "Blue", properties: ["Calming"], category: "CLEANSING" },
+          { id: "y", code: "Y", name: "Yellow", properties: [], category: "ENERGISING" },
+        ],
+    loading: ref.loading,
     error: null,
   }),
 }));
@@ -74,9 +77,12 @@ const closeButtons = () => screen.getAllByRole("button", { name: "Close case" })
 const panelTitle = () => screen.getByRole("heading", { level: 2 });
 
 describe("CloseCase page", () => {
+  const stubMatchMedia = window.matchMedia;
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
+    ref.loading = false;
+    window.matchMedia = stubMatchMedia;
   });
 
   it("lists every scanned chakra with its status and reason, the progress, and the wrap-up step", async () => {
@@ -415,5 +421,53 @@ describe("CloseCase page", () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
     expect(mPost.mock.calls).toEqual([["/api/v1/cases/c1/close", { additionalComments: "", isHealingContinued: false }]]);
+  });
+
+  it("tops a chakra's usual picks up from overall, without duplicates or colours outside the catalog", async () => {
+    renderPage({
+      usual: {
+        overall: {
+          cleansing: [
+            { color: "Green", property: "Cooling" },
+            { color: "Pink", property: "Soothing" },
+            { color: "Blue", property: null },
+          ],
+          energising: [],
+        },
+        byChakra: { "Solar Plexus": { cleansing: [{ color: "Green", property: "Cooling" }], energising: [] } },
+      },
+    });
+
+    const cleanse = await screen.findByRole("region", { name: "1. Cleanse" });
+    const picks = await within(cleanse).findByRole("group", { name: "Your usual picks" });
+    expect(within(picks).getAllByRole("button").map((b) => b.textContent)).toEqual(["Green, Cooling", "Blue"]);
+  });
+
+  it("says the colours are loading in the picker while the catalog loads", async () => {
+    ref.loading = true;
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Add or change cleansing colours" }));
+    const sheet = screen.getByRole("dialog", { name: "Cleansing colours" });
+    expect(within(sheet).getByText("Loading colours…")).toBeInTheDocument();
+    expect(within(sheet).queryByText("No colours found.")).not.toBeInTheDocument();
+  });
+
+  it("opens the colour picker inside the chakra panel on desktop, and over the page on a phone", async () => {
+    const user = userEvent.setup();
+    window.matchMedia = ((query: string) => ({ ...stubMatchMedia(query), matches: query === "(min-width: 768px)" })) as typeof window.matchMedia;
+    const { unmount } = renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Add or change cleansing colours" }));
+    const panel = document.querySelector(".hl-cc-panel");
+    expect(panel?.contains(screen.getByRole("dialog", { name: "Cleansing colours" }))).toBe(true);
+    await user.keyboard("{Escape}");
+    unmount();
+
+    window.matchMedia = stubMatchMedia;
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add or change cleansing colours" }));
+    expect(document.querySelector(".hl-cc-panel")?.contains(screen.getByRole("dialog", { name: "Cleansing colours" }))).toBe(false);
   });
 });

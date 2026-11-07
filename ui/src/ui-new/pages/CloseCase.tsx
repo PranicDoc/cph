@@ -10,6 +10,7 @@ import { useCaseClosure } from "@/hooks/useCaseClosure";
 import { useUsualPicks } from "@/hooks/useUsualPicks";
 import ChakraDetail from "../closure/ChakraDetail";
 import WrapUp from "../closure/WrapUp";
+import { PickerHost } from "../closure/pickerHost";
 
 const hasReason = (row: HPUTable) => !!row.reason?.trim();
 
@@ -35,6 +36,7 @@ export default function CloseCase() {
   // rows.length is the wrap-up step. On phones the list shows until an item is opened.
   const [selected, setSelected] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [panel, setPanel] = useState<HTMLElement | null>(null);
   // Where focus goes after the selected item or the phone view changes.
   const focusTo = useRef<"heading" | "row" | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -163,7 +165,7 @@ export default function CloseCase() {
           </div>
         </nav>
 
-        <section className={`hl-cc-panel ${detailOpen ? "" : "max-md:hidden"}`}>
+        <section ref={setPanel} className={`hl-cc-panel ${detailOpen ? "" : "max-md:hidden"}`}>
           {ready && (
             <>
               <div className="hl-cc-panel-h">
@@ -191,13 +193,15 @@ export default function CloseCase() {
                 {isWrapUp ? (
                   <WrapUp closure={closure} />
                 ) : (
-                  <ChakraDetail
-                    key={row.chakra}
-                    row={row}
-                    colors={colors}
-                    picksFor={picksFor}
-                    onChange={(field, value) => updateRow(selected, field, value)}
-                  />
+                  <PickerHost.Provider value={panel}>
+                    <ChakraDetail
+                      key={row.chakra}
+                      row={row}
+                      colors={colors}
+                      picksFor={picksFor}
+                      onChange={(field, value) => updateRow(selected, field, value)}
+                    />
+                  </PickerHost.Provider>
                 )}
                 {isWrapUp && !allDone && (
                   <p role="note" className="muted small mt-3">Add why you worked on each chakra to close the case.</p>

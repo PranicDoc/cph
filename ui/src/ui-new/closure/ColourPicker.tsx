@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { Search, Trash2, X } from "lucide-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { ColorSelection } from "@/components/closure/ColorPropertySelector";
+import { PickerHost } from "./pickerHost";
 
 export interface ColourCategoryProps {
   /** "cleansing" or "energising", as used in the labels. */
@@ -12,6 +14,7 @@ export interface ColourCategoryProps {
   colors: string[];
   getProperties: (color: string) => string[];
   getHex: (color: string) => string | undefined;
+  loading?: boolean;
   onChange: (value: ColorSelection[]) => void;
 }
 
@@ -29,10 +32,13 @@ function pickProperty(value: ColorSelection[], color: string, property: string) 
 }
 
 /**
- * The colour picker for one category: a right-hand drawer on desktop, a bottom sheet on a phone
- * (Radix dialog: scrim, focus trap, Esc, focus back to the opening button).
+ * The colour picker for one category: on desktop a drawer inside the chakra panel (portalled into
+ * it), on a phone a bottom sheet over the page. Radix dialog: scrim, focus trap, Esc, focus back to
+ * the opening button.
  */
-export default function ColourPicker({ kind, chakra, value, colors, getProperties, getHex, onChange, trigger }: ColourCategoryProps & { trigger: React.ReactNode }) {
+export default function ColourPicker({ kind, chakra, value, colors, getProperties, getHex, loading, onChange, trigger }: ColourCategoryProps & { trigger: React.ReactNode }) {
+  const host = useContext(PickerHost);
+  const [inPanel, setInPanel] = useState(false);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const title = `${kind[0].toUpperCase()}${kind.slice(1)} colours`;
@@ -57,14 +63,17 @@ export default function ColourPicker({ kind, chakra, value, colors, getPropertie
   return (
     <Dialog
       onOpenChange={(open) => {
-        if (!open) {
+        if (open) setInPanel(!!host && window.matchMedia("(min-width: 768px)").matches);
+        else {
           setQuery("");
           setExpanded(null);
         }
       }}
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent showCloseButton={false} className="hl-rsheet hl-cpick">
+      <DialogPrimitive.Portal container={inPanel ? host : undefined}>
+        <DialogPrimitive.Overlay className="hl-cpick-scrim" data-in-panel={inPanel} />
+        <DialogPrimitive.Content className="hl-cpick" data-in-panel={inPanel}>
         <div className="hlx hl-cpick-in">
         <div className="hl-cpick-grab md:hidden" aria-hidden="true" />
         <div className="hl-cpick-h">
@@ -94,7 +103,7 @@ export default function ColourPicker({ kind, chakra, value, colors, getPropertie
           />
         </div>
         <div className="hl-cpick-list">
-          {options.map((c) => {
+          {!loading && options.map((c) => {
             const sel = value.find((v) => v.color === c);
             const open = expanded === c;
             const props = getProperties(c);
@@ -140,7 +149,11 @@ export default function ColourPicker({ kind, chakra, value, colors, getPropertie
               </div>
             );
           })}
-          {options.length === 0 && <p className="muted small px-2">No colours found.</p>}
+          {loading ? (
+            <p className="muted small px-2">Loading colours…</p>
+          ) : (
+            options.length === 0 && <p className="muted small px-2">No colours found.</p>
+          )}
         </div>
         <div className="hl-cpick-f">
           <span className="muted small max-md:hidden">Tap a colour to add it</span>
@@ -151,7 +164,8 @@ export default function ColourPicker({ kind, chakra, value, colors, getPropertie
           </DialogClose>
         </div>
         </div>
-      </DialogContent>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
     </Dialog>
   );
 }
