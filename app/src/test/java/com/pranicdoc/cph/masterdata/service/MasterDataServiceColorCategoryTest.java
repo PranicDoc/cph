@@ -95,4 +95,22 @@ class MasterDataServiceColorCategoryTest {
         assertThrows(IllegalArgumentException.class, () -> masterDataService.updateColor(id,
                 request("Orange Prana", "ORANGE", ColorUsageType.ENERGISING), false));
     }
+
+    @Test
+    void updateColor_changesTheCode_unlessAnotherColorUsesIt() {
+        UUID id = UUID.randomUUID();
+        PranaColorCatalog existing = PranaColorCatalog.builder()
+                .code("ORANGE").name("Orange Prana").colorHex("#FFA500").healerId(UUID.randomUUID()).build();
+        when(colorRepo.findById(id)).thenReturn(Optional.of(existing));
+        when(colorRepo.save(any(PranaColorCatalog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PranaColorCatalog saved = masterDataService.updateColor(id,
+                request("Orange Prana", "orange_e", ColorUsageType.ENERGISING), false);
+        assertEquals("ORANGE_E", saved.getCode());
+
+        when(colorRepo.existsByCodeIgnoreCaseAndIdNot("RED", id)).thenReturn(true);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> masterDataService.updateColor(id,
+                request("Orange Prana", "red", ColorUsageType.ENERGISING), false));
+        assertEquals("Code \"RED\" is already used by another color", ex.getMessage());
+    }
 }

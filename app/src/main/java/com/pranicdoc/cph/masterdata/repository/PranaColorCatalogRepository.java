@@ -24,6 +24,8 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     boolean existsByNameIgnoreCaseAndCategoryAndIdNot(String name, ColorUsageType category, UUID id);
 
+    boolean existsByCodeIgnoreCaseAndIdNot(String code, UUID id);
+
     /** System colors (healerId is null) */
     List<PranaColorCatalog> findByHealerIdIsNull();
 
