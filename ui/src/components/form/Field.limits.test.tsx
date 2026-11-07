@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { CharacterCount } from "./CharacterCount";
-import { TextField, TextareaField, type TanstackField } from "./Field";
+import { SelectField, TextField, TextareaField, type TanstackField } from "./Field";
 
 const field = (value: string): TanstackField => ({
   state: { value, meta: { errors: [] } },
@@ -38,5 +38,29 @@ describe("typed field limits", () => {
     render(<CharacterCount value={"x".repeat(11)} max={10} />);
 
     expect(screen.getByText("11/10")).toHaveClass("text-danger");
+  });
+});
+
+describe("SelectField hidden options", () => {
+  const options = [
+    { label: "Good", value: "GOOD" },
+    { label: "Fair", value: "FAIR", hidden: true },
+  ];
+
+  it("still shows a hidden option as the current value, but does not offer it for picking", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    render(<SelectField field={field("FAIR")} options={options} />);
+
+    expect(screen.getByRole("combobox")).toHaveTextContent("Fair");
+    await userEvent.setup().click(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Good", "Fair"]);
+  });
+
+  it("does not offer a hidden option when it is not the current value", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    render(<SelectField field={field("GOOD")} options={options} />);
+
+    await userEvent.setup().click(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Good"]);
   });
 });

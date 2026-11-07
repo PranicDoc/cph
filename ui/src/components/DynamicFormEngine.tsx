@@ -40,7 +40,8 @@ export type FieldConfig = {
   label: string;
   display?: boolean;
   type?: FieldType;
-  options?: { label: string; value: string }[];
+  /** `hidden` options are not offered for picking, but still show when they are the current value. */
+  options?: { label: string; value: string; hidden?: boolean }[];
   placeholder?: string;
   required?: boolean;
   /** Most characters this typed field may hold; unset fields get the note limit (see typedFieldLimit). */
