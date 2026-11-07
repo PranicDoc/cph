@@ -88,6 +88,7 @@ class HealerProtocolUnderstandingPrefillTest {
     @Test
     void fillsScannedChakrasFromEveryNamedProtocol_matchingChakraNamesLoosely() {
         withProtocolNames("Fever, Cough");
+        healingCase.setBasicBookPg("10, 11");
         ProtocolCatalog fever = protocol("Fever");
         ProtocolCatalog cough = protocol("cough");
         when(protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId))
@@ -109,12 +110,6 @@ class HealerProtocolUnderstandingPrefillTest {
         ChakraColorSelection solar = byChakra.get("solar plexus");
         assertEquals(List.of("Light Whitish Violet"), names(solar.energisingColors()));
         assertEquals(List.of("Light Whitish Green", "Light Whitish Orange"), names(solar.cleansingColors()));
-        // every catalog property is selected by default; a colour with none in the catalog has none
-        assertEquals(List.of("Breaking down diseased energy", "Decongesting"),
-                solar.cleansingColors().get(0).properties());
-        assertEquals("Light Whitish Orange", solar.cleansingColors().get(1).color());
-        assertTrue(solar.cleansingColors().get(1).properties().isEmpty());
-        assertTrue(solar.energisingColors().get(0).properties().isEmpty());
         assertTrue(byChakra.get("Navel").energisingColors().isEmpty());
         assertTrue(byChakra.get("Navel").cleansingColors().isEmpty());
     }
@@ -122,6 +117,7 @@ class HealerProtocolUnderstandingPrefillTest {
     @Test
     void ignoresAnotherHealersLinksOnTheSameProtocol() {
         withProtocolNames("Fever");
+        healingCase.setBasicBookPg("10");
         ProtocolCatalog fever = protocol("Fever");
         when(protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of(fever));
         ProtocolChakra theirs = link(fever, spleen, otherHealerId);
@@ -133,6 +129,58 @@ class HealerProtocolUnderstandingPrefillTest {
         assertTrue(spleenRow.energisingColors().isEmpty());
         assertTrue(spleenRow.cleansingColors().isEmpty());
         verifyNoInteractions(protocolChakraColorRepository);
+    }
+
+    @Test
+    void sameNameDifferentBook_onlyMatchingBookContributes() {
+        withProtocolNames("Fever");
+        healingCase.setAdvancedBookPg("7");
+        ProtocolCatalog basicFever = protocol("Fever", "The Ancient Science and Art of Pranic Healing", 7);
+        ProtocolCatalog advancedFever = protocol("Fever", "Advanced Pranic Healing", 7);
+        when(protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId))
+                .thenReturn(List.of(basicFever, advancedFever));
+        ProtocolChakra advancedLink = link(advancedFever, spleen, null);
+        when(protocolChakraRepository.findByProtocol_IdIn(List.of(advancedFever.getId())))
+                .thenReturn(List.of(advancedLink));
+        when(protocolChakraColorRepository.findByProtocolChakra_IdIn(anyList())).thenReturn(List.of(
+                linkColor(advancedLink, violet, ColorUsageType.CLEANSING)));
+        scanned("Spleen Chakra");
+
+        ChakraColorSelection spleenRow = prefillByChakra().get("Spleen Chakra");
+
+        assertEquals(List.of("Light Whitish Violet"), names(spleenRow.cleansingColors()));
+    }
+
+    @Test
+    void pageNotInCaseBookList_ignored() {
+        withProtocolNames("Fever");
+        healingCase.setBasicBookPg("10, 12");
+        when(protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId))
+                .thenReturn(List.of(protocol("Fever", "The Ancient Science and Art of Pranic Healing", 11)));
+        scanned("Spleen Chakra");
+
+        ChakraColorSelection spleenRow = prefillByChakra().get("Spleen Chakra");
+
+        assertTrue(spleenRow.cleansingColors().isEmpty());
+        verifyNoInteractions(protocolChakraRepository, protocolChakraColorRepository);
+    }
+
+    @Test
+    void prefillLeavesPropertiesEmpty() {
+        withProtocolNames("Fever");
+        healingCase.setBasicBookPg("10");
+        ProtocolCatalog fever = protocol("Fever");
+        when(protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of(fever));
+        ProtocolChakra feverSpleen = link(fever, spleen, null);
+        when(protocolChakraRepository.findByProtocol_IdIn(anyList())).thenReturn(List.of(feverSpleen));
+        when(protocolChakraColorRepository.findByProtocolChakra_IdIn(anyList())).thenReturn(List.of(
+                linkColor(feverSpleen, green, ColorUsageType.CLEANSING)));
+        scanned("Spleen Chakra");
+
+        ColorSelection prefilled = prefillByChakra().get("Spleen Chakra").cleansingColors().get(0);
+
+        assertEquals("Light Whitish Green", prefilled.color());
+        assertTrue(prefilled.properties().isEmpty());
     }
 
     @Test
@@ -190,9 +238,15 @@ class HealerProtocolUnderstandingPrefillTest {
     }
 
     private static ProtocolCatalog protocol(String name) {
+        return protocol(name, "The Ancient Science and Art of Pranic Healing", 10);
+    }
+
+    private static ProtocolCatalog protocol(String name, String book, int page) {
         ProtocolCatalog p = new ProtocolCatalog();
         p.setId(UUID.randomUUID());
         p.setName(name);
+        p.setSourceBook(book);
+        p.setPageNumber(page);
         return p;
     }
 

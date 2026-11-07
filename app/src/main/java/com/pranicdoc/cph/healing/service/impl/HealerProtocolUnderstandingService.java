@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,7 +76,11 @@ public class HealerProtocolUnderstandingService {
         Map<String, List<ColorUsedSnapshot>> energisingColors = new LinkedHashMap<>();
         Map<String, List<ColorUsedSnapshot>> cleansingColors = new LinkedHashMap<>();
 
+        Map<String, String> chakraReasons = new LinkedHashMap<>();
         for (ChakraColorSelection selection : request.chakraSelections()) {
+            if (selection.reason() != null && !selection.reason().isBlank()) {
+                chakraReasons.put(selection.chakra(), selection.reason().trim());
+            }
             energisingColors.put(selection.chakra(), toColorSnapshots(selection.energisingColors(), energisingByName));
             cleansingColors.put(selection.chakra(), toColorSnapshots(selection.cleansingColors(), cleansingByName));
         }
@@ -98,6 +103,7 @@ public class HealerProtocolUnderstandingService {
         hpu.setCleansingColorsJson(serialize(cleansingColors));
         hpu.setEnergisingColorsJson(serialize(energisingColors));
         hpu.setChakraReadingsJson(serialize(chakraReadings));
+        hpu.setChakraReasonsJson(serialize(chakraReasons));
 
         hpuRepository.save(hpu);
     }
@@ -120,15 +126,18 @@ public class HealerProtocolUnderstandingService {
         Map<String, List<ColorUsedSnapshot>> energisingColors = deserializeColors(hpu.getEnergisingColorsJson());
         Map<String, List<ColorUsedSnapshot>> cleansingColors = deserializeColors(hpu.getCleansingColorsJson());
 
+        Map<String, String> chakraReasons = deserializeReasons(hpu.getChakraReasonsJson());
         Set<String> chakraNames = new LinkedHashSet<>();
         chakraNames.addAll(energisingColors.keySet());
         chakraNames.addAll(cleansingColors.keySet());
+        chakraNames.addAll(chakraReasons.keySet());
 
         List<ChakraColorSelection> chakraSelections = chakraNames.stream()
                 .map(chakra -> new ChakraColorSelection(
                         chakra,
                         toColorSelections(energisingColors.get(chakra)),
-                        toColorSelections(cleansingColors.get(chakra))))
+                        toColorSelections(cleansingColors.get(chakra)),
+                        chakraReasons.get(chakra)))
                 .toList();
 
         return new HealerProtocolUnderstandingRequest(chakraSelections);
@@ -136,9 +145,8 @@ public class HealerProtocolUnderstandingService {
 
     /**
      * Pre-fill for the closure form: for each chakra scanned in this case, the cleansing and
-     * energising colors the case's protocol(s) prescribe for that chakra in master data, each
-     * with all of its catalog properties selected (the healer can untick any; a color with no
-     * catalog properties comes back with none). A chakra the protocols do not cover, or a
+     * energising colors the case's protocol(s) prescribe for that chakra in master data. Colors
+     * come back with no properties selected: the healer picks those. A chakra the protocols do not cover, or a
      * case whose protocols have no chakra/color data, comes back with empty lists, and the
      * form falls back to manual selection.
      */
@@ -151,14 +159,6 @@ public class HealerProtocolUnderstandingService {
         Map<String, Map<ColorUsageType, Set<String>>> colorsByChakra =
                 protocolColorsByChakra(healingCase, healingCase.getHealerId());
 
-        // Same name resolution as saveFromHealerSelection: per category first, then by name alone.
-        List<PranaColorCatalog> catalog = pranaColorCatalogRepository
-                .findByHealerIdIsNullOrHealerId(healingCase.getHealerId());
-        Map<String, PranaColorCatalog> catalogByName = catalog.stream()
-                .collect(Collectors.toMap(PranaColorCatalog::getName, c -> c, (a, b) -> a));
-        Map<String, PranaColorCatalog> energisingByName = byNameIn(catalog, ColorUsageType.ENERGISING, catalogByName);
-        Map<String, PranaColorCatalog> cleansingByName = byNameIn(catalog, ColorUsageType.CLEANSING, catalogByName);
-
         List<ChakraColorSelection> prefill = sessionRepository.findAllScannedChakras(healingCaseId)
                 .stream()
                 .sorted()
@@ -167,8 +167,9 @@ public class HealerProtocolUnderstandingService {
                             colorsByChakra.getOrDefault(normalizeChakraName(chakra), Map.of());
                     return new ChakraColorSelection(
                             chakra,
-                            toDefaultColors(colors.get(ColorUsageType.ENERGISING), energisingByName),
-                            toDefaultColors(colors.get(ColorUsageType.CLEANSING), cleansingByName));
+                            toDefaultColors(colors.get(ColorUsageType.ENERGISING)),
+                            toDefaultColors(colors.get(ColorUsageType.CLEANSING)),
+                            null);
                 })
                 .toList();
         return new HealerProtocolUnderstandingRequest(prefill);
@@ -176,8 +177,9 @@ public class HealerProtocolUnderstandingService {
 
     /**
      * Normalized chakra name -> usage -> color names, merged across every protocol named on the
-     * case (HealingDetails.protocolName is a comma-joined list of catalog names). Only system rows
-     * and the case healer's own rows count.
+     * case (HealingDetails.protocolName is a comma-joined list of catalog names). A catalog protocol
+     * counts only when its page is among the case's pages for its book. Only system rows and the
+     * case healer's own rows count.
      */
     private Map<String, Map<ColorUsageType, Set<String>>> protocolColorsByChakra(HealingCase healingCase, UUID healerId) {
         HealingDetails details = healingCase.getHealingDetails();
@@ -191,6 +193,7 @@ public class HealerProtocolUnderstandingService {
         List<UUID> protocolIds = protocolCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)
                 .stream()
                 .filter(p -> p.getName() != null && protocolNames.contains(p.getName().trim().toLowerCase(Locale.ROOT)))
+                .filter(p -> isOnCasePages(p, healingCase))
                 .map(ProtocolCatalog::getId)
                 .toList();
         if (protocolIds.isEmpty()) return Map.of();
@@ -229,6 +232,17 @@ public class HealerProtocolUnderstandingService {
         return result;
     }
 
+    /** Mirrors BOOK_FIELD_MAP in ui/src/pages/Session.tsx; any other book counts as the basic one. */
+    private static final Map<String, Function<HealingCase, String>> BOOK_PAGES = Map.of(
+            "Advanced Pranic Healing", HealingCase::getAdvancedBookPg,
+            "Pranic Psychotherapy", HealingCase::getPsychotherapyPg);
+
+    private static boolean isOnCasePages(ProtocolCatalog protocol, HealingCase healingCase) {
+        String pages = BOOK_PAGES.getOrDefault(protocol.getSourceBook(), HealingCase::getBasicBookPg).apply(healingCase);
+        if (pages == null || protocol.getPageNumber() == null) return false;
+        return Arrays.stream(pages.split(",")).map(String::trim).anyMatch(String.valueOf(protocol.getPageNumber())::equals);
+    }
+
     /** "Solar Plexus Chakra", "solar plexus" and " Solar  Plexus " all match one another. */
     static String normalizeChakraName(String name) {
         String normalized = name.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
@@ -237,18 +251,10 @@ public class HealerProtocolUnderstandingService {
                 : normalized;
     }
 
-    /** Each color with all of its catalog properties selected; a color without any (or not in the catalog) has none. */
-    private static List<ColorSelection> toDefaultColors(Set<String> colorNames,
-                                                        Map<String, PranaColorCatalog> catalogByName) {
+    /** Each color with no properties selected: the healer picks those. */
+    private static List<ColorSelection> toDefaultColors(Set<String> colorNames) {
         if (colorNames == null || colorNames.isEmpty()) return Collections.emptyList();
-        return colorNames.stream()
-                .map(name -> {
-                    PranaColorCatalog color = catalogByName.get(name);
-                    List<String> properties = color == null || color.getProperties() == null
-                            ? List.of() : List.copyOf(color.getProperties());
-                    return new ColorSelection(name, properties);
-                })
-                .toList();
+        return colorNames.stream().map(name -> new ColorSelection(name, List.of())).toList();
     }
 
     // ── Deserializers (used by mapper) ───────────────────────────────────────
@@ -260,6 +266,16 @@ public class HealerProtocolUnderstandingService {
             });
         } catch (Exception e) {
             log.warn("Failed to deserialize colors JSON", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    public Map<String, String> deserializeReasons(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyMap();
+        try {
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to deserialize chakra reasons JSON", e);
             return Collections.emptyMap();
         }
     }

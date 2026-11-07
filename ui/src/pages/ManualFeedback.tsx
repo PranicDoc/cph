@@ -32,6 +32,7 @@ interface RecordedFeedback {
     ratings: { caseSymptomId: string; rating: number }[];
   }[];
   finalFeedbackText: string | null;
+  finalFeedbackDate?: string | null;
 }
 
 const ALREADY_SUBMITTED = "https://pranicdoc.com/errors/feedback-already-submitted";
@@ -40,7 +41,7 @@ const ALREADY_SUBMITTED = "https://pranicdoc.com/errors/feedback-already-submitt
  * The healer records or edits a patient's feedback by hand, as an alternative to the WhatsApp link:
  * the same symptom sliders and comment the patient's form collects. Interim feedback is one per
  * session, for the session the healer picks (its date is shown for reference, not editable); final
- * feedback is one comment per case, kept on the latest session. Picking one that is already recorded
+ * feedback is one comment per case, kept on the latest session, with a date the healer can set. Picking one that is already recorded
  * opens it for editing. A full page rather than a dialog, so it renders inside the new view's styles
  * like every other page.
  */
@@ -54,6 +55,7 @@ export default function ManualFeedback() {
   const [sessionId, setSessionId] = useState("");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [feedbackText, setFeedbackText] = useState("");
+  const [chosenDate, setChosenDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const symptomsQuery = useQuery<FeedbackSymptom[]>({
@@ -81,6 +83,8 @@ export default function ManualFeedback() {
   const recorded = recordedQuery.data;
 
   const isFinal = feedbackType === "FINAL";
+  // Interim feedback belongs to one session: nothing below the picker works until one is picked.
+  const locked = !isFinal && !sessionId;
   const recordedInterim = recorded?.interims?.find((i) => i.sessionId === sessionId);
   const isEditing = isFinal ? !!recorded?.finalFeedbackText : !!recordedInterim;
   const textLimit = isFinal ? TEXT_LIMITS.finalFeedback : TEXT_LIMITS.interimFeedback;
@@ -88,6 +92,7 @@ export default function ManualFeedback() {
   // Picking a session or the final feedback shows what is recorded for it, ready to edit.
   useEffect(() => {
     if (!recorded) return;
+    setChosenDate(null);
     if (isFinal) {
       setFeedbackText(recorded.finalFeedbackText ?? "");
       setRatings({});
@@ -107,8 +112,11 @@ export default function ManualFeedback() {
     (latest, s) => (!latest || (s.sessionNumber ?? 0) > (latest.sessionNumber ?? 0) ? s : latest),
     null
   );
-  // The date is the session's own: shown for reference, never typed.
-  const shownDate = (isFinal ? latestSession : sessions.find((s) => s.id === sessionId))?.sessionDate ?? "";
+  // An interim shows its session's date (read-only). A final's date is the healer's pick, else what is
+  // recorded, else the latest session's.
+  const shownDate = isFinal
+    ? chosenDate ?? recorded?.finalFeedbackDate ?? latestSession?.sessionDate ?? ""
+    : sessions.find((s) => s.id === sessionId)?.sessionDate ?? "";
 
   const backToPatients = () => navigate("/patients");
 
@@ -123,6 +131,7 @@ export default function ManualFeedback() {
           notes: "",
         })),
         feedbackText,
+        ...(isFinal && shownDate ? { finalFeedbackDate: shownDate } : {}),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["case-feedback", healingCaseId] });
@@ -194,7 +203,15 @@ export default function ManualFeedback() {
           )}
           <div className="space-y-1.5">
             <Label htmlFor="manual-feedback-date">Healing date</Label>
-            <Input id="manual-feedback-date" type="date" value={shownDate} readOnly disabled className="w-44" />
+            <Input
+              id="manual-feedback-date"
+              type="date"
+              value={shownDate}
+              max={new Date().toLocaleDateString("en-CA")}
+              onChange={(e) => setChosenDate(e.target.value)}
+              disabled={!isFinal}
+              className="w-44"
+            />
           </div>
           <div className="space-y-1.5">
             <span className="text-sm font-medium">Feedback type</span>
@@ -215,6 +232,12 @@ export default function ManualFeedback() {
           </div>
         </div>
 
+        {locked && (
+          <p role="note" className="text-sm text-text-light">Select the session first, then fill in the feedback.</p>
+        )}
+
+        {/* inert also blocks the sliders, which are not form controls a disabled fieldset reaches. */}
+        <fieldset aria-label="Feedback details" disabled={locked} inert={locked} className={`m-0 min-w-0 border-0 p-0 space-y-6 ${locked ? "opacity-50" : ""}`}>
         {!isFinal && (
         <section className="space-y-3">
           <div>
@@ -242,6 +265,7 @@ export default function ManualFeedback() {
           />
           <CharacterCount value={feedbackText} max={textLimit} />
         </section>
+        </fieldset>
       </div>
 
       {error && <p className="text-sm text-red-500 text-right mt-3">{error}</p>}
@@ -250,7 +274,7 @@ export default function ManualFeedback() {
         <Button type="button" variant="outline" onClick={backToPatients}>
           Cancel
         </Button>
-        <Button type="button" onClick={submit} disabled={save.isPending}>
+        <Button type="button" onClick={submit} disabled={save.isPending || locked}>
           {save.isPending ? "Saving…" : isEditing ? "Update feedback" : "Save feedback"}
         </Button>
       </div>

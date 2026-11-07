@@ -2,6 +2,10 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { HPUTable } from "@/interfaces";
 import { ColorChipPicker } from "./ColorChipPicker";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CharacterCount } from "@/components/form/CharacterCount";
+import { TEXT_LIMITS } from "@/lib/textLimits";
 
 interface Props {
   rows: HPUTable[];
@@ -66,6 +70,16 @@ export default function ProtocolUnderstanding({ rows, energisingColors, cleansin
                   loading={colorsLoading}
                   onChange={(v) => onChange(index, "energisingColors", v)}
                 />
+                <div className="space-y-1.5">
+                  <Label htmlFor={`reason-${index}`}>Why this chakra? (optional)</Label>
+                  <Textarea
+                    id={`reason-${index}`}
+                    value={row.reason ?? ""}
+                    onChange={(e) => onChange(index, "reason", e.target.value)}
+                    maxLength={TEXT_LIMITS.chakraReason}
+                  />
+                  <CharacterCount value={row.reason} max={TEXT_LIMITS.chakraReason} />
+                </div>
               </div>
             )}
           </section>

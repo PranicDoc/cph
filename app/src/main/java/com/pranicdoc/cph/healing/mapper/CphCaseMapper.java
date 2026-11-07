@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.healing.mapper;
 
 import com.pranicdoc.common.dto.*;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.healing.model.*;
 import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
 import com.pranicdoc.cph.healing.service.impl.HealerProtocolUnderstandingService;
@@ -71,7 +72,8 @@ public abstract class CphCaseMapper {
     public abstract ProtocolColorSnapshot toProtocolColorSnapshot(ProtocolColor c);
 
     /**
-     * The date of the latest feedback on the case. The value stored on the closure is set when the
+     * The date printed as the last feedback: the newest final feedback's own date (the healer can set it),
+     * else the latest of all feedback on the case. The value stored on the closure is set when the
      * case is closed, before the final feedback exists, so it is stale (or null) by the time the PDF
      * is built; fall back to it only when no feedback carries a date.
      */
@@ -79,12 +81,17 @@ public abstract class CphCaseMapper {
         HealingCase healingCase = closure.getHealingCase();
         if (healingCase == null || healingCase.getSessions() == null) return closure.getLastFeedbackDate();
         return healingCase.getSessions().stream()
-                .flatMap(s -> Stream.concat(
-                        s.getQualitativeFeedbacks().stream().map(QualitativeFeedback::getHealingDate),
-                        s.getSymptomFeedbacks().stream().map(SymptomFeedback::getHealingDate)))
-                .filter(Objects::nonNull)
-                .max(LocalDate::compareTo)
-                .orElse(closure.getLastFeedbackDate());
+                .flatMap(s -> s.getQualitativeFeedbacks().stream())
+                .filter(q -> q.getFeedbackType() == FeedbackType.FINAL)
+                .max(Comparator.comparing(QualitativeFeedback::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .map(QualitativeFeedback::getHealingDate)
+                .orElseGet(() -> healingCase.getSessions().stream()
+                        .flatMap(s -> Stream.concat(
+                                s.getQualitativeFeedbacks().stream().map(QualitativeFeedback::getHealingDate),
+                                s.getSymptomFeedbacks().stream().map(SymptomFeedback::getHealingDate)))
+                        .filter(Objects::nonNull)
+                        .max(LocalDate::compareTo)
+                        .orElse(closure.getLastFeedbackDate()));
     }
 
     /** The date the declaration was signed; null for a case with no declaration or no stored date. */
@@ -144,7 +151,8 @@ public abstract class CphCaseMapper {
                 hpu.getProtocolName(),
                 hpuService.deserializeColors(hpu.getCleansingColorsJson()),
                 hpuService.deserializeColors(hpu.getEnergisingColorsJson()),
-                hpuService.deserializeChakraReadings(hpu.getChakraReadingsJson())
+                hpuService.deserializeChakraReadings(hpu.getChakraReadingsJson()),
+                hpuService.deserializeReasons(hpu.getChakraReasonsJson())
         );
     }
 }

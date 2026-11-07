@@ -418,6 +418,8 @@ export default function Session() {
 
   // ---------- VIEW MODE (step 0) ----------
   if (!isEdit && isNewView) {
+    const closeCase = () =>
+      navigate(`/cases/${healingCaseId}/close`, { state: { patient: { ...selectedPatient, healingCaseId } } });
     return (
       <div className="hlx">
         <SessionHeader healingSession={sessionData} />
@@ -427,8 +429,8 @@ export default function Session() {
             protocols={reconstructSelectedProtocols(sessionData.healingDetails?.protocolName || "")}
             onEdit={toggleEdit}
             onEditSession={setEditingSession}
-            onEditClosure={canEditClosure ? () => setIsEditingClosure(true) : undefined}
-            onComplete={canComplete ? () => setIsEditingClosure(true) : undefined}
+            onEditClosure={canEditClosure ? closeCase : undefined}
+            onComplete={canComplete ? closeCase : undefined}
             onGeneratePdf={canGeneratePdf ? generatePdf : undefined}
             generatingPdf={generatingPdf}
             onBack={() => navigate("/patients")}
@@ -436,7 +438,6 @@ export default function Session() {
             nextLabel={getNextButtonLabel()}
           />
         </Suspense>
-        {closurePopup}
       </div>
     );
   }

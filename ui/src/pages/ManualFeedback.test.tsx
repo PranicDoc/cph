@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ManualFeedback from "./ManualFeedback";
@@ -59,22 +59,34 @@ describe("ManualFeedback page", () => {
     { id: "sess-2", sessionNumber: 2, sessionDate: "2026-10-08" },
   ];
 
-  it("shows the picked session's date read-only, and refuses to save interim feedback without a session", async () => {
+  it("blocks interim feedback until a session is picked, then shows its date read-only", async () => {
     sessions = twoSessions();
     const user = userEvent.setup();
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Patient feedback" })).toBeInTheDocument();
-    await rateSeverity(user, 2);
-    await user.click(screen.getByRole("button", { name: "Save feedback" }));
-    expect(screen.getByText("Pick the session this feedback is for.")).toBeInTheDocument();
-    expect(mPost).not.toHaveBeenCalled();
+    expect(screen.getByText("Select the session first, then fill in the feedback.")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Comments")).toBeDisabled();
+    expect(screen.getByRole("group", { name: "Feedback details" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save feedback" })).toBeDisabled();
 
     await user.click(await screen.findByLabelText("Session"));
     await user.click(await screen.findByRole("option", { name: /Session 2/ }));
+    expect(screen.queryByText("Select the session first, then fill in the feedback.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Comments")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save feedback" })).toBeEnabled();
     const date = screen.getByLabelText("Healing date");
     expect(date).toHaveValue("2026-10-08");
     expect(date).toBeDisabled();
+  });
+
+  it("final feedback needs no session: nothing is blocked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+    expect(screen.queryByText("Select the session first, then fill in the feedback.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Comments")).toBeEnabled();
   });
 
   it("posts an interim's ratings, comment and session, then returns to Patients", async () => {
@@ -122,8 +134,46 @@ describe("ManualFeedback page", () => {
         feedbackType: "FINAL",
         symptoms: [],
         feedbackText: "Fully recovered",
+        finalFeedbackDate: "2026-10-08",
       })
     );
+  }, 15_000);
+
+  it("final date is editable, capped at today, and sent; recorded date wins over the latest session's", async () => {
+    sessions = twoSessions();
+    recorded = { interims: [], finalFeedbackText: "Done", finalFeedbackDate: "2026-10-15" };
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+    const date = screen.getByLabelText("Healing date");
+    await waitFor(() => expect(date).toHaveValue("2026-10-15"));
+    expect(date).toBeEnabled();
+    expect(date).toHaveAttribute("max", new Date().toLocaleDateString("en-CA"));
+
+    fireEvent.change(date, { target: { value: "2026-10-20" } });
+    await user.click(screen.getByRole("button", { name: "Update feedback" }));
+    await waitFor(() =>
+      expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", expect.objectContaining({
+        feedbackType: "FINAL",
+        finalFeedbackDate: "2026-10-20",
+      }))
+    );
+  }, 15_000);
+
+  it("interim sends no final date", async () => {
+    sessions = twoSessions();
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 1/ }));
+    await user.type(screen.getByLabelText("Comments"), "ok");
+    await user.click(screen.getByRole("button", { name: "Save feedback" }));
+    await waitFor(() => expect(mPost).toHaveBeenCalled());
+    expect(mPost.mock.calls[0][1]).not.toHaveProperty("finalFeedbackDate");
   }, 15_000);
 
   it("explains when feedback for that healing is already recorded, and stays on the page", async () => {

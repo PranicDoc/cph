@@ -2,6 +2,7 @@ package com.pranicdoc.cph.healing.mapper;
 
 import com.pranicdoc.common.dto.QualitativeFeedbackSnapshot;
 import com.pranicdoc.common.dto.SymptomFeedbackSnapshot;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.healing.model.CaseClosure;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -56,6 +57,36 @@ class CphCaseMapperFeedbackTest {
         caseWith(closure, q, s);
 
         assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 9));
+    }
+
+    @Test
+    void lastFeedbackDatePrefersFinalFeedbackDate() {
+        CaseClosure closure = new CaseClosure();
+        QualitativeFeedback finalFeedback = new QualitativeFeedback();
+        finalFeedback.setFeedbackType(FeedbackType.FINAL);
+        finalFeedback.setHealingDate(LocalDate.of(2026, 10, 5));
+        SymptomFeedback interim = new SymptomFeedback();
+        interim.setHealingDate(LocalDate.of(2026, 10, 9));
+        caseWith(closure, finalFeedback, interim);
+
+        assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 5));
+    }
+
+    @Test
+    void lastFeedbackDateUsesTheNewestFinal() {
+        CaseClosure closure = new CaseClosure();
+        QualitativeFeedback older = new QualitativeFeedback();
+        older.setFeedbackType(FeedbackType.FINAL);
+        older.setHealingDate(LocalDate.of(2026, 10, 20));
+        older.setCreatedAt(java.time.Instant.parse("2026-10-21T00:00:00Z"));
+        QualitativeFeedback newer = new QualitativeFeedback();
+        newer.setFeedbackType(FeedbackType.FINAL);
+        newer.setHealingDate(LocalDate.of(2026, 10, 5));
+        newer.setCreatedAt(java.time.Instant.parse("2026-10-22T00:00:00Z"));
+        HealingCase healingCase = caseWith(closure, older, null);
+        healingCase.getSessions().get(0).getQualitativeFeedbacks().add(newer);
+
+        assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 5));
     }
 
     @Test

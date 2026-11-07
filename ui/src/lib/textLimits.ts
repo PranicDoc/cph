@@ -20,4 +20,6 @@ export const TEXT_LIMITS = {
   historyBox: 600,
   finalFeedback: 1500,
   closureComments: 3000,
+  /** Why the healer worked on a chakra, on the protocol understanding. */
+  chakraReason: 300,
 } as const;

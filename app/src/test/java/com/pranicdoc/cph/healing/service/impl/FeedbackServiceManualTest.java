@@ -11,6 +11,7 @@ import com.pranicdoc.cph.healing.dto.CaseFeedbackResponse;
 import com.pranicdoc.cph.healing.dto.ManualFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
+import com.pranicdoc.cph.healing.model.DeclarationDates;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.QualitativeFeedback;
@@ -109,7 +110,7 @@ class FeedbackServiceManualTest {
     @Test
     void manualInterim_withoutASession_isRejected() {
         ManualFeedbackRequest noSession = new ManualFeedbackRequest(FeedbackType.INTERIM, null,
-                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "x");
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "x", null);
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, noSession));
         verifyNoInteractions(symptomFeedbackRepository);
@@ -118,7 +119,7 @@ class FeedbackServiceManualTest {
     @Test
     void manualInterim_withASessionOfAnotherCase_isRejected() {
         ManualFeedbackRequest foreign = new ManualFeedbackRequest(FeedbackType.INTERIM, UUID.randomUUID(),
-                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null);
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), null, null);
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, foreign));
         verifyNoInteractions(symptomFeedbackRepository);
@@ -126,7 +127,7 @@ class FeedbackServiceManualTest {
 
     @Test
     void manualInterim_withNothingToSave_isRejected() {
-        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, first.getId(), List.of(), "  ");
+        ManualFeedbackRequest empty = new ManualFeedbackRequest(FeedbackType.INTERIM, first.getId(), List.of(), "  ", null);
 
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, empty));
     }
@@ -153,7 +154,7 @@ class FeedbackServiceManualTest {
         when(symptomFeedbackRepository.findByHealingSessionId(first.getId())).thenReturn(List.of(rated));
 
         feedbackService.saveManualFeedback(caseId, new ManualFeedbackRequest(FeedbackType.INTERIM, first.getId(),
-                List.of(new SymptomFeedbackRequest(symptomId, 7, ""), new SymptomFeedbackRequest(newSymptom, 5, "")), null));
+                List.of(new SymptomFeedbackRequest(symptomId, 7, ""), new SymptomFeedbackRequest(newSymptom, 5, "")), null, null));
 
         List<SymptomFeedback> saved = savedSymptoms();
         assertEquals(2, saved.size());
@@ -255,7 +256,7 @@ class FeedbackServiceManualTest {
         when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
 
         feedbackService.saveManualFeedback(caseId,
-                new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), "  Fully recovered "));
+                new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), "  Fully recovered ", null));
 
         ArgumentCaptor<QualitativeFeedback> text = ArgumentCaptor.forClass(QualitativeFeedback.class);
         verify(qualitativeFeedbackRepository).save(text.capture());
@@ -281,11 +282,68 @@ class FeedbackServiceManualTest {
     }
 
     @Test
+    void finalSavedWithChosenDate() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", LocalDate.of(2026, 10, 20)));
+
+        assertEquals(LocalDate.of(2026, 10, 20), savedQualitative().getHealingDate());
+    }
+
+    @Test
+    void finalDefaultsToLatestSessionDate() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", null));
+
+        assertEquals(LocalDate.of(2026, 10, 8), savedQualitative().getHealingDate());
+    }
+
+    @Test
+    void futureFinalDateIsRejected_todayInIndiaIsAccepted() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId,
+                finalFeedback("Done", DeclarationDates.today().plusDays(1))));
+        verify(qualitativeFeedbackRepository, never()).save(any());
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", DeclarationDates.today()));
+        assertEquals(DeclarationDates.today(), savedQualitative().getHealingDate());
+    }
+
+    @Test
+    void editKeepsDateWhenNoneSent() {
+        QualitativeFeedback existing = existingFinal(LocalDate.of(2026, 10, 15));
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", null));
+
+        assertEquals(LocalDate.of(2026, 10, 15), existing.getHealingDate());
+    }
+
+    @Test
+    void editUpdatesDateWhenSent() {
+        QualitativeFeedback existing = existingFinal(LocalDate.of(2026, 10, 15));
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", LocalDate.of(2026, 10, 22)));
+
+        assertEquals(LocalDate.of(2026, 10, 22), existing.getHealingDate());
+    }
+
+    @Test
+    void getManualFeedbackReturnsFinalDate() {
+        existingFinal(LocalDate.of(2026, 10, 15));
+
+        CaseFeedbackResponse response = feedbackService.getManualFeedback(caseId);
+
+        assertEquals(LocalDate.of(2026, 10, 15), response.finalFeedbackDate());
+    }
+
+    @Test
     void manualFinal_needsAComment_andTakesNoRatings() {
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId, finalFeedback(" ")));
         assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId,
                 new ManualFeedbackRequest(FeedbackType.FINAL, null,
-                        List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "Done")));
+                        List.of(new SymptomFeedbackRequest(symptomId, 7, "")), "Done", null)));
         verifyNoInteractions(symptomFeedbackRepository);
     }
 
@@ -309,11 +367,29 @@ class FeedbackServiceManualTest {
 
     private ManualFeedbackRequest interim(HealingSession session, String text) {
         return new ManualFeedbackRequest(FeedbackType.INTERIM, session.getId(),
-                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text);
+                List.of(new SymptomFeedbackRequest(symptomId, 7, "")), text, null);
     }
 
     private ManualFeedbackRequest finalFeedback(String text) {
-        return new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), text);
+        return finalFeedback(text, null);
+    }
+
+    private ManualFeedbackRequest finalFeedback(String text, LocalDate date) {
+        return new ManualFeedbackRequest(FeedbackType.FINAL, null, List.of(), text, date);
+    }
+
+    private QualitativeFeedback existingFinal(LocalDate date) {
+        QualitativeFeedback existing = QualitativeFeedback.builder().healingSession(first)
+                .feedbackType(FeedbackType.FINAL).feedbackText("old").healingDate(date).build();
+        when(qualitativeFeedbackRepository.findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
+                caseId, FeedbackType.FINAL)).thenReturn(List.of(existing));
+        return existing;
+    }
+
+    private QualitativeFeedback savedQualitative() {
+        ArgumentCaptor<QualitativeFeedback> captor = ArgumentCaptor.forClass(QualitativeFeedback.class);
+        verify(qualitativeFeedbackRepository).save(captor.capture());
+        return captor.getValue();
     }
 
     @SuppressWarnings("unchecked")

@@ -28,9 +28,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +72,8 @@ class HealerProtocolUnderstandingSaveTest {
         service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of(
                 new ChakraColorSelection("Solar Plexus",
                         List.of(new ColorSelection("Light Whitish Green", List.of("Energizing"))),
-                        List.of(new ColorSelection("Light Whitish Green", List.of("Cleansing")))))));
+                        List.of(new ColorSelection("Light Whitish Green", List.of("Cleansing"))),
+                        null))));
 
         ArgumentCaptor<HealerProtocolUnderstanding> saved = ArgumentCaptor.forClass(HealerProtocolUnderstanding.class);
         verify(hpuRepository).save(saved.capture());
@@ -111,6 +114,44 @@ class HealerProtocolUnderstandingSaveTest {
             assertTrue(at > last, name + " out of order in " + json);
             last = at;
         }
+    }
+
+    @Test
+    void chakraReasonsAreTrimmedAndOnlyNonBlankOnesStored_andComeBackOnReopen() {
+        UUID caseId = UUID.randomUUID();
+        UUID healerId = UUID.randomUUID();
+        HealingCase healingCase = HealingCase.builder().build();
+        healingCase.setId(caseId);
+        healingCase.setHealerId(healerId);
+        when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(hpuRepository.findByHealingCaseId(caseId)).thenReturn(Optional.empty());
+        when(pranaColorCatalogRepository.findByHealerIdIsNullOrHealerId(healerId)).thenReturn(List.of());
+        HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
+                caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+
+        service.saveFromHealerSelection(caseId, new HealerProtocolUnderstandingRequest(List.of(
+                new ChakraColorSelection("Crown", List.of(), List.of(), "  Headache  "),
+                new ChakraColorSelection("Heart", List.of(), List.of(), "   "),
+                new ChakraColorSelection("Throat", List.of(), List.of(), null))));
+
+        ArgumentCaptor<HealerProtocolUnderstanding> saved = ArgumentCaptor.forClass(HealerProtocolUnderstanding.class);
+        verify(hpuRepository).save(saved.capture());
+        assertEquals(Map.of("Crown", "Headache"), service.deserializeReasons(saved.getValue().getChakraReasonsJson()));
+
+        when(hpuRepository.findByHealingCaseId(caseId)).thenReturn(Optional.of(saved.getValue()));
+        List<ChakraColorSelection> reopened = service.getExistingSelection(caseId).chakraSelections();
+        assertEquals(List.of("Headache", "null", "null"),
+                reopened.stream().map(c -> String.valueOf(c.reason())).toList());
+    }
+
+    @Test
+    void missingReasonsColumnReadsAsEmptyMap() {
+        HealerProtocolUnderstandingService service = new HealerProtocolUnderstandingService(
+                caseRepository, hpuRepository, pranaColorCatalogRepository, sessionRepository, protocolCatalogRepository,
+                protocolChakraRepository, protocolChakraColorRepository, chakraCatalogRepository, new ObjectMapper());
+
+        assertTrue(service.deserializeReasons(null).isEmpty());
     }
 
     private static PranaColorCatalog color(String code, String name, ColorUsageType category) {

@@ -39,4 +39,7 @@ public class HealerProtocolUnderstanding extends TenantEntity {
 
     @Column(name = "chakra_readings_json", columnDefinition = "TEXT")
     private String chakraReadingsJson;
+
+    @Column(name = "chakra_reasons_json", columnDefinition = "TEXT")
+    private String chakraReasonsJson;
 }
