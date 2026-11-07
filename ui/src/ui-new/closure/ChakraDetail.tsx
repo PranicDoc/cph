@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { HPUTable } from "@/interfaces";
 import type { useProtocolColors } from "@/hooks/useProtocolUnderstanding";
 import type { UsualPick, UsualPickCategory } from "@/hooks/useUsualPicks";
@@ -13,9 +14,15 @@ interface Props {
   onChange: <K extends keyof HPUTable>(field: K, value: HPUTable[K]) => void;
 }
 
+export const REASON_REQUIRED = "Add why you worked on this chakra";
+
 /** One chakra on the close-case page: why the healer worked on it, then 1. Cleanse and 2. Energise. */
-export default function ChakraDetail({ row, colors, picksFor, onChange }: Props) {
+export default function ChakraDetail({ row, colors, picksFor, onChange, showError = false }: Props & { showError?: boolean }) {
   const id = `reason-${row.chakra.replace(/\s+/g, "-")}`;
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (showError) reasonRef.current?.focus();
+  }, [showError]);
 
   return (
     <div className="flex flex-col gap-[18px]">
@@ -24,6 +31,7 @@ export default function ChakraDetail({ row, colors, picksFor, onChange }: Props)
           Why did you work on this chakra? <span className="text-danger" aria-hidden="true">*</span>
         </label>
         <Textarea
+          ref={reasonRef}
           id={id}
           rows={2}
           className="resize-none hl-reason"
@@ -31,8 +39,19 @@ export default function ChakraDetail({ row, colors, picksFor, onChange }: Props)
           onChange={(e) => onChange("reason", e.target.value)}
           maxLength={TEXT_LIMITS.chakraReason}
           required
+          aria-invalid={showError || undefined}
+          aria-describedby={showError ? `${id}-err` : undefined}
         />
-        <CharacterCount value={row.reason} max={TEXT_LIMITS.chakraReason} />
+        <div className="flex items-start justify-between gap-3">
+          {showError ? (
+            <p id={`${id}-err`} role="alert" className="hl-field-err">
+              {REASON_REQUIRED}
+            </p>
+          ) : (
+            <span />
+          )}
+          <CharacterCount value={row.reason} max={TEXT_LIMITS.chakraReason} />
+        </div>
       </div>
       <div className="hl-steps">
         <ColourStepCard

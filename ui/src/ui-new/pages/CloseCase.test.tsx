@@ -346,16 +346,33 @@ describe("CloseCase page", () => {
     expect(screen.queryByText(/Add a reason to/)).not.toBeInTheDocument();
   });
 
-  it("does not save when the healer clears a saved reason", async () => {
+  it("Save and next requires this chakra's reason: shows the error, stays, and clears it once typed", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const reason = await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.clear(reason);
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Add why you worked on this chakra");
+    expect(reason).toHaveAttribute("aria-invalid", "true");
+    expect(reason).toHaveFocus();
+    expect(panelTitle()).toHaveTextContent("Solar Plexus");
+    expect(mPost).not.toHaveBeenCalled();
+
+    await user.type(reason, "Tight");
+    expect(screen.queryByText("Add why you worked on this chakra")).not.toBeInTheDocument();
+  });
+
+  it("the list still opens any chakra without a reason, so healers can fill them in any order", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.clear(await screen.findByLabelText(/Why did you work on this chakra/));
-    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
+    await user.click(within(list()).getByRole("button", { name: /Spleen/ }));
 
-    await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
-    expect(mPost).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Add a reason to/)).not.toBeInTheDocument();
+    expect(panelTitle()).toHaveTextContent("Spleen");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("keeps Close case off until the existing closure has loaded", async () => {
