@@ -203,9 +203,6 @@ export default function CloseCase() {
                     />
                   </PickerHost.Provider>
                 )}
-                {isWrapUp && !allDone && (
-                  <p role="note" className="muted small mt-3">Add why you worked on each chakra to close the case.</p>
-                )}
               </div>
               <div className="hl-cc-foot">
                 {selected > 0 ? (

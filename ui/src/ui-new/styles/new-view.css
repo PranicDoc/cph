@@ -623,7 +623,7 @@ html[data-ui="new"] .hl-picked-name { font-size: 14px; font-weight: 500; }
 html[data-ui="new"] .hl-picked-prop { font-size: 12.5px; color: var(--hl-accent-text); }
 html[data-ui="new"] .hl-dashed { height: 44px; border-radius: 10px; border: 1px dashed var(--hl-hair-strong); color: var(--hl-accent-text); font-size: 14px; font-weight: 600; cursor: pointer; }
 html[data-ui="new"] .hl-dashed:hover { background: var(--hl-primary-soft); }
-html[data-ui="new"] .hl-cont { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--hl-hair); background: var(--color-card); }
+html[data-ui="new"] .hl-cont { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--hl-hair); background: var(--color-card); }
 
 /* colour picker: right drawer (desktop), bottom sheet (phone) */
 html[data-ui="new"] .hl-cpick-scrim { position: fixed; inset: 0; z-index: 50; background: var(--hl-scrim); }

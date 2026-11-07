@@ -171,7 +171,6 @@ describe("CloseCase page", () => {
     expect(screen.getByText("Recommended protocols for the patient")).toBeInTheDocument();
     expect(screen.getByLabelText("Comments")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Healing will continue" })).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByText("On: the case stays open as continued. Off: the patient gets the final feedback request.")).toBeInTheDocument();
     expect(screen.getByText("2 of 2 chakras done")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spleen" })).toBeInTheDocument();
   });

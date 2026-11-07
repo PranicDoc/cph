@@ -36,16 +36,12 @@ export default function WrapUp({ closure }: { closure: Closure }) {
           onChange={(e) => setComments(e.target.value)}
           maxLength={TEXT_LIMITS.closureComments}
           className="min-h-[100px] resize-none"
-          placeholder="What stood out in this case (optional)"
         />
         <CharacterCount value={comments} max={TEXT_LIMITS.closureComments} />
       </div>
       <div className="hl-cont">
-        <div className="flex items-center justify-between gap-3">
-          <span className="hl-step-q">Healing will continue</span>
-          <HlSwitch checked={isHealingContinued} onChange={setIsHealingContinued} label="Healing will continue" />
-        </div>
-        <p className="muted small">On: the case stays open as continued. Off: the patient gets the final feedback request.</p>
+        <span className="hl-step-q">Healing will continue</span>
+        <HlSwitch checked={isHealingContinued} onChange={setIsHealingContinued} label="Healing will continue" />
       </div>
     </div>
   );
