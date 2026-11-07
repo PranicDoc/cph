@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ManualFeedback from "./ManualFeedback";
@@ -122,8 +122,46 @@ describe("ManualFeedback page", () => {
         feedbackType: "FINAL",
         symptoms: [],
         feedbackText: "Fully recovered",
+        finalFeedbackDate: "2026-10-08",
       })
     );
+  }, 15_000);
+
+  it("final date is editable, capped at today, and sent; recorded date wins over the latest session's", async () => {
+    sessions = twoSessions();
+    recorded = { interims: [], finalFeedbackText: "Done", finalFeedbackDate: "2026-10-15" };
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+    const date = screen.getByLabelText("Healing date");
+    await waitFor(() => expect(date).toHaveValue("2026-10-15"));
+    expect(date).toBeEnabled();
+    expect(date).toHaveAttribute("max", new Date().toLocaleDateString("en-CA"));
+
+    fireEvent.change(date, { target: { value: "2026-10-20" } });
+    await user.click(screen.getByRole("button", { name: "Update feedback" }));
+    await waitFor(() =>
+      expect(mPost).toHaveBeenCalledWith("/api/v1/cases/case-1/feedback", expect.objectContaining({
+        feedbackType: "FINAL",
+        finalFeedbackDate: "2026-10-20",
+      }))
+    );
+  }, 15_000);
+
+  it("interim sends no final date", async () => {
+    sessions = twoSessions();
+    mPost.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByLabelText("Session"));
+    await user.click(await screen.findByRole("option", { name: /Session 1/ }));
+    await user.type(screen.getByLabelText("Comments"), "ok");
+    await user.click(screen.getByRole("button", { name: "Save feedback" }));
+    await waitFor(() => expect(mPost).toHaveBeenCalled());
+    expect(mPost.mock.calls[0][1]).not.toHaveProperty("finalFeedbackDate");
   }, 15_000);
 
   it("explains when feedback for that healing is already recorded, and stays on the page", async () => {
