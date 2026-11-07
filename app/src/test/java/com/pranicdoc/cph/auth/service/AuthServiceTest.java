@@ -302,6 +302,20 @@ class AuthServiceTest {
     }
 
     @Test
+    void updateProfile_anEmailTakenByAnotherAccountIsRefusedBeforeAnyCharge() {
+        Healer healer = currentHealer("Asha Rao", 1);
+        when(healerRepository.existsByEmail("taken@example.com")).thenReturn(true);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> authService.updateProfile(new HealerRequest("Asha Devi", "taken@example.com", null)));
+
+        assertEquals("A healer with this email already exists", ex.getMessage());
+        assertEquals("Asha Rao", healer.getFullName());
+        verifyNoInteractions(creditServiceClient);
+        verify(healerRepository, never()).save(any());
+    }
+
+    @Test
     void updateProfile_insufficientCreditsBlocksTheChangeAndSavesNothing() {
         Healer healer = currentHealer("Asha Rao", 1);
         when(creditServiceClient.deduct(healer.getId(), "name-change:" + healer.getId() + ":2", 25))

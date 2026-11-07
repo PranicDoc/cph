@@ -169,6 +169,10 @@ public class AuthService {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
         String fullName = request.fullName().trim();
+        // Refused up front: failing on the unique email after a paid name change would waste the credits.
+        if (!request.email().equalsIgnoreCase(healer.getEmail()) && healerRepository.existsByEmail(request.email())) {
+            throw new IllegalArgumentException("A healer with this email already exists");
+        }
         if (!fullName.equals(healer.getFullName().trim())) {
             // Charge before saving; the key makes a retry of the same change a no-op on the credit side.
             int n = healer.getNameChangeCount() + 1;
