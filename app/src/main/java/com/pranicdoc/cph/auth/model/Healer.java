@@ -70,6 +70,19 @@ public class Healer extends BaseEntity {
     @Builder.Default
     private UiVersion uiVersion = UiVersion.CLASSIC;
 
+    /** How many times the healer has changed their full name since registering; never resets. */
+    @Column(name = "name_change_count", nullable = false)
+    private int nameChangeCount;
+
+    /** Credits the n-th name change costs: the first is free, then 25 doubling each time, capped at int max. */
+    public static int nameChangeCost(int n) {
+        return n <= 1 ? 0 : (int) Math.min(Integer.MAX_VALUE, 25L << Math.min(n - 2, 32));
+    }
+
+    public int nextNameChangeCost() {
+        return nameChangeCost(nameChangeCount + 1);
+    }
+
     enum AuthProvider{
         LOCAL, GOOGLE
     }

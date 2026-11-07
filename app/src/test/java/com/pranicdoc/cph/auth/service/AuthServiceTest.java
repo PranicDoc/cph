@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.auth.service;
 
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
+import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.model.Healer;
@@ -9,6 +10,7 @@ import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.common.enums.LinkStatus;
 import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.enums.UiVersion;
+import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -16,8 +18,12 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.notification.entity.FeedbackLink;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
+import com.pranicdoc.cph.payments.CreditServiceClient;
+import com.pranicdoc.cph.payments.dto.DeductResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +45,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +71,9 @@ class AuthServiceTest {
 
     @Mock
     private SessionRepository sessionRepository;
+
+    @Mock
+    private CreditServiceClient creditServiceClient;
 
     @InjectMocks
     private AuthService authService;
@@ -238,5 +248,94 @@ class AuthServiceTest {
         assertEquals(UiVersion.NEW, healer.getUiVersion());
         assertEquals(UiVersion.NEW, response.uiVersion());
         verify(healerRepository).save(healer);
+    }
+
+    // ─── Name change credits ─────────────────────────────────────
+
+    private Healer currentHealer(String name, int nameChangeCount) {
+        Healer healer = Healer.builder().fullName(name).email("asha@example.com").role(Role.HEALER)
+                .nameChangeCount(nameChangeCount).build();
+        healer.setId(UUID.randomUUID());
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healer.getId());
+        when(healerRepository.findById(healer.getId())).thenReturn(Optional.of(healer));
+        return healer;
+    }
+
+    @Test
+    void nameChangeCost_isFreeFirstThenDoublesFrom25AndNeverOverflows() {
+        assertEquals(0, Healer.nameChangeCost(1));
+        assertEquals(25, Healer.nameChangeCost(2));
+        assertEquals(50, Healer.nameChangeCost(3));
+        assertEquals(200, Healer.nameChangeCost(5));
+        assertEquals(1_677_721_600, Healer.nameChangeCost(28));
+        assertEquals(Integer.MAX_VALUE, Healer.nameChangeCost(29));
+        assertEquals(Integer.MAX_VALUE, Healer.nameChangeCost(Integer.MAX_VALUE));
+    }
+
+    @Test
+    void updateProfile_firstNameChangeIsFreeAndNeverCallsTheCreditService() {
+        Healer healer = currentHealer("Asha Rao", 0);
+        when(healerRepository.save(healer)).thenReturn(healer);
+
+        HealerResponse response = authService.updateProfile(new HealerRequest("Asha R. Rao", "asha@example.com", null));
+
+        assertEquals("Asha R. Rao", healer.getFullName());
+        assertEquals(1, healer.getNameChangeCount());
+        assertEquals(25, response.nextNameChangeCost());
+        verifyNoInteractions(creditServiceClient);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1, 2, 25, 50", "2, 3, 50, 100", "3, 4, 100, 200"})
+    void updateProfile_laterNameChangesDeductTheLadderPriceBeforeSaving(int done, int n, int cost, int next) {
+        Healer healer = currentHealer("Asha Rao", done);
+        String key = "name-change:" + healer.getId() + ":" + n;
+        when(creditServiceClient.deduct(healer.getId(), key, cost)).thenReturn(new DeductResponse("APPROVED", 10));
+        when(healerRepository.save(healer)).thenReturn(healer);
+
+        HealerResponse response = authService.updateProfile(new HealerRequest("Asha Devi", "asha@example.com", null));
+
+        verify(creditServiceClient).deduct(healer.getId(), key, cost);
+        assertEquals("Asha Devi", healer.getFullName());
+        assertEquals(n, healer.getNameChangeCount());
+        assertEquals(next, response.nextNameChangeCost());
+    }
+
+    @Test
+    void updateProfile_insufficientCreditsBlocksTheChangeAndSavesNothing() {
+        Healer healer = currentHealer("Asha Rao", 1);
+        when(creditServiceClient.deduct(healer.getId(), "name-change:" + healer.getId() + ":2", 25))
+                .thenReturn(new DeductResponse("INSUFFICIENT", 10));
+
+        InsufficientCreditsException ex = assertThrows(InsufficientCreditsException.class,
+                () -> authService.updateProfile(new HealerRequest("Asha Devi", "new@example.com", null)));
+
+        assertEquals("You need 25 credits to change your name. Buy credits to continue.", ex.getMessage());
+        assertEquals("Asha Rao", healer.getFullName());
+        assertEquals("asha@example.com", healer.getEmail());
+        assertEquals(1, healer.getNameChangeCount());
+        verify(healerRepository, never()).save(any());
+    }
+
+    @Test
+    void updateProfile_sameNameIgnoringSpacesWithNewEmailIsFreeAndNotCounted() {
+        Healer healer = currentHealer("Asha Rao", 2);
+        when(healerRepository.save(healer)).thenReturn(healer);
+
+        HealerResponse response = authService.updateProfile(new HealerRequest("  Asha Rao ", "new@example.com", "999"));
+
+        assertEquals("Asha Rao", healer.getFullName());
+        assertEquals("new@example.com", healer.getEmail());
+        assertEquals("999", healer.getPhone());
+        assertEquals(2, healer.getNameChangeCount());
+        assertEquals(50, response.nextNameChangeCost());
+        verifyNoInteractions(creditServiceClient);
+    }
+
+    @Test
+    void getCurrentHealer_reportsWhatTheNextNameChangeCosts() {
+        currentHealer("Asha Rao", 0);
+
+        assertEquals(0, authService.getCurrentHealer().nextNameChangeCost());
     }
 }

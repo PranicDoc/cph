@@ -49,6 +49,9 @@ class CreditGateIntegrationTest {
     @Autowired
     private CircuitBreakerRegistry circuitBreakerRegistry;
 
+    @Autowired
+    private CreditServiceClient creditServiceClient;
+
     @BeforeEach
     void resetBreaker() {
         circuitBreakerRegistry.circuitBreaker("creditService").reset();
@@ -64,6 +67,19 @@ class CreditGateIntegrationTest {
                 .willReturn(okJson("{\"result\":\"APPROVED\",\"balance_after\":2}")));
 
         assertDoesNotThrow(() -> creditGateService.checkAndDeduct(healerId, caseHealerId, caseId));
+    }
+
+    @Test
+    void deductWithCredits_sendsTheAmountAndIdempotencyKey() {
+        UUID healerId = UUID.randomUUID();
+        wireMock.stubFor(post(urlEqualTo("/credits/deduct"))
+                .willReturn(okJson("{\"result\":\"APPROVED\",\"balance_after\":5}")));
+
+        creditServiceClient.deduct(healerId, "name-change:" + healerId + ":2", 25);
+
+        wireMock.verify(postRequestedFor(urlEqualTo("/credits/deduct"))
+                .withHeader("X-Idempotency-Key", equalTo("name-change:" + healerId + ":2"))
+                .withRequestBody(equalToJson("{\"healerId\":\"" + healerId + "\",\"credits\":25}")));
     }
 
     @Test

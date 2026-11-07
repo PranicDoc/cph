@@ -62,6 +62,7 @@ export default function Profile() {
   const [pwEditing, setPwEditing] = useState(false);
   const [pwDraft, setPwDraft] = useState({ current: "", newPwd: "", confirm: "" });
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const [confirmingName, setConfirmingName] = useState(false);
 
   const displayName = profile?.fullName ?? user?.fullName ?? "";
   const displayEmail = profile?.email ?? user?.email ?? "";
@@ -75,12 +76,20 @@ export default function Profile() {
 
   const cancelEdit = () => setEditing(false);
 
-  const saveEdit = () => {
+  const nameCost = profile?.nextNameChangeCost ?? 0;
+  const nameCostLine = nameCost > 0 ? `Your next name change costs ${nameCost} credits` : "Your next name change is free";
+
+  const save = () => {
+    setConfirmingName(false);
     updateMutation.mutate(
       { fullName: draft.fullName, email: draft.email, phone: draft.phone || undefined },
-      { onSuccess: () => setEditing(false) }
+      // 402: not enough credits for the name change; the hook toasts why, this offers the way to buy.
+      { onSuccess: () => setEditing(false), onError: (e: any) => e?.response?.status === 402 && setShowUpgrade(true) }
     );
   };
+
+  // Every full-name change is confirmed first, stating its cost (free ones too).
+  const saveEdit = () => (draft.fullName.trim() !== displayName.trim() ? setConfirmingName(true) : save());
 
   const cancelPwEdit = () => {
     setPwEditing(false);
@@ -163,6 +172,17 @@ export default function Profile() {
         onConfirm={handleConfirmUnlink}
       />
 
+      <ConfirmDialog
+        open={confirmingName}
+        onOpenChange={setConfirmingName}
+        title="Change your name?"
+        description={nameCost > 0
+          ? `This name change costs ${nameCost} credits. Each later change costs twice as much.`
+          : "This name change is free. Later changes cost credits, starting at 25."}
+        confirmLabel={nameCost > 0 ? `Change name for ${nameCost} credits` : "Change name"}
+        onConfirm={save}
+      />
+
       {/* ── Upgrade modal ── */}
       <UpgradePlanDialog open={showUpgrade} onOpenChange={setShowUpgrade} ownerId={user.id} />
     </>
@@ -186,6 +206,7 @@ export default function Profile() {
             enterEdit,
             cancelEdit,
             saveEdit,
+            nameCostLine,
             savingProfile: updateMutation.isPending,
             pwEditing,
             setPwEditing,
@@ -301,6 +322,7 @@ export default function Profile() {
                   onChange={(e) => setDraft((d) => ({ ...d, fullName: e.target.value }))}
                   required
                 />
+                <p className="text-xs text-text-light mt-1">{nameCostLine}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

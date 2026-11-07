@@ -27,6 +27,8 @@ export interface ProfilePageState {
   enterEdit: () => void;
   cancelEdit: () => void;
   saveEdit: () => void;
+  /** "Your next name change is free" / "... costs N credits". */
+  nameCostLine: string;
   savingProfile: boolean;
   pwEditing: boolean;
   setPwEditing: (on: boolean) => void;
@@ -104,6 +106,7 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
               <div className="stack" style={{ gap: 16 }}>
                 <Field id="pf-name" label="Full name" type="text" required value={page.draft.fullName}
                   onChange={(e) => page.setDraft((d) => ({ ...d, fullName: e.target.value }))} />
+                <div className="small muted" style={{ marginTop: -10 }}>{page.nameCostLine}</div>
                 <Field id="pf-email" label="Email" type="email" required value={page.draft.email}
                   onChange={(e) => page.setDraft((d) => ({ ...d, email: e.target.value }))} />
                 <Field id="pf-phone" label="Phone" type="tel" placeholder="Optional" value={page.draft.phone}

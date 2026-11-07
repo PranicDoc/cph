@@ -21,10 +21,15 @@ public class CreditServiceClient {
     }
 
     public DeductResponse deduct(UUID healerId, String idempotencyKey) {
+        return deduct(healerId, idempotencyKey, null);
+    }
+
+    /** Deducts {@code credits} (null = credit-service's credits_per_pdf); replaying the same key never charges twice. */
+    public DeductResponse deduct(UUID healerId, String idempotencyKey, @Nullable Integer credits) {
         return restClient.post()
                 .uri("/credits/deduct")
                 .header("X-Idempotency-Key", idempotencyKey)
-                .body(new DeductRequest(healerId))
+                .body(new DeductRequest(healerId, credits))
                 .retrieve()
                 .body(DeductResponse.class);
     }
