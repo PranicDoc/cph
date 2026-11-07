@@ -18,6 +18,11 @@ public final class DeclarationDates {
     private DeclarationDates() {
     }
 
+    /** Today's date in India, the calendar the healer picks dates from. */
+    public static LocalDate today() {
+        return LocalDate.now(ZONE);
+    }
+
     /** The instant to store for a chosen date. A date after today is refused. */
     public static Instant toSignedAt(LocalDate date) {
         if (date.isAfter(LocalDate.now(ZONE))) {

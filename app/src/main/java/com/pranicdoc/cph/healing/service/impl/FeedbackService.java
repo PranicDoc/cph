@@ -13,6 +13,7 @@ import com.pranicdoc.cph.healing.dto.CaseFeedbackResponse;
 import com.pranicdoc.cph.healing.dto.ManualFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
+import com.pranicdoc.cph.healing.model.DeclarationDates;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.QualitativeFeedback;
@@ -155,6 +156,9 @@ public class FeedbackService {
         }
         if (text.isEmpty()) {
             throw new IllegalArgumentException("Add the final feedback comment");
+        }
+        if (date != null && date.isAfter(DeclarationDates.today())) {
+            throw new IllegalArgumentException("The final feedback date cannot be in the future");
         }
         Optional<QualitativeFeedback> existing = newestFinal(caseId);
         if (existing.isPresent()) {

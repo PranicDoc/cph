@@ -73,6 +73,23 @@ class CphCaseMapperFeedbackTest {
     }
 
     @Test
+    void lastFeedbackDateUsesTheNewestFinal() {
+        CaseClosure closure = new CaseClosure();
+        QualitativeFeedback older = new QualitativeFeedback();
+        older.setFeedbackType(FeedbackType.FINAL);
+        older.setHealingDate(LocalDate.of(2026, 10, 20));
+        older.setCreatedAt(java.time.Instant.parse("2026-10-21T00:00:00Z"));
+        QualitativeFeedback newer = new QualitativeFeedback();
+        newer.setFeedbackType(FeedbackType.FINAL);
+        newer.setHealingDate(LocalDate.of(2026, 10, 5));
+        newer.setCreatedAt(java.time.Instant.parse("2026-10-22T00:00:00Z"));
+        HealingCase healingCase = caseWith(closure, older, null);
+        healingCase.getSessions().get(0).getQualitativeFeedbacks().add(newer);
+
+        assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 5));
+    }
+
+    @Test
     void closureKeepsItsStoredDateWhenNoFeedbackHasOne() {
         CaseClosure closure = new CaseClosure();
         closure.setLastFeedbackDate(LocalDate.of(2026, 9, 1));

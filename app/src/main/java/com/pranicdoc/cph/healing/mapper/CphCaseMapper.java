@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -72,7 +73,7 @@ public abstract class CphCaseMapper {
     public abstract ProtocolColorSnapshot toProtocolColorSnapshot(ProtocolColor c);
 
     /**
-     * The date printed as the last feedback: the final feedback's own date (the healer can set it),
+     * The date printed as the last feedback: the newest final feedback's own date (the healer can set it),
      * else the latest of all feedback on the case. The value stored on the closure is set when the
      * case is closed, before the final feedback exists, so it is stale (or null) by the time the PDF
      * is built; fall back to it only when no feedback carries a date.
@@ -83,9 +84,8 @@ public abstract class CphCaseMapper {
         return healingCase.getSessions().stream()
                 .flatMap(s -> s.getQualitativeFeedbacks().stream())
                 .filter(q -> q.getFeedbackType() == FeedbackType.FINAL)
+                .max(Comparator.comparing(QualitativeFeedback::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
                 .map(QualitativeFeedback::getHealingDate)
-                .filter(Objects::nonNull)
-                .max(LocalDate::compareTo)
                 .orElseGet(() -> healingCase.getSessions().stream()
                         .flatMap(s -> Stream.concat(
                                 s.getQualitativeFeedbacks().stream().map(QualitativeFeedback::getHealingDate),

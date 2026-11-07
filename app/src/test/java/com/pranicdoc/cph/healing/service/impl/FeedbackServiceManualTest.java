@@ -11,6 +11,7 @@ import com.pranicdoc.cph.healing.dto.CaseFeedbackResponse;
 import com.pranicdoc.cph.healing.dto.ManualFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.QualitativeFeedbackRequest;
 import com.pranicdoc.cph.healing.dto.SymptomFeedbackRequest;
+import com.pranicdoc.cph.healing.model.DeclarationDates;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.QualitativeFeedback;
@@ -296,6 +297,18 @@ class FeedbackServiceManualTest {
         feedbackService.saveManualFeedback(caseId, finalFeedback("Done", null));
 
         assertEquals(LocalDate.of(2026, 10, 8), savedQualitative().getHealingDate());
+    }
+
+    @Test
+    void futureFinalDateIsRejected_todayInIndiaIsAccepted() {
+        when(sessionService.findLatestByCaseIdOrThrow(caseId)).thenReturn(second);
+
+        assertThrows(IllegalArgumentException.class, () -> feedbackService.saveManualFeedback(caseId,
+                finalFeedback("Done", DeclarationDates.today().plusDays(1))));
+        verify(qualitativeFeedbackRepository, never()).save(any());
+
+        feedbackService.saveManualFeedback(caseId, finalFeedback("Done", DeclarationDates.today()));
+        assertEquals(DeclarationDates.today(), savedQualitative().getHealingDate());
     }
 
     @Test
