@@ -239,7 +239,7 @@ describe("CloseCase page", () => {
 
     await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
     expect(mPost).not.toHaveBeenCalled();
-    expect(screen.getByText("Add a reason to Spleen to save your changes.")).toBeInTheDocument();
+    expect(screen.queryByText(/Add a reason to/)).not.toBeInTheDocument();
   });
 
   it("does not save when the healer clears a saved reason", async () => {
@@ -251,7 +251,7 @@ describe("CloseCase page", () => {
 
     await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
     expect(mPost).not.toHaveBeenCalled();
-    expect(screen.getByText("Add a reason to Solar Plexus to save your changes.")).toBeInTheDocument();
+    expect(screen.queryByText(/Add a reason to/)).not.toBeInTheDocument();
   });
 
   it("keeps Close case off until the existing closure has loaded", async () => {
@@ -297,11 +297,12 @@ describe("CloseCase page", () => {
     await waitFor(() => expect(within(list()).getByRole("button", { name: /Spleen/ })).toHaveFocus());
   });
 
-  it("names the recommended-protocols picker and says when a chakra is saved", async () => {
+  it("names the recommended-protocols picker, without a saving hint", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByText("A chakra is saved once it has a reason.")).toBeInTheDocument();
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    expect(screen.queryByText(/saved once it has a reason/)).not.toBeInTheDocument();
     await user.click(within(list()).getByRole("button", { name: /Wrap up/ }));
     expect(screen.getByRole("group", { name: "Recommended protocols for the patient" })).toBeInTheDocument();
   });

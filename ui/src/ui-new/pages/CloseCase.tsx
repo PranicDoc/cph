@@ -45,7 +45,8 @@ export default function CloseCase() {
 
   const done = rows.filter(hasReason).length;
   const allDone = ready && done === rows.length;
-  // Saving without these would erase what was saved for them.
+  // Saving without these would erase what was saved for them, so Save & next waits (Close case
+  // saves everything once every chakra has a reason).
   const unsaved = rows.filter((r) => savedChakras.includes(r.chakra) && !hasReason(r));
   const busy = save.isPending || closure.closeMutation.isPending;
   const isWrapUp = selected >= rows.length;
@@ -164,14 +165,6 @@ export default function CloseCase() {
                   colors={colors}
                   onChange={(field, value) => updateRow(selected, field, value)}
                 />
-              )}
-              {!isWrapUp && (
-                <p className="muted small mt-3">A chakra is saved once it has a reason.</p>
-              )}
-              {!isWrapUp && unsaved.length > 0 && (
-                <p role="note" className="small mt-1">
-                  Add a reason to {unsaved.map((r) => r.chakra).join(", ")} to save your changes.
-                </p>
               )}
               {isWrapUp && !allDone && (
                 <p role="note" className="muted small mt-3">Add why you worked on each chakra to close the case.</p>
