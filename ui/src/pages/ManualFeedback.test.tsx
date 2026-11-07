@@ -59,22 +59,34 @@ describe("ManualFeedback page", () => {
     { id: "sess-2", sessionNumber: 2, sessionDate: "2026-10-08" },
   ];
 
-  it("shows the picked session's date read-only, and refuses to save interim feedback without a session", async () => {
+  it("blocks interim feedback until a session is picked, then shows its date read-only", async () => {
     sessions = twoSessions();
     const user = userEvent.setup();
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Patient feedback" })).toBeInTheDocument();
-    await rateSeverity(user, 2);
-    await user.click(screen.getByRole("button", { name: "Save feedback" }));
-    expect(screen.getByText("Pick the session this feedback is for.")).toBeInTheDocument();
-    expect(mPost).not.toHaveBeenCalled();
+    expect(screen.getByText("Select the session first, then fill in the feedback.")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Comments")).toBeDisabled();
+    expect(screen.getByRole("group", { name: "Feedback details" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save feedback" })).toBeDisabled();
 
     await user.click(await screen.findByLabelText("Session"));
     await user.click(await screen.findByRole("option", { name: /Session 2/ }));
+    expect(screen.queryByText("Select the session first, then fill in the feedback.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Comments")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save feedback" })).toBeEnabled();
     const date = screen.getByLabelText("Healing date");
     expect(date).toHaveValue("2026-10-08");
     expect(date).toBeDisabled();
+  });
+
+  it("final feedback needs no session: nothing is blocked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Final" }));
+    expect(screen.queryByText("Select the session first, then fill in the feedback.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Comments")).toBeEnabled();
   });
 
   it("posts an interim's ratings, comment and session, then returns to Patients", async () => {

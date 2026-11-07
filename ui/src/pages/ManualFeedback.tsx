@@ -83,6 +83,8 @@ export default function ManualFeedback() {
   const recorded = recordedQuery.data;
 
   const isFinal = feedbackType === "FINAL";
+  // Interim feedback belongs to one session: nothing below the picker works until one is picked.
+  const locked = !isFinal && !sessionId;
   const recordedInterim = recorded?.interims?.find((i) => i.sessionId === sessionId);
   const isEditing = isFinal ? !!recorded?.finalFeedbackText : !!recordedInterim;
   const textLimit = isFinal ? TEXT_LIMITS.finalFeedback : TEXT_LIMITS.interimFeedback;
@@ -230,6 +232,12 @@ export default function ManualFeedback() {
           </div>
         </div>
 
+        {locked && (
+          <p role="note" className="text-sm text-text-light">Select the session first, then fill in the feedback.</p>
+        )}
+
+        {/* inert also blocks the sliders, which are not form controls a disabled fieldset reaches. */}
+        <fieldset aria-label="Feedback details" disabled={locked} inert={locked} className={`m-0 min-w-0 border-0 p-0 space-y-6 ${locked ? "opacity-50" : ""}`}>
         {!isFinal && (
         <section className="space-y-3">
           <div>
@@ -257,6 +265,7 @@ export default function ManualFeedback() {
           />
           <CharacterCount value={feedbackText} max={textLimit} />
         </section>
+        </fieldset>
       </div>
 
       {error && <p className="text-sm text-red-500 text-right mt-3">{error}</p>}
@@ -265,7 +274,7 @@ export default function ManualFeedback() {
         <Button type="button" variant="outline" onClick={backToPatients}>
           Cancel
         </Button>
-        <Button type="button" onClick={submit} disabled={save.isPending}>
+        <Button type="button" onClick={submit} disabled={save.isPending || locked}>
           {save.isPending ? "Saving…" : isEditing ? "Update feedback" : "Save feedback"}
         </Button>
       </div>
