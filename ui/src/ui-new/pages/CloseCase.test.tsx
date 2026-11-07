@@ -14,7 +14,11 @@ vi.mock("../../ui-version", () => ({
 }));
 vi.mock("@/hooks/useReferenceData", () => ({
   useReferenceData: () => ({
-    colors: [{ id: "g", code: "G", name: "Green", properties: ["Cooling", "Soothing"], category: "CLEANSING" }],
+    colors: [
+      { id: "g", code: "G", name: "Green", properties: ["Cooling", "Soothing"], category: "CLEANSING" },
+      { id: "b", code: "B", name: "Blue", properties: ["Calming"], category: "CLEANSING" },
+      { id: "y", code: "Y", name: "Yellow", properties: [], category: "ENERGISING" },
+    ],
     loading: false,
     error: null,
   }),
@@ -44,8 +48,12 @@ function renderPage({
   closure = undefined as unknown,
   chakras = ["Solar Plexus", "Spleen"],
   caseGet = undefined as undefined | (() => Promise<unknown>),
+  usual = { overall: { cleansing: [], energising: [] }, byChakra: {} } as unknown,
 } = {}) {
   mGet.mockImplementation((url: string) => {
+    if (url === "/api/v1/cases/c1/protocol-understanding/usual-picks") {
+      return usual === "error" ? Promise.reject(new Error("boom")) : Promise.resolve({ data: usual });
+    }
     if (url.endsWith("/chakras")) return Promise.resolve({ data: { data: chakras } });
     if (url.endsWith("/protocol-understanding")) return Promise.resolve({ data: { chakraSelections: selections } });
     if (url === "/api/v1/cases/c1") return caseGet ? caseGet() : Promise.resolve({ data: closure ? { closure } : {} });
@@ -76,15 +84,19 @@ describe("CloseCase page", () => {
 
     const solar = await screen.findByRole("button", { name: /Solar Plexus/ });
     expect(solar).toHaveTextContent("Anger held here");
-    expect(solar).toHaveTextContent("Done");
+    expect(solar).toHaveTextContent("Now"); // the selected one
     const spleen = within(list()).getByRole("button", { name: /Spleen/ });
     expect(spleen).toHaveTextContent("Needs a reason");
     expect(spleen).toHaveTextContent("To do");
-    expect(within(list()).getByRole("button", { name: /Wrap up/ })).toBeInTheDocument();
+    expect(within(list()).getByRole("button", { name: /Wrap up/ })).toHaveTextContent("Protocols, comments, continued?");
+    expect(within(list()).getByRole("button", { name: /Wrap up/ })).toHaveTextContent("Last");
     expect(screen.getByText("1 of 2 done")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
-    expect(screen.getByRole("heading", { level: 1, name: "Close case" })).toBeInTheDocument();
-    expect(screen.getByText(/Asha Rao/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Close case for Asha Rao" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to session" })).toBeInTheDocument();
+
+    await userEvent.setup().click(spleen);
+    expect(within(list()).getByRole("button", { name: /Solar Plexus/ })).toHaveTextContent("Done");
   });
 
   it("shows only the selected chakra, its required reason above the colours, with a 300 character count", async () => {
@@ -97,10 +109,15 @@ describe("CloseCase page", () => {
     expect(reason).toBeRequired();
     expect(reason).toHaveAttribute("maxLength", "300");
     expect(screen.getByText("15/300")).toBeInTheDocument();
-    const cleansing = screen.getByRole("group", { name: "Cleansing colours" });
-    expect(reason.compareDocumentPosition(cleansing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(cleansing).getByRole("button", { name: /Green/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("group", { name: "Energising colours" })).toBeInTheDocument();
+    expect(panelTitle().parentElement).toHaveTextContent("Solar Plexuschakra 1 of 2");
+    const cleanse = screen.getByRole("region", { name: "1. Cleanse" });
+    expect(reason.compareDocumentPosition(cleanse) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(cleanse).getByText("1 colour")).toBeInTheDocument();
+    expect(within(cleanse).getByRole("list", { name: "Cleansing colours added" })).toHaveTextContent("GreenNo property");
+    expect(within(cleanse).getByRole("button", { name: "Add or change cleansing colours" })).toBeInTheDocument();
+    const energise = screen.getByRole("region", { name: "2. Energise" });
+    expect(within(energise).getByText("No colours yet")).toBeInTheDocument();
+    expect(within(energise).getByRole("button", { name: "Add energising colours" })).toBeInTheDocument();
   });
 
   it("keeps Close case off until every chakra has a reason", async () => {
@@ -120,12 +137,12 @@ describe("CloseCase page", () => {
     expect(mPost).not.toHaveBeenCalled();
   });
 
-  it("Save & next saves only the chakras with a reason and moves to the next one", async () => {
+  it("Save and next saves only the chakras with a reason and moves to the next one", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await screen.findByLabelText(/Why did you work on this chakra/);
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
 
     expect(mPost).toHaveBeenCalledTimes(1);
     expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", { chakraSelections: [solarPlexus] });
@@ -139,7 +156,7 @@ describe("CloseCase page", () => {
 
     await user.click(await within(await screen.findByRole("navigation", { name: "Close case steps" })).findByRole("button", { name: /Spleen/ }));
     await user.type(screen.getByLabelText(/Why did you work on this chakra/), "Sluggish");
-    await user.click(screen.getByRole("button", { name: "Save & next: Wrap up" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Wrap up" }));
 
     expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", {
       chakraSelections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
@@ -148,6 +165,8 @@ describe("CloseCase page", () => {
     expect(screen.getByText("Recommended protocols for the patient")).toBeInTheDocument();
     expect(screen.getByLabelText("Comments")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Healing will continue" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText("On: the case stays open as continued. Off: the patient gets the final feedback request.")).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 chakras done")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spleen" })).toBeInTheDocument();
   });
 
@@ -187,21 +206,100 @@ describe("CloseCase page", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["patients"] });
   });
 
-  it("keeps one property per colour: picking a second replaces the first", async () => {
+  it("keeps one property per colour in the colour picker: picking a second replaces the first", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByLabelText(/Why did you work on this chakra/);
-    expect(screen.queryByRole("button", { name: "Cooling" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Add properties/ }));
-    await user.click(screen.getByRole("button", { name: "Cooling" }));
-    await user.click(screen.getByRole("button", { name: "Soothing" }));
-    expect(screen.getByRole("button", { name: "Cooling" })).toHaveAttribute("aria-pressed", "false");
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(await screen.findByRole("button", { name: "Add or change cleansing colours" }));
+    const sheet = screen.getByRole("dialog", { name: "Cleansing colours" });
+    expect(sheet).toHaveTextContent("Solar Plexus, 1 added");
+    await user.click(within(sheet).getByRole("button", { name: /^Green/ }));
+    const props = within(sheet).getByRole("group", { name: "Property for Green" });
+    expect(props).toHaveTextContent("Property (pick one)");
+    await user.click(within(props).getByRole("button", { name: "Cooling" }));
+    await user.click(within(props).getByRole("button", { name: "Soothing" }));
+    expect(within(props).getByRole("button", { name: "Cooling" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(props).getByRole("button", { name: "Soothing" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(sheet).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("list", { name: "Cleansing colours added" })).toHaveTextContent("GreenSoothing");
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
 
     expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding", {
       chakraSelections: [{ ...solarPlexus, cleansingColors: [{ color: "Green", properties: ["Soothing"] }] }],
     });
+  });
+
+  it("colour picker: tapping a colour adds and expands it, one open at a time; search, remove, and tapping the picked property clears it", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const opener = await screen.findByRole("button", { name: "Add or change cleansing colours" });
+    await user.click(opener);
+    const sheet = screen.getByRole("dialog", { name: "Cleansing colours" });
+    expect(within(sheet).getByText("Tap a colour to add it")).toBeInTheDocument();
+    const green = within(sheet).getByRole("button", { name: /^Green/ });
+    expect(green).toHaveTextContent("Added");
+    expect(green).toHaveAttribute("aria-expanded", "false");
+
+    const blue = within(sheet).getByRole("button", { name: /^Blue/ });
+    expect(blue).not.toHaveTextContent("Added");
+    await user.click(blue);
+    expect(blue).toHaveTextContent("Added");
+    expect(blue).toHaveAttribute("aria-expanded", "true");
+    expect(sheet).toHaveTextContent("Solar Plexus, 2 added");
+    await user.click(green);
+    expect(green).toHaveAttribute("aria-expanded", "true");
+    expect(blue).toHaveAttribute("aria-expanded", "false");
+
+    const cooling = within(sheet).getByRole("button", { name: "Cooling" });
+    await user.click(cooling);
+    expect(cooling).toHaveAttribute("aria-pressed", "true");
+    await user.click(cooling);
+    expect(cooling).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(within(sheet).getByRole("button", { name: "Remove Blue" }));
+    expect(within(sheet).getByRole("button", { name: /^Blue/ })).not.toHaveTextContent("Added");
+    expect(within(sheet).queryByRole("button", { name: "Remove Blue" })).not.toBeInTheDocument();
+
+    await user.type(within(sheet).getByLabelText("Search cleansing colours"), "gre");
+    expect(within(sheet).queryByRole("button", { name: /^Blue/ })).not.toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: /^Green/ })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(opener).toHaveFocus();
+  });
+
+  it("shows the healer's usual picks for this chakra, else overall, and a chip adds that colour with its property", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      usual: {
+        overall: { cleansing: [{ color: "Blue", property: null }], energising: [] },
+        byChakra: { "Solar Plexus": { cleansing: [{ color: "Green", property: "Cooling" }], energising: [] } },
+      },
+    });
+
+    const cleanse = await screen.findByRole("region", { name: "1. Cleanse" });
+    const picks = await within(cleanse).findByRole("group", { name: "Your usual picks" });
+    const chip = within(picks).getByRole("button", { name: "Green, Cooling" });
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    await user.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(within(cleanse).getByRole("list", { name: "Cleansing colours added" })).toHaveTextContent("GreenCooling");
+    expect(within(screen.getByRole("region", { name: "2. Energise" })).queryByText("Your usual picks")).not.toBeInTheDocument();
+
+    await user.click(within(list()).getByRole("button", { name: /Spleen/ }));
+    const spleenPicks = await within(screen.getByRole("region", { name: "1. Cleanse" })).findByRole("group", { name: "Your usual picks" });
+    expect(within(spleenPicks).getByRole("button", { name: "Blue" })).toBeInTheDocument();
+  });
+
+  it("hides the usual picks when they fail to load", async () => {
+    renderPage({ usual: "error" });
+
+    const cleanse = await screen.findByRole("region", { name: "1. Cleanse" });
+    await waitFor(() => expect(mGet).toHaveBeenCalledWith("/api/v1/cases/c1/protocol-understanding/usual-picks"));
+    expect(within(cleanse).queryByText("Your usual picks")).not.toBeInTheDocument();
   });
 
   it("editing a closed case loads its closure into Wrap up, and the header Close case closes it again", async () => {
@@ -235,7 +333,7 @@ describe("CloseCase page", () => {
     });
 
     await screen.findByLabelText(/Why did you work on this chakra/);
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
 
     await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
     expect(mPost).not.toHaveBeenCalled();
@@ -247,7 +345,7 @@ describe("CloseCase page", () => {
     renderPage();
 
     await user.clear(await screen.findByLabelText(/Why did you work on this chakra/));
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
 
     await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
     expect(mPost).not.toHaveBeenCalled();
@@ -280,7 +378,7 @@ describe("CloseCase page", () => {
     await screen.findByLabelText(/Why did you work on this chakra/);
     mPost.mockReturnValue(new Promise(() => {}));
 
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
     within(list()).getAllByRole("button").forEach((b) => expect(b).toBeDisabled());
   });
 
@@ -289,11 +387,11 @@ describe("CloseCase page", () => {
     renderPage();
 
     await screen.findByLabelText(/Why did you work on this chakra/);
-    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
     await waitFor(() => expect(panelTitle()).toHaveFocus());
     expect(panelTitle()).toHaveTextContent("Spleen");
 
-    await user.click(screen.getByRole("button", { name: /Back to list/ }));
+    await user.click(screen.getByRole("button", { name: "All chakras" }));
     await waitFor(() => expect(within(list()).getByRole("button", { name: /Spleen/ })).toHaveFocus());
   });
 

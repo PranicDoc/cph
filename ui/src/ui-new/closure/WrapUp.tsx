@@ -14,22 +14,22 @@ export default function WrapUp({ closure }: { closure: Closure }) {
   const { comments, setComments, isHealingContinued, setIsHealingContinued, selectedProtocols, setSelectedProtocols } = closure;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-[18px]">
       <div className="space-y-1.5" role="group" aria-labelledby="closure-protocols-label">
-        <span id="closure-protocols-label" className="block text-sm font-semibold">Recommended protocols for the patient</span>
+        <span id="closure-protocols-label" className="hl-step-q">Recommended protocols for the patient</span>
         <MultiSelect
           options={supplementaryProtocols}
           value={selectedProtocols}
           onChange={setSelectedProtocols}
           getOptionKey={(p: Protocol) => p.id}
           getOptionLabel={(p: Protocol) => p.name}
-          placeholder="Add protocols to recommend..."
+          placeholder="Add protocol"
           title="Recommended protocols"
           loading={isLoading}
         />
       </div>
       <div className="space-y-1.5">
-        <label className="lbl" htmlFor="closure-comments">Comments</label>
+        <label className="hl-step-q" htmlFor="closure-comments">Comments</label>
         <Textarea
           id="closure-comments"
           value={comments}
@@ -40,12 +40,12 @@ export default function WrapUp({ closure }: { closure: Closure }) {
         />
         <CharacterCount value={comments} max={TEXT_LIMITS.closureComments} />
       </div>
-      <div>
+      <div className="hl-cont">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold">Healing will continue</span>
+          <span className="hl-step-q">Healing will continue</span>
           <HlSwitch checked={isHealingContinued} onChange={setIsHealingContinued} label="Healing will continue" />
         </div>
-        <p className="help">On: the case stays open as "continued". Off: the patient gets the final feedback request.</p>
+        <p className="muted small">On: the case stays open as continued. Off: the patient gets the final feedback request.</p>
       </div>
     </div>
   );
