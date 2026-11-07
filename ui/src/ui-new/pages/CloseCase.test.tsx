@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient } from "@tanstack/react-query";
 
 import CloseCase from "./CloseCase";
 import { renderWithDataRouter } from "../../test/renderWithDataRouter";
@@ -60,7 +61,10 @@ function renderPage() {
 }
 
 describe("CloseCase page", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
 
   it("lists the scanned chakras with their saved colours and reason", async () => {
     renderPage();
@@ -81,6 +85,7 @@ describe("CloseCase page", () => {
 
   it("saves the reasons, then closes the case without the understanding step and goes back", async () => {
     const user = userEvent.setup();
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
     const { router } = renderPage();
 
     const reason = await screen.findByLabelText("Why this chakra? (optional)");
@@ -109,5 +114,18 @@ describe("CloseCase page", () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
     expect(mPost).toHaveBeenCalledWith("/api/v1/cases/c1/close", expect.anything());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["patients"] });
+  });
+
+  it("keeps the page open when the closure dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPage();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(router.state.location.pathname).toBe("/cases/c1/close");
   });
 });

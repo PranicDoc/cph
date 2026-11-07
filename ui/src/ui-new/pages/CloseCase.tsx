@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Patient } from "@/context/PatientContext";
 import { useProtocolColors, useProtocolUnderstanding } from "@/hooks/useProtocolUnderstanding";
@@ -13,6 +14,7 @@ import ProtocolUnderstanding from "../closure/ProtocolUnderstanding";
  */
 export default function CloseCase() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { healingCaseId = "" } = useParams<{ healingCaseId: string }>();
   const patient = (useLocation().state as { patient?: Patient } | null)?.patient;
   const { rows, ready, loading, updateRow, save } = useProtocolUnderstanding(healingCaseId);
@@ -56,7 +58,10 @@ export default function CloseCase() {
           patient={{ ...patient, healingCaseId } as Patient}
           skipUnderstanding
           onClose={() => setClosing(false)}
-          onSuccess={() => navigate(-1)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["patients"] });
+            navigate(-1);
+          }}
         />
       )}
     </div>
