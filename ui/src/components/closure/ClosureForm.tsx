@@ -1,6 +1,6 @@
 import { TEXT_LIMITS } from "@/lib/textLimits";
 import { CharacterCount } from "@/components/form/CharacterCount";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
@@ -8,17 +8,13 @@ import { Textarea } from "../ui/textarea";
 import { DataTable } from "../ui/data-table";
 import { ColumnDef, TableMeta } from "@tanstack/react-table";
 import { HPUTable } from "@/interfaces";
-import api from "@/lib/axios";
-import { toast } from "sonner";
-import { UseMutationResult, useMutation } from "@tanstack/react-query";
+import { UseMutationResult } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
-import { extractDetail } from "@/lib/utils";
 import { ColorPropertySelector } from "./ColorPropertySelector";
-import { useReferenceData } from "@/hooks/useReferenceData";
-import { findColorInCategory, hasColorCategory, type ColorCategory } from "@/lib/colorCategory";
 import { MultiSelect } from "../ui/multi-select/multi-select";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
 import { useUiVersion } from "../../ui-version";
+import { useProtocolColors, useProtocolUnderstanding } from "@/hooks/useProtocolUnderstanding";
 
 const ProtocolUnderstanding = lazy(() => import("../../ui-new/closure/ProtocolUnderstanding"));
 
@@ -37,6 +33,8 @@ type ClosureFormProps = {
   >;
   onClose: () => void;
   healingCaseId: string;
+  /** Starts at the closure step: the protocol understanding was already saved on its own page. */
+  skipUnderstanding?: boolean;
 };
 const CLOSURE_FORM_STEPS = 2;
 
@@ -74,98 +72,35 @@ const ClosureForm = ({
   onClose,
   closeMutation,
   healingCaseId,
+  skipUnderstanding,
 }: ClosureFormProps) => {
   const { isNewView } = useUiVersion();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [hpuTableData, setHpuTableData] = useState<HPUTable[]>([]);
-  // Next saves hpuTableData, so it must not run before the saved selections (and scanned chakras)
-  // have loaded: saving the still-empty table would overwrite what the healer filled in earlier.
-  const [hpuLoading, setHpuLoading] = useState(true);
-  const [hpuReady, setHpuReady] = useState(false);
+  const [currentStep, setCurrentStep] = useState(skipUnderstanding ? 2 : 1);
+  const {
+    rows: hpuTableData,
+    ready: hpuReady,
+    loading: hpuLoading,
+    updateRow,
+    save: saveProtocolUnderstandingMutation,
+  } = useProtocolUnderstanding(skipUnderstanding ? "" : healingCaseId);
+  const colorProps = useProtocolColors();
+  const {
+    energisingColors,
+    cleansingColors,
+    colorsLoading,
+    getEnergisingProperties,
+    getCleansingProperties,
+    getEnergisingHex,
+    getCleansingHex,
+  } = colorProps;
   const { data: supplementaryProtocols = [], isLoading: protocolsLoading } =
     useProtocols("SUPPLEMENTARY");
 
-  useEffect(() => {
-    /**
-     * Reopening an already-filled ACTIVE case's closure popup should show
-     * what was previously saved, editable in place -- the backend already
-     * upserts by healingCaseId (saveFromHealerSelection), so fetching this
-     * alongside the scanned chakras and merging by chakra name is the only
-     * piece needed for "edit, not duplicate". A chakra with no prior
-     * selection (or a first-ever fill) starts empty for the healer to fill in.
-     */
-    const fetchScannedChakrasAndExisting = async () => {
-      try {
-        const [chakrasRes, existingRes /*, prefillRes */] = await Promise.all([
-          api.get(`/api/v1/sessions/${healingCaseId}/chakras`),
-          api.get(`/api/v1/cases/${healingCaseId}/protocol-understanding`),
-          // NOTE: Design not yet completed, so commenting this out.
-          // Pre-fill is a convenience: if it fails the form still opens for manual entry.
-          // api
-          //   .get(`/api/v1/cases/${healingCaseId}/protocol-understanding/prefill`)
-          //   .catch(() => null),
-        ]);
-        const data = chakrasRes?.data?.data;
-        const existingSelections: HPUTable[] =
-          existingRes?.data?.chakraSelections ?? [];
-        const existingByChakra = new Map(
-          existingSelections.map((selection) => [selection.chakra, selection])
-        );
-        // NOTE: Design not yet completed, so commenting this out.
-        // const prefill: HPUTable[] =
-        //   prefillRes?.data?.chakraSelections ?? [];
-        // const prefillByChakra = new Map(
-        //   prefill.map((row) => [row.chakra, row])
-        // );
-
-        const tableData: HPUTable[] = data.map((chakraName: string) => {
-          const existing = existingByChakra.get(chakraName);
-          // const existing =
-          //   existingByChakra.get(chakraName) ?? prefillByChakra.get(chakraName);
-          return {
-            chakra: chakraName,
-            energisingColors: existing?.energisingColors ?? [],
-            cleansingColors: existing?.cleansingColors ?? [],
-          };
-        });
-        setHpuTableData(tableData);
-        setHpuReady(true);
-      } catch (err) {
-        toast.error(
-          extractDetail(err) || "Failed to fetch Scanned Chakras, try again",
-          {
-            duration: 5000,
-          }
-        );
-      } finally {
-        setHpuLoading(false);
-      }
-    };
-
-    fetchScannedChakrasAndExisting();
-  }, [healingCaseId]);
-
-  const saveProtocolUnderstandingMutation = useMutation({
-    mutationFn: () =>
-      api.post(`/api/v1/cases/${healingCaseId}/protocol-understanding`, {
-        chakraSelections: hpuTableData,
-      }),
-    onSuccess: () => {
-      setCurrentStep((s) => s + 1);
-    },
-    onError: (err) =>
-      toast.error(
-        extractDetail(err) ||
-          "Failed to save protocol understanding, try again",
-        {
-          duration: 5000,
-        }
-      ),
-  });
-
   const nextStep = () => {
     if (currentStep < CLOSURE_FORM_STEPS) {
-      saveProtocolUnderstandingMutation.mutate();
+      saveProtocolUnderstandingMutation.mutate(undefined, {
+        onSuccess: () => setCurrentStep((s) => s + 1),
+      });
     }
   };
 
@@ -174,56 +109,6 @@ const ClosureForm = ({
       setCurrentStep((s) => s - 1);
     }
   };
-
-  const {
-    colors,
-    loading: colorsLoading,
-    error: colorsError,
-  } = useReferenceData();
-
-  useEffect(() => {
-    if (colorsError) {
-      toast.error("Failed to load prana colors, try reopening this dialog", {
-        duration: 5000,
-      });
-    }
-  }, [colorsError]);
-
-  // Names are unique per category, not overall: each column lists, and looks properties and
-  // swatches up in, its own category's colors.
-  const namesIn = useCallback(
-    (category: ColorCategory) =>
-      Array.from(new Set(colors.filter((c) => hasColorCategory(c, category)).map((c) => c.name))),
-    [colors]
-  );
-  const energisingColors = useMemo(() => namesIn("ENERGISING"), [namesIn]);
-  const cleansingColors = useMemo(() => namesIn("CLEANSING"), [namesIn]);
-
-  const getEnergisingProperties = useCallback(
-    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.properties ?? [],
-    [colors]
-  );
-  const getCleansingProperties = useCallback(
-    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.properties ?? [],
-    [colors]
-  );
-  const getEnergisingHex = useCallback(
-    (color: string) => findColorInCategory(colors, color, "ENERGISING")?.colorHex,
-    [colors]
-  );
-  const getCleansingHex = useCallback(
-    (color: string) => findColorInCategory(colors, color, "CLEANSING")?.colorHex,
-    [colors]
-  );
-
-  const updateRow = useCallback(
-    <K extends keyof HPUTable>(index: number, field: K, value: HPUTable[K]) => {
-      setHpuTableData((prev) =>
-        prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
-      );
-    },
-    []
-  );
 
   const columns = useMemo<ColumnDef<HPUTable>[]>(
     () => [
@@ -295,13 +180,7 @@ const ClosureForm = ({
           <Suspense fallback={null}>
             <ProtocolUnderstanding
               rows={hpuTableData}
-              energisingColors={energisingColors}
-              cleansingColors={cleansingColors}
-              colorsLoading={colorsLoading}
-              getEnergisingProperties={getEnergisingProperties}
-              getCleansingProperties={getCleansingProperties}
-              getEnergisingHex={getEnergisingHex}
-              getCleansingHex={getCleansingHex}
+              {...colorProps}
               onChange={updateRow}
             />
           </Suspense>
@@ -314,15 +193,7 @@ const ClosureForm = ({
                 enableSorting={false}
                 cellClassName="py-3"
                 meta={
-                  {
-                    energisingColors,
-                    cleansingColors,
-                    colorsLoading,
-                    getEnergisingProperties,
-                    getCleansingProperties,
-                    getEnergisingHex,
-                    getCleansingHex,
-                  } as TableMeta<HPUTable>
+                  colorProps as TableMeta<HPUTable>
                 }
               />
             </div>
@@ -410,9 +281,9 @@ const ClosureForm = ({
       <div className="flex justify-end gap-3 pt-2">
         <Button
           variant="outline"
-          onClick={currentStep === 1 ? onClose : prevStep}
+          onClick={currentStep === 1 || skipUnderstanding ? onClose : prevStep}
         >
-          {currentStep === 1 ? "Cancel" : "Back"}
+          {currentStep === 1 || skipUnderstanding ? "Cancel" : "Back"}
         </Button>
 
         {currentStep < CLOSURE_FORM_STEPS ? (

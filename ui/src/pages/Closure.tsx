@@ -26,12 +26,14 @@ type ClosurePopupProps = {
   patient: Patient;
   onClose: () => void;
   onSuccess: () => void;
+  skipUnderstanding?: boolean;
 };
 
 export function ClosurePopup({
   patient,
   onClose,
   onSuccess,
+  skipUnderstanding,
 }: ClosurePopupProps) {
   const [comments, setComments] = useState("");
   const [isHealingContinued, setIsHealingContinued] = useState(false);
@@ -119,6 +121,7 @@ export function ClosurePopup({
           setSelectedProtocols={setSelectedProtocols}
           onClose={onClose}
           healingCaseId={patient.healingCaseId}
+          skipUnderstanding={skipUnderstanding}
         />
       </DialogContent>
     </Dialog>

@@ -249,4 +249,5 @@ export interface HPUTable {
   chakra: string;
   energisingColors: Colors[];
   cleansingColors: Colors[];
+  reason?: string;
 }

@@ -371,7 +371,13 @@ export default function Patients() {
               </DropdownMenuItem>
             )}
             {hasCase && isActive && (
-              <DropdownMenuItem onSelect={() => setClosurePatient(patient)}>
+              <DropdownMenuItem
+                onSelect={() =>
+                  isNewView
+                    ? navigate(`/cases/${patient.healingCaseId}/close`, { state: { patient } })
+                    : setClosurePatient(patient)
+                }
+              >
                 <CircleCheck />
                 Complete
               </DropdownMenuItem>
