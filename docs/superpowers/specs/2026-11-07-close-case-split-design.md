@@ -52,3 +52,33 @@ Goal: a neat UI and a simple flow that is easy to fill.
 ## Left to the builder
 Exact component split, keyboard/focus handling, how the selected item is kept (state or URL hash),
 and whether the progress bar and badges reuse existing new-view classes (prefer reuse).
+
+## Revision 2 (2026-11-07): colours, properties and phone screens
+
+Approved by the owner on the Claude Design canvas (artboards "Final" and "Phone 1-4"). Static
+reference copies: scratchpad `nov7b/final-mockup/*.dc.html`. Build it as in the mockup, using the
+new view's theme variables (light and dark), not the mockup's literal hex values.
+
+- Chakra panel: required reason first, then two step cards side by side (stacked on a phone):
+  "1. Cleanse" and "2. Energise". Each card shows a "Your usual picks" chip row, the colours added
+  (swatch, name, its property or "No property"), and a dashed "Add or change cleansing|energising
+  colours" button that opens the colour picker for that category.
+- Colour picker: a right-side drawer on desktop, a bottom sheet on a phone. Title "Cleansing
+  colours" / "Energising colours" with "<chakra>, N added"; a "Search colours" box (searches colour
+  names only); then every colour of that category as a row. Tapping a row adds the colour and
+  expands it; only one row is expanded at a time (opening another collapses the previous). An added
+  row shows an "Added" badge (never the property name) and a trash icon button next to the name that
+  removes the colour. The expanded row shows "Property (pick one)" with that colour's properties as
+  tap-to-select tags (single select; tapping the selected tag clears it). No typing for properties.
+  Footer: "Tap a colour to add it" and "Done".
+- Your usual picks: per category, the healer's most-used (colour, property) pairs from their own
+  past protocol understandings (excluding this case), preferring pairs used on this chakra, falling
+  back to all chakras; at most 4 per category. A chip adds that colour with that property in one tap
+  (pressed state when already added with that property). Served by a new read-only endpoint
+  `GET /api/v1/cases/{id}/protocol-understanding/usual-picks` (same authorization as
+  `GET /api/v1/cases/{id}/protocol-understanding`), response:
+  `{"overall":{"cleansing":[{"color":"…","property":"…"|null}],"energising":[…]},"byChakra":{"<chakra>":{"cleansing":[…],"energising":[…]}}}`.
+  No usual picks → the row is hidden.
+- Phone: Phone 1 = list (progress, rows with chevron, Wrap up, pinned disabled Close case);
+  Phone 2 = chakra detail with "All chakras" back link and a pinned footer (previous, "Save and next:
+  <next>"); Phone 3 = bottom sheet picker; Phone 4 = Wrap up with pinned footer.
