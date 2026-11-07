@@ -90,7 +90,7 @@ describe("CloseCase page", () => {
 
     const solar = await screen.findByRole("button", { name: /Solar Plexus/ });
     expect(solar).toHaveTextContent("Anger held here");
-    expect(solar).toHaveTextContent("Now"); // the selected one
+    expect(solar).toHaveAttribute("aria-current", "step"); // the selected one
     const spleen = within(list()).getByRole("button", { name: /Spleen/ });
     expect(spleen).toHaveTextContent("Needs a reason");
     expect(spleen).toHaveTextContent("To do");

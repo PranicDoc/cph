@@ -92,22 +92,36 @@ export default function CloseCase() {
       {closure.closeMutation.isPending ? "Closing..." : "Close case"}
     </Button>
   );
-  const status = (r: HPUTable | null, i: number) => {
-    const ok = r ? hasReason(r) : false;
-    const real = r ? (ok ? ["ok", "Done"] : ["warn", "To do"]) : ["off", "Last"];
-    // The selected item says "Now" in the two-column layout; the phone list shows its real status.
-    if (selected !== i) return <span className={`hl-badge hl-badge-${real[0]}`}>{real[1]}</span>;
-    return (
-      <>
-        <span className="hl-badge hl-badge-now max-md:hidden">Now</span>
-        <span className={`hl-badge hl-badge-${real[0]} md:hidden`}>{real[1]}</span>
-      </>
-    );
+  const status = (r: HPUTable | null) => {
+    const [tone, label] = r ? (hasReason(r) ? ["ok", "Done"] : ["warn", "To do"]) : ["off", "Last"];
+    return <span className={`hl-badge hl-badge-${tone}`}>{label}</span>;
   };
+  const listRow = (r: HPUTable | null, i: number) => (
+    <button
+      key={r?.chakra ?? "wrap-up"}
+      type="button"
+      className={`hl-cc-row${r ? "" : " hl-cc-last"}`}
+      aria-current={selected === i ? "step" : undefined}
+      disabled={busy}
+      ref={(el) => {
+        rowRefs.current[i] = el;
+      }}
+      onClick={() => open(i)}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="hl-cc-name">{r ? r.chakra : "Wrap up"}</span>
+        <span className="hl-cc-sum">{r ? (hasReason(r) ? r.reason : "Needs a reason") : "Protocols, comments, continued?"}</span>
+      </span>
+      <span className="flex items-center gap-2">
+        {status(r)}
+        <ChevronRight className="hl-cc-chev md:hidden" aria-hidden="true" />
+      </span>
+    </button>
+  );
 
   return (
-    <div className="hlx hl-ccp mx-auto max-w-6xl">
-      <header className={`hl-cc-head ${detailOpen ? "max-md:hidden" : ""}`}>
+    <div className="hlx hl-ccp mx-auto max-w-6xl" data-view={detailOpen ? "detail" : "list"}>
+      <header className="hl-cc-head">
         <div className="flex flex-col gap-1">
           <button type="button" className="hl-cc-back" onClick={() => navigate(-1)}>
             Back to session
@@ -124,7 +138,7 @@ export default function CloseCase() {
       </header>
 
       <div className="hl-cc">
-        <nav aria-label="Close case steps" className={`hl-cc-list ${detailOpen ? "max-md:hidden" : ""}`}>
+        <nav aria-label="Close case steps" className="hl-cc-list">
           <div className="hl-cc-list-h">
             <strong className="max-md:hidden">Chakras</strong>
             <span className="muted small">{loading ? "Loading..." : `${done} of ${rows.length} done`}</span>
@@ -139,33 +153,11 @@ export default function CloseCase() {
               <i style={{ width: rows.length ? `${(done / rows.length) * 100}%` : "100%" }} />
             </div>
           </div>
-          <div className="hl-cc-rows">
-            {[...rows, null].map((r, i) => (
-              <button
-                key={r?.chakra ?? "wrap-up"}
-                type="button"
-                className={`hl-cc-row${r ? "" : " hl-cc-last"}`}
-                aria-current={selected === i ? "step" : undefined}
-                disabled={busy}
-                ref={(el) => {
-                  rowRefs.current[i] = el;
-                }}
-                onClick={() => open(i)}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="hl-cc-name">{r ? r.chakra : "Wrap up"}</span>
-                  <span className="hl-cc-sum">{r ? (hasReason(r) ? r.reason : "Needs a reason") : "Protocols, comments, continued?"}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  {status(r, i)}
-                  <ChevronRight className="hl-cc-chev md:hidden" aria-hidden="true" />
-                </span>
-              </button>
-            ))}
-          </div>
+          <div className="hl-cc-rows">{rows.map((r, i) => listRow(r, i))}</div>
+          {listRow(null, rows.length)}
         </nav>
 
-        <section ref={setPanel} className={`hl-cc-panel ${detailOpen ? "" : "max-md:hidden"}`}>
+        <section ref={setPanel} className="hl-cc-panel">
           {ready && (
             <>
               <div className="hl-cc-panel-h">
