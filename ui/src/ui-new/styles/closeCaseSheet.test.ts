@@ -35,3 +35,10 @@ describe("close-case colour picker CSS", () => {
     expect(phone).toMatch(/\.hl-cpick\s*\{[^}]*border-radius:\s*20px 20px 0 0/);
   });
 });
+
+describe("close-case page height", () => {
+  it("caps the shell at the screen height and scrolls the chakra list and the panel body", () => {
+    expect(css).toMatch(/\.hl-main-col:has\(\.hl-ccp\)\s*\{[^}]*height:\s*100dvh/);
+    expect(css).toMatch(/\.hl-cc-rows,\s*html\[data-ui="new"\] \.hl-cc-panel-b\s*\{[^}]*overflow-y:\s*auto/);
+  });
+});

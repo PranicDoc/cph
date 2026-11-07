@@ -676,3 +676,21 @@ html[data-ui="new"] .hl-cpick-f { display: flex; justify-content: space-between;
   html[data-ui="new"] .hl-ptag { min-height: 44px; font-size: 13.5px; }
   html[data-ui="new"] .hl-cpick-f { padding: 10px 16px 22px; }
 }
+
+/* Close case fits the screen: the window never scrolls, the chakra list and the panel body do. */
+html[data-ui="new"] .hl-main-col:has(.hl-ccp) { height: 100dvh; min-height: 0; padding-bottom: 14px; }
+html[data-ui="new"] .hl-content:has(.hl-ccp),
+html[data-ui="new"] .hl-canvas:has(.hl-ccp) { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+html[data-ui="new"] .hlx.hl-ccp { flex: 1; min-height: 0; width: 100%; padding-bottom: 0; }
+html[data-ui="new"] .hl-cc { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+html[data-ui="new"] .hl-cc-list,
+html[data-ui="new"] .hl-cc-panel { min-height: 0; }
+html[data-ui="new"] .hl-cc-rows,
+html[data-ui="new"] .hl-cc-panel-b { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--hl-hair-strong) transparent; }
+html[data-ui="new"] .hl-cc-row.hl-cc-last { position: sticky; bottom: 0; background: var(--color-card); }
+@media (max-width: 767px) {
+  html[data-ui="new"] .hl-main-col:has(.hl-ccp) { padding-bottom: 96px; }
+  html[data-ui="new"] .hl-cc-rows { flex: 0 1 auto; }
+  html[data-ui="new"] .hl-cc-foot,
+  html[data-ui="new"] .hl-cc-pin { position: relative; bottom: auto; flex: none; }
+}
