@@ -1,4 +1,4 @@
-import type { useCaseClosure } from "@/pages/Closure";
+import type { useCaseClosure } from "@/hooks/useCaseClosure";
 import { MultiSelect } from "@/components/ui/multi-select/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { CharacterCount } from "@/components/form/CharacterCount";
@@ -15,8 +15,8 @@ export default function WrapUp({ closure }: { closure: Closure }) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <span className="block text-sm font-semibold">Recommended protocols for the patient</span>
+      <div className="space-y-1.5" role="group" aria-labelledby="closure-protocols-label">
+        <span id="closure-protocols-label" className="block text-sm font-semibold">Recommended protocols for the patient</span>
         <MultiSelect
           options={supplementaryProtocols}
           value={selectedProtocols}
@@ -24,6 +24,7 @@ export default function WrapUp({ closure }: { closure: Closure }) {
           getOptionKey={(p: Protocol) => p.id}
           getOptionLabel={(p: Protocol) => p.name}
           placeholder="Add protocols to recommend..."
+          title="Recommended protocols"
           loading={isLoading}
         />
       </div>

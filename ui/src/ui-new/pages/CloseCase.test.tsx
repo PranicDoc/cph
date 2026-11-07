@@ -39,11 +39,16 @@ const solarPlexus = {
   reason: "Anger held here",
 };
 
-function renderPage({ selections = [solarPlexus] as unknown[], closure = undefined as unknown } = {}) {
+function renderPage({
+  selections = [solarPlexus] as unknown[],
+  closure = undefined as unknown,
+  chakras = ["Solar Plexus", "Spleen"],
+  caseGet = undefined as undefined | (() => Promise<unknown>),
+} = {}) {
   mGet.mockImplementation((url: string) => {
-    if (url.endsWith("/chakras")) return Promise.resolve({ data: { data: ["Solar Plexus", "Spleen"] } });
+    if (url.endsWith("/chakras")) return Promise.resolve({ data: { data: chakras } });
     if (url.endsWith("/protocol-understanding")) return Promise.resolve({ data: { chakraSelections: selections } });
-    if (url === "/api/v1/cases/c1") return Promise.resolve({ data: closure ? { closure } : {} });
+    if (url === "/api/v1/cases/c1") return caseGet ? caseGet() : Promise.resolve({ data: closure ? { closure } : {} });
     return Promise.resolve({ data: {} });
   });
   mPost.mockResolvedValue({ data: {} });
@@ -221,5 +226,95 @@ describe("CloseCase page", () => {
       additionalComments: "The patient is advised to follow: \nGeneral sweeping\n\nKeep calm",
       isHealingContinued: true,
     });
+  });
+
+  it("does not save when a chakra saved before now lacks a reason, so its saved colours are not erased", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      selections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [{ color: "Green", properties: [] }] }],
+    });
+
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+
+    await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
+    expect(mPost).not.toHaveBeenCalled();
+    expect(screen.getByText("Add a reason to Spleen to save your changes.")).toBeInTheDocument();
+  });
+
+  it("does not save when the healer clears a saved reason", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.clear(await screen.findByLabelText(/Why did you work on this chakra/));
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+
+    await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
+    expect(mPost).not.toHaveBeenCalled();
+    expect(screen.getByText("Add a reason to Solar Plexus to save your changes.")).toBeInTheDocument();
+  });
+
+  it("keeps Close case off until the existing closure has loaded", async () => {
+    renderPage({
+      selections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
+      caseGet: () => new Promise(() => {}),
+    });
+
+    await screen.findByText("2 of 2 done");
+    closeButtons().forEach((b) => expect(b).toBeDisabled());
+  });
+
+  it("keeps Close case off with a message when the existing closure fails to load", async () => {
+    renderPage({
+      selections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [], reason: "Sluggish" }],
+      caseGet: () => Promise.reject(new Error("boom")),
+    });
+
+    expect(await screen.findByText(/Couldn't load this case's closure details/)).toBeInTheDocument();
+    closeButtons().forEach((b) => expect(b).toBeDisabled());
+  });
+
+  it("disables the list while a save is running", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    mPost.mockReturnValue(new Promise(() => {}));
+
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    within(list()).getAllByRole("button").forEach((b) => expect(b).toBeDisabled());
+  });
+
+  it("moves focus to the opened item's heading, and Back to list returns it to that row", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.click(screen.getByRole("button", { name: "Save & next: Spleen" }));
+    await waitFor(() => expect(panelTitle()).toHaveFocus());
+    expect(panelTitle()).toHaveTextContent("Spleen");
+
+    await user.click(screen.getByRole("button", { name: /Back to list/ }));
+    await waitFor(() => expect(within(list()).getByRole("button", { name: /Spleen/ })).toHaveFocus());
+  });
+
+  it("names the recommended-protocols picker and says when a chakra is saved", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("A chakra is saved once it has a reason.")).toBeInTheDocument();
+    await user.click(within(list()).getByRole("button", { name: /Wrap up/ }));
+    expect(screen.getByRole("group", { name: "Recommended protocols for the patient" })).toBeInTheDocument();
+  });
+
+  it("closes a case with no scanned chakras without saving an empty understanding", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPage({ chakras: [], selections: [] });
+
+    await waitFor(() => expect(panelTitle()).toHaveTextContent("Wrap up"));
+    await waitFor(() => expect(closeButtons()[0]).toBeEnabled());
+    await user.click(closeButtons()[0]);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
+    expect(mPost.mock.calls).toEqual([["/api/v1/cases/c1/close", { additionalComments: "", isHealingContinued: false }]]);
   });
 });
