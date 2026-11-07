@@ -590,7 +590,14 @@ html[data-ui="new"] .hl-cc-all { display: inline-flex; align-items: center; gap:
   html[data-ui="new"] .hl-cc-all { display: none; }
 }
 html[data-ui="new"] .hl-cc-panel-b { flex: 1; padding: 22px 24px; }
-html[data-ui="new"] .hl-cc-foot { display: flex; justify-content: space-between; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--hl-hair); }
+html[data-ui="new"] .hl-cc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 24px; border-top: 1px solid var(--hl-hair); }
+html[data-ui="new"] .hl-cc-prev,
+html[data-ui="new"] .hl-cc-next { height: 40px; border-radius: 10px; font-size: 14px; min-width: 0; }
+html[data-ui="new"] .hl-cc-prev { max-width: 40%; gap: 4px; padding: 0 14px 0 10px; }
+html[data-ui="new"] .hl-cc-prev-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-ui="new"] .hl-cc-next { max-width: 60%; margin-left: auto; gap: 6px; padding: 0 14px 0 18px; }
+html[data-ui="new"] .hl-cc-prev svg,
+html[data-ui="new"] .hl-cc-next svg { width: 16px; height: 16px; flex: none; }
 html[data-ui="new"] .hl-btn44 { height: 44px; padding: 0 18px; border-radius: 12px; font-size: 14px; }
 html[data-ui="new"] .hl-btn48 { height: 48px; border-radius: 12px; font-size: 15px; }
 html[data-ui="new"] .hl-step-q { font-size: 13.5px; font-weight: 600; }
@@ -606,11 +613,9 @@ html[data-ui="new"] .hl-usual { display: flex; flex-wrap: wrap; gap: 6px; }
 html[data-ui="new"] .hl-uchip { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--hl-hair-strong); color: var(--color-text); font-size: 13px; font-weight: 500; cursor: pointer; }
 html[data-ui="new"] .hl-uchip[aria-pressed="true"] { border-color: var(--hl-ring); background: var(--hl-primary-soft); color: var(--hl-accent-text); font-weight: 600; }
 html[data-ui="new"] .hl-cswatch { position: relative; display: inline-block; flex: none; border-radius: 50%; border: 1px solid var(--hl-hair-strong); }
-html[data-ui="new"] .hl-ctick { position: absolute; right: -6px; bottom: -6px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: var(--color-success); color: #fff; box-shadow: 0 0 0 2px var(--color-card); }
-html[data-ui="new"] .hl-ctick svg { width: 10px; height: 10px; }
+html[data-ui="new"] .hl-ctick { position: absolute; inset: -1px; border-radius: 50%; display: grid; place-items: center; background: var(--color-success); color: #fff; }
+html[data-ui="new"] .hl-ctick svg { width: 62%; height: 62%; }
 html[data-ui="new"] .hl-cpick-row:has(.hl-ctick):not([data-open="true"]) { border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
-html[data-ui="new"] .hl-uchip .hl-ctick { right: -4px; bottom: -4px; width: 12px; height: 12px; }
-html[data-ui="new"] .hl-uchip .hl-ctick svg { width: 8px; height: 8px; }
 html[data-ui="new"] .hl-picked { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
 html[data-ui="new"] .hl-picked-name { font-size: 14px; font-weight: 500; }
 html[data-ui="new"] .hl-picked-prop { font-size: 12.5px; color: var(--hl-accent-text); }
@@ -668,10 +673,14 @@ html[data-ui="new"] .hl-cpick-f { display: flex; justify-content: space-between;
   html[data-ui="new"] .hl-steps { grid-template-columns: minmax(0, 1fr); }
   html[data-ui="new"] .hl-usual { flex-wrap: nowrap; overflow-x: auto; padding: 4px 2px 6px; }
   html[data-ui="new"] .hl-uchip { flex: none; }
-  html[data-ui="new"] .hl-cc-foot { padding: 12px 16px; }
-  html[data-ui="new"] .hl-cc-foot .hl-btn44 { height: 48px; font-size: 15px; }
-  html[data-ui="new"] .hl-cc-foot .hl-grow { flex: 1; }
-  html[data-ui="new"] .hl-cc-foot .hl-btn44:not(.hl-grow) { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  /* phone footer: square back arrow + one slim primary button */
+  html[data-ui="new"] .hl-cc-foot { gap: 8px; padding: 10px 12px; }
+  html[data-ui="new"] .hl-cc-foot > span:empty { display: none; }
+  html[data-ui="new"] .hl-cc-prev { flex: none; width: 44px; height: 44px; padding: 0; justify-content: center; }
+  html[data-ui="new"] .hl-cc-prev svg { width: 20px; height: 20px; }
+  html[data-ui="new"] .hl-cc-prev-label,
+  html[data-ui="new"] .hl-cc-next-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  html[data-ui="new"] .hl-cc-next { flex: 1; max-width: none; height: 44px; justify-content: center; font-size: 15px; }
   /* list screen: Close case sits under the Wrap up card */
   html[data-ui="new"] .hl-cc-pin { flex: none; padding-top: 12px; }
   /* Phone 3: bottom sheet */

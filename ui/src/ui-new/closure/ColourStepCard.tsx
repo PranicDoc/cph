@@ -52,7 +52,7 @@ export default function ColourStepCard({ title, picks, ...cat }: ColourCategoryP
         <ul className="flex flex-col gap-1.5" aria-label={`${kind[0].toUpperCase()}${kind.slice(1)} colours added`}>
           {value.map((v) => (
             <li key={v.color} className="hl-picked">
-              <Swatch hex={getHex(v.color)} size={20} checked />
+              <Swatch hex={getHex(v.color)} size={20} />
               <span className="flex flex-col">
                 <span className="hl-picked-name">{v.color}</span>
                 <span className={v.properties.length ? "hl-picked-prop" : "muted small"}>

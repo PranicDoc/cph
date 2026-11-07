@@ -201,17 +201,25 @@ export default function CloseCase() {
               </div>
               <div className="hl-cc-foot">
                 {selected > 0 ? (
-                  <Button type="button" variant="outline" className="hl-btn44" onClick={() => open(selected - 1)} disabled={busy}>
-                    {nameOf(selected - 1)}
+                  <Button type="button" variant="outline" className="hl-cc-prev" onClick={() => open(selected - 1)} disabled={busy}>
+                    <ChevronLeft aria-hidden="true" />
+                    <span className="hl-cc-prev-label">{nameOf(selected - 1)}</span>
                   </Button>
                 ) : (
                   <span />
                 )}
                 {isWrapUp ? (
-                  closeButton("hl-btn44 hl-grow")
+                  closeButton("hl-cc-next")
                 ) : (
-                  <Button type="button" className="hl-btn44 hl-grow" onClick={saveAndNext} disabled={busy}>
-                    {save.isPending ? "Saving..." : `Save and next: ${nameOf(selected + 1)}`}
+                  <Button type="button" className="hl-cc-next" onClick={saveAndNext} disabled={busy}>
+                    {save.isPending ? (
+                      "Saving..."
+                    ) : (
+                      <span className="truncate">
+                        Save and next<span className="hl-cc-next-name">: {nameOf(selected + 1)}</span>
+                      </span>
+                    )}
+                    {!save.isPending && <ChevronRight aria-hidden="true" />}
                   </Button>
                 )}
               </div>
