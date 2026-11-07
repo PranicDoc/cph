@@ -4,6 +4,7 @@ import com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,4 +12,6 @@ import java.util.UUID;
 public interface HealerProtocolUnderstandingRepository extends JpaRepository<HealerProtocolUnderstanding, UUID> {
 
     Optional<HealerProtocolUnderstanding> findByHealingCaseId(UUID healingSessionId);
+
+    List<HealerProtocolUnderstanding> findByHealerId(UUID healerId);
 }

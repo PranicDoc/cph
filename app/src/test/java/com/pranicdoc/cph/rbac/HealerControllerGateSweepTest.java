@@ -129,7 +129,7 @@ class HealerControllerGateSweepTest {
      * {@code (expectedMapped, expectedGated)} counts. These were DERIVED, not
      * pasted: each triple is the value recorded in the Wave-2 summaries
      * (42-02 {@code PatientController} 11/9/2 (12/10/2 once the personal-data update endpoint was removed, 14/12/2 with the two declaration-date endpoints), 42-04 {@code SessionController}
-     * 5/5/0, <b>42-13</b> {@code CaseController} 21/17/4 (22/18/4 since the unlock endpoint, 23/19/4 since the HPU prefill read, 24/20/4 since manual feedback) — superseding 42-03's
+     * 5/5/0, <b>42-13</b> {@code CaseController} 21/17/4 (22/18/4 since the unlock endpoint, 23/19/4 since the HPU prefill read, 24/20/4 since manual feedback, 26/22/4 since usual picks) — superseding 42-03's
      * 18/14/4 after the CR-01 route split added three ungated
      * {@code /api/v1/cases/self-service} patient twins and gated their three
      * healer-path siblings, 42-05 {@code ScanController} 1/1/0 +
@@ -142,14 +142,14 @@ class HealerControllerGateSweepTest {
     private static final List<SweptController> CONTROLLERS = List.of(
             new SweptController(PatientController.class, 14, 12),
             new SweptController(SessionController.class, 6, 6),
-            new SweptController(CaseController.class, 25, 21),
+            new SweptController(CaseController.class, 26, 22),
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 53;
-    private static final int EXPECTED_TOTAL_GATED = 45;
+    private static final int EXPECTED_TOTAL_MAPPED = 54;
+    private static final int EXPECTED_TOTAL_GATED = 46;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
