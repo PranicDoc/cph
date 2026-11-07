@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { Search, Trash2, X } from "lucide-react";
+import { Check, Search, Trash2, X } from "lucide-react";
 import { Dialog, DialogClose, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { ColorSelection } from "@/components/closure/ColorPropertySelector";
@@ -18,8 +18,17 @@ export interface ColourCategoryProps {
   onChange: (value: ColorSelection[]) => void;
 }
 
-export function Swatch({ hex, size }: { hex?: string; size: number }) {
-  return <span className="hl-cswatch" style={{ width: size, height: size, background: hex }} aria-hidden="true" />;
+/** A colour dot; `checked` adds a tick badge so a picked colour reads at a glance whatever its hue. */
+export function Swatch({ hex, size, checked }: { hex?: string; size: number; checked?: boolean }) {
+  return (
+    <span className="hl-cswatch" style={{ width: size, height: size, background: hex }} aria-hidden="true">
+      {checked && (
+        <span className="hl-ctick">
+          <Check strokeWidth={3.5} />
+        </span>
+      )}
+    </span>
+  );
 }
 
 /** One property per colour (UI only): picking one leaves just that one; picking the only one clears it. */
@@ -111,7 +120,7 @@ export default function ColourPicker({ kind, chakra, value, colors, getPropertie
               <div key={c} className="hl-cpick-row" data-open={open}>
                 <div className="flex items-center gap-1 pr-1">
                   <button id={rowId(c)} type="button" className="hl-cpick-tap" aria-expanded={open} onClick={() => tap(c)}>
-                    <Swatch hex={getHex(c)} size={22} />
+                    <Swatch hex={getHex(c)} size={22} checked={!!sel} />
                     <span style={{ fontWeight: sel ? 600 : 500 }}>{c}</span>
                     {sel && <span className="hl-badge hl-badge-ok ml-auto">Added</span>}
                   </button>

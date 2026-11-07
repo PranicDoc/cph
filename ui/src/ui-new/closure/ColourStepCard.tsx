@@ -30,18 +30,21 @@ export default function ColourStepCard({ title, picks, ...cat }: ColourCategoryP
             Your usual picks
           </span>
           <div role="group" aria-labelledby={`${headingId}-usual`} className="hl-usual">
-            {picks.map((pick) => (
-              <button
-                key={`${pick.color}|${pick.property}`}
-                type="button"
-                className="hl-uchip"
-                aria-pressed={isPick(value.find((v) => v.color === pick.color), pick)}
-                onClick={() => togglePick(pick)}
-              >
-                <Swatch hex={getHex(pick.color)} size={12} />
-                {pick.property ? `${pick.color}, ${pick.property}` : pick.color}
-              </button>
-            ))}
+            {picks.map((pick) => {
+              const on = isPick(value.find((v) => v.color === pick.color), pick);
+              return (
+                <button
+                  key={`${pick.color}|${pick.property}`}
+                  type="button"
+                  className="hl-uchip"
+                  aria-pressed={on}
+                  onClick={() => togglePick(pick)}
+                >
+                  <Swatch hex={getHex(pick.color)} size={16} checked={on} />
+                  {pick.property ? `${pick.color}, ${pick.property}` : pick.color}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -49,7 +52,7 @@ export default function ColourStepCard({ title, picks, ...cat }: ColourCategoryP
         <ul className="flex flex-col gap-1.5" aria-label={`${kind[0].toUpperCase()}${kind.slice(1)} colours added`}>
           {value.map((v) => (
             <li key={v.color} className="hl-picked">
-              <Swatch hex={getHex(v.color)} size={20} />
+              <Swatch hex={getHex(v.color)} size={20} checked />
               <span className="flex flex-col">
                 <span className="hl-picked-name">{v.color}</span>
                 <span className={v.properties.length ? "hl-picked-prop" : "muted small"}>

@@ -590,7 +590,7 @@ html[data-ui="new"] .hl-cc-all { display: inline-flex; align-items: center; gap:
   html[data-ui="new"] .hl-cc-all { display: none; }
 }
 html[data-ui="new"] .hl-cc-panel-b { flex: 1; padding: 22px 24px; }
-html[data-ui="new"] .hl-cc-foot { display: flex; justify-content: space-between; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--hl-hair); background: var(--color-card); }
+html[data-ui="new"] .hl-cc-foot { display: flex; justify-content: space-between; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--hl-hair); }
 html[data-ui="new"] .hl-btn44 { height: 44px; padding: 0 18px; border-radius: 12px; font-size: 14px; }
 html[data-ui="new"] .hl-btn48 { height: 48px; border-radius: 12px; font-size: 15px; }
 html[data-ui="new"] .hl-step-q { font-size: 13.5px; font-weight: 600; }
@@ -605,7 +605,12 @@ html[data-ui="new"] .hl-step-lbl { font-size: 12.5px; font-weight: 600; color: v
 html[data-ui="new"] .hl-usual { display: flex; flex-wrap: wrap; gap: 6px; }
 html[data-ui="new"] .hl-uchip { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--hl-hair-strong); color: var(--color-text); font-size: 13px; font-weight: 500; cursor: pointer; }
 html[data-ui="new"] .hl-uchip[aria-pressed="true"] { border-color: var(--hl-ring); background: var(--hl-primary-soft); color: var(--hl-accent-text); font-weight: 600; }
-html[data-ui="new"] .hl-cswatch { flex: none; border-radius: 50%; border: 1px solid var(--hl-hair-strong); }
+html[data-ui="new"] .hl-cswatch { position: relative; display: inline-block; flex: none; border-radius: 50%; border: 1px solid var(--hl-hair-strong); }
+html[data-ui="new"] .hl-ctick { position: absolute; right: -6px; bottom: -6px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: var(--color-success); color: #fff; box-shadow: 0 0 0 2px var(--color-card); }
+html[data-ui="new"] .hl-ctick svg { width: 10px; height: 10px; }
+html[data-ui="new"] .hl-cpick-row:has(.hl-ctick):not([data-open="true"]) { border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
+html[data-ui="new"] .hl-uchip .hl-ctick { right: -4px; bottom: -4px; width: 12px; height: 12px; }
+html[data-ui="new"] .hl-uchip .hl-ctick svg { width: 8px; height: 8px; }
 html[data-ui="new"] .hl-picked { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
 html[data-ui="new"] .hl-picked-name { font-size: 14px; font-weight: 500; }
 html[data-ui="new"] .hl-picked-prop { font-size: 12.5px; color: var(--hl-accent-text); }
@@ -654,21 +659,21 @@ html[data-ui="new"] .hl-cpick-f { display: flex; justify-content: space-between;
   html[data-ui="new"] .hl-cc-row:first-child { border-top-color: transparent; }
   html[data-ui="new"] .hl-cc-name { font-size: 15px; }
   html[data-ui="new"] .hl-cc-sum { font-size: 13px; }
-  /* Phone 2 / 4: detail with a pinned footer (above the tab bar) */
-  /* Phone 2 / 4: full-bleed card header, page ground behind the body, cards on card colour */
-  html[data-ui="new"] .hl-cc-panel { overflow: visible; background: transparent; border: 0; border-radius: 0; }
-  html[data-ui="new"] .hl-cc-panel-h { margin: 0 -12px; padding: 14px 16px 10px; background: var(--color-card); }
+  /* Phone 2 / 4: one card (header, scrolling body, footer), same surface as the list card */
+  html[data-ui="new"] .hl-cc-panel-h { padding: 6px 16px 12px; }
   html[data-ui="new"] .hlx .hl-cc-panel-h h2 { font-size: 20px; }
-  html[data-ui="new"] .hl-cc-panel-b { padding: 14px 4px; }
+  html[data-ui="new"] .hl-cc-panel-b { padding: 16px; }
   html[data-ui="new"] .hl-cc-panel-b textarea.hl-reason { min-height: calc(3 * 1.45em + 22px); }
-  html[data-ui="new"] .hl-step { background: var(--color-card); padding: 12px; }
+  html[data-ui="new"] .hl-step { padding: 12px; }
   html[data-ui="new"] .hl-steps { grid-template-columns: minmax(0, 1fr); }
-  html[data-ui="new"] .hl-usual { flex-wrap: nowrap; overflow-x: auto; }
+  html[data-ui="new"] .hl-usual { flex-wrap: nowrap; overflow-x: auto; padding: 4px 2px 6px; }
   html[data-ui="new"] .hl-uchip { flex: none; }
-  html[data-ui="new"] .hl-cc-foot,
-  html[data-ui="new"] .hl-cc-pin { position: sticky; bottom: 88px; z-index: 10; margin: 0 -12px; padding: 10px 16px 22px; border-top: 1px solid var(--hl-hair); background: var(--color-card); border-radius: 0; }
+  html[data-ui="new"] .hl-cc-foot { padding: 12px 16px; }
   html[data-ui="new"] .hl-cc-foot .hl-btn44 { height: 48px; font-size: 15px; }
   html[data-ui="new"] .hl-cc-foot .hl-grow { flex: 1; }
+  html[data-ui="new"] .hl-cc-foot .hl-btn44:not(.hl-grow) { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  /* list screen: Close case sits under the Wrap up card */
+  html[data-ui="new"] .hl-cc-pin { flex: none; padding-top: 12px; }
   /* Phone 3: bottom sheet */
   html[data-ui="new"] .hl-cpick { left: 0; right: 0; bottom: 0; top: 70px; width: auto; border-radius: 20px 20px 0 0; }
   html[data-ui="new"] .hl-cpick-h { border-bottom: 0; padding: 10px 16px 12px; }
@@ -677,6 +682,18 @@ html[data-ui="new"] .hl-cpick-f { display: flex; justify-content: space-between;
   html[data-ui="new"] .hl-cpick-tap { min-height: 48px; font-size: 15px; }
   html[data-ui="new"] .hl-ptag { min-height: 44px; font-size: 13.5px; }
   html[data-ui="new"] .hl-cpick-f { padding: 10px 16px 22px; }
+}
+
+/* Light theme: text and the disabled Close case that sit on the violet ground read white, as on the Roles page head */
+html[data-ui="new"][data-theme="light"] .hlx .hl-cc-head h1 { color: #fff; }
+html[data-ui="new"][data-theme="light"] .hlx .hl-cc-head .muted,
+html[data-ui="new"][data-theme="light"] .hl-cc-back { color: rgba(255, 255, 255, 0.88); }
+html[data-ui="new"][data-theme="light"] .hl-cc-back:hover { color: #fff; }
+html[data-ui="new"][data-theme="light"] .hl-cc-head button:disabled,
+html[data-ui="new"][data-theme="light"] .hl-cc-pin button:disabled { opacity: 1; background: rgba(255, 255, 255, 0.28); color: rgba(255, 255, 255, 0.85); box-shadow: none; }
+@media (max-width: 767px) {
+  html[data-ui="new"][data-theme="light"] .hlx .hl-cc-list-h .muted { color: rgba(255, 255, 255, 0.92); }
+  html[data-ui="new"][data-theme="light"] .hl-cc-list-h .hl-prog { background: rgba(255, 255, 255, 0.3); }
 }
 
 /* Close case fits the screen: the window never scrolls, the chakra list and the panel body do. */
@@ -697,6 +714,4 @@ html[data-ui="new"] .hl-cc-panel-b { min-height: 0; overflow-y: auto; scrollbar-
   html[data-ui="new"] .hl-ccp[data-view="list"] .hl-cc-panel { display: none; }
   html[data-ui="new"] .hl-cc-rows { flex: 0 1 auto; }
   html[data-ui="new"] .hl-cc-row.hl-cc-last { margin-top: 12px; background: var(--color-card); border: 1px solid var(--hl-hair); border-radius: 16px; }
-  html[data-ui="new"] .hl-cc-foot,
-  html[data-ui="new"] .hl-cc-pin { position: relative; bottom: auto; flex: none; margin: 0; padding: 12px 0 0; background: transparent; border-top: 0; }
 }
