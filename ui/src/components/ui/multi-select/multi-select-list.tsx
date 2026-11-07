@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Command,
   CommandEmpty,
@@ -22,6 +22,15 @@ export function MultiSelectList<T>({
   disabled,
 }: MultiSelectListProps<T>) {
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Selected-first order is fixed from the value when the list mounts (i.e. opens),
+  // so rows don't jump under the pointer while the user ticks items.
+  const [openValue] = useState(value);
+  const ordered = useMemo(() => {
+    const keys = new Set(openValue.map(getOptionKey));
+    return [...options.filter((o) => keys.has(getOptionKey(o))), ...options.filter((o) => !keys.has(getOptionKey(o)))];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options, openValue]);
 
   const isSelected = (option: T) =>
     value.some((selected) => getOptionKey(selected) === getOptionKey(option));
@@ -53,7 +62,7 @@ export function MultiSelectList<T>({
         <CommandEmpty>{emptyText}</CommandEmpty>
 
         <CommandGroup>
-          {options.map((option) => {
+          {ordered.map((option) => {
             const selected = isSelected(option);
 
             return (

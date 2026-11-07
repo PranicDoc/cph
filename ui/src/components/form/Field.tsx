@@ -167,7 +167,7 @@ export function SelectField({
   className,
 }: {
   field: TanstackField
-  options: { label: string; value: string }[]
+  options: { label: string; value: string; hidden?: boolean }[]
   placeholder?: string
   disabled?: boolean
   className?: string
@@ -186,7 +186,7 @@ export function SelectField({
         <SelectValue placeholder={placeholder || "Select..."} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((opt) => (
+        {options.filter((opt) => !opt.hidden || opt.value === field.state.value).map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}
           </SelectItem>

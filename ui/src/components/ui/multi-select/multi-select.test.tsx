@@ -388,3 +388,40 @@ describe("MultiSelect nested inside a modal Dialog", () => {
     expect(screen.getByRole("combobox").querySelector("svg.lucide-loader-circle")).toBeInTheDocument();
   });
 });
+
+describe("MultiSelect option order", () => {
+  const labels = () =>
+    screen.getAllByRole("option").map((el) => el.textContent);
+
+  function Harness({ initial }: { initial: string[] }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <MultiSelect<string>
+        options={OPTIONS}
+        value={value}
+        onChange={setValue}
+        getOptionKey={(o) => o}
+        getOptionLabel={(o) => o}
+      />
+    );
+  }
+
+  it("lists the already-selected options first, each group keeping its original order", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={["Blue", "Red"]} />);
+
+    await user.click(screen.getByRole("combobox"));
+
+    expect(labels()).toEqual(["Red", "Blue", "Green"]);
+  });
+
+  it("does not reshuffle while the user ticks items inside the open list", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={["Blue"]} />);
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: "Red" }));
+
+    expect(labels()).toEqual(["Blue", "Red", "Green"]);
+  });
+});

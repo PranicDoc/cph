@@ -60,3 +60,12 @@ describe("patientEditSchema", () => {
     expect(date?.label).toMatch(/read-only/);
   });
 });
+
+describe("General Health options", () => {
+  it("keeps Fair for records already saved with it, but hides it from new picks", () => {
+    const options = patientMedicalHistorySchema.flatMap((g) => g.fields).find((f) => f.name === "generalHealth")?.options;
+
+    expect(options?.find((o) => o.value === "FAIR")).toMatchObject({ label: "Fair", hidden: true });
+    expect(options?.filter((o) => !o.hidden).map((o) => o.value)).toEqual(["EXCELLENT", "GOOD", "POOR"]);
+  });
+});

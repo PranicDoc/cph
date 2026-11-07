@@ -107,7 +107,7 @@ export const patientMedicalHistorySchema: FormSchema = [
         options: [
           { label: "Excellent", value: "EXCELLENT" },
           { label: "Good", value: "GOOD" },
-          { label: "Fair", value: "FAIR" },
+          { label: "Fair", value: "FAIR", hidden: true },
           { label: "Poor", value: "POOR" },
         ],
       },

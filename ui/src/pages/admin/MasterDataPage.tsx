@@ -265,7 +265,7 @@ function ColorModal({
           <form.Field
             name="code"
             children={(field) => (
-              <TextField field={field} disabled={!!initial} maxLength={TEXT_LIMITS.colorCode} className={fieldCls} />
+              <TextField field={field} maxLength={TEXT_LIMITS.colorCode} className={fieldCls} />
             )}
           />
         </Field>

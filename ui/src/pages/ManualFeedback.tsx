@@ -135,8 +135,8 @@ export default function ManualFeedback() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["case-feedback", healingCaseId] });
+      // Stays on the page: the refetch shows what was saved, ready for the next session's feedback.
       toast.success(isEditing ? "Feedback updated" : "Feedback saved");
-      backToPatients();
     },
     onError: (err: unknown) =>
       setError(

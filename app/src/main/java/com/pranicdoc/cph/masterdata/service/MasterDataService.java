@@ -166,6 +166,10 @@ public class MasterDataService {
             throw new AccessDeniedException("Unlock shared entries to edit a system color");
         if (colorRepo.existsByNameIgnoreCaseAndCategoryAndIdNot(req.name(), req.category(), id))
             throw duplicateColor(req);
+        String code = req.code().toUpperCase();
+        if (colorRepo.existsByCodeIgnoreCaseAndIdNot(code, id))
+            throw new IllegalArgumentException("Code \"%s\" is already used by another color".formatted(code));
+        color.setCode(code);
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
