@@ -75,7 +75,7 @@ public class FeedbackService {
 
     /**
      * Feedback the healer enters by hand on the patient's behalf, saved the same way as the
-     * WhatsApp path and dated with its session. INTERIM feedback is for the session the healer
+     * WhatsApp path and dated with its session (a FINAL takes the date the healer chose, default the latest session's). INTERIM feedback is for the session the healer
      * picked, one per session; FINAL feedback is one comment per case, kept on the latest session.
      * Saving again updates what is there, whichever path first recorded it (its source stays).
      * The patient's WhatsApp link stays usable.
@@ -91,7 +91,7 @@ public class FeedbackService {
         rejectOverLimit(request.feedbackType(), feedbackText);
 
         if (request.feedbackType() == FeedbackType.FINAL) {
-            saveManualFinal(caseId, symptoms, feedbackText);
+            saveManualFinal(caseId, symptoms, feedbackText, request.finalFeedbackDate());
         } else {
             saveManualInterim(caseId, request.sessionId(), symptoms, feedbackText);
         }
@@ -114,8 +114,10 @@ public class FeedbackService {
                 interims.add(new CaseFeedbackResponse.SessionFeedback(session.getId(), text, ratings));
             }
         }
-        String finalText = newestFinal(caseId).map(QualitativeFeedback::getFeedbackText).orElse(null);
-        return new CaseFeedbackResponse(interims, finalText);
+        Optional<QualitativeFeedback> finalFeedback = newestFinal(caseId);
+        return new CaseFeedbackResponse(interims,
+                finalFeedback.map(QualitativeFeedback::getFeedbackText).orElse(null),
+                finalFeedback.map(QualitativeFeedback::getHealingDate).orElse(null));
     }
 
     private HealingCase ownedCase(UUID caseId) {
@@ -147,7 +149,7 @@ public class FeedbackService {
         }
     }
 
-    private void saveManualFinal(UUID caseId, List<SymptomFeedbackRequest> symptoms, String text) {
+    private void saveManualFinal(UUID caseId, List<SymptomFeedbackRequest> symptoms, String text, LocalDate date) {
         if (!symptoms.isEmpty()) {
             throw new IllegalArgumentException("Final feedback is a comment only");
         }
@@ -157,11 +159,12 @@ public class FeedbackService {
         Optional<QualitativeFeedback> existing = newestFinal(caseId);
         if (existing.isPresent()) {
             existing.get().setFeedbackText(text);
+            if (date != null) existing.get().setHealingDate(date);
             qualitativeFeedbackRepository.save(existing.get());
             return;
         }
         HealingSession latest = sessionService.findLatestByCaseIdOrThrow(caseId);
-        saveComment(latest, FeedbackType.FINAL, text, "", latest.getSessionDate(), FeedbackSource.MANUAL);
+        saveComment(latest, FeedbackType.FINAL, text, "", date != null ? date : latest.getSessionDate(), FeedbackSource.MANUAL);
     }
 
     /** Updates the ratings the session already has for these symptoms and adds the rest. */

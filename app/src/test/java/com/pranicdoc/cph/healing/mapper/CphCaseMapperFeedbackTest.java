@@ -2,6 +2,7 @@ package com.pranicdoc.cph.healing.mapper;
 
 import com.pranicdoc.common.dto.QualitativeFeedbackSnapshot;
 import com.pranicdoc.common.dto.SymptomFeedbackSnapshot;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.healing.model.CaseClosure;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
@@ -56,6 +57,19 @@ class CphCaseMapperFeedbackTest {
         caseWith(closure, q, s);
 
         assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 9));
+    }
+
+    @Test
+    void lastFeedbackDatePrefersFinalFeedbackDate() {
+        CaseClosure closure = new CaseClosure();
+        QualitativeFeedback finalFeedback = new QualitativeFeedback();
+        finalFeedback.setFeedbackType(FeedbackType.FINAL);
+        finalFeedback.setHealingDate(LocalDate.of(2026, 10, 5));
+        SymptomFeedback interim = new SymptomFeedback();
+        interim.setHealingDate(LocalDate.of(2026, 10, 9));
+        caseWith(closure, finalFeedback, interim);
+
+        assertThat(mapper.toCaseClosure(closure).lastFeedbackDate()).isEqualTo(LocalDate.of(2026, 10, 5));
     }
 
     @Test
