@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Pencil } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { LabFindingsView, MedicationsView, ProtocolsView } from "../../components/CaseViewWidgets";
 import type { HealingSession } from "../../interfaces";
 import type { Protocol } from "../../hooks/admin/useMasterData";
@@ -9,6 +9,8 @@ interface Props {
   protocols: Protocol[];
   onEdit: () => void;
   onEditSession: (session: any) => void;
+  /** Absent once the case is closed (a closed case's sessions cannot be deleted). */
+  onDeleteSession?: (session: any) => void;
   /** Present only once the case has a closure (CLOSED or CONTINUED). */
   onEditClosure?: () => void;
   /** Present while the case is ACTIVE: close it with the closure form. */
@@ -35,7 +37,7 @@ function Field({ title, children, wide }: { title: string; children: React.React
 }
 
 /** Step 0 of a session in view mode, laid out as in the approved mockup (details and past sessions, next step on the right). */
-export default function NewSessionView({ sessionData, protocols, onEdit, onEditSession, onEditClosure, onComplete, onGeneratePdf, generatingPdf, onBack, onNext, nextLabel }: Props) {
+export default function NewSessionView({ sessionData, protocols, onEdit, onEditSession, onDeleteSession, onEditClosure, onComplete, onGeneratePdf, generatingPdf, onBack, onNext, nextLabel }: Props) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -114,11 +116,17 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
                     <ChevronDown className="ico" style={{ color: "var(--muted)", transform: isOpen ? "rotate(180deg)" : undefined }} />
                   </button>
                   {isOpen && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
                       <button className="btn btn-secondary" type="button" onClick={() => onEditSession(session)}>
                         <Pencil className="ico" />
                         Edit
                       </button>
+                      {onDeleteSession && (
+                        <button className="btn btn-secondary" type="button" onClick={() => onDeleteSession(session)}>
+                          <Trash2 className="ico" />
+                          Delete
+                        </button>
+                      )}
                     </div>
                   )}
                   {isOpen && (

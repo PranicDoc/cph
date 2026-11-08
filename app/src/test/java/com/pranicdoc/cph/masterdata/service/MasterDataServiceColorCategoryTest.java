@@ -108,9 +108,9 @@ class MasterDataServiceColorCategoryTest {
                 request("Orange Prana", "orange_e", ColorUsageType.ENERGISING), false);
         assertEquals("ORANGE_E", saved.getCode());
 
-        when(colorRepo.existsByCodeIgnoreCaseAndIdNot("RED", id)).thenReturn(true);
+        when(colorRepo.existsByCodeIgnoreCaseAndCategoryAndIdNot("RED", ColorUsageType.ENERGISING, id)).thenReturn(true);
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> masterDataService.updateColor(id,
                 request("Orange Prana", "red", ColorUsageType.ENERGISING), false));
-        assertEquals("Code \"RED\" is already used by another color", ex.getMessage());
+        assertEquals("Code \"RED\" is already used by another energising color", ex.getMessage());
     }
 }

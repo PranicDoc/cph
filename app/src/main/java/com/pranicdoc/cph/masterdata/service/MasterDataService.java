@@ -139,7 +139,7 @@ public class MasterDataService {
 
     @Transactional(readOnly = true)
     public PranaColorCatalog getColorByCode(String code) {
-        return colorRepo.findByCode(code)
+        return colorRepo.findFirstByCodeOrderByCategoryAsc(code)
                 .orElseThrow(() -> new ResourceNotFoundException("PranaColorCatalog", code));
     }
 
@@ -148,6 +148,8 @@ public class MasterDataService {
     public PranaColorCatalog createColor(PranaColorRequest req) {
         if (colorRepo.existsByNameIgnoreCaseAndCategory(req.name(), req.category()))
             throw duplicateColor(req);
+        if (colorRepo.existsByCodeIgnoreCaseAndCategory(req.code(), req.category()))
+            throw duplicateCode(req.code().toUpperCase(), req.category());
         PranaColorCatalog color = new PranaColorCatalog();
         color.setName(req.name());
         color.setCode(req.code().toUpperCase());
@@ -167,14 +169,19 @@ public class MasterDataService {
         if (colorRepo.existsByNameIgnoreCaseAndCategoryAndIdNot(req.name(), req.category(), id))
             throw duplicateColor(req);
         String code = req.code().toUpperCase();
-        if (colorRepo.existsByCodeIgnoreCaseAndIdNot(code, id))
-            throw new IllegalArgumentException("Code \"%s\" is already used by another color".formatted(code));
+        if (colorRepo.existsByCodeIgnoreCaseAndCategoryAndIdNot(code, req.category(), id))
+            throw duplicateCode(code, req.category());
         color.setCode(code);
         color.setName(req.name());
         color.setColorHex(req.colorHex());
         color.setProperties(req.properties() != null ? req.properties() : List.of());
         color.setCategory(req.category());
         return colorRepo.save(color);
+    }
+
+    private static IllegalArgumentException duplicateCode(String code, ColorUsageType category) {
+        return new IllegalArgumentException("Code \"%s\" is already used by another %s color"
+                .formatted(code, category.name().toLowerCase(Locale.ROOT)));
     }
 
     private static IllegalArgumentException duplicateColor(PranaColorRequest req) {

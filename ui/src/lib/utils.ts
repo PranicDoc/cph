@@ -72,6 +72,7 @@ export const getChakraColor = (chakraName: string): string => {
 // Constructs payload expected by backend CreateSessionRequest DTO
 export function constructHealingSessionPayload({
   caseId,
+  sessionNumber,
   sessionDate,
   startTime,
   endTime,
@@ -79,6 +80,7 @@ export function constructHealingSessionPayload({
   postScanData,
 }: {
   caseId: string;
+  sessionNumber: number;
   sessionDate: string;
   startTime: string;
   endTime: string;
@@ -108,6 +110,7 @@ export function constructHealingSessionPayload({
 }): CreateSessionPayload {
   return {
     caseId,
+    sessionNumber,
     sessionDate,
     startTime,
     endTime,

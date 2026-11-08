@@ -17,6 +17,10 @@ interface UseHealingSessionWizardParams {
   sessionId?: string;
   /** The saved session's date when correcting one; otherwise the session date starts at today. */
   initialSessionDate?: string;
+  /** The saved session's number when correcting one. */
+  initialSessionNumber?: number | null;
+  /** Pre-filled (editable) number for a new session: the healer still confirms or changes it. */
+  suggestedSessionNumber?: number;
   onSaved?: () => void;
 }
 
@@ -35,6 +39,8 @@ export function useHealingSessionWizard({
   symptoms,
   sessionId,
   initialSessionDate,
+  initialSessionNumber,
+  suggestedSessionNumber,
   onSaved,
 }: UseHealingSessionWizardParams) {
   const [step, setStep] = useState(1);
@@ -63,6 +69,11 @@ export function useHealingSessionWizard({
     [form]
   );
 
+  // Typed by the healer (never generated server-side); kept as text so it can be cleared while editing.
+  const [sessionNumber, setSessionNumber] = useState<string>(
+    String(initialSessionNumber ?? suggestedSessionNumber ?? "")
+  );
+
   const handleBack = useCallback(() => {
     setStep((current) => Math.max(1, current - 1));
   }, []);
@@ -73,6 +84,15 @@ export function useHealingSessionWizard({
       (meta: any) => meta.errors && meta.errors.length > 0
     );
     if (hasErrors) {
+      return;
+    }
+    const parsedSessionNumber = Number(sessionNumber);
+    if (!Number.isInteger(parsedSessionNumber) || parsedSessionNumber < 1) {
+      toast.error("Enter the session number (a whole number, 1 or more)");
+      return;
+    }
+    if (!sessionDate) {
+      toast.error("Enter the session date");
       return;
     }
     if (step < FINAL_FORM_STEP) {
@@ -110,6 +130,7 @@ export function useHealingSessionWizard({
       }
       const payload = constructHealingSessionPayload({
         caseId,
+        sessionNumber: parsedSessionNumber,
         sessionDate: values.sessionDate,
         startTime: values.startTime,
         endTime: values.endTime,
@@ -123,7 +144,7 @@ export function useHealingSessionWizard({
       });
 
       if (sessionId) {
-        await api.put(`/api/v1/sessions/${sessionId}`, { scans: payload.scans, sessionDate: values.sessionDate });
+        await api.put(`/api/v1/sessions/${sessionId}`, { scans: payload.scans, sessionDate: values.sessionDate, sessionNumber: parsedSessionNumber });
         await queryClient.invalidateQueries({ queryKey: ["patients"] });
         toast.success("Session updated");
         onSaved?.();
@@ -152,7 +173,7 @@ export function useHealingSessionWizard({
     } finally {
       setIsSubmitting(false);
     }
-  }, [caseId, form, isSubmitting, onSaved, postScanChakraData, preScanChakraData, queryClient, sessionId, step]);
+  }, [caseId, form, isSubmitting, onSaved, sessionNumber, sessionDate, postScanChakraData, preScanChakraData, queryClient, sessionId, step]);
 
   return {
     step,
@@ -163,6 +184,8 @@ export function useHealingSessionWizard({
     isSubmitting,
     sessionDate,
     setSessionDate,
+    sessionNumber,
+    setSessionNumber,
     setPreScanChakraData,
     setPostScanChakraData,
     handleBack,

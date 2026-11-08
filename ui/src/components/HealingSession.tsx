@@ -23,10 +23,13 @@ interface HealingSessionWizardProps {
    * healer can always choose from the full chakra catalog, so a protocol with no linked chakra
    * data still leaves every chakra available to add manually. */
   protocolIds?: string[];
+  /** Pre-filled, editable number for a new session (highest saved number + 1). */
+  suggestedSessionNumber?: number;
   /** A saved session to correct: its scans are loaded and saving updates it. */
   session?: {
     id: string;
     sessionDate?: string | null;
+    sessionNumber?: number | null;
     scans: { scanType: "PRE" | "POST"; readings: any[] }[];
   };
 }
@@ -38,6 +41,7 @@ export const HealingSessionWizard = ({
   symptoms = [],
   onClose,
   protocolIds = [],
+  suggestedSessionNumber,
   session,
 }: HealingSessionWizardProps) => {
   const {
@@ -48,6 +52,8 @@ export const HealingSessionWizard = ({
     isSubmitting,
     sessionDate,
     setSessionDate,
+    sessionNumber,
+    setSessionNumber,
     setPreScanChakraData,
     setPostScanChakraData,
     handleBack,
@@ -57,6 +63,8 @@ export const HealingSessionWizard = ({
     symptoms,
     sessionId: session?.id,
     initialSessionDate: session?.sessionDate ?? undefined,
+    initialSessionNumber: session?.sessionNumber,
+    suggestedSessionNumber,
     onSaved: onClose,
   });
 
@@ -150,6 +158,18 @@ export const HealingSessionWizard = ({
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
         {step <= 2 && (
           <div className="mb-4 flex flex-wrap items-center gap-3">
+            <label htmlFor="session-number" className="text-sm font-medium text-text-dark">
+              Session no.
+            </label>
+            <input
+              id="session-number"
+              type="text"
+              inputMode="numeric"
+              value={sessionNumber}
+              onChange={(e) => setSessionNumber(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="w-20 rounded-lg border-2 border-border bg-white px-3 py-2 text-sm"
+              required
+            />
             <label htmlFor="session-date" className="text-sm font-medium text-text-dark">
               Session date
             </label>
@@ -161,7 +181,7 @@ export const HealingSessionWizard = ({
               onChange={(e) => e.target.value && setSessionDate(e.target.value)}
               className="rounded-lg border-2 border-border bg-white px-3 py-2 text-sm"
             />
-            <span className="text-xs text-text-light">Defaults to today. Shown on this session's scan sheet in the PDF.</span>
+            <span className="text-xs text-text-light">Date defaults to today. Both are shown on this session's scan sheet in the PDF.</span>
           </div>
         )}
         {step === 1 && (
