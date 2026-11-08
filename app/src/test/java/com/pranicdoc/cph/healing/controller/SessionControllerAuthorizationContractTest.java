@@ -61,6 +61,7 @@ class SessionControllerAuthorizationContractTest {
     private static final String SESSION_READ   = "@rbacAuthz.hasPermission('SESSION','READ')";
     private static final String SESSION_CREATE = "@rbacAuthz.hasPermission('SESSION','CREATE')";
     private static final String SESSION_UPDATE = "@rbacAuthz.hasPermission('SESSION','UPDATE')";
+    private static final String SESSION_DELETE = "@rbacAuthz.hasPermission('SESSION','DELETE')";
 
     /** methodName -> expected @PreAuthorize literal. All 7 request-mapped methods. */
     private static final List<String[]> EXPECTED_GATES = List.of(
@@ -69,7 +70,7 @@ class SessionControllerAuthorizationContractTest {
             new String[]{"getByCaseId",          SESSION_READ},
             new String[]{"complete",             SESSION_UPDATE},
             new String[]{"update",               SESSION_UPDATE},
-            new String[]{"delete",               SESSION_UPDATE},
+            new String[]{"delete",               SESSION_DELETE},
             new String[]{"getAllScannedChakras", SESSION_READ});
 
     private static final int EXPECTED_MAPPED = 7;

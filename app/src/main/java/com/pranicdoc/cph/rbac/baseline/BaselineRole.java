@@ -54,7 +54,7 @@ public final class BaselineRole {
     public static final Map<Resource, Set<Operation>> GRANTS = Map.ofEntries(
             Map.entry(Resource.PATIENT, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
             Map.entry(Resource.CASE, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
-            Map.entry(Resource.SESSION, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE)),
+            Map.entry(Resource.SESSION, Set.of(Operation.CREATE, Operation.READ, Operation.UPDATE, Operation.DELETE)),
             Map.entry(Resource.PDF, Set.of(Operation.CREATE, Operation.READ, Operation.EXPORT)),
             Map.entry(Resource.SCAN, Set.of(Operation.CREATE)),
             Map.entry(Resource.SESSION_PROTOCOL, Set.of(Operation.CREATE)),
