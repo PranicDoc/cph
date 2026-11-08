@@ -337,7 +337,12 @@ public class CaseService {
         }
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
-        int healingCount = sessions.get(sessions.size() - 1).getSessionNumber();
+        // Session numbers are healer-entered, so the count is the highest number, not the row count.
+        int healingCount = sessions.stream()
+                .map(HealingSession::getSessionNumber)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(sessions.size());
         if (sessions.stream().anyMatch(x -> x.getSessionDate() == null)) {
             throw new IllegalArgumentException("Cannot close a case: every session needs a session date");
         }
