@@ -630,15 +630,15 @@ class CaseServiceTest {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
         healingCase.getSessions().get(0).setSessionDate(LocalDate.of(2026, 3, 1));
-        healingCase.getSessions().add(HealingSession.builder().sessionNumber(2)
-                .sessionDate(LocalDate.of(2026, 3, 10)).build());
         healingCase.getSessions().add(HealingSession.builder().sessionNumber(5)
                 .sessionDate(LocalDate.of(2026, 3, 20)).build());
+        healingCase.getSessions().add(HealingSession.builder().sessionNumber(2)
+                .sessionDate(LocalDate.of(2026, 3, 10)).build());
 
         caseService.closeCase(caseId, new CaseClosureRequest("Done", false));
 
         assertEquals(LocalDate.of(2026, 3, 20), healingCase.getClosure().getClosureDate());
-        // healing count = the last session's number (healer-entered), not how many rows exist
+        // healing count = the highest healer-entered session number (list order does not matter)
         assertEquals(5, healingCase.getClosure().getHealingCount());
     }
 
