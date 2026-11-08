@@ -337,7 +337,7 @@ public class CaseService {
         }
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
-        int healingCount = sessions.size();
+        int healingCount = sessions.get(sessions.size() - 1).getSessionNumber();
         if (sessions.stream().anyMatch(x -> x.getSessionDate() == null)) {
             throw new IllegalArgumentException("Cannot close a case: every session needs a session date");
         }
