@@ -31,7 +31,7 @@ class TextLimitsValidationTest {
     @Test
     void textAtTheLimitIsAccepted() {
         assertThat(validator.validate(caseUpdate(chars(TextLimits.MEDIUM_BOX), List.of(), List.of()))).isEmpty();
-        assertThat(validator.validate(new CaseClosureRequest(chars(TextLimits.CLOSURE_COMMENTS), false))).isEmpty();
+        assertThat(validator.validate(new CaseClosureRequest(chars(TextLimits.CLOSURE_COMMENTS), false, null))).isEmpty();
     }
 
     @Test
@@ -41,7 +41,7 @@ class TextLimitsValidationTest {
         assertThat(violations).hasSize(1);
         assertThat(violations.iterator().next().getMessage())
                 .isEqualTo("Medical condition can be at most 500 characters");
-        assertThat(validator.validate(new CaseClosureRequest(chars(TextLimits.CLOSURE_COMMENTS + 1), false))).hasSize(1);
+        assertThat(validator.validate(new CaseClosureRequest(chars(TextLimits.CLOSURE_COMMENTS + 1), false, null))).hasSize(1);
     }
 
     @Test

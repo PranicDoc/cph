@@ -599,7 +599,7 @@ class CaseServiceTest {
     void closeCase_whenHealingContinued_setsStatusContinuedAndSkipsFinalFeedbackNotification() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
-        CaseClosureRequest request = new CaseClosureRequest("Feeling better, continuing treatment", true);
+        CaseClosureRequest request = new CaseClosureRequest("Feeling better, continuing treatment", true, null);
 
         caseService.closeCase(caseId, request);
 
@@ -614,7 +614,7 @@ class CaseServiceTest {
     void closeCase_whenHealingNotContinued_setsStatusClosedAndSendsFinalFeedbackNotification() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
-        CaseClosureRequest request = new CaseClosureRequest("Fully healed", false);
+        CaseClosureRequest request = new CaseClosureRequest("Fully healed", false, null);
 
         caseService.closeCase(caseId, request);
 
@@ -630,13 +630,13 @@ class CaseServiceTest {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
 
-        caseService.closeCase(caseId, new CaseClosureRequest("First pass, continuing", true));
+        caseService.closeCase(caseId, new CaseClosureRequest("First pass, continuing", true, null));
         CaseClosure firstClosure = healingCase.getClosure();
         assertEquals(CaseStatus.CONTINUED, healingCase.getStatus());
 
         // Simulates SessionService.activateCaseIfDraftOrContinued flipping the case back
         // to ACTIVE when a new session is logged, then the healer closing it again.
-        caseService.closeCase(caseId, new CaseClosureRequest("Second pass, fully healed", false));
+        caseService.closeCase(caseId, new CaseClosureRequest("Second pass, fully healed", false, null));
 
         assertSame(firstClosure, healingCase.getClosure(),
                 "re-closing a CONTINUED case must reuse the existing CaseClosure row " +
@@ -655,12 +655,32 @@ class CaseServiceTest {
         healingCase.setClosure(CaseClosure.builder().healingCase(healingCase)
                 .closureDate(closedOn).additionalComments("Fully healed").isHealingContinued(false).build());
 
-        caseService.closeCase(caseId, new CaseClosureRequest("Fully healed, typo fixed", false));
+        caseService.closeCase(caseId, new CaseClosureRequest("Fully healed, typo fixed", false, null));
 
         assertEquals(CaseStatus.CLOSED, healingCase.getStatus());
         assertEquals(closedOn, healingCase.getClosure().getClosureDate());
         assertEquals("Fully healed, typo fixed", healingCase.getClosure().getAdditionalComments());
         verify(notificationService, never()).sendFinalFeedbackNotification(any());
+    }
+
+    @Test
+    void closeCase_withAdditionalSessions_addsThemToRecordedSessionCount() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId); // 1 recorded session
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Done", false, 4));
+
+        assertEquals(5, healingCase.getClosure().getHealingCount());
+    }
+
+    @Test
+    void closeCase_withoutAdditionalSessions_usesRecordedSessionCount() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Done", false, null));
+
+        assertEquals(1, healingCase.getClosure().getHealingCount());
     }
 
     @Test
@@ -672,7 +692,7 @@ class CaseServiceTest {
                 .sessions(new ArrayList<>())
                 .build();
         when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));
-        CaseClosureRequest request = new CaseClosureRequest("n/a", false);
+        CaseClosureRequest request = new CaseClosureRequest("n/a", false, null);
 
         assertThrows(IllegalArgumentException.class, () -> caseService.closeCase(caseId, request));
         verify(caseRepository, never()).save(any());

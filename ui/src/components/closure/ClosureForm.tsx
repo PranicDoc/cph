@@ -3,6 +3,7 @@ import { CharacterCount } from "@/components/form/CharacterCount";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { DataTable } from "../ui/data-table";
@@ -23,6 +24,9 @@ type ClosureFormProps = {
   setComments: React.Dispatch<React.SetStateAction<string>>;
   isHealingContinued: boolean;
   setIsHealingContinued: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Extra sessions held outside the app; added to the recorded session count on closure. */
+  additionalSessions?: string;
+  setAdditionalSessions?: (value: string) => void;
   selectedProtocols: Protocol[];
   setSelectedProtocols: React.Dispatch<React.SetStateAction<Protocol[]>>;
   closeMutation: UseMutationResult<
@@ -67,6 +71,8 @@ const ClosureForm = ({
   setComments,
   isHealingContinued,
   setIsHealingContinued,
+  additionalSessions = "",
+  setAdditionalSessions,
   selectedProtocols,
   setSelectedProtocols,
   onClose,
@@ -263,6 +269,29 @@ const ClosureForm = ({
               />
               <CharacterCount value={comments} max={TEXT_LIMITS.closureComments} />
             </div>
+
+            {setAdditionalSessions && (
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="additional-sessions"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Additional sessions (optional)
+                </Label>
+                <Input
+                  id="additional-sessions"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={additionalSessions}
+                  onChange={(e) =>
+                    setAdditionalSessions(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="w-32"
+                  placeholder="0"
+                />
+              </div>
+            )}
 
             <Label className="flex items-center gap-2 cursor-pointer w-fit">
               <Checkbox

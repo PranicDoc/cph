@@ -1,5 +1,6 @@
 import type { useCaseClosure } from "@/hooks/useCaseClosure";
 import { MultiSelect } from "@/components/ui/multi-select/multi-select";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CharacterCount } from "@/components/form/CharacterCount";
 import { useProtocols, type Protocol } from "@/hooks/admin/useMasterData";
@@ -11,7 +12,7 @@ type Closure = ReturnType<typeof useCaseClosure>;
 /** The close-case page's last step: recommended protocols, comments and whether healing continues. */
 export default function WrapUp({ closure }: { closure: Closure }) {
   const { data: supplementaryProtocols = [], isLoading } = useProtocols("SUPPLEMENTARY");
-  const { comments, setComments, isHealingContinued, setIsHealingContinued, selectedProtocols, setSelectedProtocols } = closure;
+  const { comments, setComments, isHealingContinued, setIsHealingContinued, additionalSessions, setAdditionalSessions, selectedProtocols, setSelectedProtocols } = closure;
 
   return (
     <div className="flex flex-col gap-[18px]">
@@ -38,6 +39,19 @@ export default function WrapUp({ closure }: { closure: Closure }) {
           className="min-h-[100px] resize-none"
         />
         <CharacterCount value={comments} max={TEXT_LIMITS.closureComments} />
+      </div>
+      <div className="space-y-1.5">
+        <label className="hl-step-q" htmlFor="closure-additional-sessions">Additional sessions (optional)</label>
+        <Input
+          id="closure-additional-sessions"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={additionalSessions}
+          onChange={(e) => setAdditionalSessions(e.target.value.replace(/\D/g, ""))}
+          className="w-32"
+          placeholder="0"
+        />
       </div>
       <div className="hl-cont">
         <span className="hl-step-q">Healing will continue</span>
