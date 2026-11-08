@@ -21,6 +21,8 @@ export function ClosurePopup({
     setComments,
     isHealingContinued,
     setIsHealingContinued,
+    additionalSessions,
+    setAdditionalSessions,
     selectedProtocols,
     setSelectedProtocols,
     closeMutation,
@@ -40,6 +42,8 @@ export function ClosurePopup({
           setComments={setComments}
           setIsHealingContinued={setIsHealingContinued}
           isHealingContinued={isHealingContinued}
+          additionalSessions={additionalSessions}
+          setAdditionalSessions={setAdditionalSessions}
           selectedProtocols={selectedProtocols}
           setSelectedProtocols={setSelectedProtocols}
           onClose={onClose}

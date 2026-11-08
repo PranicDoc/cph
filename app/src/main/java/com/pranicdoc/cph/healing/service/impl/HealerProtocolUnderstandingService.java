@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.common.dto.ChakraReadingSummarySnapshot;
 import com.pranicdoc.common.dto.ColorUsedSnapshot;
+import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.common.enums.ColorUsageType;
 import com.pranicdoc.cph.common.enums.ScanType;
@@ -63,6 +64,7 @@ public class HealerProtocolUnderstandingService {
      * Persists exactly what the healer picked in the closure form's color/property
      * selector, instead of deriving colors from ProtocolColorMapping master data.
      */
+    @Auditable(action = "SAVE_HEALER_PROTOCOL_UNDERSTANDING")
     @Transactional
     public void saveFromHealerSelection(UUID healingCaseId, HealerProtocolUnderstandingRequest request) {
         HealingCase healingCase = caseRepository.findById(healingCaseId)

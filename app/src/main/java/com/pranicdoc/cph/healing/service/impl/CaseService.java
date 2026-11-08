@@ -338,6 +338,9 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         int healingCount = sessions.size();
+        if(request.additionalSessions() != null) {
+            healingCount += request.additionalSessions();
+        }
         HealingSession lastSession = sessions.get(sessions.size() - 1);
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
                 .stream()
