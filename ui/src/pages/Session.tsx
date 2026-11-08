@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useUiVersion } from "../ui-version";
 import { useForm } from "@tanstack/react-form";
 import { useParams, useNavigate } from "react-router-dom";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
@@ -317,6 +317,22 @@ export default function Session() {
   const canComplete = sessionData?.status === "ACTIVE";
   const canGeneratePdf = sessionData?.status === "CLOSED" || sessionData?.status === "CONTINUED";
 
+  // Pre-filled (editable) number for the next session; the healer enters the real one.
+  const suggestedSessionNumber =
+    Math.max(0, ...((sessionData?.healingSession ?? []).map((s: any) => Number(s.sessionNumber) || 0))) + 1;
+
+  const deleteSession = async (session: any) => {
+    const label = `Session ${session.sessionNumber ?? ""}`.trim();
+    if (!window.confirm(`Delete ${label} permanently? Its scans, protocol and feedback are removed and this cannot be undone.`)) return;
+    try {
+      await api.delete(`/api/v1/sessions/${session.id}`);
+      toast.success(`${label} deleted`);
+      reloadCase();
+    } catch (error) {
+      toast.error(extractDetail(error) || "Failed to delete session");
+    }
+  };
+
   const closeSessionEdit = () => {
     setEditingSession(null);
     reloadCase();
@@ -409,6 +425,7 @@ export default function Session() {
             caseId={healingCaseId}
             symptoms={sessionData?.symptoms}
             onClose={goToPreviousStep}
+            suggestedSessionNumber={suggestedSessionNumber}
             protocolIds={step1Protocols.filter((p) => !isLegacyProtocol(p)).map((p) => p.id)}
           />
         )}
@@ -429,6 +446,7 @@ export default function Session() {
             protocols={reconstructSelectedProtocols(sessionData.healingDetails?.protocolName || "")}
             onEdit={toggleEdit}
             onEditSession={setEditingSession}
+            onDeleteSession={sessionData?.status === "CLOSED" ? undefined : deleteSession}
             onEditClosure={canEditClosure ? closeCase : undefined}
             onComplete={canComplete ? closeCase : undefined}
             onGeneratePdf={canGeneratePdf ? generatePdf : undefined}
@@ -537,7 +555,7 @@ export default function Session() {
                       </AccordionTrigger>
 
                       <AccordionContent className="space-y-6">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
                           <Button
                             type="button"
                             variant="outline"
@@ -547,6 +565,17 @@ export default function Session() {
                             <Pencil className="w-4 h-4" />
                             Edit
                           </Button>
+                          {sessionData?.status !== "CLOSED" && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteSession(session)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </Button>
+                          )}
                         </div>
                         {session.scans.map((scan) => (
                           <div key={scan.id}>

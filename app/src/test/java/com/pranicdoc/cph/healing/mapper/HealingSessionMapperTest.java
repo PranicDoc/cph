@@ -22,6 +22,7 @@ class HealingSessionMapperTest {
 
         var session = mapper.toEntity(new CreateSessionRequest(
                 UUID.randomUUID(),
+                3,
                 sessionDate,
                 startTime,
                 endTime,
@@ -30,6 +31,7 @@ class HealingSessionMapperTest {
                 List.of()
         ));
 
+        assertEquals(3, session.getSessionNumber());
         assertEquals(sessionDate, session.getSessionDate());
         assertEquals(endTime, session.getEndTime());
     }

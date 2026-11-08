@@ -78,6 +78,18 @@ public class SessionController {
         return ResponseEntity.ok(sessionService.update(id, request));
     }
 
+    /**
+     * Permanently deletes a session (and its scans, protocol and feedback rows). Gated
+     * {@code SESSION:UPDATE}, not {@code SESSION:DELETE}: the baseline Practitioner role grants
+     * no DELETE and a healer must be able to remove their own mistaken session.
+     */
+    @PreAuthorize("@rbacAuthz.hasPermission('SESSION','UPDATE')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        sessionService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // D-03: returns the Set<String> of chakra names scanned within a session — it hangs off
     // the /sessions/{id}/* aggregate and returns session-detail, so it READS THE SESSION.
     // Deliberately NOT SCAN:READ — which is precisely why Resource.SCAN allow-lists CREATE only.

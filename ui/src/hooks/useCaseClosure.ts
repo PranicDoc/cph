@@ -19,12 +19,6 @@ export function splitClosureComments(saved: string): { protocolNames: string; co
     : { protocolNames: rest.slice(0, end), comments: rest.slice(end + 2) };
 }
 
-/** Blank or zero means "none" (the backend requires a positive value when present). */
-export function additionalSessionsToNumber(value: string): number | null {
-  const n = parseInt(value, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 /**
  * The closing step's state: recommended protocols, comments and "healing continued", loaded from
  * the case's existing closure when there is one, and the mutation that closes the case with them.
@@ -32,8 +26,6 @@ export function additionalSessionsToNumber(value: string): number | null {
 export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
   const [comments, setComments] = useState("");
   const [isHealingContinued, setIsHealingContinued] = useState(false);
-  // Sessions held outside the app, as typed (digits only); added to the recorded count on close.
-  const [additionalSessions, setAdditionalSessions] = useState("");
   const [selectedProtocols, setSelectedProtocols] = useState<Protocol[]>([]);
   const [savedProtocolNames, setSavedProtocolNames] = useState("");
   // Closing before the existing closure is in (or after it failed to load) would overwrite it.
@@ -91,12 +83,9 @@ export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
       const finalComments = [protocolNote, comments.trim()]
         .filter(Boolean)
         .join("\n\n");
-      const extraSessions = additionalSessionsToNumber(additionalSessions);
       return api.post(`/api/v1/cases/${healingCaseId}/close`, {
         additionalComments: finalComments,
         isHealingContinued,
-        // Left out when blank so the request is unchanged for cases with no extra sessions.
-        ...(extraSessions !== null && { additionalSessions: extraSessions }),
       });
     },
     onSuccess: () => {
@@ -116,8 +105,6 @@ export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
     setComments,
     isHealingContinued,
     setIsHealingContinued,
-    additionalSessions,
-    setAdditionalSessions,
     selectedProtocols,
     setSelectedProtocols,
     closeMutation,

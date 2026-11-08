@@ -47,7 +47,7 @@ describe("useHealingSessionWizard", () => {
     const onSaved = vi.fn();
     (api.put as any).mockResolvedValue({ data: {} });
     const { result } = renderHook(
-      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], sessionId: "session-1", onSaved }),
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], sessionId: "session-1", initialSessionNumber: 4, onSaved }),
       { wrapper }
     );
 
@@ -65,6 +65,7 @@ describe("useHealingSessionWizard", () => {
         expect.objectContaining({ scanType: "POST" }),
       ],
       sessionDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      sessionNumber: 4,
     });
     expect(onSaved).toHaveBeenCalled();
   });
@@ -72,9 +73,10 @@ describe("useHealingSessionWizard", () => {
   it("the session date starts at today, can be changed in the scan step, and is sent with a new session", async () => {
     vi.mocked(api.post).mockResolvedValue({ data: {} });
     const { result } = renderHook(
-      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [] }),
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [], suggestedSessionNumber: 3 }),
       { wrapper }
     );
+    expect(result.current.sessionNumber).toBe("3"); // pre-filled, editable
     expect(result.current.sessionDate).toBe("2026-10-25"); // the form's default (today in the real form)
 
     act(() => {
@@ -87,7 +89,7 @@ describe("useHealingSessionWizard", () => {
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/v1/sessions/case",
-      expect.objectContaining({ sessionDate: "2026-11-01" }),
+      expect.objectContaining({ sessionDate: "2026-11-01", sessionNumber: 3 }),
       expect.anything()
     );
   });
@@ -98,5 +100,21 @@ describe("useHealingSessionWizard", () => {
       { wrapper }
     );
     expect(result.current.sessionDate).toBe("2026-10-20");
+  });
+});
+
+describe("useHealingSessionWizard session number", () => {
+  it("refuses to save without a session number", async () => {
+    const { result } = renderHook(
+      () => useHealingSessionWizard({ caseId: "case-1", symptoms: [] }),
+      { wrapper }
+    );
+    act(() => {
+      result.current.setPreScanChakraData([crown]);
+      result.current.setPostScanChakraData([crown]);
+    });
+    await act(() => result.current.handleNext());
+    await act(() => result.current.handleNext());
+    expect(api.post).not.toHaveBeenCalled();
   });
 });

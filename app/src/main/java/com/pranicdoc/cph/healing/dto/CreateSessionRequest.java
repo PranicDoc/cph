@@ -3,6 +3,7 @@ package com.pranicdoc.cph.healing.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -11,6 +12,9 @@ import java.util.UUID;
 public record CreateSessionRequest(
         @NotNull
         UUID caseId,
+        /** Entered by the healer (not generated); unique within the case. */
+        @NotNull @Positive
+        Integer sessionNumber,
         @NotNull
         @JsonAlias("startDate")
         LocalDate sessionDate,

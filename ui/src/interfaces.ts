@@ -161,6 +161,8 @@ export interface ChakraOption {
 
 export interface CreateSessionPayload {
   caseId: string;
+  /** Entered by the healer (never generated); unique within the case. */
+  sessionNumber: number;
   sessionDate: string;
   startTime: string;
   endTime: string;

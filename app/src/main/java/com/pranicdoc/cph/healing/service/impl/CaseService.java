@@ -338,9 +338,13 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         int healingCount = sessions.size();
-        if(request.additionalSessions() != null) {
-            healingCount += request.additionalSessions();
+        if (sessions.stream().anyMatch(x -> x.getSessionDate() == null)) {
+            throw new IllegalArgumentException("Cannot close a case: every session needs a session date");
         }
+        LocalDate lastSessionDate = sessions.stream()
+                .map(HealingSession::getSessionDate)
+                .max(LocalDate::compareTo)
+                .orElseThrow();
         HealingSession lastSession = sessions.get(sessions.size() - 1);
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
                 .stream()
@@ -361,9 +365,9 @@ public class CaseService {
         // was closed on, and don't send the patient the final feedback request a second time.
         CaseStatus newStatus = request.isHealingContinued() ? CaseStatus.CONTINUED : CaseStatus.CLOSED;
         boolean isEdit = healingCase.getStatus() == newStatus;
-        if (!isEdit || closure.getClosureDate() == null) {
-            closure.setClosureDate(LocalDate.now());
-        }
+        // The closure date is the date of the last healing session (always recomputed, so an
+        // edited/deleted session is reflected). No "today" fallback: a missing date is an error.
+        closure.setClosureDate(lastSessionDate);
         closure.setAdditionalComments(request.additionalComments());
         closure.setHealingCount(healingCount);
         closure.setIsHealingContinued(request.isHealingContinued());

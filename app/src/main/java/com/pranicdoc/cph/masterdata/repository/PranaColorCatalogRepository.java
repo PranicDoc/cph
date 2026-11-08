@@ -14,7 +14,8 @@ import java.util.UUID;
 @Repository
 public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCatalog, UUID> {
 
-    Optional<PranaColorCatalog> findByCode(String code);
+    /** A code may exist once per category (V56), so this returns the first match, CLEANSING before ENERGISING. */
+    Optional<PranaColorCatalog> findFirstByCodeOrderByCategoryAsc(String code);
 
     /** Name-based lookup for import-time resolve-or-backfill (source files carry display names, not codes). */
     Optional<PranaColorCatalog> findByNameIgnoreCase(String name);
@@ -24,7 +25,10 @@ public interface PranaColorCatalogRepository extends JpaRepository<PranaColorCat
 
     boolean existsByNameIgnoreCaseAndCategoryAndIdNot(String name, ColorUsageType category, UUID id);
 
-    boolean existsByCodeIgnoreCaseAndIdNot(String code, UUID id);
+    /** The uq_prana_color_catalog_code_category pair. */
+    boolean existsByCodeIgnoreCaseAndCategoryAndIdNot(String code, ColorUsageType category, UUID id);
+
+    boolean existsByCodeIgnoreCaseAndCategory(String code, ColorUsageType category);
 
     /** System colors (healerId is null) */
     List<PranaColorCatalog> findByHealerIdIsNull();

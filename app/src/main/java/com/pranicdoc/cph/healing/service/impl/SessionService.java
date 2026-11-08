@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 public class SessionService {
 
     private final SessionRepository sessionRepository;
+    private final com.pranicdoc.cph.healing.repository.ProtocolEntryRepository protocolEntryRepository;
     private final CaseService caseService;
     private final HealingSessionMapper mapper;
     private final ChakraCatalogRepository chakraCatalogRepository;
@@ -107,10 +108,9 @@ public class SessionService {
         if(existing.isEmpty()) {
             caseService.requireConsent(sessionRequest.caseId());
         }
-        int nextNumber = nextSessionNumber(existing);
+        requireUniqueNumber(sessionRequest.caseId(), sessionRequest.sessionNumber(), null);
         validateMasterDataReferences(sessionRequest.scans());
         HealingSession session = mapper.toEntity(sessionRequest);
-        session.setSessionNumber(nextNumber);
         session.setClientRequestId(idempotencyKey);
         // TODO this is a basic validation, add few more checks comparing with the base data
         validatePrePostAndProtocolExists(session);
@@ -118,7 +118,6 @@ public class SessionService {
         session.setHealingCase(healingCase);
         activateCaseIfDraftOrContinued(healingCase);
         HealingSession saved = sessionRepository.save(session);
-        renumberByDate(saved.getHealingCase().getId());
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
     }
@@ -137,11 +136,17 @@ public class SessionService {
             throw new AccessDeniedException("Case does not belong to you");
         }
         validateMasterDataReferences(request.scans());
-        if (request.sessionDate() != null) {
-            if (request.sessionDate().isAfter(LocalDate.now().plusDays(1))) {
-                throw new IllegalArgumentException("Session date cannot be in the future");
-            }
-            session.setSessionDate(request.sessionDate());
+        if (request.sessionDate() == null) {
+            throw new IllegalArgumentException("Session date is required");
+        }
+        if (request.sessionDate().isAfter(LocalDate.now().plusDays(1))) {
+            throw new IllegalArgumentException("Session date cannot be in the future");
+        }
+        session.setSessionDate(request.sessionDate());
+        if (request.sessionNumber() != null
+                && !request.sessionNumber().equals(session.getSessionNumber())) {
+            requireUniqueNumber(healingCase.getId(), request.sessionNumber(), session.getId());
+            session.setSessionNumber(request.sessionNumber());
         }
         for (ScanRequest scanRequest : request.scans()) {
             ChakraScan edited = mapper.toChakraScan(scanRequest);
@@ -164,42 +169,41 @@ public class SessionService {
             });
         }
         validatePrePostAndProtocolExists(session);
-        HealingSession saved = sessionRepository.save(session);
-        if (request.sessionDate() != null) {
-            renumberByDate(healingCase.getId());
-        }
-        return toResponse(saved);
+        return toResponse(sessionRepository.save(session));
     }
 
     /**
-     * Session numbers follow the session date: the earlier the date, the lower the number
-     * (ties keep creation order). Two passes through negative numbers because
-     * (healing_case_id, session_number) is unique and Hibernate flushes row by row.
+     * Permanently deletes a session with its scans, readings, feedback and protocol entries.
+     * Not allowed once the case is closed. Session numbers are healer-entered, so the remaining
+     * sessions are left exactly as they are.
      */
-    private void renumberByDate(UUID caseId) {
-        sessionRepository.flush();
-        List<HealingSession> sessions = new ArrayList<>(sessionRepository
-                .findByHealingCaseIdOrderBySessionNumberAsc(caseId));
-        sessions.sort(Comparator
-                .comparing(HealingSession::getSessionDate, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(HealingSession::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(HealingSession::getId, Comparator.nullsLast(Comparator.naturalOrder())));
-        boolean inOrder = true;
-        for (int i = 0; i < sessions.size(); i++) {
-            if (!Objects.equals(sessions.get(i).getSessionNumber(), i + 1)) {
-                inOrder = false;
-                break;
-            }
+    @Auditable(action = "DELETE_SESSION")
+    public void delete(UUID sessionId) {
+        HealingSession session = findOrThrow(sessionId);
+        HealingCase healingCase = caseService.findAndLockOrThrow(session.getHealingCase().getId());
+        if (!healingCase.getHealerId().equals(securityContextUtil.getCurrentHealerId())) {
+            throw new AccessDeniedException("Case does not belong to you");
         }
-        if (inOrder) return;
-        for (int i = 0; i < sessions.size(); i++) {
-            sessions.get(i).setSessionNumber(-(i + 1));
+        if (healingCase.getStatus() == CaseStatus.CLOSED) {
+            throw new IllegalArgumentException("Cannot delete a session of a closed case");
         }
+        // ProtocolEntry is not cascaded from HealingSession (colours cascade from the entry).
+        protocolEntryRepository.deleteAll(protocolEntryRepository.findByHealingSessionId(sessionId));
+        healingCase.getSessions().remove(session);
+        sessionRepository.delete(session);
         sessionRepository.flush();
-        for (int i = 0; i < sessions.size(); i++) {
-            sessions.get(i).setSessionNumber(i + 1);
+    }
+
+    private void requireUniqueNumber(UUID caseId, Integer number, UUID excludeSessionId) {
+        if (number == null || number < 1) {
+            throw new IllegalArgumentException("Session number is required");
         }
-        sessionRepository.flush();
+        boolean taken = excludeSessionId == null
+                ? sessionRepository.existsByHealingCaseIdAndSessionNumber(caseId, number)
+                : sessionRepository.existsByHealingCaseIdAndSessionNumberAndIdNot(caseId, number, excludeSessionId);
+        if (taken) {
+            throw new IllegalArgumentException("Session number " + number + " is already used in this case");
+        }
     }
 
     /**

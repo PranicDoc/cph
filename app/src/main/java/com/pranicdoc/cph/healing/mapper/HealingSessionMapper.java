@@ -9,7 +9,6 @@ import java.util.List;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface HealingSessionMapper {
 
-    @Mapping(target = "sessionNumber", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "healingCase", ignore = true)
     @Mapping(target = "sessionDate", source = "sessionDate")

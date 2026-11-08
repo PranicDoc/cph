@@ -26,7 +26,7 @@ import java.util.UUID;
 @Audited
 public class PranaColorCatalog extends BaseEntity {
 
-    @Column(name = "code", nullable = false, unique = true, length = 30)
+    @Column(name = "code", nullable = false, length = 30)
     private String code; // e.g. "WHITE", "GREEN", "VIOLET"
 
     @Column(name = "name", nullable = false)
