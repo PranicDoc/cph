@@ -31,6 +31,8 @@ export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
   // Closing before the existing closure is in (or after it failed to load) would overwrite it.
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  // The case already has a closure (closed or continuing): saving it again is an edit.
+  const [hasClosure, setHasClosure] = useState(false);
   const { data: supplementaryProtocols = [] } = useProtocols("SUPPLEMENTARY");
 
   // Show the saved recommendations as selected (once the catalog is in), so saving again
@@ -55,6 +57,7 @@ export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
         if (cancelled) return;
         setLoaded(true);
         if (!data?.closure) return;
+        setHasClosure(true);
         const saved = splitClosureComments(data.closure.additionalComments ?? "");
         setComments(saved.comments);
         setSavedProtocolNames(saved.protocolNames);
@@ -101,6 +104,7 @@ export function useCaseClosure(healingCaseId: string, onClosed: () => void) {
   return {
     loaded,
     loadFailed,
+    hasClosure,
     comments,
     setComments,
     isHealingContinued,

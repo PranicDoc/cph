@@ -118,6 +118,8 @@ public class SessionService {
         session.setHealingCase(healingCase);
         activateCaseIfDraftOrContinued(healingCase);
         HealingSession saved = sessionRepository.save(session);
+        healingCase.getSessions().add(saved);
+        caseService.refreshClosureFromSessions(healingCase);
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
     }
@@ -169,7 +171,9 @@ public class SessionService {
             });
         }
         validatePrePostAndProtocolExists(session);
-        return toResponse(sessionRepository.save(session));
+        HealingSession saved = sessionRepository.save(session);
+        caseService.refreshClosureFromSessions(healingCase);
+        return toResponse(saved);
     }
 
     /**
@@ -192,6 +196,7 @@ public class SessionService {
         healingCase.getSessions().remove(session);
         sessionRepository.delete(session);
         sessionRepository.flush();
+        caseService.refreshClosureFromSessions(healingCase);
     }
 
     private void requireUniqueNumber(UUID caseId, Integer number, UUID excludeSessionId) {

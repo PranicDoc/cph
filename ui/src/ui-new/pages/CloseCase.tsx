@@ -81,8 +81,11 @@ export default function CloseCase() {
     if (reasoned.length === 0 || unsaved.length > 0) return openNext();
     save.mutate(reasoned, { onSuccess: openNext });
   };
+  // An existing closure can always be saved again from the wrap-up step, even with nothing
+  // changed: the server recomputes the healing count and date from the sessions.
+  const canResave = closure.hasClosure && isWrapUp;
   const closeCase = () =>
-    rows.length === 0
+    rows.length === 0 || (canResave && !allDone)
       ? closure.closeMutation.mutate()
       : save.mutate(undefined, { onSuccess: () => closure.closeMutation.mutate() });
 
@@ -91,7 +94,7 @@ export default function CloseCase() {
       type="button"
       className={className}
       onClick={closeCase}
-      disabled={!allDone || !closure.loaded || busy}
+      disabled={(!allDone && !canResave) || !closure.loaded || busy}
     >
       {closure.closeMutation.isPending ? "Closing..." : "Close case"}
     </Button>

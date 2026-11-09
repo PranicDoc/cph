@@ -338,11 +338,7 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         // Session numbers are healer-entered, so the count is the highest number, not the row count.
-        int healingCount = sessions.stream()
-                .map(HealingSession::getSessionNumber)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(sessions.size());
+        int healingCount = highestSessionNumber(sessions);
         if (sessions.stream().anyMatch(x -> x.getSessionDate() == null)) {
             throw new IllegalArgumentException("Cannot close a case: every session needs a session date");
         }
@@ -384,6 +380,30 @@ public class CaseService {
         if (newStatus == CaseStatus.CLOSED && !isEdit) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
+    }
+
+    /** The highest healer-entered session number (never the row count); every session must have one. */
+    static int highestSessionNumber(List<HealingSession> sessions) {
+        return sessions.stream()
+                .map(HealingSession::getSessionNumber)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElseThrow(() -> new IllegalArgumentException("Cannot close a case: its sessions have no session number"));
+    }
+
+    /**
+     * After a session is added, edited or deleted on a case that already has a closure, bring the
+     * closure's healing count and date back in line so the case summary and the next PDF never show
+     * a stale value (they are otherwise only recomputed when the closure is saved again).
+     */
+    public void refreshClosureFromSessions(HealingCase healingCase) {
+        CaseClosure closure = healingCase.getClosure();
+        List<HealingSession> sessions = healingCase.getSessions();
+        if (closure == null || sessions == null || sessions.isEmpty()) return;
+        if (sessions.stream().anyMatch(s -> s.getSessionNumber() == null || s.getSessionDate() == null)) return;
+        closure.setHealingCount(highestSessionNumber(sessions));
+        closure.setClosureDate(sessions.stream().map(HealingSession::getSessionDate).max(LocalDate::compareTo).orElseThrow());
+        caseRepository.save(healingCase);
     }
 
     @Auditable(action = "DELETE_CASE")
