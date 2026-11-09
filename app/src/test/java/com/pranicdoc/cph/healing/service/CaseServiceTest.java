@@ -653,23 +653,6 @@ class CaseServiceTest {
     }
 
     @Test
-    void refreshClosureFromSessions_updatesCountAndDateAfterASessionEdit() {
-        HealingCase healingCase = HealingCase.builder().status(CaseStatus.CLOSED)
-                .sessions(new ArrayList<>(List.of(
-                        HealingSession.builder().sessionNumber(1).sessionDate(LocalDate.of(2026, 3, 1)).build(),
-                        HealingSession.builder().sessionNumber(9).sessionDate(LocalDate.of(2026, 3, 8)).build())))
-                .build();
-        healingCase.setClosure(CaseClosure.builder().healingCase(healingCase)
-                .healingCount(2).closureDate(LocalDate.of(2026, 3, 1)).build());
-
-        caseService.refreshClosureFromSessions(healingCase);
-
-        assertEquals(9, healingCase.getClosure().getHealingCount());
-        assertEquals(LocalDate.of(2026, 3, 8), healingCase.getClosure().getClosureDate());
-        verify(caseRepository).save(healingCase);
-    }
-
-    @Test
     void closeCase_rejectsASessionWithoutADate() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);

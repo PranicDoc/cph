@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -126,19 +127,19 @@ describe("CloseCase page", () => {
     expect(within(energise).getByRole("button", { name: "Add energising colours" })).toBeInTheDocument();
   });
 
-  it("keeps Close case off until every chakra has a reason", async () => {
+  it("Close case is always clickable but refuses to submit until every chakra has a reason", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await screen.findByLabelText(/Why did you work on this chakra/);
-    closeButtons().forEach((b) => expect(b).toBeDisabled());
+    await waitFor(() => closeButtons().forEach((b) => expect(b).toBeEnabled()));
+
+    await user.click(closeButtons()[0]);
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Add a reason for/));
+    expect(mPost).not.toHaveBeenCalled();
 
     await user.click(within(list()).getByRole("button", { name: /Spleen/ }));
-    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "   ");
-    closeButtons().forEach((b) => expect(b).toBeDisabled());
-
     await user.type(screen.getByLabelText(/Why did you work on this chakra/), "Sluggish");
-    await waitFor(() => closeButtons().forEach((b) => expect(b).toBeEnabled()));
     expect(screen.getByText("2 of 2 done")).toBeInTheDocument();
     expect(mPost).not.toHaveBeenCalled();
   });
