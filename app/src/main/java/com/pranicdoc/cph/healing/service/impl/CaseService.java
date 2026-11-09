@@ -338,11 +338,7 @@ public class CaseService {
         UUID currentHealerId = securityContextUtil.getCurrentHealerId();
         String healerName = healerService.getName(currentHealerId);
         // Session numbers are healer-entered, so the count is the highest number, not the row count.
-        int healingCount = sessions.stream()
-                .map(HealingSession::getSessionNumber)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(sessions.size());
+        int healingCount = highestSessionNumber(sessions);
         if (sessions.stream().anyMatch(x -> x.getSessionDate() == null)) {
             throw new IllegalArgumentException("Cannot close a case: every session needs a session date");
         }
@@ -384,6 +380,15 @@ public class CaseService {
         if (newStatus == CaseStatus.CLOSED && !isEdit) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
+    }
+
+    /** The highest healer-entered session number (never the row count); every session must have one. */
+    static int highestSessionNumber(List<HealingSession> sessions) {
+        return sessions.stream()
+                .map(HealingSession::getSessionNumber)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElseThrow(() -> new IllegalArgumentException("Cannot close a case: its sessions have no session number"));
     }
 
     @Auditable(action = "DELETE_CASE")

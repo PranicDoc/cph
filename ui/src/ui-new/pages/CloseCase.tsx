@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -81,17 +82,25 @@ export default function CloseCase() {
     if (reasoned.length === 0 || unsaved.length > 0) return openNext();
     save.mutate(reasoned, { onSuccess: openNext });
   };
-  const closeCase = () =>
-    rows.length === 0
+  // The button is always clickable (also to save an existing closure again with nothing changed:
+  // the server recomputes the healing count and date). It only refuses while a chakra has no reason.
+  const closeCase = () => {
+    const missing = rows.find((r) => !hasReason(r));
+    if (missing) {
+      toast.error(`Add a reason for ${missing.chakra} (and every other chakra) before closing the case`);
+      return;
+    }
+    return rows.length === 0
       ? closure.closeMutation.mutate()
       : save.mutate(undefined, { onSuccess: () => closure.closeMutation.mutate() });
+  };
 
   const closeButton = (className: string) => (
     <Button
       type="button"
       className={className}
       onClick={closeCase}
-      disabled={!allDone || !closure.loaded || busy}
+      disabled={!closure.loaded || busy}
     >
       {closure.closeMutation.isPending ? "Closing..." : "Close case"}
     </Button>

@@ -643,6 +643,16 @@ class CaseServiceTest {
     }
 
     @Test
+    void closeCase_rejectsSessionsWithoutANumber_insteadOfFallingBackToTheRowCount() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        healingCase.getSessions().get(0).setSessionNumber(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> caseService.closeCase(caseId, new CaseClosureRequest("Done", false)));
+    }
+
+    @Test
     void closeCase_rejectsASessionWithoutADate() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);
