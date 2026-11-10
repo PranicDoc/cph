@@ -98,6 +98,7 @@ function SessionBlock({ session, data, open, onToggle }: { session: HealingSessi
           {session.qualitativeFeedbacks.map((qf) => (
             <div key={qf.id} className="cpanel" style={{ marginTop: 12 }}>
               <span className="badge">{qf.feedbackType === "FINAL" ? "Final" : "Interim"} feedback</span>
+              {qf.healingDate && <span className="small muted" style={{ marginLeft: 8 }}>for healing on {formatDate(qf.healingDate)}</span>}
               {qf.feedbackText && <p style={{ marginTop: 8 }}>{qf.feedbackText}</p>}
               {qf.patientRemarks && <p className="small muted" style={{ marginTop: 4 }}>Patient: {qf.patientRemarks}</p>}
             </div>
@@ -128,7 +129,7 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
         <div style={{ minWidth: 0 }}>
           <h1>Case summary</h1>
           <p className="muted hl-trunc" style={{ marginTop: 6 }} title={name}>
-            {name} · Opened {formatDate(data.caseCreatedAt)}
+            {name} · Opened {formatDate(data.declarationDate ?? data.caseCreatedAt)}
             {closed && ` · Closed ${formatDate(data.closure?.closureDate)}`}
           </p>
         </div>
@@ -249,7 +250,7 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
               <span className={`badge ${closed ? "off" : "ok"}`}><span className="dot" />{closed ? "Closed" : "Open"}</span>
             </div>
             <div className="row2" style={{ gap: "18px 24px" }}>
-              <Item label="Opened">{formatDate(data.caseCreatedAt)}</Item>
+              <Item label="Opened">{formatDate(data.declarationDate ?? data.caseCreatedAt)}</Item>
               <Item label="Closed">{formatDate(data.closure?.closureDate)}</Item>
               <Item label="Total healings">{data.closure?.healingCount ?? data.sessions.length}</Item>
               <Item label="Healing continued">{yesNo(data.closure?.isHealingContinued)}</Item>

@@ -502,6 +502,8 @@ public class CaseService {
                 healingCase.getBasicBookPg(), healingCase.getAdvancedBookPg(),
                 healingCase.getPsychotherapyPg(),
                 healingCase.getCreatedAt(),
+                healingCase.getDeclaration() == null ? null
+                        : DeclarationDates.toDate(healingCase.getDeclaration().getSignedAt()),
                 healingCase.getMedicalSnapshot(),
                 healingCase.getSymptoms(),
                 healingCase.getMedications(),
