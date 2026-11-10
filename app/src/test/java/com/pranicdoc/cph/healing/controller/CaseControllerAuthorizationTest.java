@@ -196,7 +196,7 @@ class CaseControllerAuthorizationTest {
     private static final CaseSummaryResponse CASE_SUMMARY = new CaseSummaryResponse(
             "Test", "Patient", null, null, null, "1234567890", null,
             ROW_ID, null, List.of(), null, null, null, null, null, null, null,
-            Instant.now(), null, List.of(), List.of(), List.of(), null);
+            Instant.now(), null, null, List.of(), List.of(), List.of(), null);
     private static final PageResponse<CaseResponse> CASE_PAGE =
             new PageResponse<>(List.of(), 0, 10, 0L, 0, true);
     private static final PageResponse<SymptomFeedbackDTO> SYMPTOM_FEEDBACK_PAGE =

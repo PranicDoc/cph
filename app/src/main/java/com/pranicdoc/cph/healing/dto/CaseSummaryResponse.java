@@ -28,6 +28,7 @@ public record CaseSummaryResponse(
         String advancedBookPg,
         String psychotherapyPg,
         Instant caseCreatedAt,
+        LocalDate declarationDate,
         CaseMedicalSnapshot medicalSnapshot,
         List<CaseSymptom> symptoms,
         List<CaseMedication> medications,

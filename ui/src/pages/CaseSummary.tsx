@@ -33,6 +33,7 @@ export interface SymptomFeedback {
   caseSymptomId: string;
   rating: number;
   notes?: string;
+  healingDate?: string;
 }
 
 export interface QualitativeFeedback {
@@ -40,6 +41,7 @@ export interface QualitativeFeedback {
   feedbackType: "INTERIM" | "FINAL";
   feedbackText?: string;
   patientRemarks?: string;
+  healingDate?: string;
 }
 
 export interface HealingSession {
@@ -116,6 +118,8 @@ export interface CaseSummaryData {
   advancedBookPg?: string;
   psychotherapyPg?: string;
   caseCreatedAt: string;
+  /** The day the patient declaration was signed; this is when the case is treated as opened. */
+  declarationDate?: string | null;
   medicalSnapshot?: CaseMedicalSnapshot;
   symptoms: CaseSymptom[];
   medications: CaseMedication[];
@@ -133,7 +137,10 @@ export const yesNo = (val: boolean | undefined | null) =>
 export const formatDate = (val: string | undefined | null) => {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
+    // A plain date (2026-11-02) is a calendar day, not a UTC instant: read it as local so it cannot shift a day.
+    const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
+    const date = plain ? new Date(+plain[1], +plain[2] - 1, +plain[3]) : new Date(val);
+    return date.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -383,7 +390,12 @@ function SessionCard({
           </p>
           {session.qualitativeFeedbacks.map((qf) => (
             <div key={qf.id} className="bg-primary/5 rounded-lg p-3 space-y-1">
-              <Badge label={qf.feedbackType} />
+              <div className="flex items-center gap-2">
+                <Badge label={qf.feedbackType} />
+                {qf.healingDate && (
+                  <span className="text-xs text-text-light">for healing on {formatDate(qf.healingDate)}</span>
+                )}
+              </div>
               {qf.feedbackText && (
                 <p className="text-sm text-text mt-1">{qf.feedbackText}</p>
               )}
@@ -500,7 +512,7 @@ export default function CaseSummary() {
           <div className={isNewView ? "hl-sumhead" : "contents"}>
             <h1 className="text-2xl font-bold text-primary-dark">Case Summary</h1>
             <p className="text-sm text-text-light">
-              {patientName} · Opened {formatDate(data.caseCreatedAt)}
+              {patientName} · Opened {formatDate(data.declarationDate ?? data.caseCreatedAt)}
               {data.closure?.closureDate && ` · Closed ${formatDate(data.closure.closureDate)}`}
             </p>
           </div>
@@ -644,7 +656,7 @@ export default function CaseSummary() {
         <div className="bg-card border border-border rounded-xl p-4">
           <SectionHeading icon={<CheckCircle2 className="w-4 h-4" />} label="Case Closure" />
           <InfoRow label="Closure Date" value={formatDate(data.closure.closureDate)} />
-          <InfoRow label="Total Healings" value={data.closure.healingCount?.toString() ?? "—"} />
+          <InfoRow label="Total Healings" value={(data.closure.healingCount ?? data.sessions.length).toString()} />
           <InfoRow label="Last Feedback Date" value={formatDate(data.closure.lastFeedbackDate)} />
           <InfoRow label="Healing Continued" value={yesNo(data.closure.isHealingContinued)} />
           {data.closure.additionalComments && (
