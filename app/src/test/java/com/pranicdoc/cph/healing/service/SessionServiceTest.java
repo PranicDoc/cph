@@ -282,6 +282,83 @@ class SessionServiceTest {
     }
 
     @Test
+    void updatingTheSessionDateMovesItsInterimFeedbackDateButNotTheFinal() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        HealingSession session = savedSession(healingCase);
+        session.setSessionDate(LocalDate.of(2026, 5, 1));
+        LocalDate old = LocalDate.of(2026, 5, 1);
+        com.pranicdoc.cph.healing.model.QualitativeFeedback interim = com.pranicdoc.cph.healing.model.QualitativeFeedback.builder()
+                .feedbackType(com.pranicdoc.cph.common.enums.FeedbackType.INTERIM).healingDate(old).build();
+        com.pranicdoc.cph.healing.model.QualitativeFeedback finalFb = com.pranicdoc.cph.healing.model.QualitativeFeedback.builder()
+                .feedbackType(com.pranicdoc.cph.common.enums.FeedbackType.FINAL).healingDate(old).build();
+        com.pranicdoc.cph.healing.model.SymptomFeedback symptom = new com.pranicdoc.cph.healing.model.SymptomFeedback();
+        symptom.setHealingDate(old);
+        session.setQualitativeFeedbacks(new ArrayList<>(List.of(interim, finalFb)));
+        session.setSymptomFeedbacks(new ArrayList<>(List.of(symptom)));
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        stubScanMapping();
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateSessionRequest plain = edit(chakraId, "H");
+        LocalDate moved = LocalDate.of(2026, 5, 3);
+        sessionService.update(session.getId(), new UpdateSessionRequest(plain.scans(), moved));
+
+        assertEquals(moved, interim.getHealingDate());
+        assertEquals(moved, symptom.getHealingDate());
+        assertEquals(old, finalFb.getHealingDate());
+    }
+
+    @Test
+    void renumberingSessionsMovesTheFinalFeedbackToTheNewLatestSession() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        healingCase.setHealerId(healerId);
+        List<HealingSession> sessions = new ArrayList<>();
+        for (int n = 1; n <= 4; n++) {
+            HealingSession s = savedSession(healingCase);
+            s.setSessionNumber(n);
+            s.setQualitativeFeedbacks(new ArrayList<>());
+            s.setSymptomFeedbacks(new ArrayList<>());
+            sessions.add(s);
+        }
+        healingCase.setSessions(sessions);
+        // The final feedback was recorded on session 4, the latest at the time.
+        com.pranicdoc.cph.healing.model.QualitativeFeedback finalFb = com.pranicdoc.cph.healing.model.QualitativeFeedback.builder()
+                .feedbackType(com.pranicdoc.cph.common.enums.FeedbackType.FINAL).healingSession(sessions.get(3)).build();
+        sessions.get(3).getQualitativeFeedbacks().add(finalFb);
+
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        stubScanMapping();
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Renumber to 1, 3, 7, 5: the old session 3 is now the latest.
+        int[] numbers = {1, 3, 7, 5};
+        for (int i = 0; i < 4; i++) {
+            HealingSession s = sessions.get(i);
+            when(sessionRepository.findById(s.getId())).thenReturn(Optional.of(s));
+            if (i == 3) continue;
+            UpdateSessionRequest plain = edit(chakraId, "H");
+            sessionService.update(s.getId(), new UpdateSessionRequest(plain.scans(), LocalDate.of(2026, 5, 1), numbers[i]));
+        }
+        // session 4 -> 5 last, so the intermediate state also had to stay consistent
+        UpdateSessionRequest plain = edit(chakraId, "H");
+        sessionService.update(sessions.get(3).getId(), new UpdateSessionRequest(plain.scans(), LocalDate.of(2026, 5, 1), 5));
+
+        assertEquals(sessions.get(2), finalFb.getHealingSession());
+        assertTrue(sessions.get(2).getQualitativeFeedbacks().contains(finalFb));
+        assertTrue(sessions.get(3).getQualitativeFeedbacks().isEmpty());
+    }
+
+    @Test
     void createPreservesSubmittedSessionDateAndEndTime() {
         UUID caseId = UUID.randomUUID();
         UUID chakraId = UUID.randomUUID();

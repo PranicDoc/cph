@@ -875,4 +875,26 @@ class CaseServiceTest {
                 .build();
     }
 
+
+    @Test
+    void refreshClosureFromSessionsFollowsEditedSessionNumbersAndDates() {
+        com.pranicdoc.cph.healing.model.HealingCase healingCase = com.pranicdoc.cph.healing.model.HealingCase.builder().build();
+        com.pranicdoc.cph.healing.model.CaseClosure closure = com.pranicdoc.cph.healing.model.CaseClosure.builder()
+                .healingCase(healingCase).healingCount(4).closureDate(java.time.LocalDate.of(2026, 5, 4)).build();
+        healingCase.setClosure(closure);
+        java.util.List<com.pranicdoc.cph.healing.model.HealingSession> sessions = new java.util.ArrayList<>();
+        int[] numbers = {1, 3, 7, 5};
+        for (int i = 0; i < 4; i++) {
+            com.pranicdoc.cph.healing.model.HealingSession s = new com.pranicdoc.cph.healing.model.HealingSession();
+            s.setSessionNumber(numbers[i]);
+            s.setSessionDate(java.time.LocalDate.of(2026, 5, 1 + i));
+            sessions.add(s);
+        }
+        healingCase.setSessions(sessions);
+
+        caseService.refreshClosureFromSessions(healingCase);
+
+        org.junit.jupiter.api.Assertions.assertEquals(7, closure.getHealingCount());
+        org.junit.jupiter.api.Assertions.assertEquals(java.time.LocalDate.of(2026, 5, 4), closure.getClosureDate());
+    }
 }
