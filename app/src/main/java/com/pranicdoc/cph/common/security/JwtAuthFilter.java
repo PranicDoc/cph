@@ -95,6 +95,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // Warm the auditor email now, while nothing is pending in the persistence context: the
+                // @CreatedBy hook reads it mid-flush, where a cold-cache DB load re-enters auditing
+                // ("Recursive update"). After this the hook is always a cache hit.
+                healerCacheService.getEmail(healerId);
+
                 // 42-15/CR-02: only the feedback-session SELF_REG shape
                 // (JwtService.generateFeedbackSessionToken) carries a caseId claim, so it
                 // can be ownership-checked by CaseService.getSymptomsForFeedback. Plain

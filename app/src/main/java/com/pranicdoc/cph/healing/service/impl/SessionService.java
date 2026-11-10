@@ -55,7 +55,6 @@ public class SessionService {
     private final NotificationService notificationService;
     private final SecurityContextUtil securityContextUtil;
     private final ApplicationEventPublisher eventPublisher;
-    private final com.pranicdoc.cph.auth.service.HealerCacheService healerCacheService;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -137,9 +136,6 @@ public class SessionService {
      */
     @Auditable(action = "UPDATE_SESSION")
     public SessionResponse update(UUID sessionId, UpdateSessionRequest request) {
-        // Warm the auditor email before any entity is added, so the @CreatedBy lookup on new child rows
-        // is a cache hit instead of a DB query mid-flush.
-        healerCacheService.getEmail(securityContextUtil.getCurrentHealerId());
         HealingSession session = findOrThrow(sessionId);
         HealingCase healingCase = caseService.findAndLockOrThrow(session.getHealingCase().getId());
         // Loading by id skips the tenant filter, so check the owner here.
