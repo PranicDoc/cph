@@ -35,6 +35,18 @@ describe("reconstructSelectedProtocols", () => {
     expect(reconstructSelectedProtocols("Toothache", []).map((p) => p.name)).toEqual(["Toothache"]);
   });
 
+  it("keeps two catalog protocols that share a name but come from different books", () => {
+    const twin: Protocol[] = [
+      { id: "a", name: "Migraine", sourceBook: "Book A", pageNumber: 1, protocolType: "PROTOCOL" },
+      { id: "b", name: "Migraine", sourceBook: "Book B", pageNumber: 2, protocolType: "PROTOCOL" },
+    ];
+
+    expect(reconstructSelectedProtocols("Migraine, Migraine", twin).map((p) => p.id)).toEqual(["a", "b"]);
+    expect(reconstructSelectedProtocols("Migraine", twin).map((p) => p.id)).toEqual(["a"]);
+    expect(reconstructSelectedProtocols("Migraine, Migraine, Migraine", twin).map((p) => p.id)).toEqual(["a", "b"]);
+    expect(reconstructSelectedProtocols("Toothache, Toothache", catalog).map((p) => p.id)).toEqual(["p1"]);
+  });
+
   it("nothing stored means nothing selected", () => {
     expect(reconstructSelectedProtocols("", catalog)).toEqual([]);
     expect(reconstructSelectedProtocols(" , ", catalog)).toEqual([]);
