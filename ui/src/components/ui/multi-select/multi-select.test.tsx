@@ -425,3 +425,31 @@ describe("MultiSelect option order", () => {
     expect(labels()).toEqual(["Blue", "Red", "Green"]);
   });
 });
+
+describe("MultiSelect with a selected value missing from the options", () => {
+  function Harness() {
+    // "Legacy" is saved on the record but is not in the catalog (older free-text entry).
+    const [value, setValue] = useState(["Legacy", "Red"]);
+    return (
+      <MultiSelect<string>
+        options={OPTIONS}
+        value={value}
+        onChange={setValue}
+        getOptionKey={(o) => o}
+        getOptionLabel={(o) => o}
+      />
+    );
+  }
+
+  it("still lists it, so it can be unticked and removed", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    const trigger = screen.getByRole("combobox");
+    await user.click(trigger);
+    expect(trigger.textContent).toContain("Legacy");
+    await user.click(screen.getByRole("option", { name: "Legacy" }));
+
+    expect(trigger.textContent).not.toContain("Legacy");
+  });
+});

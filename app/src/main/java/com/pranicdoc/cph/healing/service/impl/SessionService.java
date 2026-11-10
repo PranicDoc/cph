@@ -14,9 +14,11 @@ import com.pranicdoc.cph.healing.dto.ScanRequest;
 import com.pranicdoc.cph.healing.dto.SessionResponse;
 import com.pranicdoc.cph.healing.dto.UpdateSessionRequest;
 import com.pranicdoc.cph.healing.mapper.HealingSessionMapper;
+import com.pranicdoc.cph.common.enums.FeedbackType;
 import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.HealingSession;
+import com.pranicdoc.cph.healing.model.QualitativeFeedback;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
@@ -118,6 +120,11 @@ public class SessionService {
         session.setHealingCase(healingCase);
         activateCaseIfDraftOrContinued(healingCase);
         HealingSession saved = sessionRepository.save(session);
+        List<HealingSession> all = new ArrayList<>(existing);
+        all.add(saved);
+        reanchorFinalFeedback(all);
+        healingCase.getSessions().add(saved);
+        caseService.refreshClosureFromSessions(healingCase);
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
     }
@@ -143,6 +150,12 @@ public class SessionService {
             throw new IllegalArgumentException("Session date cannot be in the future");
         }
         session.setSessionDate(request.sessionDate());
+        // Interim feedback carries a copy of the session date taken when it was recorded; keep it in
+        // step. A final feedback has its own healer-set date and is left alone.
+        session.getSymptomFeedbacks().forEach(f -> f.setHealingDate(request.sessionDate()));
+        session.getQualitativeFeedbacks().stream()
+                .filter(q -> q.getFeedbackType() == FeedbackType.INTERIM)
+                .forEach(q -> q.setHealingDate(request.sessionDate()));
         if (request.sessionNumber() != null
                 && !request.sessionNumber().equals(session.getSessionNumber())) {
             requireUniqueNumber(healingCase.getId(), request.sessionNumber(), session.getId());
@@ -169,7 +182,10 @@ public class SessionService {
             });
         }
         validatePrePostAndProtocolExists(session);
-        return toResponse(sessionRepository.save(session));
+        reanchorFinalFeedback(healingCase.getSessions());
+        HealingSession updated = sessionRepository.save(session);
+        caseService.refreshClosureFromSessions(healingCase);
+        return toResponse(updated);
     }
 
     /**
@@ -190,8 +206,36 @@ public class SessionService {
         // ProtocolEntry is not cascaded from HealingSession (colours cascade from the entry).
         protocolEntryRepository.deleteAll(protocolEntryRepository.findByHealingSessionId(sessionId));
         healingCase.getSessions().remove(session);
+        // The case's final feedback hangs on a session; move it off this one before it is deleted.
+        reanchorFinalFeedback(healingCase.getSessions());
         sessionRepository.delete(session);
         sessionRepository.flush();
+        caseService.refreshClosureFromSessions(healingCase);
+    }
+
+    /**
+     * A case has one final feedback, kept on its latest session (the highest session number). Session
+     * numbers are healer-entered and can be changed afterwards, so the latest session can change under
+     * it: move the final feedback to whichever session is the latest now, so it never reads as
+     * belonging to an earlier one. Its own healer-set date is left as it is.
+     */
+    private void reanchorFinalFeedback(List<HealingSession> sessions) {
+        HealingSession latest = sessions.stream()
+                .filter(s -> s.getSessionNumber() != null)
+                .max(Comparator.comparing(HealingSession::getSessionNumber))
+                .orElse(null);
+        if (latest == null) return;
+        for (HealingSession other : sessions) {
+            if (other == latest) continue;
+            List<QualitativeFeedback> finals = other.getQualitativeFeedbacks().stream()
+                    .filter(q -> q.getFeedbackType() == FeedbackType.FINAL)
+                    .toList();
+            for (QualitativeFeedback finalFeedback : finals) {
+                other.getQualitativeFeedbacks().remove(finalFeedback);
+                finalFeedback.setHealingSession(latest);
+                latest.getQualitativeFeedbacks().add(finalFeedback);
+            }
+        }
     }
 
     private void requireUniqueNumber(UUID caseId, Integer number, UUID excludeSessionId) {

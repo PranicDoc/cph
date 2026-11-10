@@ -28,7 +28,15 @@ export function MultiSelectList<T>({
   const [openValue] = useState(value);
   const ordered = useMemo(() => {
     const keys = new Set(openValue.map(getOptionKey));
-    return [...options.filter((o) => keys.has(getOptionKey(o))), ...options.filter((o) => !keys.has(getOptionKey(o)))];
+    const optionKeys = new Set(options.map(getOptionKey));
+    // A saved value that is not among the options (e.g. an older free-text entry) is listed too,
+    // otherwise it shows as selected but can never be unticked.
+    const orphans = openValue.filter((v) => !optionKeys.has(getOptionKey(v)));
+    return [
+      ...orphans,
+      ...options.filter((o) => keys.has(getOptionKey(o))),
+      ...options.filter((o) => !keys.has(getOptionKey(o))),
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, openValue]);
 
