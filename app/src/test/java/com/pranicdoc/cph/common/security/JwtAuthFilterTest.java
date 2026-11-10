@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -74,6 +75,45 @@ class JwtAuthFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication().getName())
                 .isEqualTo(healerId.toString());
         verify(filterChain).doFilter(request, response);
+    }
+
+    // The audit hook reads the email mid-flush; a cold-cache DB load there re-enters auditing ("Recursive update").
+    @Test
+    void activeHealerHasAuditorEmailWarmedBeforeTheRequestRuns() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("accessToken", "valid-token"));
+
+        when(jwtService.isTokenValid("valid-token")).thenReturn(true);
+        when(jwtService.extractTokenType("valid-token")).thenReturn("ACCESS");
+        when(jwtService.parseToken("valid-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn(healerId.toString());
+        when(claims.get("role", String.class)).thenReturn("HEALER");
+        when(healerCacheService.isActive(healerId)).thenReturn(true);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(healerCacheService, filterChain);
+        order.verify(healerCacheService).getEmail(healerId);
+        order.verify(filterChain).doFilter(any(), any());
+    }
+
+    @Test
+    void deactivatedHealerDoesNotWarmTheAuditorEmail() throws Exception {
+        UUID healerId = UUID.randomUUID();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("accessToken", "valid-token"));
+
+        when(jwtService.isTokenValid("valid-token")).thenReturn(true);
+        when(jwtService.extractTokenType("valid-token")).thenReturn("ACCESS");
+        when(jwtService.parseToken("valid-token")).thenReturn(claims);
+        when(claims.getSubject()).thenReturn(healerId.toString());
+        when(claims.get("role", String.class)).thenReturn("HEALER");
+        when(healerCacheService.isActive(healerId)).thenReturn(false);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        verify(healerCacheService, org.mockito.Mockito.never()).getEmail(any());
     }
 
     @Test

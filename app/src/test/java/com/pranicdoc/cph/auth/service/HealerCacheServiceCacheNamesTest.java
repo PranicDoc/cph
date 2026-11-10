@@ -21,13 +21,13 @@ class HealerCacheServiceCacheNamesTest {
         assertThat(name).isNotEmpty().doesNotContainAnyElementsOf(java.util.List.of(email));
     }
 
-    // The email lookup runs inside Hibernate's flush (auditing); it must not share the caller's persistence context.
+    // REQUIRES_NEW needs a second pooled connection while the request holds one; under load that starves
+    // the pool (AuditPoolDeadlockTest). The cold-cache case is handled by warming in JwtAuthFilter instead.
     @Test
-    void emailLookupRunsInSeparateTransaction() throws NoSuchMethodException {
+    void emailLookupDoesNotOpenASecondConnection() throws NoSuchMethodException {
         Transactional tx = implClass().getMethod("getEmail", UUID.class).getAnnotation(Transactional.class);
 
-        assertThat(tx).isNotNull();
-        assertThat(tx.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+        assertThat(tx == null || tx.propagation() != Propagation.REQUIRES_NEW).isTrue();
     }
 
     private static Class<?> implClass() {
