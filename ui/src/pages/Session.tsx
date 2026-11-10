@@ -257,14 +257,27 @@ export default function Session() {
   // The protocol catalog loads asynchronously and may not be ready yet when
   // the case data above is first mapped into the form — re-derive the
   // multi-select's value once the catalog arrives so pre-selection isn't lost.
+  // The saved snapshot is refreshed too: the edit pencil and Cancel restore it, and a snapshot built
+  // before the catalog arrived holds the protocols as page-less "legacy" entries, so the next save
+  // would blank the case's book pages.
   useEffect(() => {
     if (!sessionData?.healingDetails?.protocolName) return;
     const reconstructed = reconstructSelectedProtocols(sessionData.healingDetails.protocolName);
     if (reconstructed.length > 0) {
       sessionForm.setFieldValue("healingDetails.selectedProtocols", reconstructed);
+      initialFormValuesRef.current = withCurrentCatalog(initialFormValuesRef.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [protocols, sessionData]);
+
+  /** The values with their protocol selection rebuilt against the catalog as loaded now. */
+  const withCurrentCatalog = (values: SessionFormValues): SessionFormValues => ({
+    ...values,
+    healingDetails: {
+      ...values.healingDetails,
+      selectedProtocols: reconstructSelectedProtocols(values.healingDetails.protocolName),
+    },
+  });
 
   // ---- Navigation handlers ----
   const goToNextStep = () => {
@@ -284,7 +297,7 @@ export default function Session() {
 
   // Cancel editing (only when not DRAFT)
   const handleCancel = () => {
-    populateForm(initialFormValuesRef.current);
+    populateForm(withCurrentCatalog(initialFormValuesRef.current));
     setIsEdit(false);
     stepEditModeRef.current[0] = false;
   };
@@ -292,7 +305,7 @@ export default function Session() {
   // Toggle edit mode manually (via edit icon)
   const toggleEdit = () => {
     setIsEdit(true);
-    populateForm(initialFormValuesRef.current);
+    populateForm(withCurrentCatalog(initialFormValuesRef.current));
     stepEditModeRef.current[0] = true;
   };
 

@@ -22,8 +22,10 @@ vi.mock("../context/PatientContext", () => ({
   usePatient: () => ({ selectPatient: vi.fn(), selectedPatient: null }),
 }));
 
+// The protocol catalog loads on its own; a test can make it arrive late by changing this and rerendering.
+const catalog = vi.hoisted(() => ({ protocols: [] as unknown[] }));
 vi.mock("../hooks/admin/useMasterData", () => ({
-  useProtocols: () => ({ data: [] }),
+  useProtocols: () => ({ data: catalog.protocols }),
 }));
 
 // The wizard itself is covered elsewhere; here we only check which session it is opened with.
@@ -56,13 +58,27 @@ const caseWithStatus = (status: string) => ({
 
 function renderSession() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const tree = () => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/session/case-1"]}>
         <Session />
       </MemoryRouter>
     </QueryClientProvider>
   );
+  const result = render(tree());
+  return { ...result, rerenderSession: () => result.rerender(tree()) };
+}
+
+/** The JSON part of the case PATCH sent last. */
+async function lastPatchPayload(): Promise<Record<string, unknown>> {
+  const form = (api.patch as Mock).mock.calls.at(-1)![1] as FormData;
+  const blob = form.get("data") as Blob;
+  const text = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsText(blob);
+  });
+  return JSON.parse(text);
 }
 
 describe("Session: a case can be edited on any status", () => {
@@ -97,7 +113,53 @@ describe("Session: a case can be edited on any status", () => {
 });
 
 describe("Session: saving case details", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    catalog.protocols = [];
+  });
+
+  it("keeps the protocol's book page when the catalog loads after the case and the case is edited", async () => {
+    // Prod, 10 Nov: a closed case was edited only to add a complementary treatment, but the save sent
+    // advancedBookPg "" because the edit pencil restored a protocol selection built before the catalog loaded.
+    const user = userEvent.setup();
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("CLOSED") });
+    (api.patch as Mock).mockResolvedValue({ data: caseWithStatus("CLOSED") });
+    const { rerenderSession } = renderSession();
+    await screen.findByRole("button", { name: /edit session/i });
+
+    catalog.protocols = [
+      { id: "p-headache", name: "Headache", sourceBook: "Advanced Pranic Healing", pageNumber: 77, protocolType: "PROTOCOL" },
+    ];
+    rerenderSession();
+
+    await user.click(screen.getByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(api.patch).toHaveBeenCalled();
+    const payload = await lastPatchPayload();
+    expect(payload.advancedBookPg).toBe("77");
+    expect((payload.healingDetails as { protocolName: string }).protocolName).toBe("Headache");
+  });
+
+  it("keeps the protocol's book page after editing is cancelled and started again", async () => {
+    const user = userEvent.setup();
+    (api.get as Mock).mockResolvedValue({ data: caseWithStatus("CLOSED") });
+    (api.patch as Mock).mockResolvedValue({ data: caseWithStatus("CLOSED") });
+    const { rerenderSession } = renderSession();
+    await screen.findByRole("button", { name: /edit session/i });
+
+    catalog.protocols = [
+      { id: "p-headache", name: "Headache", sourceBook: "Advanced Pranic Healing", pageNumber: 77, protocolType: "PROTOCOL" },
+    ];
+    rerenderSession();
+
+    await user.click(screen.getByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+    await user.click(screen.getByRole("button", { name: /edit session/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect((await lastPatchPayload()).advancedBookPg).toBe("77");
+  });
 
   it("Save stores the details and returns to the view, which offers the next step", async () => {
     const user = userEvent.setup();
