@@ -643,6 +643,22 @@ class CaseServiceTest {
     }
 
     @Test
+    void closeCase_sendsTheFinalFeedbackRequestForTheHighestNumberedSession_whateverTheListOrder() {
+        UUID caseId = UUID.randomUUID();
+        HealingCase healingCase = buildCaseForClosure(caseId);
+        HealingSession highest = HealingSession.builder().sessionNumber(7)
+                .sessionDate(LocalDate.now()).build();
+        // Created in the order 1, 7, 5: after renumbering, the last row is not the latest session.
+        healingCase.getSessions().add(highest);
+        healingCase.getSessions().add(HealingSession.builder().sessionNumber(5)
+                .sessionDate(LocalDate.now()).build());
+
+        caseService.closeCase(caseId, new CaseClosureRequest("Done", false));
+
+        verify(notificationService).sendFinalFeedbackNotification(highest);
+    }
+
+    @Test
     void closeCase_rejectsSessionsWithoutANumber_insteadOfFallingBackToTheRowCount() {
         UUID caseId = UUID.randomUUID();
         HealingCase healingCase = buildCaseForClosure(caseId);

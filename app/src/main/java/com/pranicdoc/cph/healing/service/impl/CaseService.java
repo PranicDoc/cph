@@ -346,7 +346,10 @@ public class CaseService {
                 .map(HealingSession::getSessionDate)
                 .max(LocalDate::compareTo)
                 .orElseThrow();
-        HealingSession lastSession = sessions.get(sessions.size() - 1);
+        // The latest session is the highest-numbered one; the list order is not reliable once numbers are edited.
+        HealingSession lastSession = sessions.stream()
+                .max(Comparator.comparing(HealingSession::getSessionNumber, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElseThrow();
         LocalDate lastFeedbackDate = lastSession.getQualitativeFeedbacks()
                 .stream()
                 .map(QualitativeFeedback::getCreatedAt)

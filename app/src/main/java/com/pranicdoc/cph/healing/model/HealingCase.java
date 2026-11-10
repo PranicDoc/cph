@@ -104,6 +104,7 @@ public class HealingCase extends TenantEntity {
     private CaseClosure closure;
 
     @OneToMany(mappedBy = "healingCase", cascade = CascadeType.ALL)
+    @jakarta.persistence.OrderBy("sessionNumber ASC")
     @Builder.Default
     @JsonManagedReference
     private List<HealingSession> sessions = new ArrayList<>();
