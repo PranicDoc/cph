@@ -76,6 +76,9 @@ class SessionServiceTest {
     @Mock
     private com.pranicdoc.cph.healing.repository.ProtocolEntryRepository protocolEntryRepository;
 
+    @Mock
+    private com.pranicdoc.cph.auth.service.HealerCacheService healerCacheService;
+
     @InjectMocks
     private SessionService sessionService;
 

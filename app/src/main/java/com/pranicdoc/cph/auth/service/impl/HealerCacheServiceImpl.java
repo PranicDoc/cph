@@ -7,6 +7,8 @@ import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -15,8 +17,13 @@ import java.util.UUID;
 public class HealerCacheServiceImpl implements HealerCacheService {
     private final HealerRepository healerRepository;
 
+    // Called from AuditorAwareImpl while Hibernate is mid-flush (@CreatedBy). A lookup in the caller's
+    // persistence context would auto-flush again, re-enter auditing for the same pending entity and
+    // call this cache with the same key inside Caffeine's computeIfAbsent ("Recursive update").
+    // A separate transaction uses its own EntityManager, so nothing of the caller's gets flushed.
     @Override
     @Cacheable(key = "#healerId", value = "healerEmail", sync = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public String getEmail(UUID healerId) {
         return healerRepository.findEmailById(healerId);
     }
