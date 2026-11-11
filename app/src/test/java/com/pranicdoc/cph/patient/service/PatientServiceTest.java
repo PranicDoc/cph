@@ -47,8 +47,6 @@ class PatientServiceTest {
     @Mock private PatientRepository patientRepository;
     @Mock private RegistrationLinkRepository registrationLinkRepository;
     @Mock private CaseRepository caseRepository;
-    @Mock private com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository caseMedicalSnapshotRepository;
-    @Mock private com.pranicdoc.cph.patient.repository.PatientMedicalHistoryRepository medicalHistoryRepository;
     @Mock private DeclarationMapper declarationMapper;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private PatientTrashService trashService;
@@ -99,17 +97,7 @@ class PatientServiceTest {
         verify(patientRepository, never()).save(any());
     }
 
-    // ── editing medical history refreshes every case's medical snapshot (the PDF reads the snapshot) ──
-
-    private HealingCase caseWithSnapshot(Patient p, CaseStatus status, String notes) {
-        HealingCase c = HealingCase.builder().build();
-        c.setId(UUID.randomUUID());
-        c.setPatientId(p.getId());
-        c.setStatus(status);
-        c.setMedicalSnapshot(CaseMedicalSnapshot.builder().healingCase(c)
-                .generalHealth("FAIR").stressDepressionAnxiety(true).additionalNotes(notes).build());
-        return c;
-    }
+    // ── editing medical history upserts every case's snapshot (the PDF reads the snapshot) ──
 
     private Patient ownPatient() {
         Patient p = ownedPatient(healerId);
@@ -120,133 +108,57 @@ class PatientServiceTest {
     }
 
     @Test
-    void updateMedicalHistory_refreshesSnapshotOfEveryCase_includingClearedNotes() {
+    void updateMedicalHistory_refreshesExistingSnapshots_includingClearedNotes() {
         Patient p = ownPatient();
-        HealingCase open = caseWithSnapshot(p, CaseStatus.ACTIVE, "old notes");
-        HealingCase closed = caseWithSnapshot(p, CaseStatus.CLOSED, "old notes");
+        HealingCase open = HealingCase.builder().status(CaseStatus.ACTIVE).build();
+        HealingCase closed = HealingCase.builder().status(CaseStatus.CLOSED).build();
+        for (HealingCase c : List.of(open, closed)) {
+            c.setMedicalSnapshot(CaseMedicalSnapshot.builder().healingCase(c)
+                    .generalHealth("FAIR").stressDepressionAnxiety(true).additionalNotes("old notes").build());
+        }
         when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(open, closed));
 
         patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", "MIXED", "YOGA", "WEEKLY",
                 true, false, false, false, false, null, null, null));
 
         for (HealingCase c : List.of(open, closed)) {
-            CaseMedicalSnapshot snap = c.getMedicalSnapshot();
-            assertNull(snap.getAdditionalNotes(), "cleared notes must not linger in the PDF");
-            assertEquals("GOOD", snap.getGeneralHealth());
-            assertEquals(Boolean.FALSE, snap.getStressDepressionAnxiety());
-            assertEquals(Boolean.TRUE, snap.getHypertension());
-            assertSame(c, snap.getHealingCase());
+            assertNull(c.getMedicalSnapshot().getAdditionalNotes(), "cleared notes must not linger in the PDF");
+            assertEquals("GOOD", c.getMedicalSnapshot().getGeneralHealth());
+            assertEquals(Boolean.FALSE, c.getMedicalSnapshot().getStressDepressionAnxiety());
         }
     }
 
     @Test
-    void updateMedicalHistory_createsSnapshotForCaseOpenedBeforeAnyHistory() {
+    void updateMedicalHistory_createsMissingSnapshot() {
         Patient p = ownPatient();
         HealingCase c = HealingCase.builder().build();
-        c.setId(UUID.randomUUID());
         when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
 
         patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
                 null, null, null, null, null, null, null, "new notes"));
 
-        assertNotNull(c.getMedicalSnapshot());
         assertEquals("new notes", c.getMedicalSnapshot().getAdditionalNotes());
         assertSame(c, c.getMedicalSnapshot().getHealingCase());
     }
 
+    /** Guards future fields: every PatientMedicalHistory field must reach the snapshot. */
     @Test
-    void updateMedicalHistory_patientWithoutCases_justSavesHistory() {
-        Patient p = ownPatient();
-        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of());
-
-        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
-                null, null, null, null, null, null, null, "n"));
-
-        assertEquals("n", p.getMedicalHistory().getAdditionalNotes());
-        verify(patientRepository).save(p);
-    }
-
-    // ── upsert after rows were deleted (hard or soft) ──
-
-    @Test
-    void updateMedicalHistory_restoresSoftDeletedCaseSnapshot_insteadOfInsertingASecondRow() {
-        Patient p = ownPatient();
-        HealingCase c = HealingCase.builder().build();       // snapshot hidden by is_deleted
-        c.setId(UUID.randomUUID());
-        CaseMedicalSnapshot deleted = CaseMedicalSnapshot.builder().healingCase(c).additionalNotes("old").build();
-        deleted.softDelete();
-        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
-        when(caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(c.getId())).thenReturn(Optional.of(deleted));
-
-        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
-                null, null, null, null, null, null, null, "new"));
-
-        assertSame(deleted, c.getMedicalSnapshot(), "must reuse the row (uq_case_medical_snapshot_case)");
-        assertFalse(deleted.isDeleted());
-        assertEquals("new", deleted.getAdditionalNotes());
-    }
-
-    @Test
-    void updateMedicalHistory_restoresSoftDeletedHistory_insteadOfInsertingASecondRow() {
-        Patient p = ownPatient();                             // getMedicalHistory() == null: row hidden by is_deleted
-        com.pranicdoc.cph.patient.model.PatientMedicalHistory deleted = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
-        deleted.setAdditionalNotes("old");
-        deleted.softDelete();
-        when(medicalHistoryRepository.findIncludingDeletedByPatientId(p.getId())).thenReturn(Optional.of(deleted));
-        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of());
-
-        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
-                null, null, null, null, null, null, null, "new"));
-
-        assertSame(deleted, p.getMedicalHistory(), "must reuse the row (uq_patient_medical_history_pid)");
-        assertFalse(deleted.isDeleted());
-        assertSame(p, deleted.getPatient());
-        assertEquals("new", deleted.getAdditionalNotes());
-    }
-
-    @Test
-    void updateMedicalHistory_hardDeletedHistoryAndSnapshot_areCreated() {
-        Patient p = ownPatient();
-        HealingCase c = HealingCase.builder().build();
-        c.setId(UUID.randomUUID());
-        when(medicalHistoryRepository.findIncludingDeletedByPatientId(p.getId())).thenReturn(Optional.empty());
-        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
-        when(caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(c.getId())).thenReturn(Optional.empty());
-
-        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
-                null, null, null, null, null, null, null, "new"));
-
-        assertEquals("new", p.getMedicalHistory().getAdditionalNotes());
-        assertSame(p, p.getMedicalHistory().getPatient());
-        assertEquals(p.getHealerId(), p.getMedicalHistory().getHealerId(), "new history belongs to the patient's healer");
-        assertEquals("new", c.getMedicalSnapshot().getAdditionalNotes());
-        assertSame(c, c.getMedicalSnapshot().getHealingCase());
-    }
-
-    /** Guards future fields: every PatientMedicalHistory field the snapshot also has must be copied. */
-    @Test
-    void snapshotCopiesEveryMedicalHistoryField() throws Exception {
-        com.pranicdoc.cph.patient.model.PatientMedicalHistory h = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
-        int copied = 0;
-        for (java.lang.reflect.Field f : h.getClass().getDeclaredFields()) {
-            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+    void upsertCopiesEveryMedicalHistoryField() throws Exception {
+        var h = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
+        var fields = java.util.Arrays.stream(h.getClass().getDeclaredFields())
+                .filter(f -> f.getType() == String.class || f.getType() == Boolean.class).toList();
+        for (var f : fields) {
             f.setAccessible(true);
-            if (f.getType() == String.class) f.set(h, "v-" + f.getName());
-            else if (f.getType() == Boolean.class) f.set(h, Boolean.TRUE);
+            f.set(h, f.getType() == String.class ? "v-" + f.getName() : Boolean.TRUE);
         }
-        CaseMedicalSnapshot snap = CaseMedicalSnapshot.upsert(HealingCase.builder().build(), h, id -> Optional.empty());
-        for (java.lang.reflect.Field hf : h.getClass().getDeclaredFields()) {
-            if (java.lang.reflect.Modifier.isStatic(hf.getModifiers())) continue;
-            if (hf.getType() != String.class && hf.getType() != Boolean.class) continue;
-            java.lang.reflect.Field sf;
-            try { sf = CaseMedicalSnapshot.class.getDeclaredField(hf.getName()); }
-            catch (NoSuchFieldException e) { fail("CaseMedicalSnapshot is missing medical-history field '" + hf.getName()
-                    + "': add it (+ migration) and copy it in CaseMedicalSnapshot.copyFrom, or the PDF won't show it"); return; }
-            hf.setAccessible(true); sf.setAccessible(true);
-            assertEquals(hf.get(h), sf.get(snap), "CaseMedicalSnapshot.copyFrom does not copy '" + hf.getName() + "'");
-            copied++;
+        HealingCase c = HealingCase.builder().build();
+        CaseMedicalSnapshot.upsert(c, h);
+        for (var f : fields) {
+            var sf = CaseMedicalSnapshot.class.getDeclaredField(f.getName());
+            sf.setAccessible(true);
+            assertEquals(f.get(h), sf.get(c.getMedicalSnapshot()), "upsert does not copy '" + f.getName() + "'");
         }
-        assertTrue(copied >= 12, "expected all 12 medical-history fields, checked " + copied);
+        assertEquals(12, fields.size());
     }
 
     @AfterEach

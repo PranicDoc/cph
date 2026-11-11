@@ -74,7 +74,6 @@ import java.util.function.Predicate;
 public class CaseService {
 
     private final CaseRepository caseRepository;
-    private final com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository caseMedicalSnapshotRepository;
     private final PatientRepository patientRepository;
     private final SecurityContextUtil securityContextUtil;
     private final DeclarationMapper declarationMapper;
@@ -153,8 +152,22 @@ public class CaseService {
         );
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot.upsert(healingCase, history,
-                    id -> caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(id));
+            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
+                    .healingCase(healingCase)
+                    .generalHealth(history.getGeneralHealth())
+                    .diet(history.getDiet())
+                    .exercise(history.getExercise())
+                    .exerciseFrequency(history.getExerciseFrequency())
+                    .hypertension(history.getHypertension())
+                    .giIssues(history.getGiIssues())
+                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
+                    .pregnant(history.getPregnant())
+                    .cancer(history.getCancer())
+                    .cancerLocation(history.getCancerLocation())
+                    .cancerDetails(history.getCancerDetails())
+                    .additionalNotes(history.getAdditionalNotes())
+                    .build();
+            healingCase.setMedicalSnapshot(snapshot);
         }
         HealingCase saved = caseRepository.save(healingCase);
         if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {

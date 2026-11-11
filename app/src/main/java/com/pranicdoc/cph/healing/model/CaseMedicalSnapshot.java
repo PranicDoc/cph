@@ -10,16 +10,9 @@ import org.hibernate.annotations.SQLRestriction;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import org.hibernate.envers.Audited;
 
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Function;
-
 /**
- * The case's copy of the patient's medical history; the case PDF and Case Summary read this.
- * Created with the case and refreshed on every medical-history edit
- * ({@code PatientService.updateMedicalHistory}), so it shows the current values. Written only via {@link #upsert}. Earlier values remain
- * in the Envers audit table. A new medical-history field must be added here and in copyFrom
- * (PatientServiceTest#snapshotCopiesEveryMedicalHistoryField fails otherwise).
+ * Frozen medical snapshot captured at case creation time.
+ * Distinct from PatientMedicalHistory (which is a living record).
  */
 @Entity
 @Table(name = "case_medical_snapshot")
@@ -77,39 +70,27 @@ public class CaseMedicalSnapshot extends BaseEntity {
     private String additionalNotes; // 🔒
 
     /**
-     * Upsert: the ONE way to write a case's medical snapshot (case creation and every medical-history edit).
-     * Reuses the case's snapshot; otherwise its soft-deleted row ({@code findIncludingDeleted}, only consulted
-     * for a saved case); otherwise a new one. Restores it, copies the current history and attaches it.
+     * Upsert the case's snapshot from the patient's current history (creates it when missing). Called on
+     * every medical-history edit, so the PDF shows current values. A new history field goes here too.
      */
-    public static CaseMedicalSnapshot upsert(HealingCase healingCase, PatientMedicalHistory history,
-                                             Function<UUID, Optional<CaseMedicalSnapshot>> findIncludingDeleted) {
-        CaseMedicalSnapshot snapshot = healingCase.getMedicalSnapshot();
-        if (snapshot == null && healingCase.getId() != null) {
-            snapshot = findIncludingDeleted.apply(healingCase.getId()).orElse(null);
+    public static void upsert(HealingCase healingCase, PatientMedicalHistory history) {
+        CaseMedicalSnapshot s = healingCase.getMedicalSnapshot();
+        if (s == null) {
+            s = new CaseMedicalSnapshot();
+            s.setHealingCase(healingCase);
+            healingCase.setMedicalSnapshot(s);
         }
-        if (snapshot == null) {
-            snapshot = new CaseMedicalSnapshot();
-        }
-        snapshot.setHealingCase(healingCase);
-        snapshot.setDeleted(false);
-        snapshot.copyFrom(history);
-        healingCase.setMedicalSnapshot(snapshot);
-        return snapshot;
-    }
-
-    /** Overwrites every medical field with the patient's current history (nulls included, so cleared values clear). */
-    private void copyFrom(PatientMedicalHistory history) {
-        this.generalHealth = history.getGeneralHealth();
-        this.diet = history.getDiet();
-        this.exercise = history.getExercise();
-        this.exerciseFrequency = history.getExerciseFrequency();
-        this.hypertension = history.getHypertension();
-        this.giIssues = history.getGiIssues();
-        this.stressDepressionAnxiety = history.getStressDepressionAnxiety();
-        this.pregnant = history.getPregnant();
-        this.cancer = history.getCancer();
-        this.cancerLocation = history.getCancerLocation();
-        this.cancerDetails = history.getCancerDetails();
-        this.additionalNotes = history.getAdditionalNotes();
+        s.generalHealth = history.getGeneralHealth();
+        s.diet = history.getDiet();
+        s.exercise = history.getExercise();
+        s.exerciseFrequency = history.getExerciseFrequency();
+        s.hypertension = history.getHypertension();
+        s.giIssues = history.getGiIssues();
+        s.stressDepressionAnxiety = history.getStressDepressionAnxiety();
+        s.pregnant = history.getPregnant();
+        s.cancer = history.getCancer();
+        s.cancerLocation = history.getCancerLocation();
+        s.cancerDetails = history.getCancerDetails();
+        s.additionalNotes = history.getAdditionalNotes();
     }
 }
