@@ -10,11 +10,15 @@ import org.hibernate.annotations.SQLRestriction;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import org.hibernate.envers.Audited;
 
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+
 /**
  * The case's copy of the patient's medical history; the case PDF and Case Summary read this.
  * Created with the case and refreshed on every medical-history edit
- * ({@code PatientService.updateMedicalHistory}), so it shows the current values. Earlier values remain
- * in the Envers audit table. A new medical-history field must be added here and in {@link #copyFrom}
+ * ({@code PatientService.updateMedicalHistory}), so it shows the current values. Written only via {@link #upsert}. Earlier values remain
+ * in the Envers audit table. A new medical-history field must be added here and in copyFrom
  * (PatientServiceTest#snapshotCopiesEveryMedicalHistoryField fails otherwise).
  */
 @Entity
@@ -72,16 +76,29 @@ public class CaseMedicalSnapshot extends BaseEntity {
     @Column(name = "additional_notes", columnDefinition = "TEXT")
     private String additionalNotes; // 🔒
 
-    /** A new snapshot of {@code history} for {@code healingCase}. */
-    public static CaseMedicalSnapshot of(HealingCase healingCase, PatientMedicalHistory history) {
-        CaseMedicalSnapshot snapshot = new CaseMedicalSnapshot();
+    /**
+     * Upsert: the ONE way to write a case's medical snapshot (case creation and every medical-history edit).
+     * Reuses the case's snapshot; otherwise its soft-deleted row ({@code findIncludingDeleted}, only consulted
+     * for a saved case); otherwise a new one. Restores it, copies the current history and attaches it.
+     */
+    public static CaseMedicalSnapshot upsert(HealingCase healingCase, PatientMedicalHistory history,
+                                             Function<UUID, Optional<CaseMedicalSnapshot>> findIncludingDeleted) {
+        CaseMedicalSnapshot snapshot = healingCase.getMedicalSnapshot();
+        if (snapshot == null && healingCase.getId() != null) {
+            snapshot = findIncludingDeleted.apply(healingCase.getId()).orElse(null);
+        }
+        if (snapshot == null) {
+            snapshot = new CaseMedicalSnapshot();
+        }
         snapshot.setHealingCase(healingCase);
+        snapshot.setDeleted(false);
         snapshot.copyFrom(history);
+        healingCase.setMedicalSnapshot(snapshot);
         return snapshot;
     }
 
     /** Overwrites every medical field with the patient's current history (nulls included, so cleared values clear). */
-    public void copyFrom(PatientMedicalHistory history) {
+    private void copyFrom(PatientMedicalHistory history) {
         this.generalHealth = history.getGeneralHealth();
         this.diet = history.getDiet();
         this.exercise = history.getExercise();

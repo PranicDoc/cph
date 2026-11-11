@@ -47,6 +47,8 @@ class PatientServiceTest {
     @Mock private PatientRepository patientRepository;
     @Mock private RegistrationLinkRepository registrationLinkRepository;
     @Mock private CaseRepository caseRepository;
+    @Mock private com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository caseMedicalSnapshotRepository;
+    @Mock private com.pranicdoc.cph.patient.repository.PatientMedicalHistoryRepository medicalHistoryRepository;
     @Mock private DeclarationMapper declarationMapper;
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private PatientTrashService trashService;
@@ -164,6 +166,63 @@ class PatientServiceTest {
         verify(patientRepository).save(p);
     }
 
+    // ── upsert after rows were deleted (hard or soft) ──
+
+    @Test
+    void updateMedicalHistory_restoresSoftDeletedCaseSnapshot_insteadOfInsertingASecondRow() {
+        Patient p = ownPatient();
+        HealingCase c = HealingCase.builder().build();       // snapshot hidden by is_deleted
+        c.setId(UUID.randomUUID());
+        CaseMedicalSnapshot deleted = CaseMedicalSnapshot.builder().healingCase(c).additionalNotes("old").build();
+        deleted.softDelete();
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
+        when(caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(c.getId())).thenReturn(Optional.of(deleted));
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "new"));
+
+        assertSame(deleted, c.getMedicalSnapshot(), "must reuse the row (uq_case_medical_snapshot_case)");
+        assertFalse(deleted.isDeleted());
+        assertEquals("new", deleted.getAdditionalNotes());
+    }
+
+    @Test
+    void updateMedicalHistory_restoresSoftDeletedHistory_insteadOfInsertingASecondRow() {
+        Patient p = ownPatient();                             // getMedicalHistory() == null: row hidden by is_deleted
+        com.pranicdoc.cph.patient.model.PatientMedicalHistory deleted = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
+        deleted.setAdditionalNotes("old");
+        deleted.softDelete();
+        when(medicalHistoryRepository.findIncludingDeletedByPatientId(p.getId())).thenReturn(Optional.of(deleted));
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of());
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "new"));
+
+        assertSame(deleted, p.getMedicalHistory(), "must reuse the row (uq_patient_medical_history_pid)");
+        assertFalse(deleted.isDeleted());
+        assertSame(p, deleted.getPatient());
+        assertEquals("new", deleted.getAdditionalNotes());
+    }
+
+    @Test
+    void updateMedicalHistory_hardDeletedHistoryAndSnapshot_areCreated() {
+        Patient p = ownPatient();
+        HealingCase c = HealingCase.builder().build();
+        c.setId(UUID.randomUUID());
+        when(medicalHistoryRepository.findIncludingDeletedByPatientId(p.getId())).thenReturn(Optional.empty());
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
+        when(caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(c.getId())).thenReturn(Optional.empty());
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "new"));
+
+        assertEquals("new", p.getMedicalHistory().getAdditionalNotes());
+        assertSame(p, p.getMedicalHistory().getPatient());
+        assertEquals(p.getHealerId(), p.getMedicalHistory().getHealerId(), "new history belongs to the patient's healer");
+        assertEquals("new", c.getMedicalSnapshot().getAdditionalNotes());
+        assertSame(c, c.getMedicalSnapshot().getHealingCase());
+    }
+
     /** Guards future fields: every PatientMedicalHistory field the snapshot also has must be copied. */
     @Test
     void snapshotCopiesEveryMedicalHistoryField() throws Exception {
@@ -175,7 +234,7 @@ class PatientServiceTest {
             if (f.getType() == String.class) f.set(h, "v-" + f.getName());
             else if (f.getType() == Boolean.class) f.set(h, Boolean.TRUE);
         }
-        CaseMedicalSnapshot snap = CaseMedicalSnapshot.of(HealingCase.builder().build(), h);
+        CaseMedicalSnapshot snap = CaseMedicalSnapshot.upsert(HealingCase.builder().build(), h, id -> Optional.empty());
         for (java.lang.reflect.Field hf : h.getClass().getDeclaredFields()) {
             if (java.lang.reflect.Modifier.isStatic(hf.getModifiers())) continue;
             if (hf.getType() != String.class && hf.getType() != Boolean.class) continue;

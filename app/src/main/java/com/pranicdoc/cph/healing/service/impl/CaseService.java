@@ -74,6 +74,7 @@ import java.util.function.Predicate;
 public class CaseService {
 
     private final CaseRepository caseRepository;
+    private final com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository caseMedicalSnapshotRepository;
     private final PatientRepository patientRepository;
     private final SecurityContextUtil securityContextUtil;
     private final DeclarationMapper declarationMapper;
@@ -152,8 +153,8 @@ public class CaseService {
         );
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.of(healingCase, history);
-            healingCase.setMedicalSnapshot(snapshot);
+            CaseMedicalSnapshot.upsert(healingCase, history,
+                    id -> caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(id));
         }
         HealingCase saved = caseRepository.save(healingCase);
         if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {

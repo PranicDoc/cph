@@ -13,11 +13,13 @@ import com.pranicdoc.cph.healing.model.CaseMedicalSnapshot;
 import com.pranicdoc.cph.healing.model.Declaration;
 import com.pranicdoc.cph.healing.model.DeclarationDates;
 import com.pranicdoc.cph.healing.model.HealingCase;
+import com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.patient.dto.*;
 import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.model.RegistrationLink;
+import com.pranicdoc.cph.patient.repository.PatientMedicalHistoryRepository;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,8 @@ public class PatientService {
     private final PatientTrashService trashService;
     private final RegistrationLinkRepository registrationLinkRepository;
     private final CaseRepository caseRepository;
+    private final CaseMedicalSnapshotRepository caseMedicalSnapshotRepository;
+    private final PatientMedicalHistoryRepository medicalHistoryRepository;
     private final DeclarationMapper declarationMapper;
     private final SecurityContextUtil securityContextUtil;
     @Value("${app.base.url:http://localhost:3000}")
@@ -98,8 +102,8 @@ public class PatientService {
 
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.of(healingCase, history);
-            healingCase.setMedicalSnapshot(snapshot);
+            CaseMedicalSnapshot.upsert(healingCase, history,
+                    id -> caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(id));
         }
 
         HealingCase savedCase = caseRepository.save(healingCase);
@@ -164,16 +168,24 @@ public class PatientService {
 
     // --- Medical History ---
 
+    /**
+     * Upsert of the patient's medical history (PUT): updates it, restores a soft-deleted row, or creates it
+     * when there is none. Then upserts every case's medical snapshot so the PDF shows the current values.
+     */
     @Auditable(action = "UPDATE_MEDICAL_HISTORY")
     public MedicalHistoryResponse updateMedicalHistory(UUID patientId, MedicalHistoryRequest request) {
         Patient patient = findOwnedOrThrow(patientId);
         PatientMedicalHistory history = patient.getMedicalHistory();
-
         if (history == null) {
-            history = new PatientMedicalHistory();
-            history.setPatient(patient);
-            patient.setMedicalHistory(history);
+            history = medicalHistoryRepository.findIncludingDeletedByPatientId(patientId)
+                    .orElseGet(PatientMedicalHistory::new);
         }
+        history.setPatient(patient);
+        if (history.getHealerId() == null) {
+            history.setHealerId(patient.getHealerId()); // the patient's tenant, not the editor's
+        }
+        history.setDeleted(false);
+        patient.setMedicalHistory(history);
 
         history.setGeneralHealth(request.generalHealth());
         history.setDiet(request.diet());
@@ -189,13 +201,9 @@ public class PatientService {
         history.setAdditionalNotes(request.additionalNotes());
 
         patientRepository.save(patient);
-        // The case PDF / Case Summary read each case's medical snapshot: keep it at the current values.
         for (HealingCase healingCase : caseRepository.findAllByPatientId(patientId)) {
-            if (healingCase.getMedicalSnapshot() == null) {
-                healingCase.setMedicalSnapshot(CaseMedicalSnapshot.of(healingCase, history));
-            } else {
-                healingCase.getMedicalSnapshot().copyFrom(history);
-            }
+            CaseMedicalSnapshot.upsert(healingCase, history,
+                    id -> caseMedicalSnapshotRepository.findIncludingDeletedByHealingCaseId(id));
         }
         return toMedicalHistoryResponse(history);
     }
