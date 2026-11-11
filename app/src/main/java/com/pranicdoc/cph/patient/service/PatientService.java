@@ -203,6 +203,10 @@ public class PatientService {
         history.setAdditionalNotes(request.additionalNotes());
 
         patientRepository.save(patient);
+        // The case PDF / Case Summary read each case's snapshot: keep it at the current values.
+        for (HealingCase healingCase : caseRepository.findAllByPatientId(patientId)) {
+            CaseMedicalSnapshot.upsert(healingCase, history);
+        }
         return toMedicalHistoryResponse(history);
     }
 

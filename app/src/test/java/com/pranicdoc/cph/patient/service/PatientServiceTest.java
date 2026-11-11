@@ -97,6 +97,70 @@ class PatientServiceTest {
         verify(patientRepository, never()).save(any());
     }
 
+    // ── editing medical history upserts every case's snapshot (the PDF reads the snapshot) ──
+
+    private Patient ownPatient() {
+        Patient p = ownedPatient(healerId);
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        lenient().when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        lenient().when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        return p;
+    }
+
+    @Test
+    void updateMedicalHistory_refreshesExistingSnapshots_includingClearedNotes() {
+        Patient p = ownPatient();
+        HealingCase open = HealingCase.builder().status(CaseStatus.ACTIVE).build();
+        HealingCase closed = HealingCase.builder().status(CaseStatus.CLOSED).build();
+        for (HealingCase c : List.of(open, closed)) {
+            c.setMedicalSnapshot(CaseMedicalSnapshot.builder().healingCase(c)
+                    .generalHealth("FAIR").stressDepressionAnxiety(true).additionalNotes("old notes").build());
+        }
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(open, closed));
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", "MIXED", "YOGA", "WEEKLY",
+                true, false, false, false, false, null, null, null));
+
+        for (HealingCase c : List.of(open, closed)) {
+            assertNull(c.getMedicalSnapshot().getAdditionalNotes(), "cleared notes must not linger in the PDF");
+            assertEquals("GOOD", c.getMedicalSnapshot().getGeneralHealth());
+            assertEquals(Boolean.FALSE, c.getMedicalSnapshot().getStressDepressionAnxiety());
+        }
+    }
+
+    @Test
+    void updateMedicalHistory_createsMissingSnapshot() {
+        Patient p = ownPatient();
+        HealingCase c = HealingCase.builder().build();
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "new notes"));
+
+        assertEquals("new notes", c.getMedicalSnapshot().getAdditionalNotes());
+        assertSame(c, c.getMedicalSnapshot().getHealingCase());
+    }
+
+    /** Guards future fields: every PatientMedicalHistory field must reach the snapshot. */
+    @Test
+    void upsertCopiesEveryMedicalHistoryField() throws Exception {
+        var h = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
+        var fields = java.util.Arrays.stream(h.getClass().getDeclaredFields())
+                .filter(f -> f.getType() == String.class || f.getType() == Boolean.class).toList();
+        for (var f : fields) {
+            f.setAccessible(true);
+            f.set(h, f.getType() == String.class ? "v-" + f.getName() : Boolean.TRUE);
+        }
+        HealingCase c = HealingCase.builder().build();
+        CaseMedicalSnapshot.upsert(c, h);
+        for (var f : fields) {
+            var sf = CaseMedicalSnapshot.class.getDeclaredField(f.getName());
+            sf.setAccessible(true);
+            assertEquals(f.get(h), sf.get(c.getMedicalSnapshot()), "upsert does not copy '" + f.getName() + "'");
+        }
+        assertEquals(12, fields.size());
+    }
+
     @AfterEach
     void tearDown() {
         TenantContext.clear();
