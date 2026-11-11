@@ -6,6 +6,20 @@ import org.mapstruct.*;
 
 import java.util.List;
 
+/**
+ * Null lists: a request that omits a list (the UI sends no symptomFeedbacks / qualitativeFeedbacks on a
+ * new session) maps to an EMPTY list on the entity, never null. That comes from the build, not this file:
+ * {@code -Amapstruct.nullValueIterableMappingStrategy=RETURN_DEFAULT} in app/build.gradle. Without it,
+ * MapStruct passes null into the Lombok builder, which skips {@code @Builder.Default}, and
+ * SessionService.create crashes in reanchorFinalFeedback (prod NPE, 2026-11-11).
+ * <ul>
+ *   <li>Don't remove that build option; MapperNullCollectionsTest and SessionServiceTest's real-mapper
+ *       create tests fail if you do.</li>
+ *   <li>A list copied as-is (e.g. {@code List<String>}) is not covered by the option: give it a
+ *       {@code defaultExpression} (see HealingCaseMapper#toTreatmentStep).</li>
+ *   <li>A new mapper must be added to MapperNullCollectionsTest#MAPPERS.</li>
+ * </ul>
+ */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface HealingSessionMapper {
 

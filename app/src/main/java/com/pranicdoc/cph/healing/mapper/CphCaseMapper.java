@@ -51,12 +51,16 @@ public abstract class CphCaseMapper {
 
     public abstract HealingDetailsSnapshot toHealingDetailsSnapshot(HealingDetails d);
 
-    @Mapping(target = "targets", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT)
+    // A plain list copy, so the build's iterable RETURN_DEFAULT doesn't apply (and
+    // nullValuePropertyMappingStrategy only affects update methods): default it explicitly.
+    @Mapping(target = "targets", defaultExpression = "java(new java.util.ArrayList<>())")
     public abstract TreatmentStepSnapshot toTreatmentStepSnapshot(TreatmentStep t);
 
     public abstract MedicalSnapshot         toMedicalSnapshot(CaseMedicalSnapshot m);
 
     @Mapping(target = "healerProtocolUnderstanding", ignore = true)
+    // HealingSession has no protocolEntries (deprecated ProtocolEntry model); send an empty list, not null.
+    @Mapping(target = "protocolEntries", expression = "java(java.util.List.of())")
     public abstract SessionSnapshot         toSessionSnapshot(HealingSession s);
 
     public abstract ChakraScanSnapshot      toChakraScanSnapshot(ChakraScan scan);

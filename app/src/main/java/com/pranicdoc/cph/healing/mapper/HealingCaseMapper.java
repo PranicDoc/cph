@@ -59,5 +59,7 @@ public interface HealingCaseMapper {
 
     @Mapping(target = "treatmentSteps", ignore = true)
     void updateHealingDetails(HealingDetailsRequest healingDetailsRequest, @MappingTarget HealingDetails existingDetails);
+    // A plain list copy, so the build's iterable RETURN_DEFAULT doesn't apply: default it explicitly.
+    @Mapping(target = "targets", defaultExpression = "java(new java.util.ArrayList<>())")
     TreatmentStep toTreatmentStep(TreatmentStepRequest stepReq);
 }

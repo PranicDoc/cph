@@ -138,6 +138,17 @@ tasks.withType(JavaCompile).configureEach {
 	options.compilerArgs += ['-Xlint:deprecation,unchecked', '-Werror']
 }
 
+tasks.named('compileJava') {
+	// MapStruct: a null source collection/map maps to an empty one, never null. Entities are built via
+	// Lombok builders, and passing null into a builder skips @Builder.Default, so without this a request
+	// that omits a list yields an entity whose list is null (NPE on a later add — new-session crash,
+	// 2026-11-11). Guarded by MapperNullCollectionsTest.
+	options.compilerArgs += [
+		'-Amapstruct.nullValueIterableMappingStrategy=RETURN_DEFAULT',
+		'-Amapstruct.nullValueMapMappingStrategy=RETURN_DEFAULT'
+	]
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	maxHeapSize = "512m"
