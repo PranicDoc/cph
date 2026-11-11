@@ -152,21 +152,7 @@ public class CaseService {
         );
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
-                    .healingCase(healingCase)
-                    .generalHealth(history.getGeneralHealth())
-                    .diet(history.getDiet())
-                    .exercise(history.getExercise())
-                    .exerciseFrequency(history.getExerciseFrequency())
-                    .hypertension(history.getHypertension())
-                    .giIssues(history.getGiIssues())
-                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
-                    .pregnant(history.getPregnant())
-                    .cancer(history.getCancer())
-                    .cancerLocation(history.getCancerLocation())
-                    .cancerDetails(history.getCancerDetails())
-                    .additionalNotes(history.getAdditionalNotes())
-                    .build();
+            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.of(healingCase, history);
             healingCase.setMedicalSnapshot(snapshot);
         }
         HealingCase saved = caseRepository.save(healingCase);

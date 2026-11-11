@@ -97,6 +97,99 @@ class PatientServiceTest {
         verify(patientRepository, never()).save(any());
     }
 
+    // ── editing medical history refreshes every case's medical snapshot (the PDF reads the snapshot) ──
+
+    private HealingCase caseWithSnapshot(Patient p, CaseStatus status, String notes) {
+        HealingCase c = HealingCase.builder().build();
+        c.setId(UUID.randomUUID());
+        c.setPatientId(p.getId());
+        c.setStatus(status);
+        c.setMedicalSnapshot(CaseMedicalSnapshot.builder().healingCase(c)
+                .generalHealth("FAIR").stressDepressionAnxiety(true).additionalNotes(notes).build());
+        return c;
+    }
+
+    private Patient ownPatient() {
+        Patient p = ownedPatient(healerId);
+        when(patientRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        lenient().when(securityContextUtil.getCurrentRole()).thenReturn("HEALER");
+        lenient().when(securityContextUtil.getCurrentHealerIdOrNull()).thenReturn(healerId);
+        return p;
+    }
+
+    @Test
+    void updateMedicalHistory_refreshesSnapshotOfEveryCase_includingClearedNotes() {
+        Patient p = ownPatient();
+        HealingCase open = caseWithSnapshot(p, CaseStatus.ACTIVE, "old notes");
+        HealingCase closed = caseWithSnapshot(p, CaseStatus.CLOSED, "old notes");
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(open, closed));
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", "MIXED", "YOGA", "WEEKLY",
+                true, false, false, false, false, null, null, null));
+
+        for (HealingCase c : List.of(open, closed)) {
+            CaseMedicalSnapshot snap = c.getMedicalSnapshot();
+            assertNull(snap.getAdditionalNotes(), "cleared notes must not linger in the PDF");
+            assertEquals("GOOD", snap.getGeneralHealth());
+            assertEquals(Boolean.FALSE, snap.getStressDepressionAnxiety());
+            assertEquals(Boolean.TRUE, snap.getHypertension());
+            assertSame(c, snap.getHealingCase());
+        }
+    }
+
+    @Test
+    void updateMedicalHistory_createsSnapshotForCaseOpenedBeforeAnyHistory() {
+        Patient p = ownPatient();
+        HealingCase c = HealingCase.builder().build();
+        c.setId(UUID.randomUUID());
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of(c));
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "new notes"));
+
+        assertNotNull(c.getMedicalSnapshot());
+        assertEquals("new notes", c.getMedicalSnapshot().getAdditionalNotes());
+        assertSame(c, c.getMedicalSnapshot().getHealingCase());
+    }
+
+    @Test
+    void updateMedicalHistory_patientWithoutCases_justSavesHistory() {
+        Patient p = ownPatient();
+        when(caseRepository.findAllByPatientId(p.getId())).thenReturn(List.of());
+
+        patientService.updateMedicalHistory(p.getId(), new MedicalHistoryRequest("GOOD", null, null, null,
+                null, null, null, null, null, null, null, "n"));
+
+        assertEquals("n", p.getMedicalHistory().getAdditionalNotes());
+        verify(patientRepository).save(p);
+    }
+
+    /** Guards future fields: every PatientMedicalHistory field the snapshot also has must be copied. */
+    @Test
+    void snapshotCopiesEveryMedicalHistoryField() throws Exception {
+        com.pranicdoc.cph.patient.model.PatientMedicalHistory h = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
+        int copied = 0;
+        for (java.lang.reflect.Field f : h.getClass().getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+            f.setAccessible(true);
+            if (f.getType() == String.class) f.set(h, "v-" + f.getName());
+            else if (f.getType() == Boolean.class) f.set(h, Boolean.TRUE);
+        }
+        CaseMedicalSnapshot snap = CaseMedicalSnapshot.of(HealingCase.builder().build(), h);
+        for (java.lang.reflect.Field hf : h.getClass().getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(hf.getModifiers())) continue;
+            if (hf.getType() != String.class && hf.getType() != Boolean.class) continue;
+            java.lang.reflect.Field sf;
+            try { sf = CaseMedicalSnapshot.class.getDeclaredField(hf.getName()); }
+            catch (NoSuchFieldException e) { fail("CaseMedicalSnapshot is missing medical-history field '" + hf.getName()
+                    + "': add it (+ migration) and copy it in CaseMedicalSnapshot.copyFrom, or the PDF won't show it"); return; }
+            hf.setAccessible(true); sf.setAccessible(true);
+            assertEquals(hf.get(h), sf.get(snap), "CaseMedicalSnapshot.copyFrom does not copy '" + hf.getName() + "'");
+            copied++;
+        }
+        assertTrue(copied >= 12, "expected all 12 medical-history fields, checked " + copied);
+    }
+
     @AfterEach
     void tearDown() {
         TenantContext.clear();

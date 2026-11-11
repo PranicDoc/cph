@@ -98,21 +98,7 @@ public class PatientService {
 
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
-                    .healingCase(healingCase)
-                    .generalHealth(history.getGeneralHealth())
-                    .diet(history.getDiet())
-                    .exercise(history.getExercise())
-                    .exerciseFrequency(history.getExerciseFrequency())
-                    .hypertension(history.getHypertension())
-                    .giIssues(history.getGiIssues())
-                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
-                    .pregnant(history.getPregnant())
-                    .cancer(history.getCancer())
-                    .cancerLocation(history.getCancerLocation())
-                    .cancerDetails(history.getCancerDetails())
-                    .additionalNotes(history.getAdditionalNotes())
-                    .build();
+            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.of(healingCase, history);
             healingCase.setMedicalSnapshot(snapshot);
         }
 
@@ -203,6 +189,14 @@ public class PatientService {
         history.setAdditionalNotes(request.additionalNotes());
 
         patientRepository.save(patient);
+        // The case PDF / Case Summary read each case's medical snapshot: keep it at the current values.
+        for (HealingCase healingCase : caseRepository.findAllByPatientId(patientId)) {
+            if (healingCase.getMedicalSnapshot() == null) {
+                healingCase.setMedicalSnapshot(CaseMedicalSnapshot.of(healingCase, history));
+            } else {
+                healingCase.getMedicalSnapshot().copyFrom(history);
+            }
+        }
         return toMedicalHistoryResponse(history);
     }
 
