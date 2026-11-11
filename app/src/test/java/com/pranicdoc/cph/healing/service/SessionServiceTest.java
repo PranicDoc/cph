@@ -711,4 +711,105 @@ class SessionServiceTest {
                 scan.setReadings(List.of(ChakraReading.builder().chakraName("Crown Chakra").build())));
         return session;
     }
+
+    // --- Creating a session through the REAL mapper (regression: 2026-11-11 prod NPE) ---
+    // The other create tests mock HealingSessionMapper and hand back builder-made sessions whose lists
+    // are never null, which hid the bug. These run the generated mapper on the request shape the UI
+    // actually sends: scans only, no symptomFeedbacks / qualitativeFeedbacks.
+
+    private final HealingSessionMapper realMapper = new com.pranicdoc.cph.healing.mapper.HealingSessionMapperImpl();
+
+    private CreateSessionRequest uiShapedRequest(UUID caseId, int number, UUID chakraId) {
+        List<ScanRequest.ChakraReadingRequest> readings =
+                List.of(new ScanRequest.ChakraReadingRequest(chakraId, "Front Solar Plexus Chakra", "C", "N", ""));
+        return new CreateSessionRequest(caseId, number, LocalDate.of(2026, 11, 11),
+                LocalTime.of(19, 29), LocalTime.of(20, 29),
+                List.of(new ScanRequest(ScanType.PRE, "", readings), new ScanRequest(ScanType.POST, "", readings)),
+                null, null);
+    }
+
+    /** Existing sessions with the given numbers; the case's FINAL feedback sits on {@code finalOn} (or none). */
+    private List<HealingSession> existingSessions(HealingCase healingCase, int[] numbers, Integer finalOn,
+                                                  com.pranicdoc.cph.healing.model.QualitativeFeedback finalFb) {
+        List<HealingSession> sessions = new ArrayList<>();
+        for (int n : numbers) {
+            HealingSession s = savedSession(healingCase);
+            s.setSessionNumber(n);
+            s.setQualitativeFeedbacks(new ArrayList<>());
+            s.setSymptomFeedbacks(new ArrayList<>());
+            if (finalOn != null && finalOn == n) {
+                finalFb.setHealingSession(s);
+                s.getQualitativeFeedbacks().add(finalFb);
+            }
+            sessions.add(s);
+        }
+        healingCase.setSessions(new ArrayList<>(sessions));
+        return sessions;
+    }
+
+    private void stubCreate(UUID caseId, HealingCase healingCase, List<HealingSession> existing,
+                            CreateSessionRequest request, UUID chakraId) {
+        when(caseService.findAndLockOrThrow(caseId)).thenReturn(healingCase);
+        when(sessionRepository.findByHealingCaseIdOrderBySessionNumberAsc(caseId)).thenReturn(existing);
+        when(chakraCatalogRepository.findAllById(any())).thenReturn(List.of(chakra(chakraId)));
+        when(mapper.toEntity(request)).thenAnswer(inv -> realMapper.toEntity(request));
+        when(sessionRepository.save(any(HealingSession.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    private com.pranicdoc.cph.healing.model.QualitativeFeedback finalFeedback() {
+        return com.pranicdoc.cph.healing.model.QualitativeFeedback.builder().feedbackType(FeedbackType.FINAL).build();
+    }
+
+    @Test
+    void createNewLatestSessionWithoutFeedbackListsMovesFinalFeedbackOntoIt() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        var finalFb = finalFeedback();
+        List<HealingSession> existing = existingSessions(healingCase, new int[]{1, 2, 3}, 3, finalFb);
+        CreateSessionRequest request = uiShapedRequest(caseId, 4, chakraId);
+        stubCreate(caseId, healingCase, existing, request, chakraId);
+
+        SessionResponse response = sessionService.create(request);   // threw NPE before the fix
+
+        HealingSession created = healingCase.getSessions().get(healingCase.getSessions().size() - 1);
+        assertEquals(4, response.sessionNumber());
+        assertEquals(created, finalFb.getHealingSession());
+        assertTrue(created.getQualitativeFeedbacks().contains(finalFb));
+        assertTrue(existing.get(2).getQualitativeFeedbacks().isEmpty());
+        assertTrue(created.getSymptomFeedbacks().isEmpty());
+    }
+
+    @Test
+    void createSessionBelowTheLatestLeavesFinalFeedbackWhereItIs() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        var finalFb = finalFeedback();
+        List<HealingSession> existing = existingSessions(healingCase, new int[]{1, 3}, 3, finalFb);
+        CreateSessionRequest request = uiShapedRequest(caseId, 2, chakraId);
+        stubCreate(caseId, healingCase, existing, request, chakraId);
+
+        sessionService.create(request);
+
+        assertEquals(existing.get(1), finalFb.getHealingSession());
+        assertTrue(existing.get(1).getQualitativeFeedbacks().contains(finalFb));
+    }
+
+    @Test
+    void createWithoutFeedbackListsOnCaseWithoutFinalFeedbackGivesEmptyLists() {
+        UUID caseId = UUID.randomUUID();
+        UUID chakraId = UUID.randomUUID();
+        HealingCase healingCase = healingCase(caseId);
+        List<HealingSession> existing = existingSessions(healingCase, new int[]{1}, null, null);
+        CreateSessionRequest request = uiShapedRequest(caseId, 2, chakraId);
+        stubCreate(caseId, healingCase, existing, request, chakraId);
+
+        sessionService.create(request);
+
+        HealingSession created = healingCase.getSessions().get(healingCase.getSessions().size() - 1);
+        assertTrue(created.getQualitativeFeedbacks().isEmpty());
+        assertTrue(created.getSymptomFeedbacks().isEmpty());
+        assertEquals(2, created.getScans().size());
+    }
 }

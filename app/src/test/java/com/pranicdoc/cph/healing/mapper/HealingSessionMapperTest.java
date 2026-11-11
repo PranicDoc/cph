@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HealingSessionMapperTest {
 
@@ -34,5 +36,26 @@ class HealingSessionMapperTest {
         assertEquals(3, session.getSessionNumber());
         assertEquals(sessionDate, session.getSessionDate());
         assertEquals(endTime, session.getEndTime());
+    }
+
+    /** The UI omits the feedback lists on a new session; the entity must still get empty, mutable lists. */
+    @Test
+    void toEntityGivesEmptyFeedbackListsWhenRequestOmitsThem() {
+        var session = mapper.toEntity(new CreateSessionRequest(
+                UUID.randomUUID(),
+                4,
+                LocalDate.of(2026, 11, 11),
+                LocalTime.of(19, 29),
+                LocalTime.of(20, 29),
+                List.of(),
+                null,
+                null
+        ));
+
+        assertNotNull(session.getQualitativeFeedbacks());
+        assertNotNull(session.getSymptomFeedbacks());
+        assertTrue(session.getQualitativeFeedbacks().isEmpty());
+        session.getQualitativeFeedbacks().add(new com.pranicdoc.cph.healing.model.QualitativeFeedback());
+        session.getSymptomFeedbacks().add(new com.pranicdoc.cph.healing.model.SymptomFeedback());
     }
 }

@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -47,7 +48,7 @@ public class TreatmentStep extends BaseEntity {
     // LAZY collection's load across all TreatmentSteps in the persistence
     // context into one "WHERE id IN (...)" query.
     @ElementCollection(fetch = FetchType.LAZY)
-    private List<String> targets;
+    private List<String> targets = new ArrayList<>();
 
     @Column(name = "color")
     private String color;

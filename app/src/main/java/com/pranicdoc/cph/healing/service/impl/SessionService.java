@@ -112,6 +112,8 @@ public class SessionService {
         }
         requireUniqueNumber(sessionRequest.caseId(), sessionRequest.sessionNumber(), null);
         validateMasterDataReferences(sessionRequest.scans());
+        // Omitted request lists come back as empty lists, never null (build-level MapStruct option, see
+        // HealingSessionMapper) — reanchorFinalFeedback below relies on that.
         HealingSession session = mapper.toEntity(sessionRequest);
         session.setClientRequestId(idempotencyKey);
         // TODO this is a basic validation, add few more checks comparing with the base data
