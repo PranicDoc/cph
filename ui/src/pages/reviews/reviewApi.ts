@@ -79,3 +79,47 @@ export const NO_INSTRUCTOR_LINE = "No instructor is linked to you yet.";
 export async function updateReviewPreferences(autoSubmitForReview: boolean): Promise<void> {
   await api.put("/api/v1/auth/me/review-preferences", { autoSubmitForReview });
 }
+
+// ---- Instructor (CASE:REVIEW) side ----
+
+export type ReviewStatus = SubmissionResponse["status"];
+
+/** One row of the instructor's queue, oldest latest-revision first. */
+export interface InboxItem {
+  submissionId: string;
+  healerName: string;
+  caseTitle: string;
+  latestRevisionNo: number;
+  status: ReviewStatus;
+  submittedAt: string | null;
+}
+
+/** The instructor's queue, optionally filtered by status. */
+export async function inbox(status?: ReviewStatus): Promise<InboxItem[]> {
+  const res = await api.get<InboxItem[]>(`${BASE}/inbox`, { params: status ? { status } : undefined });
+  return res.data;
+}
+
+/** One assigned submission with its revisions. A 403 means it was moved to another instructor. */
+export async function inboxItem(submissionId: string): Promise<SubmissionResponse> {
+  const res = await api.get<SubmissionResponse>(`${BASE}/inbox/${submissionId}`);
+  return res.data;
+}
+
+/** Short-lived presigned URL of one revision's PDF. */
+export async function inboxFileUrl(submissionId: string, revisionNo: number): Promise<string> {
+  const res = await api.get<{ url: string }>(`${BASE}/inbox/${submissionId}/revisions/${revisionNo}/file`);
+  return res.data.url;
+}
+
+/** Shown in the viewer when the instructor loses the submission (reassigned) while it is open. */
+export const MOVED_MESSAGE = "This submission was moved to another instructor";
+/** The refresh banner shown when a newer revision arrives while one is open. */
+export const NEW_VERSION_MESSAGE = "New version available — refresh";
+
+export const STATUS_LABELS: Record<ReviewStatus, string> = {
+  PENDING_REVIEW: "Pending review",
+  CHANGES_REQUESTED: "Changes requested",
+  APPROVED: "Approved",
+  DISMISSED: "Dismissed",
+};

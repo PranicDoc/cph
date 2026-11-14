@@ -157,7 +157,8 @@ class LegacyEndpointCutoverSweepTest {
             PatientController.class, SessionController.class, CaseController.class,
             ScanController.class, ProtocolController.class, FeedbackController.class,
             CreditProxyController.class,
-            com.pranicdoc.cph.review.controller.HealerReviewController.class);
+            com.pranicdoc.cph.review.controller.HealerReviewController.class,
+            com.pranicdoc.cph.review.controller.ReviewerController.class);
 
     /**
      * {@code @RestController} classes deliberately covered by NEITHER sweep, keyed

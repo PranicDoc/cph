@@ -30,6 +30,8 @@ export default defineConfig(({mode}) => {
             if (/^(recharts|d3-.+|victory-vendor|@reduxjs\/.+|redux|immer|reselect|decimal\.js-light|es-toolkit)$/.test(pkg)) return 'vendor-charts';
             if (/^(react-markdown|remark-.+|micromark.*|mdast-.+|hast-.+|unist-.+|unified|vfile.*)$/.test(pkg)) return 'vendor-markdown';
             if (/^(date-fns|react-day-picker)$/.test(pkg)) return 'vendor-dates';
+            // Only the review viewer needs pdf.js; keep it out of the eager vendor chunk.
+            if (pkg === 'pdfjs-dist') return 'vendor-pdf';
             return 'vendor';
           },
         },

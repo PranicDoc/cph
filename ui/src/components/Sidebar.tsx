@@ -12,6 +12,8 @@ export interface SidebarNavItem {
   /** Shown only to users who hold `verb` (default READ) on any of these RBAC resources; omit for items everyone sees. */
   anyOf?: string[];
   verb?: string;
+  /** Shown only to users who hold exactly this operation on this resource (e.g. CASE:REVIEW). */
+  requires?: { resource: string; operation: string };
 }
 
 interface SidebarProps {

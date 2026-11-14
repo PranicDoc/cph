@@ -61,4 +61,13 @@ describe("navigation by permission", () => {
     expect(adminItemForPath("/admin/accounts/HEALER/1/transactions", items)?.label).toBe("Accounts");
     expect(adminItemForPath("/admin", items)).toBeUndefined();
   });
+
+  it("navShowsReviewsOnlyWithCaseReview", () => {
+    const reviews: SidebarNavItem = {
+      label: "Reviews", path: "/reviews", icon: Users, requires: { resource: "CASE", operation: "REVIEW" },
+    };
+    expect(canSeeNavItem({ grants: { CASE: ["READ", "UPDATE"] } }, reviews)).toBe(false);
+    expect(canSeeNavItem({ grants: { CASE: ["REVIEW"] } }, reviews)).toBe(true);
+    expect(canSeeNavItem(undefined, reviews)).toBe(false);
+  });
 });

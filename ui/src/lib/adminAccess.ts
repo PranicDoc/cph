@@ -15,10 +15,14 @@ export function hasPermission(perms: MyPermissions | undefined, resource: string
 
 /**
  * A menu item is shown when it needs no permission, or when the user holds its verb (READ unless
- * the item names another) on any of the resources it lists. Gated items stay hidden until the
+ * the item names another) on any of the resources it lists, or the one operation on the one
+ * resource named by `requires`. Gated items stay hidden until the
  * permissions have loaded.
  */
 export function canSeeNavItem(perms: MyPermissions | undefined, item: SidebarNavItem): boolean {
+  if (item.requires) {
+    return hasPermission(perms, item.requires.resource, item.requires.operation);
+  }
   if (!item.anyOf?.length) return true;
   if (!perms) return false;
   const verb = item.verb ?? "READ";

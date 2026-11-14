@@ -12,6 +12,7 @@ import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
 import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
 import com.pranicdoc.cph.review.controller.HealerReviewController;
+import com.pranicdoc.cph.review.controller.ReviewerController;
 import com.pranicdoc.cph.review.stream.ReviewStreamController;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -150,10 +151,12 @@ class HealerControllerGateSweepTest {
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4),
             // Case review, healer side: all six routes gated CASE:UPDATE (class-level mapping not counted).
-            new SweptController(HealerReviewController.class, 6, 6));
+            new SweptController(HealerReviewController.class, 6, 6),
+            // Case review, instructor side: all three inbox routes gated CASE:REVIEW.
+            new SweptController(ReviewerController.class, 3, 3));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 61;
-    private static final int EXPECTED_TOTAL_GATED = 53;
+    private static final int EXPECTED_TOTAL_MAPPED = 64;
+    private static final int EXPECTED_TOTAL_GATED = 56;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
@@ -478,8 +481,8 @@ class HealerControllerGateSweepTest {
     void everyGatedEndpointOnTheHealerSurfaceUsesTheBareDynamicForm() {
         assertThat(CONTROLLERS)
                 .as("the healer surface is the seven Phase-42 controllers plus the case-review "
-                        + "HealerReviewController")
-                .hasSize(8);
+                        + "HealerReviewController and ReviewerController")
+                .hasSize(9);
         assertThat(CONTROLLERS.stream().mapToInt(SweptController::expectedMapped).sum())
                 .as("EXPECTED_TOTAL_MAPPED must equal the sum of the per-controller expectedMapped "
                         + "rows — a constant adjusted away from the row sum hides a real drift "

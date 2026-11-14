@@ -23,5 +23,7 @@ public interface ReviewSubmissionRepository extends JpaRepository<ReviewSubmissi
     List<ReviewSubmission> findByHealerIdAndStageAndStatusIn(UUID healerId, ReviewStage stage,
                                                              Collection<ReviewStatus> statuses);
 
+    List<ReviewSubmission> findByReviewerIdAndStage(UUID reviewerId, ReviewStage stage);
+
     long countByHealerIdAndStageAndStatus(UUID healerId, ReviewStage stage, ReviewStatus status);
 }
