@@ -52,7 +52,8 @@ import {
 } from "@/components/ui/select";
 import { ClosurePopup } from "./Closure";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SubmitForReviewButton, CASE_STATUSES_KEY } from "./reviews/SubmitForReviewButton";
+import { SubmitForReviewButton } from "./reviews/SubmitForReviewButton";
+import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
 import { caseStatuses } from "./reviews/reviewApi";
 import { UpgradeModal } from "../components/UpgradeModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";

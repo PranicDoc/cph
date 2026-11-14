@@ -8,6 +8,9 @@ import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.dto.CaseReviewStatusResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
+import com.pranicdoc.cph.review.event.ReviewEvent;
+import com.pranicdoc.cph.review.event.ReviewEventPublisher;
+import com.pranicdoc.cph.review.event.ReviewEventType;
 import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
@@ -63,6 +66,7 @@ class ReviewSubmissionServiceTest {
     @Mock private StorageService storage;
     @Mock private SecurityContextUtil security;
     @Mock private PlatformTransactionManager txManager;
+    @Mock private ReviewEventPublisher events;
 
     private ReviewFileStore files;
     private ReviewSubmissionService service;
@@ -77,7 +81,7 @@ class ReviewSubmissionServiceTest {
         files = spy(new ReviewFileStore(storage));
         doReturn(pdfBytes).when(files).fetch(anyString());
         service = new ReviewSubmissionService(submissions, revisions, cases, pdfJobs, assignments,
-                files, security, txManager);
+                files, security, txManager, events);
 
         when(security.getCurrentHealerId()).thenReturn(healerId);
         when(cases.findById(caseId)).thenReturn(Optional.of(ownedCase(caseId, healerId)));
@@ -233,6 +237,46 @@ class ReviewSubmissionServiceTest {
 
         assertThat(response.id()).isEqualTo(winner.getId());
         verify(storage, never()).upload(anyString(), any(), anyString());
+    }
+
+    @Test
+    void submit_publishesRevisionAddedToBothParties() {
+        SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        verify(events).publish(new ReviewEvent(response.id(), healerId, reviewerId,
+                ReviewEventType.REVISION_ADDED, 1));
+    }
+
+    @Test
+    void resubmit_publishesRevisionAddedWithTheNewRevisionNumber() {
+        ReviewSubmission open = existing(ReviewStatus.CHANGES_REQUESTED);
+        when(submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER))
+                .thenReturn(Optional.of(open));
+        ReviewRevision r1 = ReviewRevision.builder().submissionId(open.getId()).revisionNo(1).fileUrl("k1").build();
+        when(revisions.findTopBySubmissionIdOrderByRevisionNoDesc(open.getId())).thenReturn(Optional.of(r1));
+
+        service.submit(caseId, SubmittedVia.MANUAL);
+
+        verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
+                ReviewEventType.REVISION_ADDED, 2));
+    }
+
+    @Test
+    void autoSubmit_publishesThroughTheSamePath() {
+        SubmissionResponse response = service.submitAs(healerId, caseId, SubmittedVia.AUTO);
+
+        verify(events).publish(new ReviewEvent(response.id(), healerId, reviewerId,
+                ReviewEventType.REVISION_ADDED, 1));
+    }
+
+    @Test
+    void refusedSubmit_publishesNothing() {
+        when(submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER))
+                .thenReturn(Optional.of(existing(ReviewStatus.APPROVED)));
+
+        assertThatThrownBy(() -> service.submit(caseId, SubmittedVia.MANUAL))
+                .isInstanceOf(ReviewRefusedException.class);
+        verify(events, never()).publish(any());
     }
 
     @Test

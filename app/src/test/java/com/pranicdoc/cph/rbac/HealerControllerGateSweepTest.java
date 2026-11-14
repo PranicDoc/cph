@@ -12,6 +12,7 @@ import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
 import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
 import com.pranicdoc.cph.review.controller.HealerReviewController;
+import com.pranicdoc.cph.review.stream.ReviewStreamController;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.Test;
@@ -333,6 +334,35 @@ class HealerControllerGateSweepTest {
                 .as("AuthController.java comment-stripped source must contain zero occurrences of "
                         + "PreAuthorize — openness is asserted by absence (D-07), and no "
                         + "@PreAuthorize(\"permitAll()\") marker annotation may be introduced")
+                .isEqualTo(0);
+    }
+
+    // ─── Case review — ReviewStreamController stays ungated (per-user SSE stream) ──
+
+    /**
+     * The one {@code ReviewStreamController} route reachable by every authenticated healer
+     * without a capability grant, with the reason it stays open.
+     */
+    private static final Map<String, String> REVIEW_STREAM_SELF_SERVICE_ROUTES = Map.of(
+            "stream", "per-user stream, carries only that user's events");
+
+    @Test
+    void reviewStreamControllerRemainsUngated() {
+        assertThat(requestMappedCount(ReviewStreamController.class))
+                .as("ReviewStreamController request-mapped method count — anti-vacuous guard")
+                .isEqualTo(1);
+
+        assertThat(ungatedMethodNames(ReviewStreamController.class))
+                .as("GET /api/v1/reviews/stream is self-service: %s. It is keyed to the caller's own "
+                        + "id and an instructor holding CASE:REVIEW and a healer holding CASE:UPDATE both "
+                        + "need it, so no single capability gate fits; patient tokens are refused in "
+                        + "SecurityConfig", REVIEW_STREAM_SELF_SERVICE_ROUTES.get("stream"))
+                .containsExactlyInAnyOrderElementsOf(REVIEW_STREAM_SELF_SERVICE_ROUTES.keySet());
+
+        assertThat(countOccurrences(
+                readStrippedSource(sourcePathFor(ReviewStreamController.class)), "PreAuthorize"))
+                .as("ReviewStreamController.java comment-stripped source must contain zero "
+                        + "occurrences of PreAuthorize — openness asserted by absence (D-07)")
                 .isEqualTo(0);
     }
 

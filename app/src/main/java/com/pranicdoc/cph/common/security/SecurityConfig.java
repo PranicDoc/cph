@@ -1,5 +1,9 @@
 package com.pranicdoc.cph.common.security;
 
+import jakarta.servlet.DispatcherType;
+import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import com.pranicdoc.cph.common.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +53,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
+                        // The async dispatch that ends a long-lived response (the review SSE stream)
+                        // runs without the JWT filter; its original request was already authorized.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // Public endpoints
                         .requestMatchers(
                                 "/api/v1/auth/login",
@@ -87,6 +94,11 @@ public class SecurityConfig {
                         // A SELF_REG patient link's subject is the owning healer, so without this
                         // rule the link could read and change that healer's profile.
                         .requestMatchers("/api/v1/auth/profile").not().hasRole("PATIENT")
+                        // Same reason: a SELF_REG link would otherwise receive the owning healer's review
+                        // events. allOf(authenticated) too, since not().hasRole alone admits anonymous callers.
+                        .requestMatchers("/api/v1/reviews/stream").access(AuthorizationManagers.allOf(
+                                AuthenticatedAuthorizationManager.authenticated(),
+                                AuthorizationManagers.not(AuthorityAuthorizationManager.hasRole("PATIENT"))))
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

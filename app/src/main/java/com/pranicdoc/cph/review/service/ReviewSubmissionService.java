@@ -12,6 +12,9 @@ import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.dto.CaseReviewStatusResponse;
 import com.pranicdoc.cph.review.dto.RevisionResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
+import com.pranicdoc.cph.review.event.ReviewEvent;
+import com.pranicdoc.cph.review.event.ReviewEventPublisher;
+import com.pranicdoc.cph.review.event.ReviewEventType;
 import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
@@ -62,11 +65,13 @@ public class ReviewSubmissionService {
     private final ReviewFileStore files;
     private final SecurityContextUtil security;
     private final TransactionTemplate tx;
+    private final ReviewEventPublisher events;
 
     public ReviewSubmissionService(ReviewSubmissionRepository submissions, ReviewRevisionRepository revisions,
                                    CaseRepository cases, PdfJobRepository pdfJobs,
                                    ReviewerAssignmentService assignments, ReviewFileStore files,
-                                   SecurityContextUtil security, PlatformTransactionManager txManager) {
+                                   SecurityContextUtil security, PlatformTransactionManager txManager,
+                                   ReviewEventPublisher events) {
         this.submissions = submissions;
         this.revisions = revisions;
         this.cases = cases;
@@ -75,12 +80,14 @@ public class ReviewSubmissionService {
         this.files = files;
         this.security = security;
         this.tx = new TransactionTemplate(txManager);
+        this.events = events;
     }
 
     /**
      * Opens a new submission for the case, or adds a revision when one is open. Runs its writes in a
      * transaction of its own so a lost race on the unique index can be answered with the winner's
-     * submission instead of a failed request.
+     * submission instead of a failed request. Both parties get a live REVISION_ADDED event once the
+     * revision has committed; a lost race publishes nothing, since the winner already did.
      */
     @Auditable(action = "SUBMIT_FOR_REVIEW")
     public SubmissionResponse submit(UUID caseId, SubmittedVia via) {
@@ -139,6 +146,7 @@ public class ReviewSubmissionService {
                 .stage(ReviewStage.REVIEWER).status(ReviewStatus.PENDING_REVIEW)
                 .submittedVia(via).build());
         ReviewRevision first = saveRevision(created.getId(), 1, job, via);
+        publishRevisionAdded(created, first);
         return toResponse(created, List.of(first));
     }
 
@@ -150,9 +158,16 @@ public class ReviewSubmissionService {
         open.setStatus(ReviewStatus.PENDING_REVIEW);
         open.setReviewerId(reviewerId);
         submissions.saveAndFlush(open);
+        publishRevisionAdded(open, added);
         List<ReviewRevision> all = new java.util.ArrayList<>(previous);
         all.add(added);
         return toResponse(open, all);
+    }
+
+    /** Registered inside the submit transaction; the publisher sends it only after that commits. */
+    private void publishRevisionAdded(ReviewSubmission submission, ReviewRevision revision) {
+        events.publish(new ReviewEvent(submission.getId(), submission.getHealerId(), submission.getReviewerId(),
+                ReviewEventType.REVISION_ADDED, revision.getRevisionNo()));
     }
 
     /** Pins the PDF bytes first, so a failed copy saves no revision row. */

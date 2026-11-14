@@ -13,6 +13,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -191,6 +193,16 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://pranicdoc.com/errors/rate-limit-exceeded"));
         pd.setProperty("timestamp", Instant.now());
         return pd;
+    }
+
+    /**
+     * The end of a long-lived response (the review SSE stream timing out, or the client having
+     * gone away). Not an error: the response is already a committed text/event-stream, so nothing
+     * is written and nothing is logged; without this the catch-all would log an ERROR per tab.
+     */
+    @ExceptionHandler({AsyncRequestTimeoutException.class, AsyncRequestNotUsableException.class})
+    public void handleAsyncRequestEnded(Exception ex) {
+        // Intentionally empty.
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)

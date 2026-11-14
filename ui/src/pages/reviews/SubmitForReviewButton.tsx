@@ -4,10 +4,8 @@ import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { extractDetail } from "../../lib/utils";
+import { CASE_STATUSES_KEY } from "../../lib/reviewQueryKeys";
 import { NO_REVIEWER_MESSAGE, submitCase, type CaseReviewStatus } from "./reviewApi";
-
-/** Query key under which the patients page keeps the review status of its cases. */
-export const CASE_STATUSES_KEY = ["review", "case-statuses"] as const;
 
 interface Props {
   caseId: string;

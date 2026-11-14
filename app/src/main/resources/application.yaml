@@ -127,6 +127,11 @@ management:
       enabled: false
 
 app:
+  # Live review events fan out to every cph instance over Redis pub/sub (channel
+  # cph:review-events). false = deliver on this instance only (no Redis).
+  review:
+    events:
+      redis-enabled: ${APP_REVIEW_EVENTS_REDIS_ENABLED:true}
   jwt:
     access-token-expiration-ms: 3600000
     refresh-token-expiration-ms: 604800000
