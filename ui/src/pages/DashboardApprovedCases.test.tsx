@@ -57,7 +57,7 @@ describe("dashboard approved cases tile", () => {
 
   it("dashboardShowsApprovedCount (classic)", async () => {
     wrap(<ClassicDashboard />);
-    expect(await screen.findByText("Approved Cases")).toBeInTheDocument();
+    expect(await screen.findByText("Approved cases")).toBeInTheDocument();
     expect(await screen.findByTestId("approved-cases-value")).toHaveTextContent("5");
   });
 
@@ -71,6 +71,6 @@ describe("dashboard approved cases tile", () => {
     vi.mocked(api.get).mockRejectedValue({ response: { status: 403 } });
     wrap(<ClassicDashboard />);
     expect(await screen.findByText("Active Patients")).toBeInTheDocument();
-    expect(screen.queryByText("Approved Cases")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved cases")).not.toBeInTheDocument();
   });
 });

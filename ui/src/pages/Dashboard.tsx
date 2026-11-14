@@ -96,7 +96,7 @@ function ClassicDashboard() {
               icon={FileText}
             />
             {approved.data !== undefined && (
-              <KpiCard label="Approved Cases" value={approved.data} icon={BadgeCheck} valueTestId="approved-cases-value" />
+              <KpiCard label="Approved cases" value={approved.data} icon={BadgeCheck} valueTestId="approved-cases-value" />
             )}
           </>
         )}

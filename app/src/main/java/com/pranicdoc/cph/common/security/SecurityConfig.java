@@ -94,9 +94,11 @@ public class SecurityConfig {
                         // A SELF_REG patient link's subject is the owning healer, so without this
                         // rule the link could read and change that healer's profile.
                         .requestMatchers("/api/v1/auth/profile").not().hasRole("PATIENT")
-                        // Same reason: a SELF_REG link would otherwise receive the owning healer's review
-                        // events. allOf(authenticated) too, since not().hasRole alone admits anonymous callers.
-                        .requestMatchers("/api/v1/reviews/stream").access(AuthorizationManagers.allOf(
+                        // Same reason: a SELF_REG link (role PATIENT, subject = the owning healer) would
+                        // otherwise resolve that healer's CASE:UPDATE / CASE:REVIEW grants on every review
+                        // route and receive their review events. allOf(authenticated) too, since
+                        // not().hasRole alone admits anonymous callers.
+                        .requestMatchers("/api/v1/reviews/**").access(AuthorizationManagers.allOf(
                                 AuthenticatedAuthorizationManager.authenticated(),
                                 AuthorizationManagers.not(AuthorityAuthorizationManager.hasRole("PATIENT"))))
                         // All other requests require authentication

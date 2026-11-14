@@ -78,25 +78,32 @@ function PatientEditForm({
   });
   const approvedEdit = useApprovedEditGuard(caseIds);
 
+  const initialValues = {
+    generalHealth: history?.generalHealth ?? null,
+    diet: history?.diet ?? null,
+    exercise: parseExercise(history?.exercise),
+    exerciseFrequency: history?.exerciseFrequency ?? null,
+    hypertension: history?.hypertension ?? false,
+    giIssues: history?.giIssues ?? false,
+    stressDepressionAnxiety: history?.stressDepressionAnxiety ?? false,
+    pregnant: history?.pregnant ?? false,
+    cancer: history?.cancer ?? false,
+    cancerLocation: history?.cancerLocation ?? null,
+    cancerDetails: history?.cancerDetails ?? null,
+    additionalNotes: history?.additionalNotes ?? null,
+    declarationDate: savedDate,
+  };
+
   const form = useForm({
-    defaultValues: {
-      generalHealth: history?.generalHealth ?? null,
-      diet: history?.diet ?? null,
-      exercise: parseExercise(history?.exercise),
-      exerciseFrequency: history?.exerciseFrequency ?? null,
-      hypertension: history?.hypertension ?? false,
-      giIssues: history?.giIssues ?? false,
-      stressDepressionAnxiety: history?.stressDepressionAnxiety ?? false,
-      pregnant: history?.pregnant ?? false,
-      cancer: history?.cancer ?? false,
-      cancerLocation: history?.cancerLocation ?? null,
-      cancerDetails: history?.cancerDetails ?? null,
-      additionalNotes: history?.additionalNotes ?? null,
-      declarationDate: savedDate,
-    },
+    defaultValues: initialValues,
     onSubmit: async ({ value }) => {
       try {
-        await api.put(`/api/v1/patients/${patient.id}/medical-history`, buildMedicalHistoryUpdate(value));
+        // Writing the history dismisses approvals on every case of the patient, so leave it alone
+        // when only the declaration date (or nothing) changed.
+        const update = buildMedicalHistoryUpdate(value);
+        if (JSON.stringify(update) !== JSON.stringify(buildMedicalHistoryUpdate(initialValues))) {
+          await api.put(`/api/v1/patients/${patient.id}/medical-history`, update);
+        }
         if (declaration?.editable && value.declarationDate && value.declarationDate !== savedDate) {
           await api.put(`/api/v1/patients/${patient.id}/declaration-date`, {
             declarationDate: value.declarationDate,
