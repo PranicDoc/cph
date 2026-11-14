@@ -30,3 +30,10 @@ export const reviewInboxItemKey = (submissionId: string) => ["review", submissio
  */
 export const reviewFileKey = (submissionId: string, revisionNo: number) =>
   ["review-file", submissionId, revisionNo] as const;
+
+/** Comments of one submission for one side; under the submission key so COMMENT_ADDED events refetch them. */
+export const reviewCommentsKey = (submissionId: string, side: "reviewer" | "healer") =>
+  ["review", submissionId, "comments", side] as const;
+
+/** One submission as its healer sees it; under the submission key so its events refetch it. */
+export const reviewHealerSubmissionKey = (submissionId: string) => ["review", submissionId, "healer"] as const;

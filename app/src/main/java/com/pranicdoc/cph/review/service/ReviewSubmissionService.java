@@ -276,7 +276,8 @@ public class ReviewSubmissionService {
         return new PreSignedUrlResponse(files.presignedUrl(key), Instant.now().plus(Duration.ofMinutes(10)));
     }
 
-    private ReviewSubmission ownSubmission(UUID submissionId) {
+    /** Row-level check, shared with the comment service: the submission is the caller's own. */
+    public ReviewSubmission ownSubmission(UUID submissionId) {
         ReviewSubmission s = submissions.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", submissionId));
         if (!security.getCurrentHealerId().equals(s.getHealerId())) {

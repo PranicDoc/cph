@@ -40,6 +40,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -63,6 +64,7 @@ class ReviewerControllerAuthorizationContractTest {
     @Autowired private MockMvc mockMvc;
 
     @MockBean private ReviewInboxService service;
+    @MockBean private com.pranicdoc.cph.review.service.ReviewCommentService commentService;
     @MockBean private RolePermissionLookupService lookupService;
     @MockBean private JwtService jwtService;
     @MockBean private TenantInterceptor tenantInterceptor;
@@ -86,28 +88,38 @@ class ReviewerControllerAuthorizationContractTest {
         when(lookupService.hasPermission(CALLER, Resource.CASE, Operation.REVIEW)).thenReturn(hasCaseReview);
     }
 
-    private static final String ROUTES = """
-            /inbox
-            /inbox/00000000-0000-0000-0000-0000000000c1
-            /inbox/00000000-0000-0000-0000-0000000000c1/revisions/1/file
-            """;
-
-    @ParameterizedTest(name = "GET {0} -> 403 without CASE:REVIEW")
-    @CsvSource(textBlock = ROUTES)
-    void withoutCaseReviewGets403(String path) throws Exception {
-        authenticate(false);
-        mockMvc.perform(get(BASE + path).cookie(new Cookie("accessToken", TOKEN)))
-                .andExpect(status().isForbidden());
-        verifyNoInteractions(service);
+    private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request(
+            String method, String path) {
+        var b = "POST".equals(method) ? post(path) : get(path);
+        return b.cookie(new Cookie("accessToken", TOKEN))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}");
     }
 
-    @ParameterizedTest(name = "GET {0} -> 2xx with CASE:REVIEW")
+    private static final String ROUTES = """
+            GET,/inbox
+            GET,/inbox/00000000-0000-0000-0000-0000000000c1
+            GET,/inbox/00000000-0000-0000-0000-0000000000c1/revisions/1/file
+            GET,/inbox/00000000-0000-0000-0000-0000000000c1/comments
+            POST,/inbox/00000000-0000-0000-0000-0000000000c1/comments
+            POST,/inbox/comments/00000000-0000-0000-0000-0000000000c1/resolve
+            """;
+
+    @ParameterizedTest(name = "{0} {1} -> 403 without CASE:REVIEW")
     @CsvSource(textBlock = ROUTES)
-    void withCaseReviewIsAdmitted(String path) throws Exception {
+    void withoutCaseReviewGets403(String method, String path) throws Exception {
+        authenticate(false);
+        mockMvc.perform(request(method, BASE + path))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(service, commentService);
+    }
+
+    @ParameterizedTest(name = "{0} {1} -> 2xx with CASE:REVIEW")
+    @CsvSource(textBlock = ROUTES)
+    void withCaseReviewIsAdmitted(String method, String path) throws Exception {
         authenticate(true);
         when(service.getFileUrl(any(), anyInt())).thenReturn(new PreSignedUrlResponse("https://r2/x", Instant.now()));
         when(service.inbox(any())).thenReturn(List.of());
-        mockMvc.perform(get(BASE + path).cookie(new Cookie("accessToken", TOKEN)))
+        mockMvc.perform(request(method, BASE + path))
                 .andExpect(status().is2xxSuccessful());
     }
 

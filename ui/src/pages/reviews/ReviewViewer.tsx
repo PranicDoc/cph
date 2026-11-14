@@ -6,7 +6,10 @@ import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useReviewStream } from "../../hooks/useReviewStream";
 import { reviewFileKey, reviewInboxItemKey } from "../../lib/reviewQueryKeys";
-import PdfDocumentView from "./PdfDocumentView";
+import PdfPinCanvas from "./PdfPinCanvas";
+import ThreadPanel from "./ThreadPanel";
+import { useReviewComments } from "./useReviewComments";
+import { pinsForRevision, scrollToThread } from "./threads";
 import { inboxFileUrl, inboxItem, MOVED_MESSAGE, NEW_VERSION_MESSAGE, STATUS_LABELS } from "./reviewApi";
 
 /**
@@ -42,7 +45,12 @@ export default function ReviewViewer() {
     retry: false,
   });
 
-  const forbidden = [submission.error, file.error].some((e) => isAxiosError(e) && e.response?.status === 403);
+  const thread = useReviewComments("reviewer", submissionId);
+  const [placing, setPlacing] = useState(false);
+  const [draft, setDraft] = useState<{ page: number; x: number; y: number } | null>(null);
+  const [activeThread, setActiveThread] = useState<string | null>(null);
+
+  const forbidden = [submission.error, file.error, thread.comments.error].some((e) => isAxiosError(e) && e.response?.status === 403);
   if (forbidden) {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-3 p-4">
@@ -58,9 +66,20 @@ export default function ReviewViewer() {
 
   const revisions = submission.data?.revisions ?? [];
   const hasNewer = displayed > 0 && latest > displayed;
+  const comments = thread.comments.data ?? [];
+  // New pins go on the latest version only; older versions keep the pins they already have.
+  const canPin = displayed > 0 && displayed === latest;
+  const pins = [
+    ...pinsForRevision(comments, displayed),
+    ...(draft ? [{ id: "draft", page: draft.page, x: draft.x, y: draft.y, label: "+", draft: true }] : []),
+  ];
+  const selectThread = (id: string) => {
+    setActiveThread(id);
+    scrollToThread(id);
+  };
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-3 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/reviews" className="text-sm underline">
@@ -90,6 +109,16 @@ export default function ReviewViewer() {
           <Button
             type="button"
             size="sm"
+            variant={placing ? "default" : "outline"}
+            aria-pressed={placing}
+            disabled={!file.data || !canPin}
+            onClick={() => setPlacing((v) => !v)}
+          >
+            {placing ? "Click the PDF to place a pin" : "Add pin"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
             variant="outline"
             disabled={!file.data}
             onClick={() => file.data && window.open(file.data, "_blank", "noopener")}
@@ -115,7 +144,46 @@ export default function ReviewViewer() {
           Could not load this submission.
         </p>
       )}
-      {file.data && <PdfDocumentView key={file.data} fileUrl={file.data} />}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0">
+          {file.data && (
+            <PdfPinCanvas
+              key={file.data}
+              fileUrl={file.data}
+              pins={pins}
+              activePinId={activeThread}
+              onSelectPin={selectThread}
+              onAddPin={
+                placing && canPin
+                  ? (page, x, y) => {
+                      setDraft({ page, x, y });
+                      setPlacing(false);
+                    }
+                  : undefined
+              }
+            />
+          )}
+        </div>
+        <div className="lg:sticky lg:top-4 lg:max-h-[85vh] lg:self-start lg:overflow-y-auto">
+          <ThreadPanel
+            comments={comments}
+            latestRevisionNo={latest}
+            activeThreadId={activeThread}
+            onSelectThread={selectThread}
+            onReply={(parentId, body) => thread.add({ parentId, body })}
+            onResolve={thread.resolve}
+            onAddGeneral={displayed > 0 ? (body) => thread.add({ revisionNo: displayed, body }) : undefined}
+            draftPin={draft}
+            onSubmitDraft={async (body) => {
+              if (!draft) return;
+              await thread.add({ revisionNo: displayed, page: draft.page, x: draft.x, y: draft.y, body });
+              setDraft(null);
+            }}
+            onCancelDraft={() => setDraft(null)}
+            error={thread.error}
+          />
+        </div>
+      </div>
     </div>
   );
 }

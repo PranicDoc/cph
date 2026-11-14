@@ -79,6 +79,7 @@ const router = createBrowserRouter(
           <Route path="profile" lazy={page(() => import("./pages/Profile"))} />
           <Route path="reviews" lazy={page(() => import("./pages/reviews/ReviewQueue"))} />
           <Route path="reviews/:submissionId" lazy={page(() => import("./pages/reviews/ReviewViewer"))} />
+          <Route path="submissions/:submissionId" lazy={page(() => import("./pages/reviews/SubmissionDetail"))} />
         </Route>
         {/* Sibling of the Layout route, not nested inside it: /legal-center
             must stay behind ProtectedRoute's gate check but must not render

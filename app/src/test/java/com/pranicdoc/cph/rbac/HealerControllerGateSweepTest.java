@@ -150,13 +150,13 @@ class HealerControllerGateSweepTest {
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
             new SweptController(CreditProxyController.class, 4, 4),
-            // Case review, healer side: all six routes gated CASE:UPDATE (class-level mapping not counted).
-            new SweptController(HealerReviewController.class, 6, 6),
-            // Case review, instructor side: all three inbox routes gated CASE:REVIEW.
-            new SweptController(ReviewerController.class, 3, 3));
+            // Case review, healer side: all eight routes gated CASE:UPDATE (class-level mapping not counted).
+            new SweptController(HealerReviewController.class, 8, 8),
+            // Case review, instructor side: all six inbox routes gated CASE:REVIEW.
+            new SweptController(ReviewerController.class, 6, 6));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 64;
-    private static final int EXPECTED_TOTAL_GATED = 56;
+    private static final int EXPECTED_TOTAL_MAPPED = 69;
+    private static final int EXPECTED_TOTAL_GATED = 61;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,

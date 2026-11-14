@@ -8,7 +8,7 @@ import ReviewViewer from "./ReviewViewer";
 import api from "../../lib/axios";
 
 vi.mock("../../lib/axios", () => ({
-  default: { get: vi.fn(), defaults: { baseURL: "" } },
+  default: { get: vi.fn(), post: vi.fn(), defaults: { baseURL: "" } },
   refreshSession: vi.fn(),
 }));
 // The PDF render needs a real canvas; the test only cares which file is handed to it.
@@ -57,8 +57,10 @@ function renderViewer() {
 }
 
 let currentLatest = 1;
+let currentComments: unknown[] = [];
 function mockApi() {
   vi.mocked(api.get).mockImplementation((url: string) => {
+    if (url.endsWith("/inbox/s1/comments")) return Promise.resolve({ data: currentComments });
     if (url.endsWith("/inbox/s1")) return Promise.resolve({ data: submission(currentLatest) });
     const m = url.match(/revisions\/(\d+)\/file$/);
     if (m) return Promise.resolve({ data: { url: `https://r2/rev${m[1]}.pdf` } });
@@ -71,6 +73,7 @@ describe("ReviewViewer", () => {
     vi.clearAllMocks();
     FakeEventSource.instances = [];
     currentLatest = 1;
+    currentComments = [];
     vi.stubGlobal("EventSource", FakeEventSource);
     mockApi();
   });
@@ -112,5 +115,42 @@ describe("ReviewViewer", () => {
     renderViewer();
     expect(await screen.findByText("This submission was moved to another instructor")).toBeInTheDocument();
     expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+  });
+
+  it("lists a thread and resolves it, then refetches the comments", async () => {
+    const user = userEvent.setup();
+    currentComments = [
+      { id: "c1", submissionId: "s1", revisionNo: 1, parentId: null, authorId: "me", authorName: "Me",
+        authorSide: "REVIEWER", page: 1, x: 0.5, y: 0.5, body: "Check this", createdAt: "2026-11-02T10:00:00Z",
+        resolvedAt: null },
+    ];
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
+    renderViewer();
+    expect(await screen.findByText("Check this")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Resolve" }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/v1/reviews/inbox/comments/c1/resolve"));
+  });
+
+  it("a COMMENT_ADDED event refreshes the comments", async () => {
+    renderViewer();
+    await screen.findByTestId("pdf");
+    expect(screen.queryByText("Late note")).not.toBeInTheDocument();
+
+    currentComments = [
+      { id: "c9", submissionId: "s1", revisionNo: 1, parentId: null, authorId: "h1", authorName: "Healer",
+        authorSide: "HEALER", page: null, x: null, y: null, body: "Late note", createdAt: "2026-11-02T10:00:00Z",
+        resolvedAt: null },
+    ];
+    act(() => {
+      FakeEventSource.instances[0].listeners["review"](
+        new MessageEvent("review", {
+          data: JSON.stringify({ submissionId: "s1", type: "COMMENT_ADDED", revisionNo: 1 }),
+        })
+      );
+    });
+
+    expect(await screen.findByText("Late note")).toBeInTheDocument();
   });
 });

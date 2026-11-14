@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from "react";
 
 interface Props {
   fileUrl: string;
+  /** Called with the page wrapper elements (index 0 = page 1) each time one more page has rendered. */
+  onPagesReady?: (pages: HTMLElement[]) => void;
 }
 
 /**
  * Renders every page of a PDF into stacked canvases, scaled to the container width (so it works at
  * phone width). pdf.js and its worker load on first use, keeping them out of the main bundle.
  */
-export default function PdfDocumentView({ fileUrl }: Props) {
+export default function PdfDocumentView({ fileUrl, onPagesReady }: Props) {
+  const onPagesReadyRef = useRef(onPagesReady);
+  onPagesReadyRef.current = onPagesReady;
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +24,7 @@ export default function PdfDocumentView({ fileUrl }: Props) {
     setError(null);
     setLoading(true);
     container.replaceChildren();
+    const pageEls: HTMLElement[] = [];
     let loadingTask: { destroy: () => Promise<void> } | null = null;
 
     (async () => {
@@ -40,14 +45,22 @@ export default function PdfDocumentView({ fileUrl }: Props) {
         const base = page.getViewport({ scale: 1 });
         const scale = width / base.width;
         const viewport = page.getViewport({ scale: scale * ratio });
+        const wrapper = document.createElement("div");
+        wrapper.dataset.pdfPage = String(n);
+        wrapper.className = "relative mb-3";
+        wrapper.style.width = `${width}px`;
+        wrapper.style.height = `${base.height * scale}px`;
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${base.height * scale}px`;
-        canvas.className = "mb-3 rounded border bg-white shadow-sm";
-        container.appendChild(canvas);
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.className = "rounded border bg-white shadow-sm";
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+        pageEls.push(wrapper);
         await page.render({ canvas, viewport }).promise;
+        onPagesReadyRef.current?.([...pageEls]);
         if (cancelled) return;
       }
       if (!cancelled) setLoading(false);

@@ -71,6 +71,7 @@ class HealerReviewControllerAuthorizationContractTest {
     @Autowired private MockMvc mockMvc;
 
     @MockBean private ReviewSubmissionService service;
+    @MockBean private com.pranicdoc.cph.review.service.ReviewCommentService commentService;
     @MockBean private RolePermissionLookupService lookupService;
     @MockBean private JwtService jwtService;
     @MockBean private TenantInterceptor tenantInterceptor;
@@ -96,7 +97,8 @@ class HealerReviewControllerAuthorizationContractTest {
 
     private static MockHttpServletRequestBuilder request(String method, String path) {
         MockHttpServletRequestBuilder b = "POST".equals(method) ? post(path) : get(path);
-        return b.cookie(new Cookie("accessToken", TOKEN));
+        return b.cookie(new Cookie("accessToken", TOKEN))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}");
     }
 
     private static final String ROUTES = """
@@ -106,6 +108,8 @@ class HealerReviewControllerAuthorizationContractTest {
             GET,/case-statuses?caseIds=00000000-0000-0000-0000-0000000000c1
             GET,/submissions/00000000-0000-0000-0000-0000000000c1
             GET,/submissions/00000000-0000-0000-0000-0000000000c1/revisions/1/file
+            GET,/submissions/00000000-0000-0000-0000-0000000000c1/comments
+            POST,/submissions/00000000-0000-0000-0000-0000000000c1/comments
             """;
 
     @ParameterizedTest(name = "{0} {1} -> 403 without CASE:UPDATE")
@@ -113,7 +117,7 @@ class HealerReviewControllerAuthorizationContractTest {
     void withoutCaseUpdateGets403(String method, String path) throws Exception {
         authenticate(false);
         mockMvc.perform(request(method, BASE + path)).andExpect(status().isForbidden());
-        verifyNoInteractions(service);
+        verifyNoInteractions(service, commentService);
     }
 
     @ParameterizedTest(name = "{0} {1} -> 2xx with CASE:UPDATE")

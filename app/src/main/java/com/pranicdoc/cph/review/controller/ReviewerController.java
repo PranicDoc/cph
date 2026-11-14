@@ -1,14 +1,20 @@
 package com.pranicdoc.cph.review.controller;
 
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
+import com.pranicdoc.cph.review.dto.CommentRequest;
+import com.pranicdoc.cph.review.dto.CommentResponse;
 import com.pranicdoc.cph.review.dto.InboxItemResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
+import com.pranicdoc.cph.review.model.AuthorSide;
 import com.pranicdoc.cph.review.model.ReviewStatus;
+import com.pranicdoc.cph.review.service.ReviewCommentService;
 import com.pranicdoc.cph.review.service.ReviewInboxService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +32,7 @@ import java.util.UUID;
 public class ReviewerController {
 
     private final ReviewInboxService service;
+    private final ReviewCommentService commentService;
 
     @GetMapping("/inbox")
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
@@ -43,5 +50,23 @@ public class ReviewerController {
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
     public PreSignedUrlResponse getRevisionFile(@PathVariable UUID id, @PathVariable("n") int revisionNo) {
         return service.getFileUrl(id, revisionNo);
+    }
+
+    @GetMapping("/inbox/{id}/comments")
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
+    public List<CommentResponse> listComments(@PathVariable UUID id) {
+        return commentService.list(id, AuthorSide.REVIEWER);
+    }
+
+    @PostMapping("/inbox/{id}/comments")
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
+    public CommentResponse addComment(@PathVariable UUID id, @RequestBody CommentRequest request) {
+        return commentService.add(id, request, AuthorSide.REVIEWER);
+    }
+
+    @PostMapping("/inbox/comments/{commentId}/resolve")
+    @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
+    public void resolveComment(@PathVariable UUID commentId) {
+        commentService.resolve(commentId);
     }
 }

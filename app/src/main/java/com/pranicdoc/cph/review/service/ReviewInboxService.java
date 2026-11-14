@@ -107,7 +107,8 @@ public class ReviewInboxService {
         return new PreSignedUrlResponse(files.presignedUrl(key), Instant.now().plus(Duration.ofMinutes(10)));
     }
 
-    private ReviewSubmission assignedSubmission(UUID submissionId) {
+    /** Row-level check, shared with the comment service: assigned to the caller, and not their own case. */
+    public ReviewSubmission assignedSubmission(UUID submissionId) {
         ReviewSubmission s = submissions.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", submissionId));
         UUID me = security.getCurrentHealerId();

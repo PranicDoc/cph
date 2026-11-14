@@ -123,3 +123,73 @@ export const STATUS_LABELS: Record<ReviewStatus, string> = {
   APPROVED: "Approved",
   DISMISSED: "Dismissed",
 };
+
+// ---- Comments and threads ----
+
+/** Which party is calling; picks the route family (instructor inbox or healer submissions). */
+export type ReviewSide = "reviewer" | "healer";
+
+export interface ReviewComment {
+  id: string;
+  submissionId: string;
+  /** The revision the comment (or its thread) is on, so the UI can say "on version N". */
+  revisionNo: number;
+  parentId: string | null;
+  authorId: string;
+  authorName: string;
+  authorSide: "HEALER" | "REVIEWER";
+  /** Set with x and y for a pin; x and y are 0-1 against the page's rendered size. */
+  page: number | null;
+  x: number | null;
+  y: number | null;
+  body: string;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface NewComment {
+  revisionNo?: number;
+  parentId?: string;
+  page?: number;
+  x?: number;
+  y?: number;
+  body: string;
+}
+
+const commentsPath = (side: ReviewSide, submissionId: string) =>
+  side === "reviewer" ? `${BASE}/inbox/${submissionId}/comments` : `${BASE}/submissions/${submissionId}/comments`;
+
+export async function listComments(side: ReviewSide, submissionId: string): Promise<ReviewComment[]> {
+  const res = await api.get<ReviewComment[]>(commentsPath(side, submissionId));
+  return res.data;
+}
+
+export async function addComment(side: ReviewSide, submissionId: string, comment: NewComment): Promise<ReviewComment> {
+  const res = await api.post<ReviewComment>(commentsPath(side, submissionId), comment);
+  return res.data;
+}
+
+/** Instructor only. */
+export async function resolveComment(commentId: string): Promise<void> {
+  await api.post(`${BASE}/inbox/comments/${commentId}/resolve`);
+}
+
+// ---- Healer's own submission ----
+
+/** One of the caller's own submissions with its revisions. */
+export async function submission(submissionId: string): Promise<SubmissionResponse> {
+  const res = await api.get<SubmissionResponse>(`${BASE}/submissions/${submissionId}`);
+  return res.data;
+}
+
+/** Short-lived presigned URL of one revision's PDF, for the submitting healer. */
+export async function submissionFileUrl(submissionId: string, revisionNo: number): Promise<string> {
+  const res = await api.get<{ url: string }>(`${BASE}/submissions/${submissionId}/revisions/${revisionNo}/file`);
+  return res.data.url;
+}
+
+/** The server's reason for a refused request (validation 400, stale 409), else a fallback. */
+export function reviewErrorMessage(e: unknown, fallback: string): string {
+  const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  return typeof detail === "string" && detail ? detail : fallback;
+}
