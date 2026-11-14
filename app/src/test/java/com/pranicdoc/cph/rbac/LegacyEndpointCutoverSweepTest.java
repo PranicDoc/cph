@@ -202,6 +202,11 @@ class LegacyEndpointCutoverSweepTest {
                         + "'UPDATE') — pinned in BaselineRoleBackfillControllerAuthorizationContract"
                         + "Test — so it is not an ungated hole; it is simply owned by neither sweep's "
                         + "pinned counts");
+        m.put("com.pranicdoc.cph.review.controller.AdminReviewerAssignmentController",
+                "SUPADM-only (link healers to reviewing instructors): no RBAC permission opens it, "
+                        + "so it carries no @PreAuthorize gate; every route calls "
+                        + "AdminAuthz.assertSuperAdmin(), pinned in AdminReviewerAssignmentController"
+                        + "AuthorizationContractTest (403 for a non-SUPADM on all four routes)");
         return m;
     }
 

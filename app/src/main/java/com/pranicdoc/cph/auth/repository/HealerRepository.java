@@ -41,6 +41,9 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
      */
     long countByRole(Role role);
 
+    /** Active (non-deleted) healer accounts. */
+    List<Healer> findByActiveTrue();
+
     /**
      * Active, non-deleted HEALER accounts that currently hold no live role
      * assignment at all — the target set for the baseline "Practitioner"

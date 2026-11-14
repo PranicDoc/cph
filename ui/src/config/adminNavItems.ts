@@ -1,4 +1,4 @@
-import { Users, Package, Sliders, Database, UserPlus, FileText, ShieldCheck } from "lucide-react";
+import { Users, Package, Sliders, Database, UserPlus, FileText, ShieldCheck, UserCheck } from "lucide-react";
 import type { SidebarNavItem } from "../components/Sidebar";
 
 export interface AdminNavItem extends SidebarNavItem {
@@ -18,4 +18,6 @@ export const adminNavItems: AdminNavItem[] = [
   { label: "Healer Reg.",  path: "/admin/healer-registration", icon: UserPlus,   anyOf: ["HEALER_REG"], group: "Access" },
   { label: "Legal Documents", path: "/admin/legal-documents", icon: FileText, anyOf: ["LEGAL_DOCUMENTS"], group: "Content" },
   { label: "Roles & Permissions", path: "/admin/roles", icon: ShieldCheck, anyOf: ["ROLES"], group: "Access" },
+  // SUPADM-only: opened by CREDIT_ACCOUNTS:ADMIN, which only SUPADM holds by default (like Accounts).
+  { label: "Reviewer Links", path: "/admin/reviewer-assignments", icon: UserCheck, anyOf: ["CREDIT_ACCOUNTS"], verb: "ADMIN", group: "Access" },
 ];

@@ -101,6 +101,7 @@ const router = createBrowserRouter(
           <Route path="roles" lazy={page(() => import("./pages/admin/RolesPage"))} />
           <Route path="roles/new" lazy={page(() => import("./pages/admin/RoleFormPage"))} />
           <Route path="roles/:id/edit" lazy={page(() => import("./pages/admin/RoleFormPage"))} />
+          <Route path="reviewer-assignments" lazy={page(() => import("./pages/admin/ReviewerAssignmentsPage"))} />
         </Route>
       </Route>
 
