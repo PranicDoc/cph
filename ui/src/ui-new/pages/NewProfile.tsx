@@ -4,6 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCreditAccount } from "../../hooks/useCreditAccount";
 import { planEndLine } from "../lib/planEnd";
 import { CreditHistoryCard } from "../components/CreditHistoryCard";
+import { HlSwitch } from "../components/Controls";
+import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../../pages/reviews/reviewApi";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 
@@ -40,6 +42,11 @@ export interface ProfilePageState {
   linkGoogle: () => void;
   linkingGoogle: boolean;
   askUnlinkGoogle: () => void;
+  autoSubmitForReview: boolean;
+  setAutoSubmitForReview: (on: boolean) => void;
+  savingReviewPref: boolean;
+  /** True once the profile loaded and no instructor is linked. */
+  noInstructorLinked: boolean;
   openUpgrade: () => void;
 }
 
@@ -183,6 +190,23 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
           </section>
 
           <CreditHistoryCard />
+
+          <section className="surface card">
+            <div className="card-h">
+              <h2>Case review</h2>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <span>{AUTO_SUBMIT_LABEL}</span>
+              <HlSwitch
+                checked={page.autoSubmitForReview}
+                onChange={page.setAutoSubmitForReview}
+                label={AUTO_SUBMIT_LABEL}
+                disabled={page.isLoading || page.savingReviewPref}
+              />
+            </div>
+            <div className="small muted" style={{ marginTop: 10 }}>{AUTO_SUBMIT_NOTE}</div>
+            {page.noInstructorLinked && <div className="small muted" style={{ marginTop: 6 }}>{NO_INSTRUCTOR_LINE}</div>}
+          </section>
 
           <section className="surface card">
             <div className="card-h">

@@ -16,6 +16,7 @@ import com.pranicdoc.cph.auth.dto.InitSessionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.dto.SignupRequest;
+import com.pranicdoc.cph.auth.dto.ReviewPreferencesRequest;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.auth.service.impl.InviteService;
@@ -164,6 +165,13 @@ public class AuthController {
     @PutMapping("/ui-version")
     public ResponseEntity<HealerResponse> updateUiVersion(@Valid @RequestBody UiVersionRequest request) {
         return ResponseEntity.ok(authService.updateUiVersion(request));
+    }
+
+    /** Case-review preferences of the signed-in healer (opt-in auto-submit). PUT /api/v1/auth/me/review-preferences */
+    @PutMapping("/me/review-preferences")
+    public ResponseEntity<HealerResponse> updateReviewPreferences(
+            @Valid @RequestBody ReviewPreferencesRequest request) {
+        return ResponseEntity.ok(authService.updateReviewPreferences(request));
     }
 
     /** Permanently erases the signed-in healer's own account and data (type-to-confirm: their e-mail). */

@@ -84,7 +84,19 @@ public class ReviewSubmissionService {
      */
     @Auditable(action = "SUBMIT_FOR_REVIEW")
     public SubmissionResponse submit(UUID caseId, SubmittedVia via) {
-        UUID healerId = security.getCurrentHealerId();
+        return doSubmit(security.getCurrentHealerId(), caseId, via);
+    }
+
+    /**
+     * Same as {@link #submit} for a caller with no security context (the PDF-completed webhook):
+     * the healer is named explicitly and the case must still belong to them.
+     */
+    @Auditable(action = "AUTO_SUBMIT_FOR_REVIEW")
+    public SubmissionResponse submitAs(UUID healerId, UUID caseId, SubmittedVia via) {
+        return doSubmit(healerId, caseId, via);
+    }
+
+    private SubmissionResponse doSubmit(UUID healerId, UUID caseId, SubmittedVia via) {
         HealingCase healingCase = cases.findById(caseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Case", caseId));
         if (!healerId.equals(healingCase.getHealerId())) {

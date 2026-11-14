@@ -4,6 +4,8 @@ import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.FeedbackSessionResponse;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.ReviewPreferencesRequest;
+import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
@@ -59,6 +61,7 @@ public class AuthService {
     private final SessionRepository sessionRepository;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final CreditServiceClient creditServiceClient;
+    private final ReviewerAssignmentService reviewerAssignments;
     private static final String PATIENT = "PATIENT";
 
     // ─── Login ──────────────────────────────────────────────────
@@ -159,7 +162,7 @@ public class AuthService {
     public HealerResponse getCurrentHealer() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
-        return toResponse(healer);
+        return toResponse(healer).withReviewerLinked(reviewerAssignments.reviewerFor(healerId).isPresent());
     }
 
     // ─── Update current healer profile ─────────────────────────
@@ -199,6 +202,15 @@ public class AuthService {
         Healer healer = findOrThrow(healerId);
         healer.setUiVersion(request.uiVersion());
         return toResponse(healerRepository.save(healer));
+    }
+
+    @Auditable(action = "UPDATE_REVIEW_PREFERENCES")
+    public HealerResponse updateReviewPreferences(ReviewPreferencesRequest request) {
+        UUID healerId = securityContextUtil.getCurrentHealerId();
+        Healer healer = findOrThrow(healerId);
+        healer.setAutoSubmitForReview(request.autoSubmitForReview());
+        return toResponse(healerRepository.save(healer))
+                .withReviewerLinked(reviewerAssignments.reviewerFor(healerId).isPresent());
     }
 
     // ─── Change current healer password ─────────────────────────

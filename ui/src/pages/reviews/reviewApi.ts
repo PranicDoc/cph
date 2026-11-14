@@ -4,6 +4,11 @@ import api from "../../lib/axios";
 export const NO_REVIEWER_MESSAGE =
   "You don't have an instructor linked yet. Ask your administrator to link one before submitting.";
 
+/** Profile toggle: label and the note under it. */
+export const AUTO_SUBMIT_LABEL = "Automatically submit PDFs for review after they are generated";
+export const AUTO_SUBMIT_NOTE =
+  "New PDFs, including amendments to cases already in review, are sent to your instructor automatically. Approved cases are never sent automatically: if you edit an approved case, submit it for review yourself.";
+
 export type CaseReviewStatus =
   | "NOT_SUBMITTED"
   | "NOT_SUBMITTED_NO_REVIEWER"
@@ -65,4 +70,12 @@ export async function caseStatuses(caseIds: string[]): Promise<Record<string, Ca
     for (const status of res.data) out[status.caseId] = status;
   }
   return out;
+}
+
+/** Shown under the Case review toggle when the healer has no instructor. */
+export const NO_INSTRUCTOR_LINE = "No instructor is linked to you yet.";
+
+/** Turns opt-in auto-submit on or off for the signed-in healer. */
+export async function updateReviewPreferences(autoSubmitForReview: boolean): Promise<void> {
+  await api.put("/api/v1/auth/me/review-preferences", { autoSubmitForReview });
 }

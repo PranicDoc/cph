@@ -20,14 +20,22 @@ public record HealerResponse(
         boolean hasPassword,
         boolean hasGoogleLinked,
         UiVersion uiVersion,
-        int nextNameChangeCost
+        int nextNameChangeCost,
+        boolean autoSubmitForReview,
+        /** Whether an instructor is linked to this healer; only filled on the healer's own profile reads. */
+        boolean reviewerLinked
 ) {
     public static HealerResponse from(Healer h) {
         return new HealerResponse(
                 h.getId(), h.getFullName(), h.getEmail(), h.getPhone(),
                 h.getRole(), h.getHealingLevel(), h.isActive(), h.getCreatedAt(),
                 h.getPasswordHash() != null, h.getProviderUserId() != null,
-                h.getUiVersion(), h.nextNameChangeCost()
+                h.getUiVersion(), h.nextNameChangeCost(), h.isAutoSubmitForReview(), false
         );
+    }
+
+    public HealerResponse withReviewerLinked(boolean linked) {
+        return new HealerResponse(id, fullName, email, phone, role, healingLevel, active, createdAt, hasPassword,
+                hasGoogleLinked, uiVersion, nextNameChangeCost, autoSubmitForReview, linked);
     }
 }

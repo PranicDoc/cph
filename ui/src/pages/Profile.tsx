@@ -10,12 +10,14 @@ import { CreditHistory } from "../components/CreditHistory";
 import { Skeleton } from "../components/ui/skeleton";
 import {
   useHealerProfile, useUpdateProfile, useChangePassword,
-  useLinkGoogle, useUnlinkGoogle,
+  useLinkGoogle, useUnlinkGoogle, useUpdateReviewPreferences,
 } from "../hooks/useHealerProfile";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "./reviews/reviewApi";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DeleteMyAccount } from "../components/DeleteMyAccount";
@@ -55,6 +57,7 @@ export default function Profile() {
   const changePwMutation = useChangePassword();
   const linkGoogleMutation = useLinkGoogle();
   const unlinkGoogleMutation = useUnlinkGoogle();
+  const reviewPrefMutation = useUpdateReviewPreferences();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ fullName: "", email: "", phone: "" });
@@ -218,6 +221,10 @@ export default function Profile() {
             linkGoogle: handleLinkGoogle,
             linkingGoogle: linkGoogleMutation.isPending,
             askUnlinkGoogle: () => setConfirmingUnlink(true),
+            autoSubmitForReview: !!profile?.autoSubmitForReview,
+            setAutoSubmitForReview: (on: boolean) => reviewPrefMutation.mutate(on),
+            savingReviewPref: reviewPrefMutation.isPending,
+            noInstructorLinked: profile?.reviewerLinked === false,
             openUpgrade: () => setShowUpgrade(true),
           }}
         />
@@ -486,6 +493,26 @@ export default function Profile() {
               </p>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* ── Case review ── */}
+      <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-primary-dark">Case review</h2>
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="auto-submit-review" className="text-sm font-normal">
+            {AUTO_SUBMIT_LABEL}
+          </Label>
+          <Switch
+            id="auto-submit-review"
+            checked={!!profile?.autoSubmitForReview}
+            disabled={isLoading || reviewPrefMutation.isPending}
+            onCheckedChange={(on) => reviewPrefMutation.mutate(on)}
+          />
+        </div>
+        <p className="text-xs text-text-light">{AUTO_SUBMIT_NOTE}</p>
+        {profile?.reviewerLinked === false && (
+          <p className="text-xs text-text-light">{NO_INSTRUCTOR_LINE}</p>
         )}
       </div>
 

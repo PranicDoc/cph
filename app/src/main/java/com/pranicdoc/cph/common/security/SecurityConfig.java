@@ -69,6 +69,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
+                        // pdfWorker's PDF-completed webhook: no JWT, InternalPdfJobController checks X-Internal-Token.
+                        .requestMatchers("/internal/pdf-jobs/**").permitAll()
                         // /api/v1/internal/** never reaches this chain — see InternalApiSecurityConfig.
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()

@@ -70,6 +70,11 @@ public class Healer extends BaseEntity {
     @Builder.Default
     private UiVersion uiVersion = UiVersion.CLASSIC;
 
+    /** Opt-in: send every newly generated case PDF to the linked instructor for review without asking. */
+    @Column(name = "auto_submit_for_review", nullable = false)
+    @Builder.Default
+    private boolean autoSubmitForReview = false;
+
     /** How many times the healer has changed their full name since registering; never resets. */
     @Column(name = "name_change_count", nullable = false)
     private int nameChangeCount;
