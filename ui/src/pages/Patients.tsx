@@ -53,6 +53,7 @@ import {
 import { ClosurePopup } from "./Closure";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SubmitForReviewButton } from "./reviews/SubmitForReviewButton";
+import { ReviewStatusBadge } from "./reviews/ReviewStatusBadge";
 import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
 import { caseStatuses } from "./reviews/reviewApi";
 import { UpgradeModal } from "../components/UpgradeModal";
@@ -362,6 +363,9 @@ export default function Patients() {
     const review = hasCase ? reviewStatuses?.[patient.healingCaseId] : undefined;
     return (
       <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-2">
+        {review && (review.eligible || !review.status.startsWith("NOT_SUBMITTED")) && (
+          <ReviewStatusBadge status={review.status} />
+        )}
         {review?.eligible && (
           <SubmitForReviewButton caseId={patient.healingCaseId} status={review.status} />
         )}

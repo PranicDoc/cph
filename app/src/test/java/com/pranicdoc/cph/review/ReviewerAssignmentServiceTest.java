@@ -130,6 +130,26 @@ class ReviewerAssignmentServiceTest {
     }
 
     @Test
+    void list_fillsApprovedCountFromOneBatchedLookup() {
+        UUID otherHealer = UUID.randomUUID();
+        when(assignments.findAll()).thenReturn(List.of(
+                ReviewerAssignment.builder().healerId(healerId).reviewerId(reviewerId).build(),
+                ReviewerAssignment.builder().healerId(otherHealer).reviewerId(reviewerId).build()));
+        when(healers.findAllById(any())).thenReturn(List.of(
+                healer(healerId, "h", true), healer(otherHealer, "o", true), healer(reviewerId, "r", true)));
+        when(reviewSubmissions.approvedCounts(any())).thenReturn(java.util.Map.of(healerId, 3L));
+
+        List<ReviewerAssignmentResponse> rows = service.list();
+
+        assertThat(rows).extracting(ReviewerAssignmentResponse::healerId, ReviewerAssignmentResponse::approvedCount)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(healerId, 3L),
+                        org.assertj.core.groups.Tuple.tuple(otherHealer, 0L));
+        verify(reviewSubmissions).approvedCounts(any());
+        verify(reviewSubmissions, never()).approvedCount(any());
+    }
+
+    @Test
     void unassign_removesLink() {
         ReviewerAssignment existing = ReviewerAssignment.builder().healerId(healerId).reviewerId(reviewerId).build();
         when(assignments.findByHealerId(healerId)).thenReturn(Optional.of(existing));

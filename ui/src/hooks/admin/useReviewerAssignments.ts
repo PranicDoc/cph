@@ -8,6 +8,8 @@ export interface ReviewerAssignment {
   healerName: string | null;
   reviewerId: string;
   reviewerName: string | null;
+  /** How many of the healer's cases this instructor has approved. */
+  approvedCount: number;
 }
 
 export interface HealerOption {

@@ -31,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -201,6 +202,20 @@ public class ReviewSubmissionService {
     @Transactional(readOnly = true)
     public long approvedCount(UUID healerId) {
         return submissions.countByHealerIdAndStageAndStatus(healerId, ReviewStage.REVIEWER, ReviewStatus.APPROVED);
+    }
+
+    /** Approved-case counts for several healers in one query; healers with none are left out. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Long> approvedCounts(Collection<UUID> healerIds) {
+        if (healerIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Long> counts = new HashMap<>();
+        for (Object[] row : submissions.countByHealerIdsAndStageAndStatus(
+                healerIds, ReviewStage.REVIEWER, ReviewStatus.APPROVED)) {
+            counts.put((UUID) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     /** Review state per case for the caller's own cases; ids of other healers' cases are left out. */

@@ -37,3 +37,9 @@ export const reviewCommentsKey = (submissionId: string, side: "reviewer" | "heal
 
 /** One submission as its healer sees it; under the submission key so its events refetch it. */
 export const reviewHealerSubmissionKey = (submissionId: string) => ["review", submissionId, "healer"] as const;
+
+/** The healer's own submissions list (My submissions); under the review prefix so any live event refetches it. */
+export const MY_SUBMISSIONS_KEY = ["review", "my-submissions"] as const;
+
+/** How many of the healer's cases are approved (dashboard tile). */
+export const APPROVED_COUNT_KEY = ["review", "approved-count"] as const;

@@ -62,8 +62,11 @@ public class ReviewerAssignmentService {
         });
         Map<UUID, Healer> byId = healers.findAllById(ids).stream()
                 .collect(Collectors.toMap(Healer::getId, Function.identity()));
+        Map<UUID, Long> approved = reviewSubmissions.approvedCounts(
+                all.stream().map(ReviewerAssignment::getHealerId).toList());
         return all.stream()
-                .map(a -> toResponse(a, byId.get(a.getHealerId()), byId.get(a.getReviewerId())))
+                .map(a -> toResponse(a, byId.get(a.getHealerId()), byId.get(a.getReviewerId()),
+                        approved.getOrDefault(a.getHealerId(), 0L)))
                 .toList();
     }
 
@@ -97,7 +100,7 @@ public class ReviewerAssignmentService {
         link.setReviewerId(reviewerId);
         ReviewerAssignment saved = assignments.save(link);
         reviewSubmissions.reassignOpen(healerId, reviewerId);
-        return toResponse(saved, healer, reviewer);
+        return toResponse(saved, healer, reviewer, reviewSubmissions.approvedCount(healerId));
     }
 
     @Auditable(action = "UNASSIGN_REVIEWER")
@@ -106,9 +109,10 @@ public class ReviewerAssignmentService {
         assignments.findByHealerId(healerId).ifPresent(assignments::delete);
     }
 
-    private static ReviewerAssignmentResponse toResponse(ReviewerAssignment a, Healer healer, Healer reviewer) {
+    private static ReviewerAssignmentResponse toResponse(ReviewerAssignment a, Healer healer, Healer reviewer,
+                                                        long approvedCount) {
         return new ReviewerAssignmentResponse(
                 a.getHealerId(), healer == null ? null : healer.getFullName(),
-                a.getReviewerId(), reviewer == null ? null : reviewer.getFullName());
+                a.getReviewerId(), reviewer == null ? null : reviewer.getFullName(), approvedCount);
     }
 }

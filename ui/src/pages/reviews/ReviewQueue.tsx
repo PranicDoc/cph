@@ -12,8 +12,9 @@ function formatDate(iso: string | null): string {
 /** The instructor's queue of submitted cases, oldest first. Live: stream events refetch it. */
 export default function ReviewQueue() {
   const [status, setStatus] = useState<ReviewStatus | "">("");
-  const { resetUnread } = useReviewStream();
-  useEffect(() => resetUnread(), [resetUnread]);
+  const { unreadCount, resetUnread } = useReviewStream();
+  // Also when an event arrives while the queue is open: it is already on screen.
+  useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: reviewInboxKey(status || undefined),

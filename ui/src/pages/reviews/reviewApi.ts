@@ -210,3 +210,17 @@ export function reviewErrorMessage(e: unknown, fallback: string): string {
   const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   return typeof detail === "string" && detail ? detail : fallback;
 }
+
+// ---- Healer status tracking ----
+
+/** Every submission of the signed-in healer, newest first, each with its revisions. */
+export async function mySubmissions(): Promise<SubmissionResponse[]> {
+  const res = await api.get<SubmissionResponse[]>(`${BASE}/my-submissions`);
+  return res.data;
+}
+
+/** How many of the signed-in healer's cases are approved. */
+export async function myApprovedCount(): Promise<number> {
+  const res = await api.get<{ count: number }>(`${BASE}/my-approved-count`);
+  return res.data.count;
+}

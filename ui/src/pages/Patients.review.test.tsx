@@ -65,4 +65,27 @@ describe("Patients: submit for review", () => {
       params: { caseIds: "case-a,case-b,case-c" },
     });
   });
+
+  it("shows each case's review status next to its actions", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [
+        { caseId: "case-a", status: "CHANGES_REQUESTED", eligible: true, latestRevisionNo: 1 },
+        { caseId: "case-b", status: "NOT_SUBMITTED", eligible: false, latestRevisionNo: null },
+        { caseId: "case-c", status: "APPROVED", eligible: true, latestRevisionNo: 1 },
+      ],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Patients />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect((await screen.findAllByText("Changes requested", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
+    // Patient b has no PDF yet: nothing to say about review.
+    expect(screen.queryByText("Not submitted")).not.toBeInTheDocument();
+  });
 });

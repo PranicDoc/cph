@@ -91,6 +91,19 @@ describe("ReviewerAssignmentsPage", () => {
   });
 });
 
+describe("ReviewerAssignmentsPage approved counts", () => {
+  it("showsApprovedCountPerHealer", async () => {
+    stubApi([
+      { healerId: "h1", healerName: "Asha", reviewerId: "h2", reviewerName: "Ravi", approvedCount: 3 },
+    ]);
+    renderPage();
+
+    expect(await screen.findByTestId("approved-h1")).toHaveTextContent("Approved cases: 3");
+    // A healer with no link has nothing approved to show.
+    expect(screen.queryByTestId("approved-h2")).not.toBeInTheDocument();
+  });
+});
+
 describe("Reviewer Links nav item", () => {
   it("is shown only to a user holding CREDIT_ACCOUNTS:ADMIN (SUPADM)", async () => {
     const { adminNavItems } = await import("../../config/adminNavItems");

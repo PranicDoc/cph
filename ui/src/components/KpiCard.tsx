@@ -6,6 +6,8 @@ interface KpiCardProps {
   value: number | null;
   icon: LucideIcon;
   unavailable?: boolean;
+  /** Test hook on the number. */
+  valueTestId?: string;
 }
 
 export function KpiCard({
@@ -13,6 +15,7 @@ export function KpiCard({
   value,
   icon: Icon,
   unavailable = false,
+  valueTestId,
 }: KpiCardProps) {
   return (
     <div className="bg-card rounded-2xl shadow-lg shadow-primary/20 p-6 flex items-start justify-between">
@@ -20,7 +23,7 @@ export function KpiCard({
         <p className="text-xs font-normal text-text-light uppercase tracking-wide">
           {label}
         </p>
-        <p className="text-[28px] font-semibold text-text mt-2 tabular-nums">
+        <p data-testid={valueTestId} className="text-[28px] font-semibold text-text mt-2 tabular-nums">
           {unavailable ? "—" : (value?.toLocaleString() ?? "—")}
         </p>
         {unavailable && (

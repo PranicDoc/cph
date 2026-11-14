@@ -54,7 +54,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_sendsAfterCommitOnly() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -73,7 +73,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_sendsTheFullEventAsJsonOnTheReviewChannel() throws Exception {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
 
         publisher.publish(event);
@@ -84,7 +84,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_withRedisOff_deliversInProcessAfterCommit() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -97,7 +97,7 @@ class ReviewEventPublisherTest {
     @Test
     void publish_whenRedisFails_fallsBackToLocalDelivery() {
         doThrow(new RedisConnectionFailureException("down")).when(redis).convertAndSend(anyString(), anyString());
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
 
         publisher.publish(event);
 

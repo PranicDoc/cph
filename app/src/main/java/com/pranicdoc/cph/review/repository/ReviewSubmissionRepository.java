@@ -4,6 +4,8 @@ import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -26,4 +28,12 @@ public interface ReviewSubmissionRepository extends JpaRepository<ReviewSubmissi
     List<ReviewSubmission> findByReviewerIdAndStage(UUID reviewerId, ReviewStage stage);
 
     long countByHealerIdAndStageAndStatus(UUID healerId, ReviewStage stage, ReviewStatus status);
+
+    /** Approved-case counts for a page of healers at once; healers with none are absent from the result. */
+    @Query("select s.healerId, count(s) from ReviewSubmission s "
+            + "where s.healerId in :healerIds and s.stage = :stage and s.status = :status group by s.healerId")
+    List<Object[]> countByHealerIdsAndStageAndStatus(
+            @Param("healerIds") Collection<UUID> healerIds,
+            @Param("stage") ReviewStage stage,
+            @Param("status") ReviewStatus status);
 }

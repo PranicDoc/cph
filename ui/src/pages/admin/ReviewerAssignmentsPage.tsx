@@ -66,6 +66,11 @@ export default function ReviewerAssignmentsPage() {
                       <span className="text-text-light">No instructor linked</span>
                     )}
                   </p>
+                  {link && (
+                    <p className="text-xs text-text-light mt-0.5" data-testid={`approved-${healer.id}`}>
+                      Approved cases: {link.approvedCount ?? 0}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 sm:w-80">
                   <SingleSelect

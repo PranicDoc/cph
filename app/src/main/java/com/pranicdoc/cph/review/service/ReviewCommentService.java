@@ -135,7 +135,7 @@ public class ReviewCommentService {
                 .x(hasPin ? scale(req.x()) : null).y(hasPin ? scale(req.y()) : null)
                 .body(body).build());
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo()));
+                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo(), side));
         String name = healers.findById(me).map(Healer::getFullName).orElse("");
         return toResponse(saved, revision.getRevisionNo(), name == null ? "" : name);
     }

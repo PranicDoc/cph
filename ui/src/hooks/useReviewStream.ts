@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import api, { refreshSession } from "../lib/axios";
+import { ReviewStreamContext } from "./reviewStreamContext";
 import {
+  APPROVED_COUNT_KEY,
   CASE_STATUSES_KEY,
+  MY_SUBMISSIONS_KEY,
   REVIEW_INBOX_KEY,
   REVIEW_KEY,
   REVIEW_STATUSES_KEY,
@@ -26,7 +29,7 @@ export interface ReviewStreamEvent {
 const MAX_RECONNECTS_WITHOUT_OPEN = 3;
 
 /**
- * Live review updates for the signed-in user. Each event refetches the review data it touches;
+ * The review stream itself: opens one EventSource (when `enabled`). Each event refetches the review data it touches;
  * nothing here polls. Every reopen after the first open (the browser's own reconnect after a
  * server-side close or a network blip, or ours after a refresh) refetches the review queries once
  * to catch up on anything missed. When the stream is closed for good (the access token expired
@@ -34,14 +37,17 @@ const MAX_RECONNECTS_WITHOUT_OPEN = 3;
  *
  * `unreadCount` counts the events received since mount or the last `resetUnread()` (call it on
  * the queue or My submissions page).
+ *
+ * Pages should call {@link useReviewStream} instead, which shares the layout's single connection.
  */
-export function useReviewStream(onEvent?: (e: ReviewStreamEvent) => void) {
+export function useReviewStreamConnection(onEvent?: (e: ReviewStreamEvent) => void, enabled = true) {
   const queryClient = useQueryClient();
   const [unreadCount, setUnreadCount] = useState(0);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
   useEffect(() => {
+    if (!enabled) return;
     let source: EventSource | null = null;
     let disposed = false;
     let reconnectsWithoutOpen = 0;
@@ -64,6 +70,8 @@ export function useReviewStream(onEvent?: (e: ReviewStreamEvent) => void) {
       queryClient.invalidateQueries({ queryKey: REVIEW_INBOX_KEY });
       queryClient.invalidateQueries({ queryKey: REVIEW_STATUSES_KEY });
       queryClient.invalidateQueries({ queryKey: CASE_STATUSES_KEY });
+      queryClient.invalidateQueries({ queryKey: MY_SUBMISSIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: APPROVED_COUNT_KEY });
       setUnreadCount((n) => n + 1);
       onEventRef.current?.(event);
     };
@@ -99,9 +107,29 @@ export function useReviewStream(onEvent?: (e: ReviewStreamEvent) => void) {
       disposed = true;
       source?.close();
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 
   const resetUnread = useCallback(() => setUnreadCount(0), []);
 
   return { unreadCount, resetUnread };
+}
+
+/**
+ * Live review updates for a page or the nav. Inside {@link ReviewStreamProvider} (the healer app's
+ * layout) it shares that one connection, so the browser never holds more than one EventSource;
+ * without a provider (a bare page in a unit test) it opens its own.
+ */
+export function useReviewStream(onEvent?: (e: ReviewStreamEvent) => void) {
+  const shared = useContext(ReviewStreamContext);
+  const own = useReviewStreamConnection(onEvent, shared === null);
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
+
+  const subscribe = shared?.subscribe;
+  useEffect(() => {
+    if (!subscribe) return;
+    return subscribe((e) => onEventRef.current?.(e));
+  }, [subscribe]);
+
+  return shared ? { unreadCount: shared.unreadCount, resetUnread: shared.resetUnread } : own;
 }

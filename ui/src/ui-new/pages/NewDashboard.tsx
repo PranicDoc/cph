@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useDashboardSummary } from "../../hooks/useDashboardSummary";
+import { useMyApprovedCount } from "../../hooks/useMyApprovedCount";
 import { DateRangeFilter } from "../../components/DateRangeFilter";
 import type { ChartPeriod } from "../../types/chart";
 import { SessionTrendChart } from "../../components/SessionTrendChart";
@@ -18,11 +19,11 @@ function greeting(firstName?: string): string {
   return firstName ? `${prefix}, ${firstName}` : "Dashboard";
 }
 
-function Kpi({ label, value, unavailable }: { label: string; value: number | null | undefined; unavailable?: boolean }) {
+function Kpi({ label, value, unavailable, valueTestId }: { label: string; value: number | null | undefined; unavailable?: boolean; valueTestId?: string }) {
   return (
     <div className="surface kpi">
       <div className="k-l">{label}</div>
-      <div className="k-v">{unavailable ? "—" : (value?.toLocaleString() ?? "—")}</div>
+      <div className="k-v" data-testid={valueTestId}>{unavailable ? "—" : (value?.toLocaleString() ?? "—")}</div>
       {unavailable && (
         <div className="k-d warn-text" style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <AlertTriangle className="ico" style={{ width: 14, height: 14 }} /> Unavailable
@@ -37,6 +38,7 @@ export default function NewDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useDashboardSummary();
+  const approved = useMyApprovedCount();
   const firstName = user?.fullName?.split(" ")[0] || undefined;
   const [searchParams] = useSearchParams();
   const periodKey = [searchParams.get("period") ?? "30d", searchParams.get("from") ?? "", searchParams.get("to") ?? ""].join("-");
@@ -76,11 +78,12 @@ export default function NewDashboard() {
           </button>
         </div>
       ) : (
-        <div className="kpis">
+        <div className="kpis" style={approved.data !== undefined ? { gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" } : undefined}>
           <Kpi label="Active patients" value={data?.activePatients ?? 0} />
           <Kpi label="Sessions this month" value={data?.sessionsThisMonth ?? 0} />
           <Kpi label="Credits remaining" value={data?.creditsRemaining ?? null} unavailable={data?.creditServiceUnavailable === true} />
           <Kpi label="PDFs this month" value={data?.pdfsGeneratedThisMonth ?? 0} />
+          {approved.data !== undefined && <Kpi label="Approved cases" value={approved.data} valueTestId="approved-cases-value" />}
         </div>
       )}
 

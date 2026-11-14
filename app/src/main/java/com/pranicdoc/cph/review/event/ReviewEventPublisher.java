@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.review.notify.ReviewNotifier;
 import com.pranicdoc.cph.review.stream.ReviewStreamRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -17,6 +18,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * Redis on (the default), the event goes out as JSON on {@link #CHANNEL} and {@link ReviewRedisRelay}
  * on each instance hands it to that instance's open streams. With Redis off (local dev, tests), or
  * when the Redis send fails, the event is delivered to this instance's streams directly.
+ * Either way the instance that made the change also hands the event to {@link ReviewNotifier} (email).
  */
 @Slf4j
 @Component
@@ -28,16 +30,19 @@ public class ReviewEventPublisher {
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redis;
     private final boolean redisEnabled;
+    private final ReviewNotifier notifier;
 
     @Autowired
     public ReviewEventPublisher(ReviewStreamRegistry registry, ObjectMapper objectMapper,
                                 ObjectProvider<StringRedisTemplate> redis,
-                                @Value("${app.review.events.redis-enabled:true}") boolean redisEnabled) {
-        this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled);
+                                @Value("${app.review.events.redis-enabled:true}") boolean redisEnabled,
+                                ReviewNotifier notifier) {
+        this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled, notifier);
     }
 
     ReviewEventPublisher(ReviewStreamRegistry registry, ObjectMapper objectMapper,
-                         StringRedisTemplate redis, boolean redisEnabled) {
+                         StringRedisTemplate redis, boolean redisEnabled, ReviewNotifier notifier) {
+        this.notifier = notifier;
         this.registry = registry;
         this.objectMapper = objectMapper;
         this.redis = redis;
@@ -51,10 +56,25 @@ public class ReviewEventPublisher {
                 @Override
                 public void afterCommit() {
                     send(event);
+                    notifyByEmail(event);
                 }
             });
         } else {
             send(event);
+            notifyByEmail(event);
+        }
+    }
+
+    /**
+     * The email goes out from the instance that made the change (the Redis relay only feeds open
+     * streams), so each event is mailed once. Never throws: mail must not affect the action.
+     */
+    private void notifyByEmail(ReviewEvent event) {
+        try {
+            notifier.onEvent(event);
+        } catch (RuntimeException e) {
+            log.warn("Review email for {} on submission {} not queued: {}",
+                    event.type(), event.submissionId(), e.toString());
         }
     }
 

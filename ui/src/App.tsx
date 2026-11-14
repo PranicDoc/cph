@@ -20,6 +20,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/admin/AdminRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import { PatientProvider } from "./context/PatientContext";
+import { ReviewStreamRoute } from "./context/ReviewStreamProvider";
 import Unauthorized from "./pages/Unauthorized";
 import Forbidden from "./pages/Forbidden";
 import NotFound from "./pages/NotFound";
@@ -66,20 +67,23 @@ const router = createBrowserRouter(
 
       {/* Protected healer routes */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<HealerLayout />}>
-          <Route index lazy={page(() => import("./pages/Dashboard"))} />
-          <Route path="patients" lazy={page(() => import("./pages/Patients"))} />
-          <Route path="patients/:id/edit" lazy={page(() => import("./pages/PatientEdit"))} />
-          <Route path="registration" lazy={page(() => import("./pages/Registration"))} />
-          <Route path="pdf-list" lazy={page(() => import("./pages/PdfList").then((m) => ({ default: m.PdfList })))} />
-          <Route path="session/:healingCaseId" lazy={page(() => import("./pages/Session"))} />
-          <Route path="cases/:healingCaseId/summary" lazy={page(() => import("./pages/CaseSummary"))} />
-          <Route path="cases/:healingCaseId/feedback" lazy={page(() => import("./pages/ManualFeedback"))} />
-          <Route path="cases/:healingCaseId/close" lazy={page(() => import("./ui-new/pages/CloseCase"))} />
-          <Route path="profile" lazy={page(() => import("./pages/Profile"))} />
-          <Route path="reviews" lazy={page(() => import("./pages/reviews/ReviewQueue"))} />
-          <Route path="reviews/:submissionId" lazy={page(() => import("./pages/reviews/ReviewViewer"))} />
-          <Route path="submissions/:submissionId" lazy={page(() => import("./pages/reviews/SubmissionDetail"))} />
+        <Route element={<ReviewStreamRoute />}>
+          <Route path="/" element={<HealerLayout />}>
+            <Route index lazy={page(() => import("./pages/Dashboard"))} />
+            <Route path="patients" lazy={page(() => import("./pages/Patients"))} />
+            <Route path="patients/:id/edit" lazy={page(() => import("./pages/PatientEdit"))} />
+            <Route path="registration" lazy={page(() => import("./pages/Registration"))} />
+            <Route path="pdf-list" lazy={page(() => import("./pages/PdfList").then((m) => ({ default: m.PdfList })))} />
+            <Route path="session/:healingCaseId" lazy={page(() => import("./pages/Session"))} />
+            <Route path="cases/:healingCaseId/summary" lazy={page(() => import("./pages/CaseSummary"))} />
+            <Route path="cases/:healingCaseId/feedback" lazy={page(() => import("./pages/ManualFeedback"))} />
+            <Route path="cases/:healingCaseId/close" lazy={page(() => import("./ui-new/pages/CloseCase"))} />
+            <Route path="profile" lazy={page(() => import("./pages/Profile"))} />
+            <Route path="reviews" lazy={page(() => import("./pages/reviews/ReviewQueue"))} />
+            <Route path="reviews/:submissionId" lazy={page(() => import("./pages/reviews/ReviewViewer"))} />
+            <Route path="submissions" lazy={page(() => import("./pages/reviews/MySubmissions"))} />
+            <Route path="submissions/:submissionId" lazy={page(() => import("./pages/reviews/SubmissionDetail"))} />
+          </Route>
         </Route>
         {/* Sibling of the Layout route, not nested inside it: /legal-center
             must stay behind ProtectedRoute's gate check but must not render
