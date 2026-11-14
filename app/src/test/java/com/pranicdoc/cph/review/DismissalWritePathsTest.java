@@ -80,7 +80,7 @@ import static org.mockito.Mockito.when;
  *   <li>CaseService: addSymptom, resolveSymptom, addMedication, signDeclaration, closeCase,
  *       updateCaseDetails (healer), updateCaseDetails (patient self-service health form)</li>
  *   <li>SessionService: create(caseId) (legacy), create(request[, idempotencyKey]) — create(request)
- *       delegates to the keyed overload — update, delete, complete</li>
+ *       delegates to the keyed overload — update, delete</li>
  *   <li>ScanService: saveScan</li>
  *   <li>ProtocolService: saveProtocol</li>
  *   <li>FeedbackService: saveSymptomFeedback and saveQualitativeFeedback (patient WhatsApp link),
@@ -96,6 +96,8 @@ import static org.mockito.Mockito.when;
  * no PDF so it was never reviewed); postMessageToGeneratePdf / buildAndEnqueuePdfJob (generating a
  * PDF does not change the case); resendFeedback (re-sends a link, case data unchanged);
  * refreshClosureFromSessions (an internal step of the session writes, which already dismiss);
+ * SessionService.complete (completes a draft session that create(caseId) already added, and that
+ * call dismissed — the dismissal is on "Session added", not on completion);
  * CaseService.softDelete and PatientService.softDelete / restore / discardUnclaimedSelfRegistered
  * (trash is reversible and changes no case content, so a restored case keeps its approval);
  * getPreSignedDownloadUrl, requireConsent, findOrThrow and the other reads.
@@ -299,12 +301,6 @@ class DismissalWritePathsTest {
     @Test
     void deleteSession() {
         sessionService.delete(session.getId());
-        assertDismissed();
-    }
-
-    @Test
-    void completeSession() {
-        sessionService.complete(session.getId());
         assertDismissed();
     }
 

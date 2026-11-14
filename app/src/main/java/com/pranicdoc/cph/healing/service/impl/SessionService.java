@@ -340,7 +340,6 @@ public class SessionService {
         session.setStatus(SessionStatus.COMPLETED);
         activateCaseIfDraftOrContinued(session.getHealingCase());
         HealingSession saved = sessionRepository.save(session);
-        reviewDismissalService.onCaseModified(session.getHealingCase().getId(), "Session completed");
         return toResponse(saved);
     }
 
