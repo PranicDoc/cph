@@ -10,7 +10,7 @@ import com.pranicdoc.cph.review.dto.HealerOption;
 import com.pranicdoc.cph.review.dto.ReviewerAssignmentResponse;
 import com.pranicdoc.cph.review.model.ReviewerAssignment;
 import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +30,22 @@ import java.util.stream.Collectors;
  * MyPermissionsService, because SUPADM accounts hold every permission there by a bypass.
  */
 @Service
-@RequiredArgsConstructor
 public class ReviewerAssignmentService {
 
     private final ReviewerAssignmentRepository assignments;
     private final HealerRepository healers;
     private final RolePermissionLookupService permissions;
+    private final ReviewSubmissionService reviewSubmissions;
+
+    /** {@code @Lazy}: ReviewSubmissionService reads {@link #reviewerFor}, so the two would otherwise be a cycle. */
+    public ReviewerAssignmentService(ReviewerAssignmentRepository assignments, HealerRepository healers,
+                                     RolePermissionLookupService permissions,
+                                     @Lazy ReviewSubmissionService reviewSubmissions) {
+        this.assignments = assignments;
+        this.healers = healers;
+        this.permissions = permissions;
+        this.reviewSubmissions = reviewSubmissions;
+    }
 
     @Transactional(readOnly = true)
     public Optional<UUID> reviewerFor(UUID healerId) {
@@ -85,8 +95,9 @@ public class ReviewerAssignmentService {
         ReviewerAssignment link = assignments.findByHealerId(healerId)
                 .orElseGet(() -> ReviewerAssignment.builder().healerId(healerId).build());
         link.setReviewerId(reviewerId);
-        // S3 will move any open submissions of this healer to the new reviewer here.
-        return toResponse(assignments.save(link), healer, reviewer);
+        ReviewerAssignment saved = assignments.save(link);
+        reviewSubmissions.reassignOpen(healerId, reviewerId);
+        return toResponse(saved, healer, reviewer);
     }
 
     @Auditable(action = "UNASSIGN_REVIEWER")

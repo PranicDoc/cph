@@ -17,6 +17,8 @@ import java.util.UUID;
 @Repository
 public interface PdfJobRepository extends JpaRepository<PdfJobEntity, UUID> {
     Optional<PdfJobEntity> findTopByHealingCaseIdOrderByCreatedAtDesc(UUID healingCaseId);
+    List<PdfJobEntity> findByHealingCaseIdIn(java.util.Collection<UUID> healingCaseIds);
+
     Window<PdfJobEntity> findByStatusAndHealingCaseIdIn(
             JobStatus status,
             List<UUID> healingCaseIds,

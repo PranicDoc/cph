@@ -156,7 +156,8 @@ class LegacyEndpointCutoverSweepTest {
     private static final List<Class<?>> PHASE_42_HEALER_CONTROLLERS = List.of(
             PatientController.class, SessionController.class, CaseController.class,
             ScanController.class, ProtocolController.class, FeedbackController.class,
-            CreditProxyController.class);
+            CreditProxyController.class,
+            com.pranicdoc.cph.review.controller.HealerReviewController.class);
 
     /**
      * {@code @RestController} classes deliberately covered by NEITHER sweep, keyed

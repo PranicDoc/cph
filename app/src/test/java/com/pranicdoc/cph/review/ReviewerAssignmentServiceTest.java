@@ -9,6 +9,7 @@ import com.pranicdoc.cph.review.dto.HealerOption;
 import com.pranicdoc.cph.review.dto.ReviewerAssignmentResponse;
 import com.pranicdoc.cph.review.model.ReviewerAssignment;
 import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
+import com.pranicdoc.cph.review.service.ReviewSubmissionService;
 import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,7 @@ class ReviewerAssignmentServiceTest {
     @Mock private ReviewerAssignmentRepository assignments;
     @Mock private HealerRepository healers;
     @Mock private RolePermissionLookupService permissions;
+    @Mock private ReviewSubmissionService reviewSubmissions;
 
     @InjectMocks private ReviewerAssignmentService service;
 
@@ -82,6 +84,19 @@ class ReviewerAssignmentServiceTest {
         assertThat(response.reviewerId()).isEqualTo(reviewerId);
         assertThat(response.reviewerName()).isEqualTo("r");
         verify(assignments).save(existing);
+    }
+
+    @Test
+    void assign_movesOpenSubmissions() {
+        when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
+        when(healers.findById(reviewerId)).thenReturn(Optional.of(healer(reviewerId, "r", true)));
+        when(permissions.hasPermission(reviewerId, Resource.CASE, Operation.REVIEW)).thenReturn(true);
+        when(assignments.findByHealerId(healerId)).thenReturn(Optional.empty());
+        when(assignments.save(any(ReviewerAssignment.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.assign(healerId, reviewerId);
+
+        verify(reviewSubmissions).reassignOpen(healerId, reviewerId);
     }
 
     @Test

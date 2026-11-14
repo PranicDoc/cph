@@ -11,6 +11,7 @@ import com.pranicdoc.cph.healing.controller.SessionController;
 import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
 import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
+import com.pranicdoc.cph.review.controller.HealerReviewController;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.Test;
@@ -146,10 +147,12 @@ class HealerControllerGateSweepTest {
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
-            new SweptController(CreditProxyController.class, 4, 4));
+            new SweptController(CreditProxyController.class, 4, 4),
+            // Case review, healer side: all six routes gated CASE:UPDATE (class-level mapping not counted).
+            new SweptController(HealerReviewController.class, 6, 6));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 55;
-    private static final int EXPECTED_TOTAL_GATED = 47;
+    private static final int EXPECTED_TOTAL_MAPPED = 61;
+    private static final int EXPECTED_TOTAL_GATED = 53;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
@@ -444,9 +447,9 @@ class HealerControllerGateSweepTest {
     @Test
     void everyGatedEndpointOnTheHealerSurfaceUsesTheBareDynamicForm() {
         assertThat(CONTROLLERS)
-                .as("the Phase-42 healer surface is exactly the seven controllers plans "
-                        + "42-02..42-06 gated")
-                .hasSize(7);
+                .as("the healer surface is the seven Phase-42 controllers plus the case-review "
+                        + "HealerReviewController")
+                .hasSize(8);
         assertThat(CONTROLLERS.stream().mapToInt(SweptController::expectedMapped).sum())
                 .as("EXPECTED_TOTAL_MAPPED must equal the sum of the per-controller expectedMapped "
                         + "rows — a constant adjusted away from the row sum hides a real drift "

@@ -51,7 +51,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClosurePopup } from "./Closure";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { SubmitForReviewButton, CASE_STATUSES_KEY } from "./reviews/SubmitForReviewButton";
+import { caseStatuses } from "./reviews/reviewApi";
 import { UpgradeModal } from "../components/UpgradeModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -138,6 +140,20 @@ export default function Patients() {
 
   // Filtering (status, case-date) and ordering (latest case first) happen on the backend.
   const { patients, isLoading } = usePatientList(listFilters);
+
+  // Only a case with a generated PDF can be sent for review, and a PDF needs a closed or continued case.
+  const reviewableCaseIds = useMemo(
+    () =>
+      (patients ?? [])
+        .filter((p) => p.healingCaseId && (p.status === "CLOSED" || p.status === "CONTINUED"))
+        .map((p) => p.healingCaseId),
+    [patients]
+  );
+  const { data: reviewStatuses } = useQuery({
+    queryKey: [...CASE_STATUSES_KEY, reviewableCaseIds],
+    queryFn: () => caseStatuses(reviewableCaseIds),
+    enabled: reviewableCaseIds.length > 0,
+  });
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -342,8 +358,12 @@ export default function Patients() {
     const isHealingContinued = patient.status === "CONTINUED";
     const canGeneratePdf = isCompleted || isHealingContinued;
     const unlocking = unlockMutation.isPending && unlockMutation.variables?.id === patient.id;
+    const review = hasCase ? reviewStatuses?.[patient.healingCaseId] : undefined;
     return (
-      <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+      <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-2">
+        {review?.eligible && (
+          <SubmitForReviewButton caseId={patient.healingCaseId} status={review.status} />
+        )}
         <DropdownMenu
           open={openMenu === `${variant}:${patient.id}`}
           onOpenChange={(isOpen) => setOpenMenu(isOpen ? `${variant}:${patient.id}` : null)}
