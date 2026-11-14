@@ -153,4 +153,65 @@ describe("ReviewViewer", () => {
 
     expect(await screen.findByText("Late note")).toBeInTheDocument();
   });
+
+  it("approveSendsLatestRevisionNo and refetches the submission", async () => {
+    const user = userEvent.setup();
+    currentLatest = 2;
+    vi.mocked(api.post).mockResolvedValue({ data: { ...submission(2), status: "APPROVED" } });
+    renderViewer();
+    await screen.findByTestId("pdf");
+
+    const approveButton = screen.getByRole("button", { name: "Approve" });
+    await waitFor(() => expect(approveButton).toBeEnabled());
+    await user.click(approveButton);
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/api/v1/reviews/inbox/s1/approve", { revisionNo: 2 })
+    );
+  });
+
+  it("request changes sends the revision on screen", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({ data: { ...submission(1), status: "CHANGES_REQUESTED" } });
+    renderViewer();
+    await screen.findByTestId("pdf");
+
+    await user.click(screen.getByRole("button", { name: "Request changes" }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/api/v1/reviews/inbox/s1/request-changes", { revisionNo: 1 })
+    );
+  });
+
+  it("staleApprove409_showsBanner with the server's reason", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { detail: "A newer version was submitted. Refresh to review it." } },
+    });
+    renderViewer();
+    await screen.findByTestId("pdf");
+
+    // The newer revision lands on the server before its event reaches this tab.
+    currentLatest = 2;
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(await screen.findByText("A newer version was submitted. Refresh to review it.")).toBeInTheDocument();
+    // The refetch after the refusal brings up the refresh banner for the newer version.
+    expect(await screen.findByText("New version available — refresh")).toBeInTheDocument();
+  });
+
+  it("decisions are only offered on the latest revision of an open submission", async () => {
+    currentLatest = 1;
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.endsWith("/inbox/s1/comments")) return Promise.resolve({ data: [] });
+      if (url.endsWith("/inbox/s1")) return Promise.resolve({ data: { ...submission(1), status: "APPROVED" } });
+      return Promise.resolve({ data: { url: "https://r2/rev1.pdf" } });
+    });
+    renderViewer();
+    await screen.findByTestId("pdf");
+
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Request changes" })).toBeDisabled();
+  });
 });

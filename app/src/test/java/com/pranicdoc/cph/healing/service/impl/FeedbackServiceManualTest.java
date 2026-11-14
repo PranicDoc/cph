@@ -61,6 +61,10 @@ class FeedbackServiceManualTest {
     @Mock private SessionRepository sessionRepository;
     @Mock private SecurityContextUtil securityContextUtil;
 
+    // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
+    @Mock
+    private com.pranicdoc.cph.review.service.ReviewDismissalService reviewDismissalService;
+
     @InjectMocks private FeedbackService feedbackService;
 
     private final UUID caseId = UUID.randomUUID();

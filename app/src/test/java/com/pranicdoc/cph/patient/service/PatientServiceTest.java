@@ -51,6 +51,10 @@ class PatientServiceTest {
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private PatientTrashService trashService;
 
+    // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
+    @Mock
+    private com.pranicdoc.cph.review.service.ReviewDismissalService reviewDismissalService;
+
     @InjectMocks private PatientService patientService;
 
     private static final Instant MAX_CASE_DATE = Instant.parse("9999-12-31T00:00:00Z");

@@ -44,6 +44,7 @@ class ReviewInboxServiceTest {
     @Mock private HealerRepository healers;
     @Mock private ReviewFileStore files;
     @Mock private SecurityContextUtil security;
+    @Mock private com.pranicdoc.cph.review.event.ReviewEventPublisher events;
 
     private ReviewInboxService service;
 
@@ -53,7 +54,7 @@ class ReviewInboxServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security);
+        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security, events);
         when(security.getCurrentHealerId()).thenReturn(me);
     }
 

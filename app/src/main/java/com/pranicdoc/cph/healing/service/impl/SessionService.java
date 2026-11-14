@@ -24,6 +24,7 @@ import com.pranicdoc.cph.healing.service.NotificationService;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.repository.ChakraCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.PranaColorCatalogRepository;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +56,8 @@ public class SessionService {
     private final NotificationService notificationService;
     private final SecurityContextUtil securityContextUtil;
     private final ApplicationEventPublisher eventPublisher;
+    // Every session write changes the case's data, so it dismisses the case's approved review.
+    private final ReviewDismissalService reviewDismissalService;
 
     @Auditable(action = "CREATE_SESSION_OLD")
     public SessionResponse create(UUID caseId) {
@@ -74,7 +77,9 @@ public class SessionService {
                 .status(SessionStatus.DRAFT)
                 .build();
 
-        return toResponse(sessionRepository.save(session));
+        HealingSession saved = sessionRepository.save(session);
+        reviewDismissalService.onCaseModified(caseId, "Session added");
+        return toResponse(saved);
     }
 
     @Auditable(action = "CREATE_SESSION")
@@ -127,6 +132,7 @@ public class SessionService {
         reanchorFinalFeedback(all);
         healingCase.getSessions().add(saved);
         caseService.refreshClosureFromSessions(healingCase);
+        reviewDismissalService.onCaseModified(healingCase.getId(), "Session added");
         notificationService.sendFeedbackNotification(saved, false);
         return toResponse(saved);
     }
@@ -187,6 +193,7 @@ public class SessionService {
         reanchorFinalFeedback(healingCase.getSessions());
         HealingSession updated = sessionRepository.save(session);
         caseService.refreshClosureFromSessions(healingCase);
+        reviewDismissalService.onCaseModified(healingCase.getId(), "Session edited");
         return toResponse(updated);
     }
 
@@ -213,6 +220,7 @@ public class SessionService {
         sessionRepository.delete(session);
         sessionRepository.flush();
         caseService.refreshClosureFromSessions(healingCase);
+        reviewDismissalService.onCaseModified(healingCase.getId(), "Session deleted");
     }
 
     /**
@@ -332,6 +340,7 @@ public class SessionService {
         session.setStatus(SessionStatus.COMPLETED);
         activateCaseIfDraftOrContinued(session.getHealingCase());
         HealingSession saved = sessionRepository.save(session);
+        reviewDismissalService.onCaseModified(session.getHealingCase().getId(), "Session completed");
         return toResponse(saved);
     }
 

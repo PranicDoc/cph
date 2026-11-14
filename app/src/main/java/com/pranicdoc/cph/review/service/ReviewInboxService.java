@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
@@ -10,6 +11,9 @@ import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.review.dto.InboxItemResponse;
 import com.pranicdoc.cph.review.dto.RevisionResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
+import com.pranicdoc.cph.review.event.ReviewEvent;
+import com.pranicdoc.cph.review.event.ReviewEventPublisher;
+import com.pranicdoc.cph.review.event.ReviewEventType;
 import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
@@ -24,19 +28,28 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Instructor side of case review: the queue of submissions assigned to the caller and read access to
- * them. Row-level rule on every read: the submission is assigned to the caller and is not the
- * caller's own case. A submission moved to another instructor therefore answers 403.
+ * Instructor side of case review: the queue of submissions assigned to the caller, read access to
+ * them, and the decisions (approve, request changes). Row-level rule on every call: the submission is
+ * assigned to the caller and is not the caller's own case. A submission moved to another instructor
+ * therefore answers 403.
  */
 @Service
 public class ReviewInboxService {
+
+    static final String STALE_REVISION_MESSAGE = "A newer version was submitted. Refresh to review it.";
+
+    /** The states an instructor can decide on: pending review, or changes requested and not yet resubmitted. */
+    private static final Set<ReviewStatus> DECIDABLE =
+            EnumSet.of(ReviewStatus.PENDING_REVIEW, ReviewStatus.CHANGES_REQUESTED);
 
     private final ReviewSubmissionRepository submissions;
     private final ReviewRevisionRepository revisions;
@@ -44,16 +57,56 @@ public class ReviewInboxService {
     private final HealerRepository healers;
     private final ReviewFileStore files;
     private final SecurityContextUtil security;
+    private final ReviewEventPublisher events;
 
     public ReviewInboxService(ReviewSubmissionRepository submissions, ReviewRevisionRepository revisions,
                               CaseRepository cases, HealerRepository healers, ReviewFileStore files,
-                              SecurityContextUtil security) {
+                              SecurityContextUtil security, ReviewEventPublisher events) {
         this.submissions = submissions;
         this.revisions = revisions;
         this.cases = cases;
         this.healers = healers;
         this.files = files;
         this.security = security;
+        this.events = events;
+    }
+
+    /** Approves the latest revision; counts toward the healer's approved cases. */
+    @Auditable(action = "APPROVE_REVIEW")
+    @Transactional
+    public SubmissionResponse approve(UUID submissionId, int revisionNo) {
+        return decide(submissionId, revisionNo, ReviewStatus.APPROVED);
+    }
+
+    /** Hands the latest revision back to the healer for changes. */
+    @Auditable(action = "REQUEST_CHANGES")
+    @Transactional
+    public SubmissionResponse requestChanges(UUID submissionId, int revisionNo) {
+        return decide(submissionId, revisionNo, ReviewStatus.CHANGES_REQUESTED);
+    }
+
+    /**
+     * A decision applies to the latest revision of an open submission only. A healer resubmitting at
+     * the same moment is caught either here (a newer revision is already there) or by the
+     * submission's version column when both write it.
+     */
+    private SubmissionResponse decide(UUID submissionId, int revisionNo, ReviewStatus decision) {
+        ReviewSubmission s = assignedSubmission(submissionId);
+        if (!DECIDABLE.contains(s.getStatus())) {
+            throw new ReviewRefusedException(s.getStatus() == ReviewStatus.APPROVED
+                    ? "This submission is already approved."
+                    : "This submission was dismissed. The healer needs to submit the case again.");
+        }
+        int latest = revisions.findTopBySubmissionIdOrderByRevisionNoDesc(s.getId())
+                .map(ReviewRevision::getRevisionNo).orElse(0);
+        if (revisionNo != latest) {
+            throw new ReviewRefusedException(STALE_REVISION_MESSAGE);
+        }
+        s.setStatus(decision);
+        submissions.saveAndFlush(s);
+        events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
+                ReviewEventType.STATUS_CHANGED, latest));
+        return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
     }
 
     /** The caller's queue, oldest latest-revision first; healer and case names are batch-loaded. */
@@ -88,7 +141,10 @@ public class ReviewInboxService {
     @Transactional(readOnly = true)
     public SubmissionResponse getItem(UUID submissionId) {
         ReviewSubmission s = assignedSubmission(submissionId);
-        List<ReviewRevision> revs = revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId());
+        return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
+    }
+
+    private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs) {
         int latest = revs.stream().mapToInt(ReviewRevision::getRevisionNo).max().orElse(0);
         return new SubmissionResponse(s.getId(), s.getCaseId(), s.getHealerId(), s.getReviewerId(), s.getStage(),
                 s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,

@@ -112,6 +112,23 @@ export async function inboxFileUrl(submissionId: string, revisionNo: number): Pr
   return res.data.url;
 }
 
+/** Approves the latest revision. A 409 means a newer version arrived; its detail says so. */
+export async function approve(submissionId: string, revisionNo: number): Promise<SubmissionResponse> {
+  const res = await api.post<SubmissionResponse>(`${BASE}/inbox/${submissionId}/approve`, { revisionNo });
+  return res.data;
+}
+
+/** Asks the healer for changes on the latest revision. A 409 means a newer version arrived. */
+export async function requestChanges(submissionId: string, revisionNo: number): Promise<SubmissionResponse> {
+  const res = await api.post<SubmissionResponse>(`${BASE}/inbox/${submissionId}/request-changes`, { revisionNo });
+  return res.data;
+}
+
+/** Shown before a healer edits a case whose review is approved. */
+export const APPROVED_EDIT_MESSAGE =
+  "This case is approved. Editing it will dismiss the approval and you will need a new review.";
+export const APPROVED_EDIT_CONFIRM = "Edit and dismiss approval";
+
 /** Shown in the viewer when the instructor loses the submission (reassigned) while it is open. */
 export const MOVED_MESSAGE = "This submission was moved to another instructor";
 /** The refresh banner shown when a newer revision arrives while one is open. */

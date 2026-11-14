@@ -1,21 +1,32 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useReviewStream } from "../../hooks/useReviewStream";
-import { reviewFileKey, reviewInboxItemKey } from "../../lib/reviewQueryKeys";
+import { REVIEW_INBOX_KEY, reviewFileKey, reviewInboxItemKey } from "../../lib/reviewQueryKeys";
 import PdfPinCanvas from "./PdfPinCanvas";
 import ThreadPanel from "./ThreadPanel";
 import { useReviewComments } from "./useReviewComments";
 import { pinsForRevision, scrollToThread } from "./threads";
-import { inboxFileUrl, inboxItem, MOVED_MESSAGE, NEW_VERSION_MESSAGE, STATUS_LABELS } from "./reviewApi";
+import {
+  approve,
+  inboxFileUrl,
+  inboxItem,
+  MOVED_MESSAGE,
+  NEW_VERSION_MESSAGE,
+  requestChanges,
+  reviewErrorMessage,
+  STATUS_LABELS,
+} from "./reviewApi";
 
 /**
  * One submission for the assigned instructor: the PDF of one revision, a download button, and a
  * banner when a newer revision has arrived. The page never switches revision on its own; the
- * instructor opts in by clicking the banner, so a read in progress is not pulled away.
+ * instructor opts in by clicking the banner, so a read in progress is not pulled away. Approve and
+ * Request changes act on the revision on screen and are offered only when it is the latest; if a
+ * newer one reached the server first, its refusal is shown and the submission refetched.
  */
 export default function ReviewViewer() {
   const { submissionId = "" } = useParams<{ submissionId: string }>();
@@ -45,6 +56,20 @@ export default function ReviewViewer() {
     retry: false,
   });
 
+  const queryClient = useQueryClient();
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const decision = useMutation({
+    mutationFn: ({ kind, revisionNo }: { kind: "approve" | "request-changes"; revisionNo: number }) =>
+      kind === "approve" ? approve(submissionId, revisionNo) : requestChanges(submissionId, revisionNo),
+    onMutate: () => setDecisionError(null),
+    onError: (e) => setDecisionError(reviewErrorMessage(e, "Could not save your decision. Try again.")),
+    onSettled: () => {
+      // A refusal usually means a newer version arrived: the refetch brings up the refresh banner.
+      queryClient.invalidateQueries({ queryKey: reviewInboxItemKey(submissionId) });
+      queryClient.invalidateQueries({ queryKey: REVIEW_INBOX_KEY });
+    },
+  });
+
   const thread = useReviewComments("reviewer", submissionId);
   const [placing, setPlacing] = useState(false);
   const [draft, setDraft] = useState<{ page: number; x: number; y: number } | null>(null);
@@ -69,6 +94,9 @@ export default function ReviewViewer() {
   const comments = thread.comments.data ?? [];
   // New pins go on the latest version only; older versions keep the pins they already have.
   const canPin = displayed > 0 && displayed === latest;
+  const status = submission.data?.status;
+  const canDecide = canPin && (status === "PENDING_REVIEW" || status === "CHANGES_REQUESTED") && !decision.isPending;
+  const decide = (kind: "approve" | "request-changes") => decision.mutate({ kind, revisionNo: displayed });
   const pins = [
     ...pinsForRevision(comments, displayed),
     ...(draft ? [{ id: "draft", page: draft.page, x: draft.x, y: draft.y, label: "+", draft: true }] : []),
@@ -126,14 +154,29 @@ export default function ReviewViewer() {
             <Download className="h-3.5 w-3.5" />
             Download
           </Button>
+          <Button type="button" size="sm" variant="outline" disabled={!canDecide} onClick={() => decide("request-changes")}>
+            Request changes
+          </Button>
+          <Button type="button" size="sm" disabled={!canDecide} onClick={() => decide("approve")}>
+            Approve
+          </Button>
         </div>
       </div>
+
+      {decisionError && (
+        <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+          {decisionError}
+        </p>
+      )}
 
       {hasNewer && (
         <button
           type="button"
           className="w-full rounded border border-blue-300 bg-blue-50 p-2 text-sm text-blue-900"
-          onClick={() => setChosenRevision(latest)}
+          onClick={() => {
+            setChosenRevision(latest);
+            setDecisionError(null);
+          }}
         >
           {NEW_VERSION_MESSAGE}
         </button>

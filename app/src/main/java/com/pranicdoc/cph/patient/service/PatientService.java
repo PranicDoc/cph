@@ -20,6 +20,7 @@ import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.model.RegistrationLink;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.cph.patient.repository.RegistrationLinkRepository;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -49,6 +50,8 @@ public class PatientService {
     private final CaseRepository caseRepository;
     private final DeclarationMapper declarationMapper;
     private final SecurityContextUtil securityContextUtil;
+    // The medical history and declaration date are part of the case PDF: editing them dismisses approvals.
+    private final ReviewDismissalService reviewDismissalService;
     @Value("${app.base.url:http://localhost:3000}")
     private String baseUrl;
 
@@ -204,9 +207,12 @@ public class PatientService {
 
         patientRepository.save(patient);
         // The case PDF / Case Summary read each case's snapshot: keep it at the current values.
+        List<UUID> touchedCaseIds = new ArrayList<>();
         for (HealingCase healingCase : caseRepository.findAllByPatientId(patientId)) {
             CaseMedicalSnapshot.upsert(healingCase, history);
+            touchedCaseIds.add(healingCase.getId());
         }
+        reviewDismissalService.onCasesModified(touchedCaseIds, "Medical history edited");
         return toMedicalHistoryResponse(history);
     }
 
@@ -248,6 +254,7 @@ public class PatientService {
         }
         declaration.setSignedAt(DeclarationDates.toSignedAt(request.declarationDate()));
         caseRepository.save(latest);
+        reviewDismissalService.onCaseModified(latest.getId(), "Declaration date edited");
         return new DeclarationDateResponse(request.declarationDate(), true, true);
     }
 

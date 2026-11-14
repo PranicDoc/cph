@@ -92,7 +92,7 @@ class ReviewerControllerAuthorizationContractTest {
             String method, String path) {
         var b = "POST".equals(method) ? post(path) : get(path);
         return b.cookie(new Cookie("accessToken", TOKEN))
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}");
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"revisionNo\":1}");
     }
 
     private static final String ROUTES = """
@@ -102,6 +102,8 @@ class ReviewerControllerAuthorizationContractTest {
             GET,/inbox/00000000-0000-0000-0000-0000000000c1/comments
             POST,/inbox/00000000-0000-0000-0000-0000000000c1/comments
             POST,/inbox/comments/00000000-0000-0000-0000-0000000000c1/resolve
+            POST,/inbox/00000000-0000-0000-0000-0000000000c1/approve
+            POST,/inbox/00000000-0000-0000-0000-0000000000c1/request-changes
             """;
 
     @ParameterizedTest(name = "{0} {1} -> 403 without CASE:REVIEW")
@@ -121,6 +123,27 @@ class ReviewerControllerAuthorizationContractTest {
         when(service.inbox(any())).thenReturn(List.of());
         mockMvc.perform(request(method, BASE + path))
                 .andExpect(status().is2xxSuccessful());
+    }
+
+    @Test
+    void staleDecisionIs409WithTheServerReason() throws Exception {
+        authenticate(true);
+        when(service.approve(SUBMISSION_ID, 1)).thenThrow(
+                new com.pranicdoc.cph.review.service.ReviewRefusedException(
+                        "A newer version was submitted. Refresh to review it."));
+        mockMvc.perform(request("POST", BASE + "/inbox/" + SUBMISSION_ID + "/approve"))
+                .andExpect(status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.detail")
+                        .value("A newer version was submitted. Refresh to review it."));
+    }
+
+    @Test
+    void decisionWithoutRevisionNoIs400() throws Exception {
+        authenticate(true);
+        mockMvc.perform(post(BASE + "/inbox/" + SUBMISSION_ID + "/approve").cookie(new Cookie("accessToken", TOKEN))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
     }
 
     @Test

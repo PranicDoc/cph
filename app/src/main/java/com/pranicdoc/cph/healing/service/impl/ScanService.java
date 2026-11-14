@@ -6,6 +6,7 @@ import com.pranicdoc.cph.healing.model.ChakraReading;
 import com.pranicdoc.cph.healing.model.ChakraScan;
 import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.repository.ChakraScanRepository;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class ScanService {
 
     private final ChakraScanRepository chakraScanRepository;
     private final SessionService sessionService;
+    private final ReviewDismissalService reviewDismissalService;
 
     /**
      * Save a chakra scan (PRE or POST) with all readings for a session.
@@ -47,5 +49,6 @@ public class ScanService {
         }
 
         chakraScanRepository.save(scan);
+        reviewDismissalService.onCaseModified(session.getHealingCase().getId(), "Chakra scan saved");
     }
 }

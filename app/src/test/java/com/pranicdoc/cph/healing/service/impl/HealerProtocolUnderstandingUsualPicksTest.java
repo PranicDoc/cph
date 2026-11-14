@@ -43,7 +43,8 @@ class HealerProtocolUnderstandingUsualPicksTest {
     @BeforeEach
     void setUp() {
         service = new HealerProtocolUnderstandingService(caseRepository, hpuRepository, null, null, null, null,
-                null, null, new ObjectMapper(), securityContextUtil);
+                null, null, new ObjectMapper(), securityContextUtil,
+                org.mockito.Mockito.mock(com.pranicdoc.cph.review.service.ReviewDismissalService.class));
         HealingCase healingCase = HealingCase.builder().build();
         healingCase.setId(caseId);
         healingCase.setHealerId(healerId);

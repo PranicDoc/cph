@@ -10,6 +10,7 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientEditSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
+import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
 
 /** The patient as the API returns it (GET /api/v1/patients/{id}). */
 export type PatientDetails = {
@@ -65,6 +66,17 @@ function PatientEditForm({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const savedDate = declaration?.declarationDate ?? "";
+  // The medical history goes into every case of the patient (the declaration date into the latest), so
+  // saving dismisses any approved review among them: ask first.
+  const { data: caseIds = [] } = useQuery<string[]>({
+    queryKey: ["patient-case-ids", patient.id],
+    queryFn: () =>
+      api
+        .get<{ content: { id: string }[] }>(`/api/v1/cases/patient/${patient.id}`, { params: { size: 100 } })
+        .then((r) => (r.data?.content ?? []).map((c) => c.id)),
+    retry: false,
+  });
+  const approvedEdit = useApprovedEditGuard(caseIds);
 
   const form = useForm({
     defaultValues: {
@@ -107,7 +119,7 @@ function PatientEditForm({
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        form.handleSubmit();
+        approvedEdit.guard(() => form.handleSubmit());
       }}
       className="space-y-6"
     >
@@ -140,6 +152,7 @@ function PatientEditForm({
           )}
         </form.Subscribe>
       </div>
+      {approvedEdit.dialog}
     </form>
   );
 }
