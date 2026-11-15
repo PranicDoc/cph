@@ -54,7 +54,7 @@ class EventStreamRegistryTest {
         RecordingEmitter e = new RecordingEmitter();
         created.add(e);
         return e;
-    });
+    }, new com.fasterxml.jackson.databind.ObjectMapper());
 
     @Test
     void deliver_sendsOnlyToParties() {

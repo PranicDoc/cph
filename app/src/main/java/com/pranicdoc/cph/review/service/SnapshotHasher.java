@@ -27,6 +27,8 @@ public final class SnapshotHasher {
 
     static final Set<String> VOLATILE_FIELDS = Set.of();
 
+    // Deliberately NOT the Spring-managed mapper: the canonical form that is hashed must stay stable
+    // whatever the application mapper is configured to do.
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private SnapshotHasher() {

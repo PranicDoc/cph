@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;

@@ -12,7 +12,7 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
 import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;
 import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import org.junit.jupiter.api.BeforeEach;

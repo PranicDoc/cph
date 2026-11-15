@@ -124,27 +124,14 @@ class ReviewCommentServiceTest {
     }
 
     @Test
-    void coordsOutOfRange_rejected() {
+    void partialPin_rejected() {
         asReviewerWithTwoRevisions();
 
-        for (double[] bad : new double[][] {{-0.1, 0.5}, {0.5, 1.01}, {Double.NaN, 0.5}}) {
-            assertThatThrownBy(() -> service.add(submission.getId(), pin(2, bad[0], bad[1], "x"),
-                    AuthorSide.REVIEWER)).isInstanceOf(IllegalArgumentException.class);
-        }
         assertThatThrownBy(() -> service.add(submission.getId(),
                 new CommentRequest(2, null, 1, 0.5, null, "x"), AuthorSide.REVIEWER))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A pin needs page, x and y");
         verify(comments, never()).save(any());
-    }
-
-    @Test
-    void emptyOrOversizedBody_rejected() {
-        asReviewerWithTwoRevisions();
-
-        assertThatThrownBy(() -> service.add(submission.getId(), pin(2, 0.5, 0.5, "   "), AuthorSide.REVIEWER))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.add(submission.getId(), pin(2, 0.5, 0.5, "a".repeat(4001)),
-                AuthorSide.REVIEWER)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

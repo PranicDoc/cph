@@ -7,6 +7,7 @@ import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventType;
 import com.pranicdoc.cph.review.event.UserEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -47,14 +48,16 @@ public class EventStreamRegistry {
 
     private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> byUser = new ConcurrentHashMap<>();
     private final Supplier<SseEmitter> emitterFactory;
-    private final ObjectMapper json = new ObjectMapper();
+    private final ObjectMapper json;
 
-    public EventStreamRegistry() {
-        this(() -> new SseEmitter(EMITTER_TIMEOUT_MS));
+    @Autowired
+    public EventStreamRegistry(ObjectMapper json) {
+        this(() -> new SseEmitter(EMITTER_TIMEOUT_MS), json);
     }
 
-    EventStreamRegistry(Supplier<SseEmitter> emitterFactory) {
+    EventStreamRegistry(Supplier<SseEmitter> emitterFactory, ObjectMapper json) {
         this.emitterFactory = emitterFactory;
+        this.json = json;
     }
 
     public SseEmitter open(UUID userId) {

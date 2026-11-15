@@ -177,6 +177,20 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    /**
+     * A business refusal of a case-review action (no instructor linked, no PDF yet, a stale or
+     * already-decided version). 409 because the request is well-formed; the state of the review
+     * forbids it. The message is a fixed, user-facing constant and the UI shows it verbatim.
+     */
+    @ExceptionHandler(ReviewRefusedException.class)
+    public ProblemDetail handleReviewRefused(ReviewRefusedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Review Action Refused");
+        pd.setType(URI.create("https://pranicdoc.com/errors/review-refused"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(InsufficientCreditsException.class)
     public ProblemDetail handleInsufficientCredits(InsufficientCreditsException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());

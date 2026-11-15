@@ -20,7 +20,7 @@ import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import com.pranicdoc.cph.review.service.ReviewFileStore;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;
 import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import com.pranicdoc.cph.review.service.SnapshotHasher;

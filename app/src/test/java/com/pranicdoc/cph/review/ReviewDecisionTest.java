@@ -16,7 +16,7 @@ import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import com.pranicdoc.cph.review.service.ReviewFileStore;
 import com.pranicdoc.cph.review.service.ReviewInboxService;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

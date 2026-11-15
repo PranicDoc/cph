@@ -3,6 +3,7 @@ package com.pranicdoc.cph.review.service;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
@@ -86,9 +87,9 @@ public class ReviewerAssignmentService {
             throw new IllegalArgumentException("A healer cannot be their own reviewer");
         }
         Healer healer = healers.findById(healerId)
-                .orElseThrow(() -> new IllegalArgumentException("Healer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
         Healer reviewer = healers.findById(reviewerId)
-                .orElseThrow(() -> new IllegalArgumentException("Reviewer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Reviewer", reviewerId));
         if (!reviewer.isActive()) {
             throw new IllegalArgumentException("Reviewer must be an active healer");
         }

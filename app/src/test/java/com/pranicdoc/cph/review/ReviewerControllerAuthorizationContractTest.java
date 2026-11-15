@@ -92,7 +92,7 @@ class ReviewerControllerAuthorizationContractTest {
             String method, String path) {
         var b = "POST".equals(method) ? post(path) : get(path);
         return b.cookie(new Cookie("accessToken", TOKEN))
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"revisionNo\":1}");
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"revisionNo\":1,\"body\":\"x\"}");
     }
 
     private static final String ROUTES = """
@@ -129,7 +129,7 @@ class ReviewerControllerAuthorizationContractTest {
     void staleDecisionIs409WithTheServerReason() throws Exception {
         authenticate(true);
         when(service.approve(SUBMISSION_ID, 1)).thenThrow(
-                new com.pranicdoc.cph.review.service.ReviewRefusedException(
+                new com.pranicdoc.cph.common.exception.ReviewRefusedException(
                         "A newer version was submitted. Refresh to review it."));
         mockMvc.perform(request("POST", BASE + "/inbox/" + SUBMISSION_ID + "/approve"))
                 .andExpect(status().isConflict())
@@ -144,6 +144,22 @@ class ReviewerControllerAuthorizationContractTest {
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void invalidCommentBodyIs400WithTheValidationShape() throws Exception {
+        authenticate(true);
+        mockMvc.perform(post(BASE + "/inbox/" + SUBMISSION_ID + "/comments").cookie(new Cookie("accessToken", TOKEN))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"revisionNo\":1,\"page\":1,\"x\":1.5,\"y\":0.5,\"body\":\"  \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.title")
+                        .value("Validation Error"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.errors.x")
+                        .exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.errors.body")
+                        .exists());
+        verifyNoInteractions(commentService);
     }
 
     @Test
