@@ -50,6 +50,7 @@ public class EventStreamRegistry {
     private final Supplier<SseEmitter> emitterFactory;
     private final ObjectMapper json;
 
+    // Hand-written: a second constructor lets a test supply the emitter factory.
     @Autowired
     public EventStreamRegistry(ObjectMapper json) {
         this(() -> new SseEmitter(EMITTER_TIMEOUT_MS), json);

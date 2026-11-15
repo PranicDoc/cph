@@ -38,11 +38,16 @@ class CommentRequestValidationTest {
     void coordinatesOutsideUnitRange_areInvalid() {
         assertThat(invalidFields(new CommentRequest(2, null, 1, -0.1, 0.5, "x"))).containsExactly("x");
         assertThat(invalidFields(new CommentRequest(2, null, 1, 0.5, 1.01, "x"))).containsExactly("y");
+        assertThat(invalidFields(new CommentRequest(2, null, 1, 1.01, 0.5, "x"))).containsExactly("x");
+        assertThat(invalidFields(new CommentRequest(2, null, 1, 0.5, -0.1, "x"))).containsExactly("y");
+        // The 0 and 1 edges themselves are fine.
+        assertThat(invalidFields(new CommentRequest(2, null, 1, 1.0, 0.0, "x"))).isEmpty();
     }
 
     @Test
     void pageAndRevisionNoBelowOne_areInvalid() {
         assertThat(invalidFields(new CommentRequest(2, null, 0, 0.5, 0.5, "x"))).containsExactly("page");
+        assertThat(invalidFields(new CommentRequest(2, null, 1, 0.5, 0.5, "x"))).isEmpty();
         assertThat(invalidFields(new CommentRequest(0, null, 1, 0.5, 0.5, "x"))).containsExactly("revisionNo");
         assertThat(invalidFields(new CommentRequest(-3, null, 1, 0.5, 0.5, "x"))).containsExactly("revisionNo");
     }

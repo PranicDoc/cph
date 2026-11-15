@@ -16,6 +16,7 @@ import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.repository.ReviewCommentRepository;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
  * state rules and throws {@link IllegalArgumentException} (400) for them.
  */
 @Service
+@RequiredArgsConstructor
 public class ReviewCommentService {
 
     private final ReviewCommentRepository comments;
@@ -46,19 +48,6 @@ public class ReviewCommentService {
     private final HealerRepository healers;
     private final SecurityContextUtil security;
     private final ReviewEventPublisher events;
-
-    public ReviewCommentService(ReviewCommentRepository comments, ReviewRevisionRepository revisions,
-                                ReviewSubmissionService healerSide, ReviewInboxService reviewerSide,
-                                HealerRepository healers, SecurityContextUtil security,
-                                ReviewEventPublisher events) {
-        this.comments = comments;
-        this.revisions = revisions;
-        this.healerSide = healerSide;
-        this.reviewerSide = reviewerSide;
-        this.healers = healers;
-        this.security = security;
-        this.events = events;
-    }
 
     private ReviewSubmission access(UUID submissionId, AuthorSide side) {
         return side == AuthorSide.HEALER

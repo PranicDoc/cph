@@ -4,6 +4,7 @@ import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
 import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
 import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,18 +21,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/internal/pdf-jobs")
 @Slf4j
+@RequiredArgsConstructor
 public class InternalPdfJobController {
 
     private final ReviewAutoSubmitService autoSubmit;
     private final PdfJobCaseResolver jobCases;
     private final ReviewEventPublisher events;
-
-    public InternalPdfJobController(ReviewAutoSubmitService autoSubmit, PdfJobCaseResolver jobCases,
-                                    ReviewEventPublisher events) {
-        this.autoSubmit = autoSubmit;
-        this.jobCases = jobCases;
-        this.events = events;
-    }
 
     @PostMapping("/{jobId}/completed")
     public ResponseEntity<Void> completed(@PathVariable String jobId) {

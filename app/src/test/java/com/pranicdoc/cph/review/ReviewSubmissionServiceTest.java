@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.review;
 
 import com.pranicdoc.cph.common.enums.JobStatus;
+import com.pranicdoc.cph.common.http.StorageObjectReader;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.PdfJobEntity;
@@ -36,6 +37,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -68,6 +70,7 @@ class ReviewSubmissionServiceTest {
     @Mock private PdfJobRepository pdfJobs;
     @Mock private ReviewerAssignmentService assignments;
     @Mock private StorageService storage;
+    @Mock private StorageObjectReader reader;
     @Mock private SecurityContextUtil security;
     @Mock private PlatformTransactionManager txManager;
     @Mock private ReviewEventPublisher events;
@@ -82,10 +85,10 @@ class ReviewSubmissionServiceTest {
 
     @BeforeEach
     void setUp() {
-        files = spy(new ReviewFileStore(storage));
+        files = spy(new ReviewFileStore(storage, reader));
         doReturn(pdfBytes).when(files).fetch(anyString());
         service = new ReviewSubmissionService(submissions, revisions, cases, pdfJobs, assignments,
-                files, security, txManager, events);
+                files, security, new TransactionTemplate(txManager), events);
 
         when(security.getCurrentHealerId()).thenReturn(healerId);
         when(cases.findById(caseId)).thenReturn(Optional.of(ownedCase(caseId, healerId)));

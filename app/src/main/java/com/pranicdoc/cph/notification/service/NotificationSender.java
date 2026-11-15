@@ -22,7 +22,7 @@ import java.util.concurrent.Executor;
  *   <li>{@link #sendNow} delivers on the caller's thread and reports whether it worked (for callers
  *       that tell the user, e.g. the invite's {@code emailSent}).</li>
  *   <li>{@link #sendAfterCommit} waits for the caller's transaction to commit, then delivers on the
- *       notification executor. Use inside {@code @Transactional} code.</li>
+ *       notification executor; with no transaction in play it delivers on the executor at once.</li>
  * </ul>
  */
 @Slf4j
@@ -59,6 +59,6 @@ public class NotificationSender {
     }
 
     public void sendAfterCommit(NotificationMessage message) {
-        transactionService.runAfterCommit(() -> executor.execute(() -> sendNow(message)));
+        transactionService.runAfterCommitOrNow(() -> executor.execute(() -> sendNow(message)));
     }
 }

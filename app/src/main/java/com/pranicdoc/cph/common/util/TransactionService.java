@@ -30,4 +30,18 @@ public class TransactionService {
             }
         });
     }
+
+    /**
+     * Like {@link #runAfterCommit}, but also usable with no transaction in play: inside an active
+     * transaction synchronization the action runs after commit (and never on rollback); otherwise it
+     * runs immediately on the caller's thread. For code that is sometimes called from a
+     * {@code @Transactional} method and sometimes not, such as an event publisher.
+     */
+    public void runAfterCommitOrNow(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            runAfterCommit(action);
+        } else {
+            action.run();
+        }
+    }
 }

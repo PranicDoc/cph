@@ -10,19 +10,20 @@ import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 
 /**
  * Emails the right party when a review changes. {@link com.pranicdoc.cph.review.event.ReviewEventPublisher}
- * calls it once per event, on the instance that made the change and after that change committed, so a
- * rolled-back action sends nothing and a multi-instance deployment sends once.
+ * calls it once per event, on the instance that made the change, from inside the writing transaction:
+ * the mail is built there, from the submission as that transaction left it, and handed to
+ * {@link NotificationSender#sendAfterCommit}, which delivers it only once that transaction commits. So a
+ * rolled-back action sends nothing, a multi-instance deployment sends once, and the kind of mail is
+ * decided by the state at the time of the action, never by a later re-read.
  *
  * <ul>
  *   <li>submit / resubmit / re-request of review: the instructor</li>
@@ -30,9 +31,8 @@ import java.util.concurrent.Executor;
  *   <li>a comment: the other party than its author</li>
  * </ul>
  *
- * The work runs on the notification executor and never throws: a mail outage or a missing row must not
- * fail or undo the review action. A status change that is neither of the two decisions (a dismissal)
- * sends nothing.
+ * It never throws: a mail outage or a missing row must not fail or undo the review action. A status
+ * change that is neither of the two decisions (a dismissal) sends nothing.
  */
 @Slf4j
 @Component
@@ -42,35 +42,25 @@ public class ReviewNotifier {
     private final HealerRepository healers;
     private final ReviewEmails emails;
     private final NotificationSender sender;
-    private final Executor executor;
     private final String appUrl;
 
+    // Hand-written: @Value constructor parameter, and appUrl is derived from it.
     public ReviewNotifier(ReviewSubmissionRepository submissions, HealerRepository healers, ReviewEmails emails,
-                          NotificationSender sender, @Qualifier("notificationExecutor") Executor executor,
-                          @Value("${app.invite.url}") String inviteUrl) {
+                          NotificationSender sender, @Value("${app.invite.url}") String inviteUrl) {
         this.submissions = submissions;
         this.healers = healers;
         this.emails = emails;
         this.sender = sender;
-        this.executor = executor;
         URI uri = URI.create(inviteUrl);
         this.appUrl = uri.getScheme() + "://" + uri.getAuthority();
     }
 
+    /** Builds the mail for the event now and queues it for after the caller's commit; never throws. */
     public void onEvent(ReviewEvent event) {
         try {
-            executor.execute(() -> notifySafely(event));
+            build(event).ifPresent(sender::sendAfterCommit);
         } catch (RuntimeException e) {
             log.warn("Review email for {} on submission {} not queued: {}",
-                    event.type(), event.submissionId(), e.toString());
-        }
-    }
-
-    private void notifySafely(ReviewEvent event) {
-        try {
-            build(event).ifPresent(sender::sendNow);
-        } catch (RuntimeException e) {
-            log.warn("Review email for {} on submission {} not sent: {}",
                     event.type(), event.submissionId(), e.toString());
         }
     }

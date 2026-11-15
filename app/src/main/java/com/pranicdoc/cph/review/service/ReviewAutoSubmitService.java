@@ -5,6 +5,7 @@ import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -18,20 +19,13 @@ import java.util.UUID;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ReviewAutoSubmitService {
 
     private final PdfJobCaseResolver jobCases;
     private final HealerRepository healers;
     private final ReviewerAssignmentService assignments;
     private final ReviewSubmissionService submissions;
-
-    public ReviewAutoSubmitService(PdfJobCaseResolver jobCases, HealerRepository healers,
-                                   ReviewerAssignmentService assignments, ReviewSubmissionService submissions) {
-        this.jobCases = jobCases;
-        this.healers = healers;
-        this.assignments = assignments;
-        this.submissions = submissions;
-    }
 
     public void onPdfCompleted(String jobId) {
         Optional<PdfJobCaseResolver.JobCase> jobCase = jobCases.resolve(jobId);

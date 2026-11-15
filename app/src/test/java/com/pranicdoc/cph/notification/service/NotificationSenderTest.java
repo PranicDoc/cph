@@ -72,7 +72,7 @@ class NotificationSenderTest {
         sender.sendAfterCommit(welcome);
 
         ArgumentCaptor<Runnable> afterCommit = ArgumentCaptor.forClass(Runnable.class);
-        verify(transactionService).runAfterCommit(afterCommit.capture());
+        verify(transactionService).runAfterCommitOrNow(afterCommit.capture());
         verify(emailChannel, never()).send(any());   // nothing before the commit
         afterCommit.getValue().run();
         verify(emailChannel).send(welcome);
@@ -83,7 +83,7 @@ class NotificationSenderTest {
         doThrow(new NotificationDeliveryException("smtp down", null)).when(emailChannel).send(any());
         sender.sendAfterCommit(welcome);
         ArgumentCaptor<Runnable> afterCommit = ArgumentCaptor.forClass(Runnable.class);
-        verify(transactionService).runAfterCommit(afterCommit.capture());
+        verify(transactionService).runAfterCommitOrNow(afterCommit.capture());
 
         afterCommit.getValue().run();   // must not throw
     }

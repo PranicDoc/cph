@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
@@ -10,15 +11,11 @@ import java.io.IOException;
 
 /** Hands each user event published on {@link ReviewEventPublisher#CHANNEL} to this instance's streams. */
 @Slf4j
+@RequiredArgsConstructor
 public class ReviewRedisRelay implements MessageListener {
 
     private final EventStreamRegistry registry;
     private final ObjectMapper objectMapper;
-
-    public ReviewRedisRelay(EventStreamRegistry registry, ObjectMapper objectMapper) {
-        this.registry = registry;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public void onMessage(Message message, byte[] pattern) {

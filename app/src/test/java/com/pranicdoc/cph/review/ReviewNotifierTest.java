@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.notification.channel.ChannelType;
 import com.pranicdoc.cph.notification.channel.NotificationMessage;
 import com.pranicdoc.cph.notification.email.EmailTemplates;
@@ -25,7 +26,6 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,7 +45,6 @@ class ReviewNotifierTest {
     private final ReviewSubmissionRepository submissions = mock(ReviewSubmissionRepository.class);
     private final HealerRepository healers = mock(HealerRepository.class);
     private final NotificationSender sender = mock(NotificationSender.class);
-    private final Executor sameThread = Runnable::run;
 
     private final UUID healerId = UUID.randomUUID();
     private final UUID reviewerId = UUID.randomUUID();
@@ -56,7 +56,7 @@ class ReviewNotifierTest {
     @BeforeEach
     void setUp() {
         notifier = new ReviewNotifier(submissions, healers, new ReviewEmails(new EmailTemplates()), sender,
-                sameThread, BASE + "/accept-invite");
+                BASE + "/accept-invite");
         submission = ReviewSubmission.builder().caseId(UUID.randomUUID()).healerId(healerId)
                 .reviewerId(reviewerId).stage(ReviewStage.REVIEWER).status(ReviewStatus.PENDING_REVIEW)
                 .submittedVia(SubmittedVia.MANUAL).build();
@@ -72,7 +72,7 @@ class ReviewNotifierTest {
 
     private NotificationMessage sent() {
         ArgumentCaptor<NotificationMessage> captor = ArgumentCaptor.forClass(NotificationMessage.class);
-        verify(sender).sendNow(captor.capture());
+        verify(sender).sendAfterCommit(captor.capture());
         return captor.getValue();
     }
 
@@ -134,7 +134,7 @@ class ReviewNotifierTest {
         notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 1, null));
         notifier.onEvent(event(ReviewEventType.COMMENT_ADDED, 1, AuthorSide.HEALER));
 
-        verify(sender, never()).sendNow(any());
+        verify(sender, never()).sendAfterCommit(any());
         verify(healers, never()).findById(null);
     }
 
@@ -156,7 +156,7 @@ class ReviewNotifierTest {
 
         notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 1, null));
 
-        verify(sender, never()).sendNow(any());
+        verify(sender, never()).sendAfterCommit(any());
     }
 
     @Test
@@ -179,22 +179,28 @@ class ReviewNotifierTest {
 
     @Test
     void mailFailure_doesNotRollBack() {
-        doThrow(new IllegalStateException("smtp down")).when(sender).sendNow(any());
-        when(submissions.findById(submissionId)).thenReturn(Optional.of(submission));
+        doThrow(new IllegalStateException("smtp down")).when(sender).sendAfterCommit(any());
 
         assertThatCode(() -> notifier.onEvent(event(ReviewEventType.REVISION_ADDED, 1, null)))
                 .doesNotThrowAnyException();
 
-        // A broken repository and a rejecting executor are swallowed the same way.
+        // A broken repository is swallowed the same way.
         when(submissions.findById(submissionId)).thenThrow(new IllegalStateException("db down"));
         assertThatCode(() -> notifier.onEvent(event(ReviewEventType.REVISION_ADDED, 1, null)))
                 .doesNotThrowAnyException();
-        ReviewNotifier rejecting = new ReviewNotifier(submissions, healers, new ReviewEmails(new EmailTemplates()),
-                sender, r -> {
-                    throw new java.util.concurrent.RejectedExecutionException("full");
-                }, BASE + "/accept-invite");
-        assertThatCode(() -> rejecting.onEvent(event(ReviewEventType.REVISION_ADDED, 1, null)))
-                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void theKindOfMailIsDecidedAtPublishTime_notReReadAfterwards() {
+        submission.setStatus(ReviewStatus.APPROVED);
+
+        notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 1, null));
+        // The healer edits the case straight away and the approval is dismissed.
+        submission.setStatus(ReviewStatus.DISMISSED);
+
+        NotificationMessage m = sent();
+        assertThat(m.subject()).isEqualTo("HealingARK: Your case was approved");
+        verify(submissions, times(1)).findById(submissionId);
     }
 
     @Test
@@ -202,7 +208,7 @@ class ReviewNotifierTest {
         ReviewNotifier failing = mock(ReviewNotifier.class);
         doThrow(new IllegalStateException("boom")).when(failing).onEvent(any());
         ReviewEventPublisher publisher = new ReviewEventPublisher(mock(EventStreamRegistry.class),
-                new ObjectMapper(), null, false, failing);
+                new ObjectMapper(), null, false, failing, new TransactionService());
 
         assertThatCode(() -> publisher.publish(event(ReviewEventType.REVISION_ADDED, 1, null)))
                 .doesNotThrowAnyException();

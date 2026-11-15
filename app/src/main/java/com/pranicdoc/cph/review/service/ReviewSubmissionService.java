@@ -11,7 +11,6 @@ import com.pranicdoc.cph.healing.model.PdfJobEntity;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.dto.CaseReviewStatusResponse;
-import com.pranicdoc.cph.review.dto.RevisionResponse;
 import com.pranicdoc.cph.review.dto.SubmissionOutcome;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
@@ -24,11 +23,11 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -47,6 +46,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
+
 /**
  * Healer-side case review: submit a case PDF to the linked instructor, resubmit while the review is
  * open, and read back status. Each revision is copied to its own storage key so it stays pinned to
@@ -55,6 +56,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ReviewSubmissionService {
 
     static final String NO_REVIEWER_MESSAGE =
@@ -72,22 +74,6 @@ public class ReviewSubmissionService {
     private final SecurityContextUtil security;
     private final TransactionTemplate tx;
     private final ReviewEventPublisher events;
-
-    public ReviewSubmissionService(ReviewSubmissionRepository submissions, ReviewRevisionRepository revisions,
-                                   CaseRepository cases, PdfJobRepository pdfJobs,
-                                   ReviewerAssignmentService assignments, ReviewFileStore files,
-                                   SecurityContextUtil security, PlatformTransactionManager txManager,
-                                   ReviewEventPublisher events) {
-        this.submissions = submissions;
-        this.revisions = revisions;
-        this.cases = cases;
-        this.pdfJobs = pdfJobs;
-        this.assignments = assignments;
-        this.files = files;
-        this.security = security;
-        this.tx = new TransactionTemplate(txManager);
-        this.events = events;
-    }
 
     /**
      * Opens a new submission for the case, or adds a revision when one is open. Runs its writes in a
@@ -353,19 +339,5 @@ public class ReviewSubmissionService {
         Comparator<ReviewSubmission> byCreated = Comparator.comparing(ReviewSubmission::getCreatedAt,
                 Comparator.nullsFirst(Comparator.naturalOrder()));
         return byCreated.compare(a, b) >= 0 ? a : b;
-    }
-
-    private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs) {
-        return toResponse(s, revs, null);
-    }
-
-    private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs,
-                                                 SubmissionOutcome outcome) {
-        int latest = revs.stream().mapToInt(ReviewRevision::getRevisionNo).max().orElse(0);
-        return new SubmissionResponse(s.getId(), s.getCaseId(), s.getHealerId(), s.getReviewerId(), s.getStage(),
-                s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,
-                s.getCreatedAt(), s.getUpdatedAt(),
-                revs.stream().map(r -> new RevisionResponse(r.getRevisionNo(), r.getPdfJobId(),
-                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), outcome);
     }
 }
