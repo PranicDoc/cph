@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.notify;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
@@ -15,8 +15,6 @@ import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
-import com.pranicdoc.cph.review.notify.ReviewEmails;
-import com.pranicdoc.cph.review.notify.ReviewNotifier;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;

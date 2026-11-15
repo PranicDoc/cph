@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.controller;
 
 import com.pranicdoc.cph.admin.AdminAuthz;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
@@ -12,8 +12,6 @@ import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
-import com.pranicdoc.cph.review.controller.HealerReviewController;
-import com.pranicdoc.cph.review.controller.ReviewerController;
 import com.pranicdoc.cph.review.service.ReviewCommentService;
 import com.pranicdoc.cph.review.service.ReviewInboxService;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;

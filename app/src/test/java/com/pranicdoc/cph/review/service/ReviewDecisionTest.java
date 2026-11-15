@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -14,8 +14,6 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
-import com.pranicdoc.cph.review.service.ReviewFileStore;
-import com.pranicdoc.cph.review.service.ReviewInboxService;
 import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

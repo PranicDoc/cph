@@ -1,7 +1,6 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.controller;
 
 import com.pranicdoc.cph.common.security.InternalApiKeyFilter;
-import com.pranicdoc.cph.review.controller.InternalPdfJobController;
 import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
 import com.pranicdoc.cph.review.service.PdfJobCaseResolver;

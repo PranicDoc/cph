@@ -1,6 +1,5 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.dto;
 
-import com.pranicdoc.cph.review.dto.CommentRequest;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
