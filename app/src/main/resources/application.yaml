@@ -170,12 +170,6 @@ app:
     # Guards /api/v1/internal/**. Empty = those endpoints answer 404.
     api-key: ${INTERNAL_API_KEY:}
 
-cph:
-  internal:
-    # Shared secret pdfWorker sends as X-Internal-Token on POST /internal/pdf-jobs/{jobId}/completed.
-    # Empty = the endpoint rejects every call (401).
-    token: ${CPH_INTERNAL_TOKEN:}
-
 storage:
   provider: R2
   bucket: pranicdoc-pdfs
