@@ -247,7 +247,7 @@ class ReviewSubmissionServiceTest {
         SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
 
         verify(events).publish(new ReviewEvent(response.id(), healerId, reviewerId,
-                ReviewEventType.REVISION_ADDED, 1));
+                ReviewEventType.REVISION_ADDED, 1, null, ReviewStatus.PENDING_REVIEW));
     }
 
     @Test
@@ -261,7 +261,7 @@ class ReviewSubmissionServiceTest {
         service.submit(caseId, SubmittedVia.MANUAL);
 
         verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
-                ReviewEventType.REVISION_ADDED, 2));
+                ReviewEventType.REVISION_ADDED, 2, null, ReviewStatus.PENDING_REVIEW));
     }
 
     @Test
@@ -269,7 +269,7 @@ class ReviewSubmissionServiceTest {
         SubmissionResponse response = service.submitAs(healerId, caseId, SubmittedVia.AUTO);
 
         verify(events).publish(new ReviewEvent(response.id(), healerId, reviewerId,
-                ReviewEventType.REVISION_ADDED, 1));
+                ReviewEventType.REVISION_ADDED, 1, null, ReviewStatus.PENDING_REVIEW));
     }
 
     @Test
@@ -349,7 +349,7 @@ class ReviewSubmissionServiceTest {
         verify(submissions).saveAndFlush(open);
         // One STATUS_CHANGED and no REVISION_ADDED: the notifier mails the instructor exactly once.
         verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
-                ReviewEventType.STATUS_CHANGED, 1));
+                ReviewEventType.STATUS_CHANGED, 1, null, ReviewStatus.PENDING_REVIEW));
         verify(events, times(1)).publish(any());
     }
 
@@ -367,7 +367,7 @@ class ReviewSubmissionServiceTest {
         verify(revisions).saveAndFlush(rev.capture());
         assertThat(rev.getValue().getSnapshotHash()).isEqualTo(SnapshotHasher.hash("{\"title\":\"edited\"}"));
         verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
-                ReviewEventType.REVISION_ADDED, 2));
+                ReviewEventType.REVISION_ADDED, 2, null, ReviewStatus.PENDING_REVIEW));
     }
 
     @Test

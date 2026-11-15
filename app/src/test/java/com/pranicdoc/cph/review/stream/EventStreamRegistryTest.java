@@ -187,8 +187,8 @@ class EventStreamRegistryTest {
         assertThat(withRevision.get("revisionNo").asInt()).isEqualTo(2);
         assertThat(withRevision.size()).isEqualTo(3);
 
-        // The production mapper leaves a null revisionNo out of the payload altogether (the UI types
-        // it as optional, and nothing reads it for a status change).
+        // The production mapper leaves a null revisionNo out of the payload altogether. The UI types it as
+        // number | null (useEventStream.ts:31) and nothing reads it for a status change.
         var withoutRevision = production.readTree(dataOf(emitters.get(0).sent.get(1)));
         assertThat(withoutRevision.has("revisionNo")).isFalse();
         assertThat(withoutRevision.get("type").asText()).isEqualTo("STATUS_CHANGED");

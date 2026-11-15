@@ -12,6 +12,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * The one entry point features use to notify people. It picks the channel strategy for the
@@ -22,7 +23,8 @@ import java.util.concurrent.Executor;
  *   <li>{@link #sendNow} delivers on the caller's thread and reports whether it worked (for callers
  *       that tell the user, e.g. the invite's {@code emailSent}).</li>
  *   <li>{@link #sendAfterCommit} waits for the caller's transaction to commit, then delivers on the
- *       notification executor; with no transaction in play it delivers on the executor at once.</li>
+ *       notification executor; with no transaction in play it delivers on the executor at once. Like
+ *       {@code sendNow} it never throws, not even when the executor queue is full.</li>
  * </ul>
  */
 @Slf4j
@@ -59,6 +61,39 @@ public class NotificationSender {
     }
 
     public void sendAfterCommit(NotificationMessage message) {
-        transactionService.runAfterCommitOrNow(() -> executor.execute(() -> sendNow(message)));
+        afterCommit(() -> sendNow(message));
+    }
+
+    /**
+     * Like {@link #sendAfterCommit(NotificationMessage)}, but the message is built by {@code supplier}
+     * after the commit, on the notification executor, so lookups it needs never run inside the caller's
+     * transaction. A supplier that throws is logged and sends nothing; so is one that returns null.
+     */
+    public void sendAfterCommit(Supplier<NotificationMessage> supplier) {
+        afterCommit(() -> {
+            try {
+                NotificationMessage message = supplier.get();
+                if (message != null) {
+                    sendNow(message);
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Notification could not be built and was not sent: {}", ex.toString());
+            }
+        });
+    }
+
+    /** Hands the work to the executor after commit; a full queue or any submit failure is only logged. */
+    private void afterCommit(Runnable work) {
+        try {
+            transactionService.runAfterCommitOrNow(() -> {
+                try {
+                    executor.execute(work);
+                } catch (RuntimeException ex) {
+                    log.warn("Notification not queued: {}", ex.toString());
+                }
+            });
+        } catch (RuntimeException ex) {
+            log.warn("Notification not queued: {}", ex.toString());
+        }
     }
 }

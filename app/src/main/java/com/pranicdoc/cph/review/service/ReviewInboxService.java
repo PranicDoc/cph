@@ -97,7 +97,7 @@ public class ReviewInboxService {
         s.setStatus(decision);
         submissions.saveAndFlush(s);
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.STATUS_CHANGED, latest));
+                ReviewEventType.STATUS_CHANGED, latest, null, s.getStatus()));
         return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
     }
 

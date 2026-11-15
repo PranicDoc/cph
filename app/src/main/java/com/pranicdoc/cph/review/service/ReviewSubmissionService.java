@@ -174,7 +174,7 @@ public class ReviewSubmissionService {
             open.setStatus(ReviewStatus.PENDING_REVIEW);
             submissions.saveAndFlush(open);
             events.publish(new ReviewEvent(open.getId(), open.getHealerId(), open.getReviewerId(),
-                    ReviewEventType.STATUS_CHANGED, latestRevision.getRevisionNo()));
+                    ReviewEventType.STATUS_CHANGED, latestRevision.getRevisionNo(), null, open.getStatus()));
             return toResponse(open, all, SubmissionOutcome.REREQUESTED);
         }
         log.info("Submit for case {} skipped via {}: unchanged since revision {}",
@@ -185,7 +185,7 @@ public class ReviewSubmissionService {
     /** Registered inside the submit transaction; the publisher sends it only after that commits. */
     private void publishRevisionAdded(ReviewSubmission submission, ReviewRevision revision) {
         events.publish(new ReviewEvent(submission.getId(), submission.getHealerId(), submission.getReviewerId(),
-                ReviewEventType.REVISION_ADDED, revision.getRevisionNo()));
+                ReviewEventType.REVISION_ADDED, revision.getRevisionNo(), null, submission.getStatus()));
     }
 
     /** Pins the PDF bytes first, so a failed copy saves no revision row. */

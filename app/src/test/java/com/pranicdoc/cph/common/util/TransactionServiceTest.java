@@ -79,4 +79,15 @@ class TransactionServiceTest {
 
         assertThat(runs).hasValue(1);
     }
+
+    @Test
+    void runAfterCommitOrNow_whenSynchronizationIsSwitchedOff_runsAtOnceBeforeAnyCommit() {
+        InMemoryTxManager unsynchronized = new InMemoryTxManager();
+        unsynchronized.setTransactionSynchronization(AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER);
+
+        new TransactionTemplate(unsynchronized).executeWithoutResult(status -> {
+            service.runAfterCommitOrNow(runs::incrementAndGet);
+            assertThat(runs).hasValue(1);
+        });
+    }
 }

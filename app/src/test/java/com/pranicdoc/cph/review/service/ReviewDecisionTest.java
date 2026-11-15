@@ -92,7 +92,7 @@ class ReviewDecisionTest {
         assertThat(response.status()).isEqualTo(ReviewStatus.APPROVED);
         assertThat(s.getStatus()).isEqualTo(ReviewStatus.APPROVED);
         verify(submissions).saveAndFlush(s);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 2));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 2, null, ReviewStatus.APPROVED));
     }
 
     @Test
@@ -102,7 +102,7 @@ class ReviewDecisionTest {
         SubmissionResponse response = service.requestChanges(s.getId(), 1);
 
         assertThat(response.status()).isEqualTo(ReviewStatus.CHANGES_REQUESTED);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 1));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 1, null, ReviewStatus.CHANGES_REQUESTED));
     }
 
     @Test

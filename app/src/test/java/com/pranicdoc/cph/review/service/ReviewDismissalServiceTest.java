@@ -85,7 +85,7 @@ class ReviewDismissalServiceTest {
         assertThat(s.isDismissedFromApproved()).isTrue();
         assertThat(s.getDismissReason()).isEqualTo("Session edited");
         verify(submissions).save(s);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, reviewer, ReviewEventType.STATUS_CHANGED, 3));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, reviewer, ReviewEventType.STATUS_CHANGED, 3, null, ReviewStatus.DISMISSED));
     }
 
     @Test

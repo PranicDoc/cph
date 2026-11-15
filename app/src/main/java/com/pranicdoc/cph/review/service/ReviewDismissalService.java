@@ -68,6 +68,6 @@ public class ReviewDismissalService {
                 .map(ReviewRevision::getRevisionNo).orElse(null);
         // Sent after the write commits, and never if it rolls back.
         events.publish(new ReviewEvent(latest.getId(), latest.getHealerId(), latest.getReviewerId(),
-                ReviewEventType.STATUS_CHANGED, revisionNo));
+                ReviewEventType.STATUS_CHANGED, revisionNo, null, latest.getStatus()));
     }
 }
