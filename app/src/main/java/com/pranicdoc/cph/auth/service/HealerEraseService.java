@@ -98,6 +98,9 @@ public class HealerEraseService {
         for (UUID patientId : jdbc.queryForList("SELECT id FROM patient WHERE healer_id = ?", UUID.class, healerId)) {
             purger.purgePatient(patientId);
         }
+        // Defensive: review threads the healer opened on a case that is not one of their patients'.
+        purger.purgeReviewSubmissionsOfHealer(healerId);
+        detachFromReviews(healerId, email);
         for (String table : PERSONAL) {
             jdbc.update("DELETE FROM " + table + " WHERE healer_id = ?", healerId);
         }
@@ -110,6 +113,25 @@ public class HealerEraseService {
         }
         jdbc.update("DELETE FROM healer_aud WHERE id = ?", healerId);
         jdbc.update("DELETE FROM healer WHERE id = ?", healerId);
+    }
+
+    /**
+     * The healer as an instructor: their healers' submissions stay, so the reviewer and comment-author
+     * links to them are cleared (the submission then waits for a newly linked instructor, and their
+     * comments read "Deleted user"), their e-mail is wiped from those rows' audit columns, and every assignment they are part of is removed.
+     */
+    private void detachFromReviews(UUID healerId, String email) {
+        jdbc.update("UPDATE review_submission SET reviewer_id = NULL WHERE reviewer_id = ?", healerId);
+        jdbc.update("UPDATE review_comment SET author_id = NULL WHERE author_id = ?", healerId);
+        // The kept rows also carry the healer's e-mail as created_by / updated_by (and in their history copies).
+        for (String table : List.of("review_submission", "review_comment", "review_submission_aud", "review_comment_aud")) {
+            jdbc.update("UPDATE " + table + " SET created_by = NULL WHERE lower(created_by) = lower(?)", email);
+            jdbc.update("UPDATE " + table + " SET updated_by = NULL WHERE lower(updated_by) = lower(?)", email);
+        }
+        jdbc.update("DELETE FROM reviewer_assignment_aud WHERE healer_id = ? OR reviewer_id = ? OR id IN ("
+                + "SELECT id FROM reviewer_assignment WHERE healer_id = ? OR reviewer_id = ?)",
+                healerId, healerId, healerId, healerId);
+        jdbc.update("DELETE FROM reviewer_assignment WHERE healer_id = ? OR reviewer_id = ?", healerId, healerId);
     }
 
     private UUID otherSuperAdmin(UUID except) {

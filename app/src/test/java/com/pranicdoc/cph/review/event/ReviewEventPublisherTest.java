@@ -116,6 +116,18 @@ class ReviewEventPublisherTest {
     }
 
     @Test
+    void relay_survivesAnEventWithNoReviewer() throws Exception {
+        ReviewRedisRelay relay = new ReviewRedisRelay(registry, mapper);
+        ReviewEvent noReviewer = new ReviewEvent(event.submissionId(), event.healerId(), null,
+                ReviewEventType.STATUS_CHANGED, 1);
+
+        relay.onMessage(new org.springframework.data.redis.connection.DefaultMessage(
+                ReviewEventPublisher.CHANNEL.getBytes(), mapper.writeValueAsBytes(noReviewer)), null);
+
+        verify(registry).deliver(noReviewer);
+    }
+
+    @Test
     void relay_ignoresMalformedMessages() {
         ReviewRedisRelay relay = new ReviewRedisRelay(registry, mapper);
 

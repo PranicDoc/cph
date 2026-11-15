@@ -16,7 +16,8 @@ CREATE TABLE review_submission (
     version                 BIGINT       NOT NULL DEFAULT 0,
     case_id                 UUID         NOT NULL,
     healer_id               UUID         NOT NULL,
-    reviewer_id             UUID         NOT NULL,
+    -- NULL once the instructor's account is erased; the submission waits for a newly linked reviewer.
+    reviewer_id             UUID,
     stage                   VARCHAR(20)  NOT NULL,
     status                  VARCHAR(30)  NOT NULL,
     dismissed_from_approved BOOLEAN      NOT NULL DEFAULT FALSE,

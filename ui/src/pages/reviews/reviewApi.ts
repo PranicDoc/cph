@@ -36,7 +36,8 @@ export interface SubmissionResponse {
   id: string;
   caseId: string;
   healerId: string;
-  reviewerId: string;
+  /** Null once the instructor's account was erased, until a new one is linked. */
+  reviewerId: string | null;
   stage: "REVIEWER" | "FEDERATION";
   status: "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "DISMISSED";
   dismissedFromApproved: boolean;
@@ -152,8 +153,9 @@ export interface ReviewComment {
   /** The revision the comment (or its thread) is on, so the UI can say "on version N". */
   revisionNo: number;
   parentId: string | null;
-  authorId: string;
-  authorName: string;
+  /** Null once the author's account was erased. */
+  authorId: string | null;
+  authorName: string | null;
   authorSide: "HEALER" | "REVIEWER";
   /** Set with x and y for a pin; x and y are 0-1 against the page's rendered size. */
   page: number | null;

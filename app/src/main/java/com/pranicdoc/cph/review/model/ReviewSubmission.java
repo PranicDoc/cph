@@ -38,7 +38,7 @@ public class ReviewSubmission extends BaseEntity {
     @Column(name = "healer_id", nullable = false, updatable = false)
     private UUID healerId;
 
-    @Column(name = "reviewer_id", nullable = false)
+    @Column(name = "reviewer_id")
     private UUID reviewerId;
 
     @Enumerated(EnumType.STRING)

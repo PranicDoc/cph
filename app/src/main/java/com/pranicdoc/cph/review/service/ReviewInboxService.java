@@ -114,6 +114,7 @@ public class ReviewInboxService {
     public List<InboxItemResponse> inbox(ReviewStatus status) {
         UUID me = security.getCurrentHealerId();
         List<ReviewSubmission> mine = submissions.findByReviewerIdAndStage(me, ReviewStage.REVIEWER).stream()
+                .filter(s -> me.equals(s.getReviewerId())) // never a submission whose instructor was erased
                 .filter(s -> !me.equals(s.getHealerId()))
                 .filter(s -> status == null || s.getStatus() == status)
                 .toList();

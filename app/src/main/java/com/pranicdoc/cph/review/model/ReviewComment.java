@@ -43,7 +43,7 @@ public class ReviewComment extends BaseEntity {
     @Column(name = "parent_id", updatable = false)
     private UUID parentId;
 
-    @Column(name = "author_id", nullable = false, updatable = false)
+    @Column(name = "author_id", updatable = false)
     private UUID authorId;
 
     @Enumerated(EnumType.STRING)

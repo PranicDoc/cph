@@ -111,6 +111,21 @@ class ReviewInboxServiceTest {
     }
 
     @Test
+    void nullReviewer_submissionNeverAppearsInAnyInbox() {
+        ReviewSubmission orphaned = submission(healerA, null, ReviewStatus.PENDING_REVIEW);
+        ReviewSubmission mine = submission(healerB, me, ReviewStatus.PENDING_REVIEW);
+        // Even if a query handed the orphaned row back, it must not be listed for anyone.
+        when(submissions.findByReviewerIdAndStage(me, ReviewStage.REVIEWER)).thenReturn(List.of(orphaned, mine));
+        when(revisions.findBySubmissionIdIn(any())).thenReturn(List.of(revision(mine, 1, Instant.now(), null)));
+        when(healers.findAllById(any())).thenReturn(List.of(healer(healerB, "Bala")));
+        when(cases.findAllById(any())).thenReturn(List.of());
+
+        assertThat(service.inbox(null)).extracting(InboxItemResponse::submissionId).containsExactly(mine.getId());
+        when(submissions.findById(orphaned.getId())).thenReturn(Optional.of(orphaned));
+        assertThatThrownBy(() -> service.getItem(orphaned.getId())).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void inbox_statusFilterApplies() {
         ReviewSubmission pending = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
         ReviewSubmission approved = submission(healerA, me, ReviewStatus.APPROVED);

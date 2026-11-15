@@ -24,6 +24,8 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -74,12 +76,14 @@ public class ReviewCommentService {
         }
         Map<UUID, Integer> revisionNo = revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()).stream()
                 .collect(Collectors.toMap(ReviewRevision::getId, ReviewRevision::getRevisionNo));
-        Map<UUID, String> names = healers
-                .findAllById(rows.stream().map(ReviewComment::getAuthorId).collect(Collectors.toSet())).stream()
+        // An erased author has a null id; it is never looked up and shows without a name.
+        Set<UUID> authorIds = rows.stream().map(ReviewComment::getAuthorId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, String> names = authorIds.isEmpty() ? Map.of() : healers.findAllById(authorIds).stream()
                 .collect(Collectors.toMap(Healer::getId, h -> h.getFullName() == null ? "" : h.getFullName()));
         return rows.stream()
                 .map(c -> toResponse(c, revisionNo.getOrDefault(c.getRevisionId(), 0),
-                        names.getOrDefault(c.getAuthorId(), "")))
+                        c.getAuthorId() == null ? null : names.getOrDefault(c.getAuthorId(), "")))
                 .toList();
     }
 

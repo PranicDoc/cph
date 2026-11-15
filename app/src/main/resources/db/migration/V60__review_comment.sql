@@ -16,7 +16,8 @@ CREATE TABLE review_comment (
     submission_id UUID          NOT NULL,
     revision_id   UUID          NOT NULL,
     parent_id     UUID,
-    author_id     UUID          NOT NULL,
+    -- NULL once the author's account is erased; the comment text stays and shows as "Deleted user".
+    author_id     UUID,
     author_side   VARCHAR(10)   NOT NULL,
     page          INTEGER,
     x             NUMERIC(6,5),

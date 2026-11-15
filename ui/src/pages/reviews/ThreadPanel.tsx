@@ -140,7 +140,9 @@ export default function ThreadPanel({
             {[root, ...replies].map((c) => (
               <div key={c.id} className="text-sm">
                 <span className="font-medium">
-                  {c.authorName || (c.authorSide === "REVIEWER" ? "Instructor" : "Healer")}
+                  {c.authorId == null
+                    ? "Deleted user"
+                    : c.authorName || (c.authorSide === "REVIEWER" ? "Instructor" : "Healer")}
                 </span>
                 <span className="ml-1 text-xs text-muted-foreground">
                   {c.authorSide === "REVIEWER" ? "Instructor" : "Healer"}

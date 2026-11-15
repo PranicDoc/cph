@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -188,6 +189,35 @@ class ReviewCommentServiceTest {
         assertThatThrownBy(() -> service.list(id, AuthorSide.HEALER)).isInstanceOf(AccessDeniedException.class);
         verify(comments, never()).save(any());
         verify(events, never()).publish(any());
+    }
+
+    @Test
+    void nullAuthor_commentListMapsWithoutNpe() {
+        when(reviewerSide.assignedSubmission(submission.getId())).thenReturn(submission);
+        ReviewComment orphaned = ReviewComment.builder().submissionId(submission.getId()).revisionId(rev1.getId())
+                .authorId(null).authorSide(AuthorSide.REVIEWER).body("Please redo page 2").build();
+        orphaned.setId(UUID.randomUUID());
+        UUID healerAuthor = UUID.randomUUID();
+        ReviewComment reply = ReviewComment.builder().submissionId(submission.getId()).revisionId(rev1.getId())
+                .parentId(orphaned.getId()).authorId(healerAuthor).authorSide(AuthorSide.HEALER).body("Done").build();
+        reply.setId(UUID.randomUUID());
+        when(comments.findBySubmissionIdOrderByCreatedAtAsc(submission.getId())).thenReturn(List.of(orphaned, reply));
+        when(revisions.findBySubmissionIdOrderByRevisionNoAsc(submission.getId())).thenReturn(List.of(rev1, rev2));
+        when(healers.findAllById(any())).thenAnswer(inv -> {
+            Iterable<UUID> ids = inv.getArgument(0);
+            ids.forEach(id -> assertThat(id).as("no null id is looked up").isNotNull());
+            com.pranicdoc.cph.auth.model.Healer asha = com.pranicdoc.cph.auth.model.Healer.builder().fullName("Asha Rao").build();
+            asha.setId(healerAuthor);
+            return List.of(asha);
+        });
+
+        List<CommentResponse> list = service.list(submission.getId(), AuthorSide.REVIEWER);
+
+        assertThat(list).hasSize(2);
+        assertThat(list.get(0).authorId()).isNull();
+        assertThat(list.get(0).authorName()).isNull();
+        assertThat(list.get(0).body()).isEqualTo("Please redo page 2");
+        assertThat(list.get(1).authorId()).isEqualTo(healerAuthor);
     }
 
     @Test

@@ -78,6 +78,16 @@ class ReviewStreamRegistryTest {
     }
 
     @Test
+    void deliver_withNoReviewer_reachesTheHealerAndSkipsTheNullTarget() {
+        UUID healer = UUID.randomUUID();
+        registry.open(healer);
+
+        registry.deliver(new ReviewEvent(UUID.randomUUID(), healer, null, ReviewEventType.STATUS_CHANGED, 1));
+
+        assertThat(created.get(0).sent).hasSize(1);
+    }
+
+    @Test
     void deadEmitterRemovedOnIOException() {
         UUID healer = UUID.randomUUID();
         registry.open(healer);

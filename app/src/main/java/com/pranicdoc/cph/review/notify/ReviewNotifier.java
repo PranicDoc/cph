@@ -89,6 +89,9 @@ public class ReviewNotifier {
     }
 
     private Optional<NotificationMessage> toReviewer(ReviewSubmission s, int revisionNo) {
+        if (s.getReviewerId() == null) { // the instructor's account was erased; nobody to tell yet
+            return Optional.empty();
+        }
         Optional<Healer> reviewer = healers.findById(s.getReviewerId());
         Optional<Healer> healer = healers.findById(s.getHealerId());
         if (reviewer.isEmpty() || healer.isEmpty()) {
@@ -100,6 +103,9 @@ public class ReviewNotifier {
 
     private Optional<NotificationMessage> decision(ReviewSubmission s) {
         if (s.getStatus() != ReviewStatus.CHANGES_REQUESTED && s.getStatus() != ReviewStatus.APPROVED) {
+            return Optional.empty();
+        }
+        if (s.getReviewerId() == null) {
             return Optional.empty();
         }
         Optional<Healer> healer = healers.findById(s.getHealerId());
@@ -120,6 +126,9 @@ public class ReviewNotifier {
             return Optional.empty();
         }
         boolean fromHealer = actor == AuthorSide.HEALER;
+        if (s.getReviewerId() == null) {
+            return Optional.empty();
+        }
         Optional<Healer> to = healers.findById(fromHealer ? s.getReviewerId() : s.getHealerId());
         Optional<Healer> from = healers.findById(fromHealer ? s.getHealerId() : s.getReviewerId());
         if (to.isEmpty() || from.isEmpty()) {

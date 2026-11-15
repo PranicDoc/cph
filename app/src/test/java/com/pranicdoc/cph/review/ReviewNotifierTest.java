@@ -126,6 +126,19 @@ class ReviewNotifierTest {
     }
 
     @Test
+    void noReviewer_sendsNothingAndLooksNoOneUpByNull() {
+        submission.setReviewerId(null);
+
+        notifier.onEvent(event(ReviewEventType.REVISION_ADDED, 1, null));
+        submission.setStatus(ReviewStatus.APPROVED);
+        notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 1, null));
+        notifier.onEvent(event(ReviewEventType.COMMENT_ADDED, 1, AuthorSide.HEALER));
+
+        verify(sender, never()).sendNow(any());
+        verify(healers, never()).findById(null);
+    }
+
+    @Test
     void dismissal_sendsNothing() {
         submission.setStatus(ReviewStatus.DISMISSED);
 
