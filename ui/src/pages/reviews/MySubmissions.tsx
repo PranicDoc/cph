@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { useReviewStream } from "../../hooks/useReviewStream";
+import { useEventStream } from "../../hooks/useEventStream";
 import { MY_SUBMISSIONS_KEY } from "../../lib/reviewQueryKeys";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
 import { mySubmissions, type SubmissionResponse } from "./reviewApi";
@@ -41,7 +41,7 @@ function SubmissionRow({ s }: { s: SubmissionResponse }) {
  * stream events refetch it, and opening the page clears the nav dot.
  */
 export default function MySubmissions() {
-  const { unreadCount, resetUnread } = useReviewStream();
+  const { unreadCount, resetUnread } = useEventStream();
   // Also when an event arrives while the page is open: nothing here is left unseen.
   useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 

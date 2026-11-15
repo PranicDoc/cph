@@ -4,7 +4,7 @@ import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useReviewStream } from "../../hooks/useReviewStream";
+import { useEventStream } from "../../hooks/useEventStream";
 import { reviewFileKey, reviewHealerSubmissionKey } from "../../lib/reviewQueryKeys";
 import PdfPinCanvas from "./PdfPinCanvas";
 import ThreadPanel from "./ThreadPanel";
@@ -18,7 +18,7 @@ import { useReviewComments } from "./useReviewComments";
  */
 export default function SubmissionDetail() {
   const { submissionId = "" } = useParams<{ submissionId: string }>();
-  useReviewStream();
+  useEventStream();
 
   const [chosenRevision, setChosenRevision] = useState<number | null>(null);
   const [activeThread, setActiveThread] = useState<string | null>(null);

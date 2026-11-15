@@ -20,7 +20,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/admin/AdminRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import { PatientProvider } from "./context/PatientContext";
-import { ReviewStreamRoute } from "./context/ReviewStreamProvider";
+import { EventStreamRoute } from "./context/EventStreamProvider";
 import Unauthorized from "./pages/Unauthorized";
 import Forbidden from "./pages/Forbidden";
 import NotFound from "./pages/NotFound";
@@ -67,7 +67,7 @@ const router = createBrowserRouter(
 
       {/* Protected healer routes */}
       <Route element={<ProtectedRoute />}>
-        <Route element={<ReviewStreamRoute />}>
+        <Route element={<EventStreamRoute />}>
           <Route path="/" element={<HealerLayout />}>
             <Route index lazy={page(() => import("./pages/Dashboard"))} />
             <Route path="patients" lazy={page(() => import("./pages/Patients"))} />

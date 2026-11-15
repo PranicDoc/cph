@@ -2,15 +2,16 @@ package com.pranicdoc.cph.review.stream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventType;
+import com.pranicdoc.cph.review.event.UserEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,16 +21,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 /**
- * The review streams open on this instance, by user. An event goes only to the streams of the
- * submission's healer and reviewer, carrying just the submission id, type and revision number.
+ * The event streams open on this instance, by user. A review event goes only to the streams of the
+ * submission's healer and reviewer, carrying just the submission id, type and revision number
+ * ({@code event: review}); a PDF-ready event goes only to the case's healer, carrying the case and
+ * job ids ({@code event: pdf-ready}).
  * A stream whose connection has gone is dropped on the first failed send.
  */
 @Slf4j
 @Component
-public class ReviewStreamRegistry {
+public class EventStreamRegistry {
 
     static final long EMITTER_TIMEOUT_MS = 30L * 60 * 1000;
-    static final String EVENT_NAME = "review";
+    static final String REVIEW_EVENT_NAME = "review";
+    static final String PDF_READY_EVENT_NAME = "pdf-ready";
     /** Tabs per user; opening one more closes the oldest, so one account cannot hold unbounded connections. */
     static final int MAX_STREAMS_PER_USER = 5;
 
@@ -37,15 +41,19 @@ public class ReviewStreamRegistry {
     record StreamPayload(UUID submissionId, ReviewEventType type, Integer revisionNo) {
     }
 
+    /** The browser-facing payload of a PDF-ready event. */
+    record PdfReadyPayload(UUID caseId, String jobId) {
+    }
+
     private final Map<UUID, CopyOnWriteArrayList<SseEmitter>> byUser = new ConcurrentHashMap<>();
     private final Supplier<SseEmitter> emitterFactory;
     private final ObjectMapper json = new ObjectMapper();
 
-    public ReviewStreamRegistry() {
+    public EventStreamRegistry() {
         this(() -> new SseEmitter(EMITTER_TIMEOUT_MS));
     }
 
-    ReviewStreamRegistry(Supplier<SseEmitter> emitterFactory) {
+    EventStreamRegistry(Supplier<SseEmitter> emitterFactory) {
         this.emitterFactory = emitterFactory;
     }
 
@@ -70,25 +78,28 @@ public class ReviewStreamRegistry {
         return emitter;
     }
 
-    /** Sends the event to the healer's and the reviewer's open streams, and to no one else. */
-    public void deliver(ReviewEvent event) {
+    /** Sends the event to its target users' open streams, and to no one else. */
+    public void deliver(UserEvent event) {
+        String name;
         String data;
         try {
-            data = json.writeValueAsString(new StreamPayload(event.submissionId(), event.type(), event.revisionNo()));
+            if (event instanceof ReviewEvent review) {
+                name = REVIEW_EVENT_NAME;
+                data = json.writeValueAsString(
+                        new StreamPayload(review.submissionId(), review.type(), review.revisionNo()));
+            } else if (event instanceof PdfReadyEvent pdf) {
+                name = PDF_READY_EVENT_NAME;
+                data = json.writeValueAsString(new PdfReadyPayload(pdf.caseId(), pdf.jobId()));
+            } else {
+                return;
+            }
         } catch (JsonProcessingException e) {
-            log.warn("Review event for submission {} not serialisable: {}", event.submissionId(), e.getMessage());
+            log.warn("Event {} not serialisable: {}", event.getClass().getSimpleName(), e.getMessage());
             return;
         }
-        Set<UUID> parties = new LinkedHashSet<>();
-        if (event.healerId() != null) {
-            parties.add(event.healerId());
-        }
-        if (event.reviewerId() != null) {
-            parties.add(event.reviewerId());
-        }
-        for (UUID userId : parties) {
+        for (UUID userId : event.targetUserIds()) {
             for (SseEmitter emitter : streamsOf(userId)) {
-                send(userId, emitter, SseEmitter.event().name(EVENT_NAME).data(data));
+                send(userId, emitter, SseEmitter.event().name(name).data(data));
             }
         }
     }

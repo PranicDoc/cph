@@ -3,7 +3,7 @@ package com.pranicdoc.cph.review.event;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.review.notify.ReviewNotifier;
-import com.pranicdoc.cph.review.stream.ReviewStreamRegistry;
+import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Sends review events to every cph instance once the change that caused them has committed. With
+ * Sends review and PDF-ready events to every cph instance once the change that caused them has committed. With
  * Redis on (the default), the event goes out as JSON on {@link #CHANNEL} and {@link ReviewRedisRelay}
  * on each instance hands it to that instance's open streams. With Redis off (local dev, tests), or
  * when the Redis send fails, the event is delivered to this instance's streams directly.
@@ -26,21 +26,21 @@ public class ReviewEventPublisher {
 
     public static final String CHANNEL = "cph:review-events";
 
-    private final ReviewStreamRegistry registry;
+    private final EventStreamRegistry registry;
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redis;
     private final boolean redisEnabled;
     private final ReviewNotifier notifier;
 
     @Autowired
-    public ReviewEventPublisher(ReviewStreamRegistry registry, ObjectMapper objectMapper,
+    public ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
                                 ObjectProvider<StringRedisTemplate> redis,
                                 @Value("${app.review.events.redis-enabled:true}") boolean redisEnabled,
                                 ReviewNotifier notifier) {
         this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled, notifier);
     }
 
-    ReviewEventPublisher(ReviewStreamRegistry registry, ObjectMapper objectMapper,
+    ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
                          StringRedisTemplate redis, boolean redisEnabled, ReviewNotifier notifier) {
         this.notifier = notifier;
         this.registry = registry;
@@ -78,22 +78,39 @@ public class ReviewEventPublisher {
         }
     }
 
+    /**
+     * Tells the healer a PDF for one of their cases is ready. Called from the pdfWorker webhook, which
+     * has no transaction to wait for, so it goes out at once. No email. Same Redis fan-out as review events.
+     */
+    public void publishPdfReady(PdfReadyEvent event) {
+        send(event);
+    }
+
     /** Best effort: a live update is a convenience, so a failure here never reaches the caller. */
-    private void send(ReviewEvent event) {
+    private void send(UserEvent event) {
         if (redisEnabled) {
             try {
                 redis.convertAndSend(CHANNEL, objectMapper.writeValueAsString(event));
                 return;
             } catch (JsonProcessingException | RuntimeException e) {
-                log.warn("Review event {} for submission {} not sent through Redis, delivering on this "
-                        + "instance only: {}", event.type(), event.submissionId(), e.toString());
+                log.warn("{} not sent through Redis, delivering on this instance only: {}",
+                        describe(event), e.toString());
             }
         }
         try {
             registry.deliver(event);
         } catch (RuntimeException e) {
-            log.warn("Review event {} for submission {} not delivered: {}",
-                    event.type(), event.submissionId(), e.toString());
+            log.warn("{} not delivered: {}", describe(event), e.toString());
         }
+    }
+
+    private static String describe(UserEvent event) {
+        if (event instanceof ReviewEvent review) {
+            return "Review event " + review.type() + " for submission " + review.submissionId();
+        }
+        if (event instanceof PdfReadyEvent pdf) {
+            return "PDF-ready event for job " + pdf.jobId();
+        }
+        return "Event";
     }
 }

@@ -32,17 +32,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The review stream is self-service: any signed-in healer opens their own stream without a grant,
+ * The events stream is self-service: any signed-in healer opens their own stream without a grant,
  * a patient link token is refused, and an anonymous caller gets 401.
  */
-@WebMvcTest(ReviewStreamController.class)
+@WebMvcTest(EventStreamController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, AdminAuthz.class, SecurityContextUtil.class})
 @ActiveProfiles("test")
-class ReviewStreamControllerAuthorizationContractTest {
+class EventStreamControllerAuthorizationContractTest {
 
     @Autowired private MockMvc mockMvc;
 
-    @MockBean private ReviewStreamRegistry registry;
+    @MockBean private EventStreamRegistry registry;
     @MockBean private JwtService jwtService;
     @MockBean private TenantInterceptor tenantInterceptor;
     @MockBean private HealerCacheService healerCacheService;
@@ -50,7 +50,7 @@ class ReviewStreamControllerAuthorizationContractTest {
 
     private static final UUID CALLER = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final String TOKEN = "test-access-token";
-    private static final String STREAM = "/api/v1/reviews/stream";
+    private static final String STREAM = "/api/v1/events/stream";
 
     private void authenticate(String tokenType, String role) throws Exception {
         Claims claims = mock(Claims.class);
@@ -83,6 +83,17 @@ class ReviewStreamControllerAuthorizationContractTest {
         mockMvc.perform(get(STREAM).accept(MediaType.TEXT_EVENT_STREAM)
                         .cookie(new Cookie("selfRegToken", TOKEN)))
                 .andExpect(status().isForbidden());
+
+        verifyNoInteractions(registry);
+    }
+
+    @Test
+    void theOldReviewsStreamRouteIsGone() throws Exception {
+        authenticate("ACCESS", "HEALER");
+
+        mockMvc.perform(get("/api/v1/reviews/stream").accept(MediaType.TEXT_EVENT_STREAM)
+                        .cookie(new Cookie("accessToken", TOKEN)))
+                .andExpect(status().is4xxClientError());
 
         verifyNoInteractions(registry);
     }

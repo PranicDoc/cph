@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.stream;
 
+import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventType;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ReviewStreamRegistryTest {
+class EventStreamRegistryTest {
 
     /** Records what would go on the wire instead of needing a servlet response. */
     static class RecordingEmitter extends SseEmitter {
@@ -23,7 +24,7 @@ class ReviewStreamRegistryTest {
         boolean completed;
 
         RecordingEmitter() {
-            super(ReviewStreamRegistry.EMITTER_TIMEOUT_MS);
+            super(EventStreamRegistry.EMITTER_TIMEOUT_MS);
         }
 
         @Override
@@ -49,7 +50,7 @@ class ReviewStreamRegistryTest {
     }
 
     private final List<RecordingEmitter> created = new ArrayList<>();
-    private final ReviewStreamRegistry registry = new ReviewStreamRegistry(() -> {
+    private final EventStreamRegistry registry = new EventStreamRegistry(() -> {
         RecordingEmitter e = new RecordingEmitter();
         created.add(e);
         return e;
@@ -141,5 +142,26 @@ class ReviewStreamRegistryTest {
                 ReviewEventType.STATUS_CHANGED, null));
 
         assertThat(created).allSatisfy(e -> assertThat(e.sent).hasSize(1));
+    }
+
+    @Test
+    void pdfReady_deliveredOnlyToTheCaseHealer() {
+        UUID healer = UUID.randomUUID();
+        UUID reviewer = UUID.randomUUID();
+        UUID bystander = UUID.randomUUID();
+        registry.open(healer);
+        registry.open(reviewer);
+        registry.open(bystander);
+        UUID caseId = UUID.randomUUID();
+
+        registry.deliver(new PdfReadyEvent(healer, caseId, "job-9"));
+
+        assertThat(created.get(0).sent).hasSize(1);
+        assertThat(created.get(1).sent).isEmpty();
+        assertThat(created.get(2).sent).isEmpty();
+        assertThat(created.get(0).sent.get(0))
+                .contains("event:pdf-ready")
+                .contains("{\"caseId\":\"" + caseId + "\",\"jobId\":\"job-9\"}")
+                .doesNotContain(healer.toString());
     }
 }

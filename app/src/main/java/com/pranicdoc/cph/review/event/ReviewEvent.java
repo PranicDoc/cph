@@ -2,6 +2,10 @@ package com.pranicdoc.cph.review.event;
 
 import com.pranicdoc.cph.review.model.AuthorSide;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -11,10 +15,24 @@ import java.util.UUID;
  * email the other party. It never leaves the server.
  */
 public record ReviewEvent(UUID submissionId, UUID healerId, UUID reviewerId, ReviewEventType type,
-                          Integer revisionNo, AuthorSide actor) {
+                          Integer revisionNo, AuthorSide actor) implements UserEvent {
 
     public ReviewEvent(UUID submissionId, UUID healerId, UUID reviewerId, ReviewEventType type,
                        Integer revisionNo) {
         this(submissionId, healerId, reviewerId, type, revisionNo, null);
+    }
+
+    /** Both parties' streams, and no one else. */
+    @Override
+    @JsonIgnore
+    public Set<UUID> targetUserIds() {
+        Set<UUID> parties = new LinkedHashSet<>();
+        if (healerId != null) {
+            parties.add(healerId);
+        }
+        if (reviewerId != null) {
+            parties.add(reviewerId);
+        }
+        return parties;
     }
 }

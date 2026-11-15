@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 
-import { useReviewStream, REVIEW_STREAM_URL } from "./useReviewStream";
+import { useEventStream, EVENT_STREAM_URL } from "./useEventStream";
 import { refreshSession } from "../lib/axios";
 
 vi.mock("../lib/axios", () => ({
@@ -65,14 +65,14 @@ function setup(onEvent = vi.fn()) {
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
-  const hook = renderHook(() => useReviewStream(onEvent), { wrapper });
+  const hook = renderHook(() => useEventStream(onEvent), { wrapper });
   return { hook, invalidate, onEvent };
 }
 
 const keysOf = (spy: ReturnType<typeof vi.spyOn>) =>
   spy.mock.calls.map((c) => (c[0] as { queryKey: unknown[] }).queryKey);
 
-describe("useReviewStream", () => {
+describe("useEventStream", () => {
   beforeEach(() => {
     FakeEventSource.instances = [];
     vi.stubGlobal("EventSource", FakeEventSource);
@@ -86,9 +86,9 @@ describe("useReviewStream", () => {
   it("opens the stream with credentials on the API base path", () => {
     setup();
 
-    expect(REVIEW_STREAM_URL).toBe("/cph/api/v1/reviews/stream");
+    expect(EVENT_STREAM_URL).toBe("/cph/api/v1/events/stream");
     expect(FakeEventSource.instances).toHaveLength(1);
-    expect(FakeEventSource.instances[0].url).toBe("/cph/api/v1/reviews/stream");
+    expect(FakeEventSource.instances[0].url).toBe("/cph/api/v1/events/stream");
     expect(FakeEventSource.instances[0].init).toEqual({ withCredentials: true });
   });
 
@@ -110,6 +110,34 @@ describe("useReviewStream", () => {
     expect(hook.result.current.unreadCount).toBe(2);
 
     act(() => hook.result.current.resetUnread());
+    expect(hook.result.current.unreadCount).toBe(0);
+  });
+
+  it("pdfReadyEvent_invalidatesCaseStatusesAndNotifiesSubscribers", () => {
+    const onPdfReady = vi.fn();
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    // The PDF list is not a query: it refreshes itself from the pdf-ready callback.
+    renderHook(() => useEventStream(undefined, onPdfReady), { wrapper });
+    const source = FakeEventSource.instances[0];
+    act(() => source.open());
+
+    const event = { caseId: "case-1", jobId: "job-1" };
+    act(() => source.emit("pdf-ready", event));
+
+    expect(keysOf(invalidate)).toEqual([["review", "case-statuses"]]);
+    expect(onPdfReady).toHaveBeenCalledWith(event);
+  });
+
+  it("a pdf-ready event does not count as an unread review event", () => {
+    const { hook } = setup();
+    const source = FakeEventSource.instances[0];
+    act(() => source.open());
+
+    act(() => source.emit("pdf-ready", { caseId: "case-1", jobId: "job-1" }));
+
     expect(hook.result.current.unreadCount).toBe(0);
   });
 

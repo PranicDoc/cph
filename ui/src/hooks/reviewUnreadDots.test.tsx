@@ -8,8 +8,8 @@ import { ClipboardCheck, Send } from "lucide-react";
 import Sidebar, { type SidebarNavItem } from "../components/Sidebar";
 import MySubmissions from "../pages/reviews/MySubmissions";
 import ReviewQueue from "../pages/reviews/ReviewQueue";
-import { ReviewStreamProvider } from "../context/ReviewStreamProvider";
-import { useReviewStream } from "./useReviewStream";
+import { EventStreamProvider } from "../context/EventStreamProvider";
+import { useEventStream } from "./useEventStream";
 
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn().mockResolvedValue({ data: [] }), defaults: { baseURL: "" } },
@@ -42,7 +42,7 @@ const items: SidebarNavItem[] = [
 
 /** A page that also reads the stream, to prove pages share the one connection. */
 function Probe() {
-  useReviewStream();
+  useEventStream();
   return <p>probe</p>;
 }
 
@@ -51,14 +51,14 @@ function renderApp() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/probe"]}>
-        <ReviewStreamProvider enabled>
+        <EventStreamProvider enabled>
           <Sidebar items={items} isOpen onClose={() => {}} />
           <Routes>
             <Route path="/probe" element={<Probe />} />
             <Route path="/submissions" element={<MySubmissions />} />
             <Route path="/reviews" element={<ReviewQueue />} />
           </Routes>
-        </ReviewStreamProvider>
+        </EventStreamProvider>
       </MemoryRouter>
     </QueryClientProvider>
   );
