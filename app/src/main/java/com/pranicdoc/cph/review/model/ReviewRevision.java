@@ -52,6 +52,10 @@ public class ReviewRevision extends BaseEntity {
     @Column(name = "submitted_via", nullable = false, updatable = false)
     private SubmittedVia submittedVia;
 
+    /** SHA-256 hex of the case data this PDF was built from; null on revisions from before it existed. */
+    @Column(name = "snapshot_hash", length = 64, updatable = false)
+    private String snapshotHash;
+
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private Instant submittedAt;
 }

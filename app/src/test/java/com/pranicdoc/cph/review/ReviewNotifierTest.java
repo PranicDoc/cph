@@ -139,6 +139,18 @@ class ReviewNotifierTest {
     }
 
     @Test
+    void reRequest_statusChangedToPending_emailsReviewerLikeAResubmit() {
+        submission.setStatus(ReviewStatus.PENDING_REVIEW);
+
+        notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 2, null));
+
+        NotificationMessage m = sent();
+        assertThat(m.recipient()).isEqualTo("ravi@example.com");
+        assertThat(m.subject()).isEqualTo("HealingARK: A case was resubmitted for your review");
+        assertThat(m.body()).contains("version 2");
+    }
+
+    @Test
     void dismissal_sendsNothing() {
         submission.setStatus(ReviewStatus.DISMISSED);
 

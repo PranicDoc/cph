@@ -151,7 +151,7 @@ public class ReviewInboxService {
                 s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,
                 s.getCreatedAt(), s.getUpdatedAt(),
                 revs.stream().map(r -> new RevisionResponse(r.getRevisionNo(), r.getPdfJobId(),
-                        r.getSubmittedVia(), r.getSubmittedAt())).toList());
+                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), null);
     }
 
     /** Presigned URL of one revision; the masked copy wins when one exists. */

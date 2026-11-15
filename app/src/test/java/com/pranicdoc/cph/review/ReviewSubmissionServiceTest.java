@@ -7,6 +7,7 @@ import com.pranicdoc.cph.healing.model.PdfJobEntity;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.dto.CaseReviewStatusResponse;
+import com.pranicdoc.cph.review.dto.SubmissionOutcome;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
@@ -22,6 +23,7 @@ import com.pranicdoc.cph.review.service.ReviewFileStore;
 import com.pranicdoc.cph.review.service.ReviewRefusedException;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;
 import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
+import com.pranicdoc.cph.review.service.SnapshotHasher;
 import com.pranicdoc.storage.service.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,11 +45,13 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -277,6 +281,134 @@ class ReviewSubmissionServiceTest {
         assertThatThrownBy(() -> service.submit(caseId, SubmittedVia.MANUAL))
                 .isInstanceOf(ReviewRefusedException.class);
         verify(events, never()).publish(any());
+    }
+
+    // ---- identical snapshot (F1) ----
+
+    private static final String CASE_JSON = "{\"title\":\"c\",\"sessions\":[1,2]}";
+    private static final String CASE_JSON_REORDERED = "{ \"sessions\":[1,2], \"title\":\"c\" }";
+
+    private void latestJobHolds(String caseData) {
+        PdfJobEntity j = job(JobStatus.COMPLETED);
+        j.setHealingCaseData(caseData);
+        when(pdfJobs.findTopByHealingCaseIdOrderByCreatedAtDesc(caseId)).thenReturn(Optional.of(j));
+    }
+
+    private ReviewSubmission openWithRevision1Hashed(ReviewStatus status, String caseData) {
+        ReviewSubmission open = existing(status);
+        when(submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER))
+                .thenReturn(Optional.of(open));
+        ReviewRevision r1 = ReviewRevision.builder().submissionId(open.getId()).revisionNo(1).fileUrl("k1")
+                .snapshotHash(SnapshotHasher.hash(caseData)).build();
+        when(revisions.findTopBySubmissionIdOrderByRevisionNoDesc(open.getId())).thenReturn(Optional.of(r1));
+        when(revisions.findBySubmissionIdOrderByRevisionNoAsc(open.getId())).thenReturn(List.of(r1));
+        return open;
+    }
+
+    @Test
+    void identicalSnapshot_autoSubmit_addsNoRevision() {
+        ReviewSubmission open = openWithRevision1Hashed(ReviewStatus.CHANGES_REQUESTED, CASE_JSON);
+        latestJobHolds(CASE_JSON_REORDERED);
+
+        SubmissionResponse response = service.submitAs(healerId, caseId, SubmittedVia.AUTO);
+
+        assertThat(response.outcome()).isEqualTo(SubmissionOutcome.UNCHANGED);
+        assertThat(response.latestRevisionNo()).isEqualTo(1);
+        assertThat(open.getStatus()).isEqualTo(ReviewStatus.CHANGES_REQUESTED);
+        verify(revisions, never()).saveAndFlush(any());
+        verify(events, never()).publish(any());
+    }
+
+    @Test
+    void identicalSnapshot_manualWhilePending_isNoOp() {
+        ReviewSubmission open = openWithRevision1Hashed(ReviewStatus.PENDING_REVIEW, CASE_JSON);
+        latestJobHolds(CASE_JSON);
+
+        SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        assertThat(response.outcome()).isEqualTo(SubmissionOutcome.UNCHANGED);
+        assertThat(response.latestRevisionNo()).isEqualTo(1);
+        assertThat(open.getStatus()).isEqualTo(ReviewStatus.PENDING_REVIEW);
+        verify(revisions, never()).saveAndFlush(any());
+        verify(submissions, never()).saveAndFlush(any());
+        verify(events, never()).publish(any());
+    }
+
+    @Test
+    void identicalSnapshot_manualWhileChangesRequested_rerequestsWithoutNewRevision() {
+        ReviewSubmission open = openWithRevision1Hashed(ReviewStatus.CHANGES_REQUESTED, CASE_JSON);
+        latestJobHolds(CASE_JSON);
+
+        SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        assertThat(response.outcome()).isEqualTo(SubmissionOutcome.REREQUESTED);
+        assertThat(response.status()).isEqualTo(ReviewStatus.PENDING_REVIEW);
+        assertThat(open.getStatus()).isEqualTo(ReviewStatus.PENDING_REVIEW);
+        assertThat(response.latestRevisionNo()).isEqualTo(1);
+        assertThat(response.revisions()).hasSize(1);
+        verify(revisions, never()).saveAndFlush(any());
+        verify(submissions).saveAndFlush(open);
+        // One STATUS_CHANGED and no REVISION_ADDED: the notifier mails the instructor exactly once.
+        verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
+                ReviewEventType.STATUS_CHANGED, 1));
+        verify(events, times(1)).publish(any());
+    }
+
+    @Test
+    void changedSnapshot_addsRevision_asBefore() {
+        ReviewSubmission open = openWithRevision1Hashed(ReviewStatus.CHANGES_REQUESTED, CASE_JSON);
+        latestJobHolds("{\"title\":\"edited\"}");
+
+        SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        assertThat(response.outcome()).isEqualTo(SubmissionOutcome.REVISION_ADDED);
+        assertThat(response.latestRevisionNo()).isEqualTo(2);
+        assertThat(open.getStatus()).isEqualTo(ReviewStatus.PENDING_REVIEW);
+        ArgumentCaptor<ReviewRevision> rev = ArgumentCaptor.forClass(ReviewRevision.class);
+        verify(revisions).saveAndFlush(rev.capture());
+        assertThat(rev.getValue().getSnapshotHash()).isEqualTo(SnapshotHasher.hash("{\"title\":\"edited\"}"));
+        verify(events).publish(new ReviewEvent(open.getId(), healerId, reviewerId,
+                ReviewEventType.REVISION_ADDED, 2));
+    }
+
+    @Test
+    void revisionWithoutHash_neverMatches() {
+        openWithRevision1Hashed(ReviewStatus.PENDING_REVIEW, null);
+        latestJobHolds(CASE_JSON);
+
+        assertThat(service.submit(caseId, SubmittedVia.MANUAL).outcome())
+                .isEqualTo(SubmissionOutcome.REVISION_ADDED);
+    }
+
+    @Test
+    void identicalSnapshot_afterDismissal_opensNewSubmission() {
+        ReviewSubmission dismissed = existing(ReviewStatus.DISMISSED);
+        when(submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER))
+                .thenReturn(Optional.of(dismissed));
+        ReviewRevision old = ReviewRevision.builder().submissionId(dismissed.getId()).revisionNo(1).fileUrl("k1")
+                .snapshotHash(SnapshotHasher.hash(CASE_JSON)).build();
+        when(revisions.findTopBySubmissionIdOrderByRevisionNoDesc(dismissed.getId())).thenReturn(Optional.of(old));
+        latestJobHolds(CASE_JSON);
+
+        SubmissionResponse response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        assertThat(response.id()).isNotEqualTo(dismissed.getId());
+        assertThat(response.outcome()).isEqualTo(SubmissionOutcome.CREATED);
+        ArgumentCaptor<ReviewRevision> rev = ArgumentCaptor.forClass(ReviewRevision.class);
+        verify(revisions).saveAndFlush(rev.capture());
+        assertThat(rev.getValue().getSnapshotHash()).isEqualTo(SnapshotHasher.hash(CASE_JSON));
+    }
+
+    @Test
+    void identicalSnapshot_doesNotCopyThePdf() {
+        openWithRevision1Hashed(ReviewStatus.CHANGES_REQUESTED, CASE_JSON);
+        latestJobHolds(CASE_JSON);
+
+        service.submit(caseId, SubmittedVia.MANUAL);
+        service.submitAs(healerId, caseId, SubmittedVia.AUTO);
+
+        verify(files, never()).pin(any(), anyInt(), anyString());
+        verify(storage, never()).upload(anyString(), any(), anyString());
     }
 
     @Test

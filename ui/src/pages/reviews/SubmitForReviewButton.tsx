@@ -22,9 +22,15 @@ export function SubmitForReviewButton({ caseId, status }: Props) {
 
   const mutation = useMutation({
     mutationFn: () => submitCase(caseId),
-    onSuccess: () => {
+    onSuccess: (submission) => {
       setMessage(null);
-      toast.success("Submitted for review");
+      if (submission?.outcome === "UNCHANGED") {
+        toast.info(`Nothing has changed since version ${submission.latestRevisionNo}, so there is nothing new to review.`);
+      } else if (submission?.outcome === "REREQUESTED") {
+        toast.success("Review requested again.");
+      } else {
+        toast.success("Submitted for review");
+      }
       queryClient.invalidateQueries({ queryKey: CASE_STATUSES_KEY });
     },
     onError: (err) => setMessage(extractDetail(err) ?? "Could not submit this case for review."),

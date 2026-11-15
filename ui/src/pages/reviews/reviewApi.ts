@@ -47,7 +47,11 @@ export interface SubmissionResponse {
   createdAt: string;
   updatedAt: string;
   revisions: RevisionResponse[];
+  /** What a submit did; absent on plain reads. */
+  outcome?: SubmissionOutcome | null;
 }
+
+export type SubmissionOutcome = "CREATED" | "REVISION_ADDED" | "UNCHANGED" | "REREQUESTED";
 
 const BASE = "/api/v1/reviews";
 
