@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.patient.repository;
 
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.common.enums.CaseStatus;
 import com.pranicdoc.cph.patient.dto.PatientCaseResponse;
 import com.pranicdoc.cph.patient.dto.PatientResponse;
@@ -102,4 +103,51 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
         Long getCount();
     }
 
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+    // Ids are selected as text and converted to UUID: a native UUID column comes back as byte[] on H2.
+
+    @Query(value = "SELECT CAST(id AS VARCHAR(36)) FROM patient WHERE healer_id = :healerId", nativeQuery = true)
+    List<UUID> findIdsByHealerId(@Param("healerId") UUID healerId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM patient_aud WHERE id IN (:ids)", nativeQuery = true)
+    int eraseAuditByIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM patient WHERE id IN (:ids)", nativeQuery = true)
+    int eraseByIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE patient SET is_deleted = true, deleted_at = now(), updated_at = now() WHERE id = :id AND is_deleted = false", nativeQuery = true)
+    int trash(@Param("id") UUID id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE patient SET is_deleted = false, deleted_at = NULL, updated_at = now() WHERE id = :id AND is_deleted = true AND deleted_at IS NOT NULL", nativeQuery = true)
+    int restore(@Param("id") UUID id);
+
+    @Query(value = "SELECT CAST(id AS VARCHAR(36)) FROM patient WHERE is_deleted AND deleted_at IS NOT NULL AND deleted_at < :cutoff", nativeQuery = true)
+    List<UUID> findIdsTrashedBefore(@Param("cutoff") java.sql.Timestamp cutoff);
+
+    /** Trashed patients with their healer name and the count of cases that went to the trash with them. */
+    @Query(value = """
+            SELECT CAST(p.id AS VARCHAR(36)) AS "id", p.patient_code AS "patientCode", p.first_name AS "firstName", p.last_name AS "lastName",
+                   CAST(p.healer_id AS VARCHAR(36)) AS "healerId", h.full_name AS "healerName", p.deleted_at AS "deletedAt",
+                   (SELECT count(*) FROM healing_case c WHERE c.patient_id = p.id AND c.deleted_with_patient) AS "cases"
+              FROM patient p LEFT JOIN healer h ON h.id = p.healer_id
+             WHERE p.is_deleted AND p.deleted_at IS NOT NULL
+             ORDER BY p.deleted_at DESC
+            """, nativeQuery = true)
+    List<TrashedPatientRow> findTrashed();
+
+    /** Native projection; {@code deletedAt} and {@code cases} come back as driver types, converted by the caller. */
+    interface TrashedPatientRow {
+        UUID getId();
+        String getPatientCode();
+        String getFirstName();
+        String getLastName();
+        UUID getHealerId();
+        String getHealerName();
+        Object getDeletedAt();
+        Number getCases();
+    }
 }

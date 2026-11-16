@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.healing.repository;
 
+import java.util.Collection;
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.healing.model.PdfJobEntity;
 import org.springframework.data.domain.*;
@@ -41,4 +43,17 @@ public interface PdfJobRepository extends JpaRepository<PdfJobEntity, UUID> {
             @Param("startOfMonth") Instant startOfMonth,
             @Param("startOfNextMonth") Instant startOfNextMonth
     );
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Query(value = "SELECT file_url FROM pdf_job WHERE file_url IS NOT NULL AND healing_case_id IN (:ids)", nativeQuery = true)
+    List<String> findFileUrlsByCaseIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM pdf_job_aud WHERE id IN (SELECT id FROM pdf_job WHERE healing_case_id IN (:ids))", nativeQuery = true)
+    int eraseAuditByCaseIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM pdf_job WHERE healing_case_id IN (:ids)", nativeQuery = true)
+    int eraseByCaseIds(@Param("ids") Collection<UUID> ids);
 }

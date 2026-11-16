@@ -1,5 +1,9 @@
 package com.pranicdoc.cph.healing.repository;
 
+import java.util.Collection;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.healing.model.QualitativeFeedback;
 import com.pranicdoc.cph.common.enums.FeedbackType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,4 +29,14 @@ public interface QualitativeFeedbackRepository extends JpaRepository<Qualitative
      */
     List<QualitativeFeedback> findByHealingSession_HealingCase_IdAndFeedbackTypeOrderByCreatedAtDesc(
             UUID caseId, FeedbackType feedbackType);
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM qualitative_feedback_aud WHERE id IN (SELECT id FROM qualitative_feedback WHERE healing_session_id IN (:ids))", nativeQuery = true)
+    int eraseAuditBySessionIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM qualitative_feedback WHERE healing_session_id IN (:ids)", nativeQuery = true)
+    int eraseBySessionIds(@Param("ids") Collection<UUID> ids);
 }

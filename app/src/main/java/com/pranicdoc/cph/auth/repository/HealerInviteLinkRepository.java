@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.auth.repository;
 
+import java.util.List;
+import java.util.Collection;
 import com.pranicdoc.cph.auth.model.HealerInviteLink;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -44,4 +46,10 @@ public interface HealerInviteLinkRepository extends JpaRepository<HealerInviteLi
         WHERE l.id = :id AND l.status = 'PENDING'
     """)
     int markAccepted(@Param("id") UUID id, @Param("now") Instant now);
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE healer_invite_links SET invited_by_healer_id = NULL WHERE invited_by_healer_id = :healerId", nativeQuery = true)
+    int clearInviter(@Param("healerId") UUID healerId);
 }

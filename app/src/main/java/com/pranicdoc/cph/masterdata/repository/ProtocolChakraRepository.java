@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.repository;
 
+import java.util.Collection;
 import com.pranicdoc.cph.masterdata.model.ChakraCatalog;
 import com.pranicdoc.cph.masterdata.model.ProtocolChakra;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -59,4 +60,10 @@ public interface ProtocolChakraRepository extends JpaRepository<ProtocolChakra, 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "DELETE FROM protocol_chakra", nativeQuery = true)
     int hardDeleteAll();
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE protocol_chakra SET healer_id = :heir WHERE healer_id = :healerId", nativeQuery = true)
+    int handOver(@Param("healerId") UUID healerId, @Param("heir") UUID heir);
 }

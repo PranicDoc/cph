@@ -1,5 +1,8 @@
 package com.pranicdoc.cph.auth.repository;
 
+import java.util.Collection;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.common.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -69,4 +72,32 @@ public interface HealerRepository extends JpaRepository<Healer, UUID> {
               )
             """, nativeQuery = true)
     List<UUID> findActiveHealerIdsWithNoLiveRole();
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+    // Ids are selected as text and converted to UUID: a native UUID column comes back as byte[] on H2.
+
+    @Query(value = "SELECT email AS \"email\", role AS \"role\" FROM healer WHERE id = :id", nativeQuery = true)
+    List<HealerIdentity> findIdentity(@Param("id") UUID id);
+
+    @Query(value = "SELECT CAST(id AS VARCHAR(36)) FROM healer WHERE role = 'SUPADM' AND is_deleted = false AND id <> :except ORDER BY created_at LIMIT 1", nativeQuery = true)
+    List<UUID> findOtherSuperAdminIds(@Param("except") UUID except);
+
+    /** The healer's role assignments live in the rbac module (derived-queries-only), so they are erased from here. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM user_role WHERE principal_id = :id", nativeQuery = true)
+    int eraseUserRolesById(@Param("id") UUID id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healer_aud WHERE id = :id", nativeQuery = true)
+    int eraseAuditById(@Param("id") UUID id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healer WHERE id = :id", nativeQuery = true)
+    int eraseById(@Param("id") UUID id);
+
+    /** E-mail and role of a healer, soft-deleted ones included. */
+    interface HealerIdentity {
+        String getEmail();
+        String getRole();
+    }
 }
