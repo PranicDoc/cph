@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verify;
 /** Real erase SQL on H2 with the production foreign keys of the review tables added. */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({RecordPurger.class, HealerEraseServiceReviewDataIntegrationTest.SameThreadExecutor.class})
+@Import({RecordPurger.class, HealerEraseService.class, com.pranicdoc.cph.common.util.TransactionService.class, HealerEraseServiceReviewDataIntegrationTest.SameThreadExecutor.class})
 class HealerEraseServiceReviewDataIntegrationTest {
 
     @TestConfiguration
@@ -40,6 +40,21 @@ class HealerEraseServiceReviewDataIntegrationTest {
         @Bean(name = "notificationExecutor")
         Executor notificationExecutor() {
             return Runnable::run;
+        }
+
+        @Bean(name = "creditServiceRestClient")
+        RestClient creditServiceRestClient() {
+            return Mockito.mock(RestClient.class, Mockito.RETURNS_DEEP_STUBS);
+        }
+
+        @Bean
+        TransactionTemplate transactionTemplate(PlatformTransactionManager txManager) {
+            return new TransactionTemplate(txManager);
+        }
+
+        @Bean
+        CacheManager cacheManager() {
+            return Mockito.mock(CacheManager.class);
         }
     }
 
@@ -50,15 +65,12 @@ class HealerEraseServiceReviewDataIntegrationTest {
     @MockBean private StorageService storage;
 
     private ReviewErasureFixtures fx;
-    private HealerEraseService service;
+    @Autowired private HealerEraseService service;
 
     @BeforeEach
     void setUp() {
         fx = new ReviewErasureFixtures(jdbc);
         fx.addProductionForeignKeys();
-        RestClient credit = Mockito.mock(RestClient.class, Mockito.RETURNS_DEEP_STUBS);
-        service = new HealerEraseService(jdbc, purger, securityContextUtil, credit,
-                new TransactionTemplate(txManager), Mockito.mock(CacheManager.class));
     }
 
     private String emailOf(UUID healer) {
@@ -68,7 +80,6 @@ class HealerEraseServiceReviewDataIntegrationTest {
     /** The test transaction never commits, so complete it by hand the way Spring does. */
     private void commitByHand() {
         TransactionSynchronizationManager.getSynchronizations().stream()
-                .filter(RecordPurger.DeleteStoredFilesAfterCommit.class::isInstance)
                 .forEach(TransactionSynchronization::afterCommit);
     }
 

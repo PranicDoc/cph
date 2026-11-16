@@ -19,6 +19,8 @@ public class ReviewErasureFixtures {
 
     /** Adds the production foreign keys, and pdf_job, which Hibernate cannot create on H2 (its jsonb column). */
     public void addProductionForeignKeys() {
+        // pdf_job is not audited by Hibernate, but production has the (empty) shadow table and the purge clears it.
+        jdbc.execute("CREATE TABLE IF NOT EXISTS pdf_job_aud (id UUID NOT NULL)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS pdf_job (id UUID PRIMARY KEY, created_at TIMESTAMP WITH TIME ZONE,"
                 + " updated_at TIMESTAMP WITH TIME ZONE, created_by VARCHAR(255), updated_by VARCHAR(255),"
                 + " is_deleted BOOLEAN NOT NULL DEFAULT FALSE, version BIGINT NOT NULL DEFAULT 0, job_id VARCHAR(255),"
