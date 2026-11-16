@@ -51,11 +51,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClosurePopup } from "./Closure";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SubmitForReviewButton } from "./reviews/SubmitForReviewButton";
 import { ReviewStatusBadge } from "./reviews/ReviewStatusBadge";
-import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
-import { caseStatuses } from "./reviews/reviewApi";
+import { useCaseReviewStatuses } from "../hooks/useCaseReviewStatuses";
 import { UpgradeModal } from "../components/UpgradeModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -151,11 +150,7 @@ export default function Patients() {
         .map((p) => p.healingCaseId),
     [patients]
   );
-  const { data: reviewStatuses } = useQuery({
-    queryKey: [...CASE_STATUSES_KEY, reviewableCaseIds],
-    queryFn: () => caseStatuses(reviewableCaseIds),
-    enabled: reviewableCaseIds.length > 0,
-  });
+  const { data: reviewStatuses } = useCaseReviewStatuses(reviewableCaseIds);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const navigate = useNavigate();

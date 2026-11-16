@@ -3,7 +3,14 @@ import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
-import { updateReviewPreferences } from "../pages/reviews/reviewApi";
+
+/** Profile toggle: label and the note under it. */
+export const AUTO_SUBMIT_LABEL = "Automatically submit PDFs for review after they are generated";
+export const AUTO_SUBMIT_NOTE =
+  "New PDFs, including amendments to cases already in review, are sent to your instructor automatically. Approved cases are never sent automatically: if you edit an approved case, submit it for review yourself.";
+
+/** Shown under the Case review toggle when the healer has no instructor. */
+export const NO_INSTRUCTOR_LINE = "No instructor is linked to you yet.";
 
 export interface HealerProfile {
   id: string;
@@ -53,7 +60,8 @@ export function useUpdateProfile() {
 export function useUpdateReviewPreferences() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (autoSubmitForReview: boolean) => updateReviewPreferences(autoSubmitForReview),
+    mutationFn: (autoSubmitForReview: boolean) =>
+      api.put("/api/v1/auth/me/review-preferences", { autoSubmitForReview }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["healer-profile"] }),
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to update review preference", { duration: 5000 }),

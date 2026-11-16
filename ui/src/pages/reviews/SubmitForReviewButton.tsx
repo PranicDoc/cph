@@ -1,11 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { extractDetail } from "../../lib/utils";
-import { CASE_STATUSES_KEY } from "../../lib/reviewQueryKeys";
-import { NO_REVIEWER_MESSAGE, submitCase, type CaseReviewStatus } from "./reviewApi";
+import { NO_REVIEWER_MESSAGE, useSubmitForReview } from "../../hooks/useSubmitForReview";
+import type { CaseReviewStatus } from "../../types/review";
 
 interface Props {
   caseId: string;
@@ -14,27 +11,13 @@ interface Props {
 
 /**
  * Sends a case's PDF to the healer's instructor. An approved case has nothing to submit, so the
- * button is not rendered; the healer edits the case first, which dismisses the approval.
+ * button is not rendered; the healer edits the case first, which dismisses the approval. A refusal
+ * from the server is toasted by the hook; the inline line is only the no-instructor pre-check.
  */
 export function SubmitForReviewButton({ caseId, status }: Props) {
-  const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
 
-  const mutation = useMutation({
-    mutationFn: () => submitCase(caseId),
-    onSuccess: (submission) => {
-      setMessage(null);
-      if (submission?.outcome === "UNCHANGED") {
-        toast.info(`Nothing has changed since version ${submission.latestRevisionNo}, so there is nothing new to review.`);
-      } else if (submission?.outcome === "REREQUESTED") {
-        toast.success("Review requested again.");
-      } else {
-        toast.success("Submitted for review");
-      }
-      queryClient.invalidateQueries({ queryKey: CASE_STATUSES_KEY });
-    },
-    onError: (err) => setMessage(extractDetail(err) ?? "Could not submit this case for review."),
-  });
+  const mutation = useSubmitForReview(caseId);
 
   if (status === "APPROVED") return null;
 

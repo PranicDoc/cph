@@ -101,7 +101,7 @@ describe("useEventStream", () => {
     act(() => source.emit("review", event));
 
     expect(keysOf(invalidate)).toEqual(
-      expect.arrayContaining([["review", "sub-1"], ["review-inbox"], ["review-statuses"], ["review", "case-statuses"]])
+      expect.arrayContaining([["review", "sub-1"], ["review", "inbox"], ["review", "statuses"], ["review", "case-statuses"]])
     );
     expect(onEvent).toHaveBeenCalledWith(event);
     expect(hook.result.current.unreadCount).toBe(1);
@@ -159,7 +159,7 @@ describe("useEventStream", () => {
 
     act(() => second.open());
     // Refetch once to catch up on anything missed while disconnected.
-    expect(keysOf(invalidate)).toEqual([["review"], ["review-inbox"], ["review-statuses"]]);
+    expect(keysOf(invalidate)).toEqual([["review"]]);
   });
 
   it("refetchesOnceAfterOrdinaryReconnect", () => {
@@ -178,7 +178,7 @@ describe("useEventStream", () => {
     });
     act(() => source.open());
 
-    expect(keysOf(invalidate)).toEqual([["review"], ["review-inbox"], ["review-statuses"]]);
+    expect(keysOf(invalidate)).toEqual([["review"]]);
     expect(refreshSession).not.toHaveBeenCalled();
     expect(FakeEventSource.instances).toHaveLength(1);
   });

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import api from "../lib/axios";
 import { APPROVED_COUNT_KEY } from "../lib/reviewQueryKeys";
-import { myApprovedCount } from "../pages/reviews/reviewApi";
 
 /**
  * How many of the healer's cases are approved, for the dashboard tile. Refetched by the live review
@@ -8,5 +8,10 @@ import { myApprovedCount } from "../pages/reviews/reviewApi";
  * query fails and the dashboard simply leaves the tile out.
  */
 export function useMyApprovedCount() {
-  return useQuery({ queryKey: APPROVED_COUNT_KEY, queryFn: myApprovedCount, retry: false, staleTime: 5 * 60 * 1000 });
+  return useQuery<number>({
+    queryKey: APPROVED_COUNT_KEY,
+    queryFn: () => api.get<{ count: number }>("/api/v1/reviews/my-approved-count").then((r) => r.data.count),
+    retry: false, // a healer without the permission gets a 403 that retrying cannot fix
+    staleTime: 5 * 60 * 1000,
+  });
 }

@@ -3,10 +3,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import api from "../../lib/axios";
+import api from "../lib/axios";
 import { useApprovedEditGuard } from "./useApprovedEditGuard";
 
-vi.mock("../../lib/axios", () => ({
+vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
 

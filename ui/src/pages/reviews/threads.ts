@@ -1,5 +1,5 @@
 import type { Pin } from "./PdfPinCanvas";
-import type { ReviewComment } from "./reviewApi";
+import type { ReviewComment } from "../../types/review";
 
 export interface Thread {
   root: ReviewComment;

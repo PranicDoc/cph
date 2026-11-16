@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEventStream } from "../../hooks/useEventStream";
-import { MY_SUBMISSIONS_KEY } from "../../lib/reviewQueryKeys";
+import { useMySubmissions } from "../../hooks/useMySubmissions";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
-import { mySubmissions, type SubmissionResponse } from "./reviewApi";
+import type { SubmissionResponse } from "../../types/review";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -45,7 +44,7 @@ export default function MySubmissions() {
   // Also when an event arrives while the page is open: nothing here is left unseen.
   useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 
-  const { data, isLoading, isError } = useQuery({ queryKey: MY_SUBMISSIONS_KEY, queryFn: mySubmissions });
+  const { data, isLoading, isError } = useMySubmissions();
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 p-4">

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEventStream } from "../../hooks/useEventStream";
-import { reviewInboxKey } from "../../lib/reviewQueryKeys";
-import { inbox, STATUS_LABELS, type ReviewStatus } from "./reviewApi";
+import { useReviewInbox } from "../../hooks/useReviewInbox";
+import { STATUS_LABELS, type ReviewStatus } from "../../types/review";
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
@@ -16,10 +15,7 @@ export default function ReviewQueue() {
   // Also when an event arrives while the queue is open: it is already on screen.
   useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: reviewInboxKey(status || undefined),
-    queryFn: () => inbox(status || undefined),
-  });
+  const { data, isLoading, isError } = useReviewInbox(status || undefined);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 p-4">

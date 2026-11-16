@@ -1,25 +1,23 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useEventStream } from "../../hooks/useEventStream";
-import { REVIEW_INBOX_KEY, reviewFileKey, reviewInboxItemKey } from "../../lib/reviewQueryKeys";
+import { useReviewComments } from "../../hooks/useReviewComments";
+import { useReviewDecision } from "../../hooks/useReviewDecision";
+import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
+import { useReviewerSubmission } from "../../hooks/useReviewSubmission";
+import { extractDetail } from "../../lib/utils";
+import { STATUS_LABELS } from "../../types/review";
 import PdfPinCanvas from "./PdfPinCanvas";
 import ThreadPanel from "./ThreadPanel";
-import { useReviewComments } from "./useReviewComments";
 import { pinsForRevision, scrollToThread } from "./threads";
-import {
-  approve,
-  inboxFileUrl,
-  inboxItem,
-  MOVED_MESSAGE,
-  NEW_VERSION_MESSAGE,
-  requestChanges,
-  reviewErrorMessage,
-  STATUS_LABELS,
-} from "./reviewApi";
+
+/** Shown in the viewer when the instructor loses the submission (reassigned) while it is open. */
+const MOVED_MESSAGE = "This submission was moved to another instructor";
+/** The refresh banner shown when a newer revision arrives while one is open. */
+const NEW_VERSION_MESSAGE = "New version available — refresh";
 
 /**
  * One submission for the assigned instructor: the PDF of one revision, a download button, and a
@@ -37,38 +35,20 @@ export default function ReviewViewer() {
   // The newest revision that existed when the page opened; shown until the reviewer picks another.
   const [openedAt, setOpenedAt] = useState<number | null>(null);
 
-  const submission = useQuery({
-    queryKey: reviewInboxItemKey(submissionId),
-    queryFn: () => inboxItem(submissionId),
-    enabled: !!submissionId,
-    retry: false,
-  });
+  const submission = useReviewerSubmission(submissionId);
 
   const latest = submission.data?.latestRevisionNo ?? 0;
   if (openedAt === null && latest > 0) setOpenedAt(latest);
   const displayed = chosenRevision ?? openedAt ?? 0;
 
-  const file = useQuery({
-    queryKey: reviewFileKey(submissionId, displayed),
-    queryFn: () => inboxFileUrl(submissionId, displayed),
-    enabled: !!submissionId && displayed > 0,
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
+  const file = useReviewFileUrl("reviewer", submissionId, displayed);
 
-  const queryClient = useQueryClient();
-  const [decisionError, setDecisionError] = useState<string | null>(null);
-  const decision = useMutation({
-    mutationFn: ({ kind, revisionNo }: { kind: "approve" | "request-changes"; revisionNo: number }) =>
-      kind === "approve" ? approve(submissionId, revisionNo) : requestChanges(submissionId, revisionNo),
-    onMutate: () => setDecisionError(null),
-    onError: (e) => setDecisionError(reviewErrorMessage(e, "Could not save your decision. Try again.")),
-    onSettled: () => {
-      // A refusal usually means a newer version arrived: the refetch brings up the refresh banner.
-      queryClient.invalidateQueries({ queryKey: reviewInboxItemKey(submissionId) });
-      queryClient.invalidateQueries({ queryKey: REVIEW_INBOX_KEY });
-    },
-  });
+  const decision = useReviewDecision(submissionId);
+  // A stale decision (409) stays on screen as a banner; every other failure is toasted by the hook.
+  const decisionError =
+    isAxiosError(decision.error) && decision.error.response?.status === 409
+      ? extractDetail(decision.error) || "Could not save your decision. Try again."
+      : null;
 
   const thread = useReviewComments("reviewer", submissionId);
   const [placing, setPlacing] = useState(false);
@@ -175,7 +155,7 @@ export default function ReviewViewer() {
           className="w-full rounded border border-blue-300 bg-blue-50 p-2 text-sm text-blue-900"
           onClick={() => {
             setChosenRevision(latest);
-            setDecisionError(null);
+            decision.reset();
           }}
         >
           {NEW_VERSION_MESSAGE}
@@ -223,7 +203,6 @@ export default function ReviewViewer() {
               setDraft(null);
             }}
             onCancelDraft={() => setDraft(null)}
-            error={thread.error}
           />
         </div>
       </div>

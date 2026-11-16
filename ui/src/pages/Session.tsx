@@ -22,7 +22,7 @@ import {
 } from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
-import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
+import { useApprovedEditGuard } from "../hooks/useApprovedEditGuard";
 import {
   Accordion,
   AccordionContent,

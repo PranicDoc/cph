@@ -5,7 +5,7 @@ import { useCreditAccount } from "../../hooks/useCreditAccount";
 import { planEndLine } from "../lib/planEnd";
 import { CreditHistoryCard } from "../components/CreditHistoryCard";
 import { HlSwitch } from "../components/Controls";
-import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../../pages/reviews/reviewApi";
+import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../../hooks/useHealerProfile";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
 

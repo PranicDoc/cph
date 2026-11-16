@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { ReviewComment } from "./reviewApi";
+import type { ReviewComment } from "../../types/review";
 import { buildThreads } from "./threads";
 
 interface Props {
@@ -20,7 +20,6 @@ interface Props {
   draftPin?: { page: number } | null;
   onSubmitDraft?: (body: string) => Promise<unknown>;
   onCancelDraft?: () => void;
-  error?: string | null;
 }
 
 function Composer({
@@ -47,7 +46,7 @@ function Composer({
       await onSubmit(text);
       setBody("");
     } catch {
-      // The parent shows the error; keep the text so nothing typed is lost.
+      // The failure is toasted by the mutation; keep the text so nothing typed is lost.
     } finally {
       setBusy(false);
     }
@@ -92,18 +91,11 @@ export default function ThreadPanel({
   draftPin,
   onSubmitDraft,
   onCancelDraft,
-  error,
 }: Props) {
   const threads = buildThreads(comments);
 
   return (
     <aside aria-label="Comments" className="w-full space-y-3">
-      {error && (
-        <p role="alert" className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-
       {draftPin && onSubmitDraft && (
         <section className="space-y-2 rounded border border-blue-300 bg-blue-50/50 p-3">
           <h3 className="text-sm font-medium">New pin on page {draftPin.page}</h3>

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import ThreadPanel from "./ThreadPanel";
-import type { ReviewComment } from "./reviewApi";
+import type { ReviewComment } from "../../types/review";
 
 const comment = (over: Partial<ReviewComment>): ReviewComment => ({
   id: "c1",

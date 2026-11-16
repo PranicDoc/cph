@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
-import type { CaseReviewStatus } from "./reviewApi";
+import type { CaseReviewStatus } from "../../types/review";
 
 describe("ReviewStatusBadge", () => {
   it("badgeLabelsPerStatus", () => {

@@ -44,7 +44,8 @@ describe("SubmitForReviewButton", () => {
 
     await user.click(screen.getByRole("button", { name: /submit for review/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(BLOCKED);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(BLOCKED));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("posts the submit for the case", async () => {
