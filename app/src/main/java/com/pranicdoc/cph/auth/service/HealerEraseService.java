@@ -30,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -46,6 +47,12 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class HealerEraseService {
+
+    /** Tables this class erases from, re-points or hands over (the patient tables are in {@link RecordPurger}). */
+    public static final List<String> HEALER_TABLES = List.of(
+            "healer", "password_reset_token", "protocol_import_job", "master_data_elevation", "user_role",
+            "reviewer_assignment", "healer_invite_links", "chakra_catalog", "prana_color_catalog",
+            "protocol_catalog", "protocol_chakra", "protocol_color_mapping");
 
     private final HealerRepository healers;
     private final PatientRepository patients;

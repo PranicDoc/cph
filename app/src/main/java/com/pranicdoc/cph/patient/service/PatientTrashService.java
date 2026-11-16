@@ -50,23 +50,12 @@ public class PatientTrashService {
     @Transactional(readOnly = true)
     public List<TrashedPatientResponse> listTrash() {
         return patients.findTrashed().stream().map(row -> {
-            Instant deletedAt = toInstant(row.getDeletedAt());
+            Instant deletedAt = TrashTimestamps.toInstant(row.getDeletedAt());
             return new TrashedPatientResponse(
                     row.getId(), row.getPatientCode(), row.getFirstName(), row.getLastName(),
                     row.getHealerId(), row.getHealerName(),
                     deletedAt, deletedAt.plus(Duration.ofDays(retentionDays)), row.getCases().intValue());
         }).toList();
-    }
-
-    /** The driver hands the timestamp back as a java.sql.Timestamp, an Instant or an OffsetDateTime. */
-    private static Instant toInstant(Object value) {
-        if (value instanceof java.sql.Timestamp ts) {
-            return ts.toInstant();
-        }
-        if (value instanceof java.time.OffsetDateTime odt) {
-            return odt.toInstant();
-        }
-        return (Instant) value;
     }
 
     /** Brings a trashed patient back with the cases that were removed along with them. */

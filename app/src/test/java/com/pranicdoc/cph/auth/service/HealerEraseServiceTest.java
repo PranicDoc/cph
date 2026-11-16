@@ -100,9 +100,11 @@ class HealerEraseServiceTest {
 
         assertThrows(ResponseStatusException.class, () -> service.eraseOwn("someone@else.com"));
 
-        verify(purger, never()).purgePatient(any());
-        verify(healers, never()).eraseById(any());
-        verify(healers, never()).eraseUserRolesById(any());
+        verify(healers).findIdentity(healerId);
+        org.mockito.Mockito.verifyNoMoreInteractions(healers);
+        org.mockito.Mockito.verifyNoInteractions(purger, patients, passwordResetTokens, importJobs, feedbackLinks,
+                elevations, understandings, inviteLinks, submissions, comments, assignments, chakras, colors,
+                protocols, protocolChakras, protocolColorMappings);
     }
 
     @Test

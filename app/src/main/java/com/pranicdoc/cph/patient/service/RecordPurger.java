@@ -55,6 +55,17 @@ import java.util.concurrent.Executor;
 @Slf4j
 public class RecordPurger {
 
+    /**
+     * Every table this class deletes from (the {@code _aud} copies follow their table). {@link EraseCoverage}
+     * is derived from it, and the full-plan integration test seeds a row in each and checks it is gone.
+     */
+    public static final List<String> PURGED_TABLES = List.of(
+            "patient", "patient_medical_history", "healing_case", "case_closure", "case_medical_snapshot",
+            "case_medication", "case_symptom", "declaration", "feedback_link", "healer_protocol_understanding",
+            "healing_details", "treatment_step", "treatment_step_targets", "healing_session", "chakra_scan",
+            "chakra_reading", "protocol_entry", "protocol_color", "qualitative_feedback", "symptom_feedback",
+            "pdf_job", "review_submission", "review_revision", "review_comment");
+
     private final PatientRepository patients;
     private final PatientMedicalHistoryRepository medicalHistories;
     private final CaseRepository cases;
