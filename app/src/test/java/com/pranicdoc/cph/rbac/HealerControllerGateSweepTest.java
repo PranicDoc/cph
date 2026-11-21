@@ -11,6 +11,9 @@ import com.pranicdoc.cph.healing.controller.SessionController;
 import com.pranicdoc.cph.notification.controller.WhatsappWebhookController;
 import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
+import com.pranicdoc.cph.review.controller.HealerReviewController;
+import com.pranicdoc.cph.review.controller.ReviewerController;
+import com.pranicdoc.cph.review.stream.ReviewStreamController;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.Test;
@@ -111,7 +114,7 @@ class HealerControllerGateSweepTest {
      * locked for {@code ConsentController}.
      */
     private static final Set<String> AUTH_SELF_SERVICE_ROUTES = Set.of(
-            "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion",
+            "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion", "updateReviewPreferences",
             "changePassword", "eraseAccount", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
     // ─── Phase 42 seven-controller healer surface (added by plan 42-11) ──────
@@ -146,10 +149,14 @@ class HealerControllerGateSweepTest {
             new SweptController(ScanController.class, 1, 1),
             new SweptController(ProtocolController.class, 1, 1),
             new SweptController(FeedbackController.class, 2, 0),
-            new SweptController(CreditProxyController.class, 4, 4));
+            new SweptController(CreditProxyController.class, 4, 4),
+            // Case review, healer side: all eight routes gated CASE:UPDATE (class-level mapping not counted).
+            new SweptController(HealerReviewController.class, 8, 8),
+            // Case review, instructor side: all eight inbox routes (incl. approve / request-changes) gated CASE:REVIEW.
+            new SweptController(ReviewerController.class, 8, 8));
 
-    private static final int EXPECTED_TOTAL_MAPPED = 55;
-    private static final int EXPECTED_TOTAL_GATED = 47;
+    private static final int EXPECTED_TOTAL_MAPPED = 71;
+    private static final int EXPECTED_TOTAL_GATED = 63;
 
     /**
      * The eight request-mapped methods on the seven that are DELIBERATELY ungated,
@@ -291,17 +298,17 @@ class HealerControllerGateSweepTest {
                 .as("AuthController request-mapped method count — an added or removed endpoint must "
                         + "redden the build rather than silently escape this open-list (anti-vacuous "
                         + "guard T-42-Assurance-O1)")
-                .isEqualTo(19);
+                .isEqualTo(20);
 
         TreeSet<String> ungated = ungatedMethodNames(AuthController.class);
         assertThat(ungated)
                 .as("every AuthController request-mapped method must carry NO @PreAuthorize — D-07: "
                         + "openness is proven by annotation absence plus this named allow-list, never "
                         + "a @PreAuthorize(\"permitAll()\") marker annotation")
-                .hasSize(19)
+                .hasSize(20)
                 .containsExactlyInAnyOrder(
                         "login", "refresh", "logout", "acceptInvite", "signup", "forgotPassword", "resetPassword", "initSession",
-                        "initFeedbackSession", "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion",
+                        "initFeedbackSession", "getCurrentUser", "getMyPermissions", "getCurrentHealer", "updateProfile", "updateUiVersion", "updateReviewPreferences",
                         "changePassword", "eraseAccount", "linkGoogle", "unlinkGoogle", "clearPatientSession");
 
         assertThat(AUTH_PERMIT_ALL_ROUTES)
@@ -312,11 +319,11 @@ class HealerControllerGateSweepTest {
                 .allMatch(ungated::contains);
 
         assertThat(AUTH_SELF_SERVICE_ROUTES)
-                .as("self-service 10 — every authenticated principal must reach their own identity, own permissions, "
+                .as("self-service 11 — every authenticated principal must reach their own identity, own permissions, "
                         + "profile and UI preference (classic / new view) without a grant, the same posture Phase 40 locked for "
                         + "ConsentController's self-service endpoints; gating /me or /profile would "
                         + "break a freshly-onboarded healer who holds no grants at all (T-42-DoS-O2)")
-                .hasSize(10)
+                .hasSize(11)
                 .allMatch(ungated::contains);
 
         TreeSet<String> union = new TreeSet<>(AUTH_PERMIT_ALL_ROUTES);
@@ -330,6 +337,35 @@ class HealerControllerGateSweepTest {
                 .as("AuthController.java comment-stripped source must contain zero occurrences of "
                         + "PreAuthorize — openness is asserted by absence (D-07), and no "
                         + "@PreAuthorize(\"permitAll()\") marker annotation may be introduced")
+                .isEqualTo(0);
+    }
+
+    // ─── Case review — ReviewStreamController stays ungated (per-user SSE stream) ──
+
+    /**
+     * The one {@code ReviewStreamController} route reachable by every authenticated healer
+     * without a capability grant, with the reason it stays open.
+     */
+    private static final Map<String, String> REVIEW_STREAM_SELF_SERVICE_ROUTES = Map.of(
+            "stream", "per-user stream, carries only that user's events");
+
+    @Test
+    void reviewStreamControllerRemainsUngated() {
+        assertThat(requestMappedCount(ReviewStreamController.class))
+                .as("ReviewStreamController request-mapped method count — anti-vacuous guard")
+                .isEqualTo(1);
+
+        assertThat(ungatedMethodNames(ReviewStreamController.class))
+                .as("GET /api/v1/reviews/stream is self-service: %s. It is keyed to the caller's own "
+                        + "id and an instructor holding CASE:REVIEW and a healer holding CASE:UPDATE both "
+                        + "need it, so no single capability gate fits; patient tokens are refused in "
+                        + "SecurityConfig", REVIEW_STREAM_SELF_SERVICE_ROUTES.get("stream"))
+                .containsExactlyInAnyOrderElementsOf(REVIEW_STREAM_SELF_SERVICE_ROUTES.keySet());
+
+        assertThat(countOccurrences(
+                readStrippedSource(sourcePathFor(ReviewStreamController.class)), "PreAuthorize"))
+                .as("ReviewStreamController.java comment-stripped source must contain zero "
+                        + "occurrences of PreAuthorize — openness asserted by absence (D-07)")
                 .isEqualTo(0);
     }
 
@@ -444,9 +480,9 @@ class HealerControllerGateSweepTest {
     @Test
     void everyGatedEndpointOnTheHealerSurfaceUsesTheBareDynamicForm() {
         assertThat(CONTROLLERS)
-                .as("the Phase-42 healer surface is exactly the seven controllers plans "
-                        + "42-02..42-06 gated")
-                .hasSize(7);
+                .as("the healer surface is the seven Phase-42 controllers plus the case-review "
+                        + "HealerReviewController and ReviewerController")
+                .hasSize(9);
         assertThat(CONTROLLERS.stream().mapToInt(SweptController::expectedMapped).sum())
                 .as("EXPECTED_TOTAL_MAPPED must equal the sum of the per-controller expectedMapped "
                         + "rows — a constant adjusted away from the row sum hides a real drift "

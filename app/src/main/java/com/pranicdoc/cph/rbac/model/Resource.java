@@ -34,7 +34,8 @@ public enum Resource {
             Operation.UPDATE,
             Operation.DELETE,
             Operation.EXPORT,
-            Operation.SHARE
+            Operation.SHARE,
+            Operation.REVIEW
     ),
 
     PDF(

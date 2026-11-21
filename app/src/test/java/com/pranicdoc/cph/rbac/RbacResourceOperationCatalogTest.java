@@ -29,8 +29,13 @@ class RbacResourceOperationCatalogTest {
     }
 
     @Test
-    void declaresExactlyTenOperations() {
-        assertEquals(10, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
+    void declaresExactlyElevenOperations() {
+        assertEquals(11, Operation.values().length, "Operation catalog size drifted — update this test deliberately if intended");
+    }
+
+    @Test
+    void caseResourceSupportsReviewOperation() {
+        assertTrue(Resource.CASE.supports(Operation.REVIEW));
     }
 
     @Test

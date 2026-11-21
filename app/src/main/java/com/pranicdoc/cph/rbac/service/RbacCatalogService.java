@@ -53,17 +53,18 @@ public class RbacCatalogService {
             Map.entry(Resource.FEEDBACK, "Feedback")
     );
 
-    private static final Map<Operation, String> VERB_LABELS = Map.of(
-            Operation.READ, "Read",
-            Operation.CREATE, "Create",
-            Operation.UPDATE, "Update",
-            Operation.DELETE, "Delete",
-            Operation.EXPORT, "Export",
-            Operation.SHARE, "Share",
-            Operation.WRITE, "Write",
-            Operation.ADMIN, "Administer",
-            Operation.IMPORT, "Import",
-            Operation.ELEVATE, "Unlock shared entries"
+    private static final Map<Operation, String> VERB_LABELS = Map.ofEntries(
+            Map.entry(Operation.READ, "Read"),
+            Map.entry(Operation.CREATE, "Create"),
+            Map.entry(Operation.UPDATE, "Update"),
+            Map.entry(Operation.DELETE, "Delete"),
+            Map.entry(Operation.EXPORT, "Export"),
+            Map.entry(Operation.SHARE, "Share"),
+            Map.entry(Operation.WRITE, "Write"),
+            Map.entry(Operation.ADMIN, "Administer"),
+            Map.entry(Operation.IMPORT, "Import"),
+            Map.entry(Operation.ELEVATE, "Unlock shared entries"),
+            Map.entry(Operation.REVIEW, "Review")
     );
 
     /**
@@ -71,17 +72,18 @@ public class RbacCatalogService {
      * verb label (38 mockup Screens 6/9). Backend-owned per D-03 so the
      * frontend never hardcodes copy.
      */
-    private static final Map<Operation, String> VERB_DESCRIPTIONS = Map.of(
-            Operation.READ, "View records",
-            Operation.CREATE, "Add new records",
-            Operation.UPDATE, "Edit existing records",
-            Operation.DELETE, "Remove records",
-            Operation.EXPORT, "Export records to a file",
-            Operation.SHARE, "Share records externally",
-            Operation.WRITE, "Create and edit records",
-            Operation.ADMIN, "Full administrative control",
-            Operation.IMPORT, "Bulk-import records from a file",
-            Operation.ELEVATE, "Temporarily edit shared (system) entries after confirming the password"
+    private static final Map<Operation, String> VERB_DESCRIPTIONS = Map.ofEntries(
+            Map.entry(Operation.READ, "View records"),
+            Map.entry(Operation.CREATE, "Add new records"),
+            Map.entry(Operation.UPDATE, "Edit existing records"),
+            Map.entry(Operation.DELETE, "Remove records"),
+            Map.entry(Operation.EXPORT, "Export records to a file"),
+            Map.entry(Operation.SHARE, "Share records externally"),
+            Map.entry(Operation.WRITE, "Create and edit records"),
+            Map.entry(Operation.ADMIN, "Full administrative control"),
+            Map.entry(Operation.IMPORT, "Bulk-import records from a file"),
+            Map.entry(Operation.ELEVATE, "Temporarily edit shared (system) entries after confirming the password"),
+            Map.entry(Operation.REVIEW, "Review and approve cases submitted by linked healers")
     );
 
     /**

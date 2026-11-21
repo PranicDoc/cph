@@ -1,5 +1,9 @@
 package com.pranicdoc.cph.common.security;
 
+import jakarta.servlet.DispatcherType;
+import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import com.pranicdoc.cph.common.ratelimit.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +53,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
+                        // The async dispatch that ends a long-lived response (the review SSE stream)
+                        // runs without the JWT filter; its original request was already authorized.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // Public endpoints
                         .requestMatchers(
                                 "/api/v1/auth/login",
@@ -69,6 +76,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/bootstrap").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/webhooks/whatsapp").permitAll()
+                        // pdfWorker's PDF-completed webhook: no JWT, InternalPdfJobController checks X-Internal-Token.
+                        .requestMatchers("/internal/pdf-jobs/**").permitAll()
                         // /api/v1/internal/** never reaches this chain — see InternalApiSecurityConfig.
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
@@ -85,6 +94,13 @@ public class SecurityConfig {
                         // A SELF_REG patient link's subject is the owning healer, so without this
                         // rule the link could read and change that healer's profile.
                         .requestMatchers("/api/v1/auth/profile").not().hasRole("PATIENT")
+                        // Same reason: a SELF_REG link (role PATIENT, subject = the owning healer) would
+                        // otherwise resolve that healer's CASE:UPDATE / CASE:REVIEW grants on every review
+                        // route and receive their review events. allOf(authenticated) too, since
+                        // not().hasRole alone admits anonymous callers.
+                        .requestMatchers("/api/v1/reviews/**").access(AuthorizationManagers.allOf(
+                                AuthenticatedAuthorizationManager.authenticated(),
+                                AuthorizationManagers.not(AuthorityAuthorizationManager.hasRole("PATIENT"))))
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

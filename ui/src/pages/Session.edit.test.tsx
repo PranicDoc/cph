@@ -112,6 +112,44 @@ describe("Session: a case can be edited on any status", () => {
   });
 });
 
+describe("Session: an approved case asks before it is edited", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const POPUP = "This case is approved. Editing it will dismiss the approval and you will need a new review.";
+
+  function mockApproved() {
+    (api.get as Mock).mockImplementation((url: string) =>
+      url === "/api/v1/reviews/case-statuses"
+        ? Promise.resolve({ data: [{ caseId: "case-1", status: "APPROVED", eligible: true, latestRevisionNo: 1 }] })
+        : Promise.resolve({ data: caseWithStatus("CLOSED") })
+    );
+  }
+
+  it("the edit pencil and a past session's Edit show the popup; Cancel keeps the case as it is", async () => {
+    const user = userEvent.setup();
+    mockApproved();
+    renderSession();
+    await screen.findByRole("button", { name: /edit session/i });
+    await vi.waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/case-statuses", { params: { caseIds: "case-1" } })
+    );
+    // Let the status answer settle into the query before clicking.
+    await new Promise((r) => setTimeout(r, 0));
+
+    await user.click(screen.getByRole("button", { name: /edit session/i }));
+    expect(await screen.findByText(POPUP)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    // Still the read-only view: the pencil is there, no form was opened.
+    expect(await screen.findByRole("button", { name: /edit session/i })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Session 1"));
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    expect(await screen.findByText(POPUP)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit and dismiss approval" }));
+    expect(await screen.findByText("wizard for session-1")).toBeInTheDocument();
+  });
+});
+
 describe("Session: saving case details", () => {
   beforeEach(() => {
     vi.clearAllMocks();

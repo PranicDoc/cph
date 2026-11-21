@@ -22,6 +22,7 @@ import com.pranicdoc.cph.healing.repository.QualitativeFeedbackRepository;
 import com.pranicdoc.cph.healing.repository.SessionRepository;
 import com.pranicdoc.cph.healing.repository.SymptomFeedbackRepository;
 import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
@@ -48,6 +49,8 @@ public class FeedbackService {
     private final CaseService caseService;
     private final SessionRepository sessionRepository;
     private final SecurityContextUtil securityContextUtil;
+    // Feedback is part of the case PDF, so recording it dismisses the case's approved review.
+    private final ReviewDismissalService reviewDismissalService;
 
     /**
      * Save symptom feedback for a session (one rating per symptom, scale 0-10). WhatsApp path:
@@ -58,6 +61,7 @@ public class FeedbackService {
         HealingSession session = sessionService.findLatestByCaseIdOrThrow(caseId);
         saveSymptoms(session, requests, session.getSessionDate(), FeedbackSource.WHATSAPP);
         feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
+        reviewDismissalService.onCaseModified(caseId, "Patient sent feedback");
     }
 
     /** WhatsApp path: the patient's interim or final comment on the case's latest session. */
@@ -72,6 +76,7 @@ public class FeedbackService {
         if (request.feedbackType() == FeedbackType.FINAL) {
             feedbackLinkRepository.markUsedBySessionId(caseId, LinkStatus.USED, LinkStatus.ACTIVE);
         }
+        reviewDismissalService.onCaseModified(caseId, "Patient sent feedback");
     }
 
     /**
@@ -96,6 +101,7 @@ public class FeedbackService {
         } else {
             saveManualInterim(caseId, request.sessionId(), symptoms, feedbackText);
         }
+        reviewDismissalService.onCaseModified(caseId, "Feedback edited");
     }
 
     /** What is recorded for the case, so the healer's form can show it for editing. */

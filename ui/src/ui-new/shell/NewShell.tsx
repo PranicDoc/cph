@@ -7,6 +7,7 @@ import UserProfileIcon from "../../components/UserProfile";
 import { useAuth } from "../../context/AuthContext";
 import { useUiVersion } from "../../ui-version";
 import type { SidebarNavItem } from "../../components/Sidebar";
+import { NavUnreadDot } from "../../components/NavUnreadDot";
 import { BrandMark } from "../components/BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
 
@@ -78,20 +79,22 @@ function MobileTabs({ items, pathname }: { items: ShellNavItem[]; pathname: stri
             key={item.path}
             to={item.path}
             aria-current={isActive(item, pathname) ? "page" : undefined}
-            className="hl-mtab"
+            className="hl-mtab relative"
           >
             <item.icon className="size-[18px]" aria-hidden="true" />
             <span>{item.label}</span>
+            {item.unreadDot && <NavUnreadDot className="absolute right-3 top-1.5 ml-0" />}
           </Link>
         ))}
         {needsMore && (
           <button
             type="button"
-            className={cn("hl-mtab", restActive && "is-active")}
+            className={cn("hl-mtab relative", restActive && "is-active")}
             onClick={() => setMoreOpen(true)}
           >
             <Ellipsis className="size-[18px]" aria-hidden="true" />
             <span>More</span>
+            {rest.some((i) => i.unreadDot) && <NavUnreadDot className="absolute right-3 top-1.5 ml-0" />}
           </button>
         )}
       </nav>
@@ -109,6 +112,7 @@ function MobileTabs({ items, pathname }: { items: ShellNavItem[]; pathname: stri
               >
                 <item.icon className="size-[18px]" aria-hidden="true" />
                 {item.label}
+                {item.unreadDot && <NavUnreadDot />}
               </Link>
             ))}
           </DialogContent>
@@ -151,6 +155,7 @@ export function NewShell({ items, groupOrder, sectionLabel }: NewShellProps) {
                 >
                   <item.icon className="size-[18px]" aria-hidden="true" />
                   {item.label}
+                  {item.unreadDot && <NavUnreadDot />}
                 </Link>
               ))}
             </div>

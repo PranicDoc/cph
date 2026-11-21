@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
+import { NavUnreadDot } from "./NavUnreadDot";
 
 export interface SidebarNavItem {
   label: string;
@@ -12,6 +13,10 @@ export interface SidebarNavItem {
   /** Shown only to users who hold `verb` (default READ) on any of these RBAC resources; omit for items everyone sees. */
   anyOf?: string[];
   verb?: string;
+  /** Shown only to users who hold exactly this operation on this resource (e.g. CASE:REVIEW). */
+  requires?: { resource: string; operation: string };
+  /** Shows a dot while there are unseen review events (the item is one of the review pages that clears it). */
+  unreadDot?: boolean;
 }
 
 interface SidebarProps {
@@ -25,7 +30,7 @@ export default function Sidebar({ items, isOpen, onClose }: SidebarProps) {
 
   const navLinks = (
     <nav className="flex flex-col gap-1 py-3 px-2">
-      {items.map(({ label, path, icon: Icon, exact }) => {
+      {items.map(({ label, path, icon: Icon, exact, unreadDot }) => {
         const isActive = exact ? pathname === path : pathname.startsWith(path);
         return (
           <Link
@@ -41,6 +46,7 @@ export default function Sidebar({ items, isOpen, onClose }: SidebarProps) {
           >
             <Icon className="w-4 h-4 shrink-0" />
             {label}
+            {unreadDot && <NavUnreadDot />}
           </Link>
         );
       })}

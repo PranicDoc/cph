@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -113,5 +113,69 @@ describe("Profile name change cost", () => {
 
     expect(await screen.findByText("Buy credits dialog")).toBeInTheDocument();
     expect(toast.error).toHaveBeenCalledWith(detail, expect.anything());
+  });
+});
+
+describe("Profile case review toggle", () => {
+  const NOTE =
+    "New PDFs, including amendments to cases already in review, are sent to your instructor automatically. Approved cases are never sent automatically: if you edit an approved case, submit it for review yourself.";
+  const LABEL = "Automatically submit PDFs for review after they are generated";
+
+  function renderProfile() {
+    return render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <Profile />
+      </QueryClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  for (const [name, isNew] of [["new view", true], ["classic view", false]] as const) {
+    it(`toggleDefaultsOff_andShowsNote (${name})`, async () => {
+      view.isNewView = isNew;
+      mGet.mockResolvedValue({ data: { ...profile, autoSubmitForReview: false } });
+      mPut.mockResolvedValue({ data: { ...profile, autoSubmitForReview: true } });
+      const user = userEvent.setup();
+      renderProfile();
+
+      const toggle = await screen.findByRole("switch", { name: LABEL });
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+      expect(screen.getByText(NOTE)).toBeInTheDocument();
+
+      await user.click(toggle);
+      expect(mPut).toHaveBeenCalledWith("/api/v1/auth/me/review-preferences", { autoSubmitForReview: true });
+    });
+  }
+
+  for (const [name, isNew] of [["new view", true], ["classic view", false]] as const) {
+    it(`noInstructorLinked_showsLine_andToggleStillEnabled (${name})`, async () => {
+      view.isNewView = isNew;
+      mGet.mockResolvedValue({ data: { ...profile, autoSubmitForReview: false, reviewerLinked: false } });
+      renderProfile();
+
+      expect(await screen.findByText("No instructor is linked to you yet.")).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: LABEL })).toBeEnabled();
+    });
+  }
+
+  it("hides the no-instructor line when one is linked", async () => {
+    view.isNewView = true;
+    mGet.mockResolvedValue({ data: { ...profile, reviewerLinked: true } });
+    renderProfile();
+
+    await screen.findByRole("switch", { name: LABEL });
+    expect(screen.queryByText("No instructor is linked to you yet.")).not.toBeInTheDocument();
+  });
+
+  it("reflects a saved opt-in", async () => {
+    view.isNewView = true;
+    mGet.mockResolvedValue({ data: { ...profile, autoSubmitForReview: true } });
+    renderProfile();
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: LABEL })).toHaveAttribute("aria-checked", "true"));
   });
 });

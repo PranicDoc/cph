@@ -1,8 +1,9 @@
-import { Users, Calendar, CreditCard, FileText, RefreshCw } from "lucide-react";
+import { Users, Calendar, CreditCard, FileText, RefreshCw, BadgeCheck } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { versioned } from "../ui-version";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardSummary } from "../hooks/useDashboardSummary";
+import { useMyApprovedCount } from "../hooks/useMyApprovedCount";
 import { KpiCard, KpiCardSkeleton } from "../components/KpiCard";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import type { ChartPeriod } from "../types/chart";
@@ -26,6 +27,7 @@ function getGreeting(firstName?: string): string {
 function ClassicDashboard() {
   const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useDashboardSummary();
+  const approved = useMyApprovedCount();
 
   const firstName = user?.fullName?.split(" ")[0] || undefined;
   const heading = getGreeting(firstName);
@@ -49,7 +51,7 @@ function ClassicDashboard() {
     <div>
       <h1 className="text-xl font-semibold text-text mb-6">{heading}</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-2 gap-6 ${approved.data !== undefined ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         {isLoading ? (
           <>
             <KpiCardSkeleton />
@@ -93,6 +95,9 @@ function ClassicDashboard() {
               value={data?.pdfsGeneratedThisMonth ?? 0}
               icon={FileText}
             />
+            {approved.data !== undefined && (
+              <KpiCard label="Approved cases" value={approved.data} icon={BadgeCheck} valueTestId="approved-cases-value" />
+            )}
           </>
         )}
       </div>

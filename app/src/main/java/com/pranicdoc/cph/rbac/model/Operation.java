@@ -18,5 +18,7 @@ public enum Operation {
     ADMIN,
     IMPORT,
     // Temporarily edit shared (system) rows after confirming the password; master data only.
-    ELEVATE
+    ELEVATE,
+    // Review (approve / request changes on) a healer's submitted case PDF; instructors only.
+    REVIEW
 }

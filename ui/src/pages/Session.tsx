@@ -22,6 +22,7 @@ import {
 } from "../components/CaseViewWidgets";
 import { usePatient } from "../context/PatientContext";
 import { ClosurePopup } from "./Closure";
+import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
 import {
   Accordion,
   AccordionContent,
@@ -85,6 +86,8 @@ export default function Session() {
   const [editingSession, setEditingSession] = useState<any | null>(null);
   const [isEditingClosure, setIsEditingClosure] = useState(false);
   const navigate = useNavigate();
+  // Every way into editing this case asks first when its review is approved (the edit dismisses it).
+  const approvedEdit = useApprovedEditGuard(healingCaseId);
 
   const { data: protocols = [] } = useProtocols("PROTOCOL");
   const schema = useMemo(
@@ -385,8 +388,14 @@ export default function Session() {
       navigate(`/cases/${healingCaseId}/summary`);
       return;
     }
-    goToNextStep();
+    // The next step records a new session on the case.
+    approvedEdit.guard(goToNextStep);
   };
+
+  const editCase = () => approvedEdit.guard(toggleEdit);
+  const editSession = (session: unknown) => approvedEdit.guard(() => setEditingSession(session));
+  const removeSession = (session: unknown) => approvedEdit.guard(() => deleteSession(session));
+  const editClosure = () => approvedEdit.guard(() => setIsEditingClosure(true));
 
   if (isLocked) {
     return (
@@ -449,7 +458,9 @@ export default function Session() {
   // ---------- VIEW MODE (step 0) ----------
   if (!isEdit && isNewView) {
     const closeCase = () =>
-      navigate(`/cases/${healingCaseId}/close`, { state: { patient: { ...selectedPatient, healingCaseId } } });
+      approvedEdit.guard(() =>
+        navigate(`/cases/${healingCaseId}/close`, { state: { patient: { ...selectedPatient, healingCaseId } } })
+      );
     return (
       <div className="hlx">
         <SessionHeader healingSession={sessionData} />
@@ -457,9 +468,9 @@ export default function Session() {
           <NewSessionView
             sessionData={sessionData}
             protocols={reconstructSelectedProtocols(sessionData.healingDetails?.protocolName || "")}
-            onEdit={toggleEdit}
-            onEditSession={setEditingSession}
-            onDeleteSession={sessionData?.status === "CLOSED" ? undefined : deleteSession}
+            onEdit={editCase}
+            onEditSession={editSession}
+            onDeleteSession={sessionData?.status === "CLOSED" ? undefined : removeSession}
             onEditClosure={canEditClosure ? closeCase : undefined}
             onComplete={canComplete ? closeCase : undefined}
             onGeneratePdf={canGeneratePdf ? generatePdf : undefined}
@@ -469,6 +480,7 @@ export default function Session() {
             nextLabel={getNextButtonLabel()}
           />
         </Suspense>
+        {approvedEdit.dialog}
       </div>
     );
   }
@@ -485,7 +497,7 @@ export default function Session() {
               type="button"
               variant="ghost"
               size="icon"
-              onClick={toggleEdit}
+              onClick={editCase}
               className="hover:bg-background"
               aria-label="Edit session"
             >
@@ -573,7 +585,7 @@ export default function Session() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setEditingSession(session)}
+                            onClick={() => editSession(session)}
                           >
                             <Pencil className="w-4 h-4" />
                             Edit
@@ -583,7 +595,7 @@ export default function Session() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => deleteSession(session)}
+                              onClick={() => removeSession(session)}
                             >
                               <Trash2 className="w-4 h-4" />
                               Delete
@@ -630,7 +642,7 @@ export default function Session() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditingClosure(true)}
+                  onClick={editClosure}
                   className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
                 >
                   Complete case
@@ -651,7 +663,7 @@ export default function Session() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditingClosure(true)}
+                  onClick={editClosure}
                   className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
                 >
                   Edit closure
@@ -668,6 +680,7 @@ export default function Session() {
           </div>
         </div>
         {closurePopup}
+        {approvedEdit.dialog}
       </div>
     );
   }

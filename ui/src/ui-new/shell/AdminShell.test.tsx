@@ -43,6 +43,7 @@ describe("AdminShell", () => {
       "Packages",
       "Healer Reg.",
       "Roles & Permissions",
+      "Reviewer Links",
       "Global Config",
       "Master Data",
       "Legal Documents",

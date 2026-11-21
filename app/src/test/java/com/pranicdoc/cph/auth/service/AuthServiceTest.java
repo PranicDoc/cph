@@ -3,6 +3,7 @@ package com.pranicdoc.cph.auth.service;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.HealerRequest;
 import com.pranicdoc.cph.auth.dto.HealerResponse;
+import com.pranicdoc.cph.auth.dto.ReviewPreferencesRequest;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +40,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -74,6 +78,9 @@ class AuthServiceTest {
 
     @Mock
     private CreditServiceClient creditServiceClient;
+
+    @Mock
+    private ReviewerAssignmentService reviewerAssignments;
 
     @InjectMocks
     private AuthService authService;
@@ -248,6 +255,39 @@ class AuthServiceTest {
         assertEquals(UiVersion.NEW, healer.getUiVersion());
         assertEquals(UiVersion.NEW, response.uiVersion());
         verify(healerRepository).save(healer);
+    }
+
+    @Test
+    void reviewPreferences_defaultFalse_andUpdates() {
+        UUID healerId = UUID.randomUUID();
+        Healer healer = Healer.builder().fullName("Asha Rao").email("asha@example.com").role(Role.HEALER).build();
+        healer.setId(healerId);
+        assertFalse(healer.isAutoSubmitForReview());
+
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
+        when(healerRepository.save(healer)).thenReturn(healer);
+
+        HealerResponse response = authService.updateReviewPreferences(new ReviewPreferencesRequest(true));
+
+        assertTrue(healer.isAutoSubmitForReview());
+        assertTrue(response.autoSubmitForReview());
+        verify(healerRepository).save(healer);
+    }
+
+    @Test
+    void getCurrentHealer_reportsWhetherAnInstructorIsLinked() {
+        UUID healerId = UUID.randomUUID();
+        Healer healer = Healer.builder().fullName("Asha Rao").email("asha@example.com").role(Role.HEALER).build();
+        healer.setId(healerId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
+
+        when(reviewerAssignments.reviewerFor(healerId)).thenReturn(Optional.of(UUID.randomUUID()));
+        assertTrue(authService.getCurrentHealer().reviewerLinked());
+
+        when(reviewerAssignments.reviewerFor(healerId)).thenReturn(Optional.empty());
+        assertFalse(authService.getCurrentHealer().reviewerLinked());
     }
 
     // ─── Name change credits ─────────────────────────────────────

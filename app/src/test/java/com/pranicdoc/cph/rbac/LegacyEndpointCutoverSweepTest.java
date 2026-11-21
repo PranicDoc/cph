@@ -156,7 +156,9 @@ class LegacyEndpointCutoverSweepTest {
     private static final List<Class<?>> PHASE_42_HEALER_CONTROLLERS = List.of(
             PatientController.class, SessionController.class, CaseController.class,
             ScanController.class, ProtocolController.class, FeedbackController.class,
-            CreditProxyController.class);
+            CreditProxyController.class,
+            com.pranicdoc.cph.review.controller.HealerReviewController.class,
+            com.pranicdoc.cph.review.controller.ReviewerController.class);
 
     /**
      * {@code @RestController} classes deliberately covered by NEITHER sweep, keyed
@@ -190,6 +192,16 @@ class LegacyEndpointCutoverSweepTest {
                         + "in play; served by InternalApiSecurityConfig's own filter chain, where "
                         + "InternalApiKeyFilter checks X-Internal-Key (404 when unconfigured), pinned in "
                         + "InternalApiKeyFilterTest");
+        m.put(com.pranicdoc.cph.review.controller.InternalPdfJobController.class.getName(),
+                "machine-to-machine PDF-completed webhook from pdfWorker (POST /internal/pdf-jobs/{jobId}/"
+                        + "completed) — no user in play; permitAll in SecurityConfig, the controller checks "
+                        + "X-Internal-Token itself and rejects every call when the token is unset, pinned in "
+                        + "InternalPdfJobControllerTest");
+        m.put("com.pranicdoc.cph.review.stream.ReviewStreamController",
+                "per-user stream, carries only that user's events (GET /api/v1/reviews/stream, SSE) — "
+                        + "self-service for every authenticated healer, asserted open by "
+                        + "HealerControllerGateSweepTest.reviewStreamControllerRemainsUngated; patient "
+                        + "tokens are refused in SecurityConfig");
         m.put(BootstrapController.class.getName(),
                 "asserted open by HealerControllerGateSweepTest.bootstrapControllerBootstrapIsUngated"
                         + "AndAssignRoleStaysCoarseGated — bootstrap is permitAll and self-locks; "
@@ -202,6 +214,11 @@ class LegacyEndpointCutoverSweepTest {
                         + "'UPDATE') — pinned in BaselineRoleBackfillControllerAuthorizationContract"
                         + "Test — so it is not an ungated hole; it is simply owned by neither sweep's "
                         + "pinned counts");
+        m.put("com.pranicdoc.cph.review.controller.AdminReviewerAssignmentController",
+                "SUPADM-only (link healers to reviewing instructors): no RBAC permission opens it, "
+                        + "so it carries no @PreAuthorize gate; every route calls "
+                        + "AdminAuthz.assertSuperAdmin(), pinned in AdminReviewerAssignmentController"
+                        + "AuthorizationContractTest (403 for a non-SUPADM on all four routes)");
         return m;
     }
 

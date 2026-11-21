@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
+import { updateReviewPreferences } from "../pages/reviews/reviewApi";
 
 export interface HealerProfile {
   id: string;
@@ -19,6 +20,10 @@ export interface HealerProfile {
   uiVersion?: "CLASSIC" | "NEW";
   /** Credits the next full-name change costs; 0 when it is free. */
   nextNameChangeCost?: number;
+  /** Opt-in: send every newly generated case PDF to the linked instructor automatically. */
+  autoSubmitForReview?: boolean;
+  /** Whether an instructor is linked to this healer. */
+  reviewerLinked?: boolean;
 }
 
 export function useHealerProfile() {
@@ -42,6 +47,16 @@ export function useUpdateProfile() {
     },
     onError: (e) =>
       toast.error(extractDetail(e) || "Failed to update profile", { duration: 5000 }),
+  });
+}
+
+export function useUpdateReviewPreferences() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (autoSubmitForReview: boolean) => updateReviewPreferences(autoSubmitForReview),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["healer-profile"] }),
+    onError: (e) =>
+      toast.error(extractDetail(e) || "Failed to update review preference", { duration: 5000 }),
   });
 }
 

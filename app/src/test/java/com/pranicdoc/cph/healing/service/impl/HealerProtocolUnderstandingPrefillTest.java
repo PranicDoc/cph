@@ -75,7 +75,8 @@ class HealerProtocolUnderstandingPrefillTest {
     void setUp() {
         service = new HealerProtocolUnderstandingService(caseRepository, hpuRepository, pranaColorCatalogRepository,
                 sessionRepository, protocolCatalogRepository, protocolChakraRepository, protocolChakraColorRepository,
-                chakraCatalogRepository, new ObjectMapper(), null);
+                chakraCatalogRepository, new ObjectMapper(), null,
+                org.mockito.Mockito.mock(com.pranicdoc.cph.review.service.ReviewDismissalService.class));
         healingCase.setId(caseId);
         healingCase.setHealerId(healerId);
         lenient().when(caseRepository.findById(caseId)).thenReturn(Optional.of(healingCase));

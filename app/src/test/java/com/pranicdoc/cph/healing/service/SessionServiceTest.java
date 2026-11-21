@@ -76,6 +76,10 @@ class SessionServiceTest {
     @Mock
     private com.pranicdoc.cph.healing.repository.ProtocolEntryRepository protocolEntryRepository;
 
+    // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
+    @Mock
+    private com.pranicdoc.cph.review.service.ReviewDismissalService reviewDismissalService;
+
     @InjectMocks
     private SessionService sessionService;
 

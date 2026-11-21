@@ -6,6 +6,7 @@ import com.pranicdoc.cph.healing.model.HealingSession;
 import com.pranicdoc.cph.healing.model.ProtocolColor;
 import com.pranicdoc.cph.healing.model.ProtocolEntry;
 import com.pranicdoc.cph.healing.repository.ProtocolEntryRepository;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class ProtocolService {
 
     private final ProtocolEntryRepository protocolEntryRepository;
     private final SessionService sessionService;
+    private final ReviewDismissalService reviewDismissalService;
 
     /**
      * Save protocol entries with their associated colors for a session.
@@ -52,5 +54,6 @@ public class ProtocolService {
 
             protocolEntryRepository.save(entry);
         }
+        reviewDismissalService.onCaseModified(session.getHealingCase().getId(), "Session protocol saved");
     }
 }

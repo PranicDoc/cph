@@ -10,6 +10,7 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientEditSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
+import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
 
 /** The patient as the API returns it (GET /api/v1/patients/{id}). */
 export type PatientDetails = {
@@ -65,26 +66,44 @@ function PatientEditForm({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const savedDate = declaration?.declarationDate ?? "";
+  // The medical history goes into every case of the patient (the declaration date into the latest), so
+  // saving dismisses any approved review among them: ask first.
+  const { data: caseIds = [] } = useQuery<string[]>({
+    queryKey: ["patient-case-ids", patient.id],
+    queryFn: () =>
+      api
+        .get<{ content: { id: string }[] }>(`/api/v1/cases/patient/${patient.id}`, { params: { size: 100 } })
+        .then((r) => (r.data?.content ?? []).map((c) => c.id)),
+    retry: false,
+  });
+  const approvedEdit = useApprovedEditGuard(caseIds);
+
+  const initialValues = {
+    generalHealth: history?.generalHealth ?? null,
+    diet: history?.diet ?? null,
+    exercise: parseExercise(history?.exercise),
+    exerciseFrequency: history?.exerciseFrequency ?? null,
+    hypertension: history?.hypertension ?? false,
+    giIssues: history?.giIssues ?? false,
+    stressDepressionAnxiety: history?.stressDepressionAnxiety ?? false,
+    pregnant: history?.pregnant ?? false,
+    cancer: history?.cancer ?? false,
+    cancerLocation: history?.cancerLocation ?? null,
+    cancerDetails: history?.cancerDetails ?? null,
+    additionalNotes: history?.additionalNotes ?? null,
+    declarationDate: savedDate,
+  };
 
   const form = useForm({
-    defaultValues: {
-      generalHealth: history?.generalHealth ?? null,
-      diet: history?.diet ?? null,
-      exercise: parseExercise(history?.exercise),
-      exerciseFrequency: history?.exerciseFrequency ?? null,
-      hypertension: history?.hypertension ?? false,
-      giIssues: history?.giIssues ?? false,
-      stressDepressionAnxiety: history?.stressDepressionAnxiety ?? false,
-      pregnant: history?.pregnant ?? false,
-      cancer: history?.cancer ?? false,
-      cancerLocation: history?.cancerLocation ?? null,
-      cancerDetails: history?.cancerDetails ?? null,
-      additionalNotes: history?.additionalNotes ?? null,
-      declarationDate: savedDate,
-    },
+    defaultValues: initialValues,
     onSubmit: async ({ value }) => {
       try {
-        await api.put(`/api/v1/patients/${patient.id}/medical-history`, buildMedicalHistoryUpdate(value));
+        // Writing the history dismisses approvals on every case of the patient, so leave it alone
+        // when only the declaration date (or nothing) changed.
+        const update = buildMedicalHistoryUpdate(value);
+        if (JSON.stringify(update) !== JSON.stringify(buildMedicalHistoryUpdate(initialValues))) {
+          await api.put(`/api/v1/patients/${patient.id}/medical-history`, update);
+        }
         if (declaration?.editable && value.declarationDate && value.declarationDate !== savedDate) {
           await api.put(`/api/v1/patients/${patient.id}/declaration-date`, {
             declarationDate: value.declarationDate,
@@ -107,7 +126,7 @@ function PatientEditForm({
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        form.handleSubmit();
+        approvedEdit.guard(() => form.handleSubmit());
       }}
       className="space-y-6"
     >
@@ -140,6 +159,7 @@ function PatientEditForm({
           )}
         </form.Subscribe>
       </div>
+      {approvedEdit.dialog}
     </form>
   );
 }

@@ -51,6 +51,10 @@ class PatientServiceDeclarationDateTest {
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private PatientTrashService trashService;
 
+    // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
+    @Mock
+    private com.pranicdoc.cph.review.service.ReviewDismissalService reviewDismissalService;
+
     @InjectMocks private PatientService patientService;
 
     @BeforeEach

@@ -15,6 +15,7 @@ import { fromSymptomRating, toSymptomRating } from "@/lib/symptomRating";
 import { TEXT_LIMITS } from "@/lib/textLimits";
 import { CharacterCount } from "@/components/form/CharacterCount";
 import { SymptomRatingList, type FeedbackSymptom } from "@/components/feedback/SymptomRatingList";
+import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
 
 type FeedbackType = "INTERIM" | "FINAL";
 
@@ -119,6 +120,8 @@ export default function ManualFeedback() {
     : sessions.find((s) => s.id === sessionId)?.sessionDate ?? "";
 
   const backToPatients = () => navigate("/patients");
+  // Saving feedback changes the case, so an approved review is dismissed: ask first.
+  const approvedEdit = useApprovedEditGuard(healingCaseId);
 
   const save = useMutation({
     mutationFn: () =>
@@ -164,7 +167,7 @@ export default function ManualFeedback() {
       setError("Rate at least one symptom or add a comment.");
       return;
     }
-    save.mutate();
+    approvedEdit.guard(() => save.mutate());
   };
 
   return (
@@ -278,6 +281,7 @@ export default function ManualFeedback() {
           {save.isPending ? "Saving…" : isEditing ? "Update feedback" : "Save feedback"}
         </Button>
       </div>
+      {approvedEdit.dialog}
     </div>
   );
 }

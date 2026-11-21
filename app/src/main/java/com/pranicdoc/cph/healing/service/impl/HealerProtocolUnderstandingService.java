@@ -31,6 +31,7 @@ import com.pranicdoc.cph.masterdata.repository.ProtocolCatalogRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraColorRepository;
 import com.pranicdoc.cph.masterdata.repository.ProtocolChakraRepository;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -58,6 +59,7 @@ public class HealerProtocolUnderstandingService {
     private final ChakraCatalogRepository chakraCatalogRepository;
     private final ObjectMapper objectMapper;
     private final SecurityContextUtil securityContextUtil;
+    private final ReviewDismissalService reviewDismissalService;
 
     /**
      * Synchronous replacement for the old AFTER_COMMIT event-listener auto-generation.
@@ -115,6 +117,7 @@ public class HealerProtocolUnderstandingService {
         hpu.setChakraReasonsJson(serialize(chakraReasons));
 
         hpuRepository.save(hpu);
+        reviewDismissalService.onCaseModified(healingCaseId, "Chakras and colours edited");
     }
 
     /**

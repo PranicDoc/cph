@@ -85,6 +85,10 @@ class CaseServiceTest {
     @Mock private com.pranicdoc.cph.auth.service.HealerCacheService healerService;
     @Mock private com.pranicdoc.cph.patient.service.PatientService patientService;
 
+    // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
+    @Mock
+    private com.pranicdoc.cph.review.service.ReviewDismissalService reviewDismissalService;
+
     @InjectMocks
     private CaseService caseService;
 

@@ -46,6 +46,7 @@ import com.pranicdoc.cph.patient.model.Patient;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import com.pranicdoc.cph.patient.repository.PatientRepository;
 import com.pranicdoc.cph.patient.service.PatientService;
+import com.pranicdoc.cph.review.service.ReviewDismissalService;
 import lombok.extern.slf4j.Slf4j;
 import com.pranicdoc.storage.service.StorageService;
 import jakarta.persistence.EntityManager;
@@ -101,6 +102,8 @@ public class CaseService {
     private final ObjectProvider<CaseService> self;
     private final PatientService patientService;
     private final SymptomFeedbackRepository symptomFeedbackRepository;
+    // Every write below that changes an existing case's data dismisses its approved review.
+    private final ReviewDismissalService reviewDismissalService;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -245,6 +248,7 @@ public class CaseService {
                 .build();
         healingCase.getSymptoms().add(symptom);
         caseRepository.save(healingCase);
+        reviewDismissalService.onCaseModified(caseId, "Symptom added");
     }
 
     @Auditable(action = "RESOLVE_SYMPTOM")
@@ -258,6 +262,7 @@ public class CaseService {
                     s.setResolvedDate(LocalDate.now());
                 });
         caseRepository.save(healingCase);
+        reviewDismissalService.onCaseModified(caseId, "Symptom resolved");
     }
 
     /**
@@ -307,6 +312,7 @@ public class CaseService {
                 .build();
         healingCase.getMedications().add(medication);
         caseRepository.save(healingCase);
+        reviewDismissalService.onCaseModified(caseId, "Medication added");
     }
 
     // --- Declaration ---
@@ -324,6 +330,7 @@ public class CaseService {
                 .build();
         healingCase.setDeclaration(declaration);
         caseRepository.save(healingCase);
+        reviewDismissalService.onCaseModified(caseId, "Declaration signed");
     }
 
     // --- Case Closure ---
@@ -380,6 +387,7 @@ public class CaseService {
         closure.setClosedBy(currentHealerId);
         healingCase.setStatus(newStatus);
         caseRepository.save(healingCase);
+        reviewDismissalService.onCaseModified(caseId, "Case closure edited");
         if (newStatus == CaseStatus.CLOSED && !isEdit) {
             notificationService.sendFinalFeedbackNotification(lastSession);
         }
@@ -646,6 +654,8 @@ public class CaseService {
                 && CaseStatus.DRAFT.equals(entity.getStatus())) {
             entity.setStatus(CaseStatus.ACTIVE);
         }
+        reviewDismissalService.onCaseModified(entity.getId(),
+                "PATIENT".equalsIgnoreCase(role) ? "Patient updated their health form" : "Case details edited");
         return toResponse(entity);
     }
 

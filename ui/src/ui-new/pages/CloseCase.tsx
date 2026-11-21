@@ -12,6 +12,7 @@ import { useUsualPicks } from "@/hooks/useUsualPicks";
 import ChakraDetail from "../closure/ChakraDetail";
 import WrapUp from "../closure/WrapUp";
 import { PickerHost } from "../closure/pickerHost";
+import { useApprovedEditGuard } from "@/pages/reviews/useApprovedEditGuard";
 
 const hasReason = (row: HPUTable) => !!row.reason?.trim();
 
@@ -30,6 +31,8 @@ export default function CloseCase() {
   const { rows, ready, loading, savedChakras, updateRow, save } = useProtocolUnderstanding(healingCaseId);
   const colors = useProtocolColors();
   const picksFor = useUsualPicks(healingCaseId);
+  // Saving the chakras or the closure changes the case, so an approved review is dismissed: ask first.
+  const approvedEdit = useApprovedEditGuard(healingCaseId);
   const closure = useCaseClosure(healingCaseId, () => {
     queryClient.invalidateQueries({ queryKey: ["patients"] });
     navigate(-1);
@@ -80,7 +83,7 @@ export default function CloseCase() {
     setReasonError(null);
     const reasoned = rows.filter(hasReason);
     if (reasoned.length === 0 || unsaved.length > 0) return openNext();
-    save.mutate(reasoned, { onSuccess: openNext });
+    approvedEdit.guard(() => save.mutate(reasoned, { onSuccess: openNext }));
   };
   // The button is always clickable (also to save an existing closure again with nothing changed:
   // the server recomputes the healing count and date). It only refuses while a chakra has no reason.
@@ -90,9 +93,11 @@ export default function CloseCase() {
       toast.error(`Add a reason for ${missing.chakra} (and every other chakra) before closing the case`);
       return;
     }
-    return rows.length === 0
-      ? closure.closeMutation.mutate()
-      : save.mutate(undefined, { onSuccess: () => closure.closeMutation.mutate() });
+    approvedEdit.guard(() =>
+      rows.length === 0
+        ? closure.closeMutation.mutate()
+        : save.mutate(undefined, { onSuccess: () => closure.closeMutation.mutate() })
+    );
   };
 
   const closeButton = (className: string) => (
@@ -243,6 +248,7 @@ export default function CloseCase() {
       </div>
 
       {!detailOpen && <div className="hl-cc-pin md:hidden">{closeButton("hl-btn48 w-full")}</div>}
+      {approvedEdit.dialog}
     </div>
   );
 }
