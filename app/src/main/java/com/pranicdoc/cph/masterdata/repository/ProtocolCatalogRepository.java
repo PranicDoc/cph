@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.masterdata.repository;
 
+import java.util.Collection;
 import com.pranicdoc.cph.common.enums.ProtocolType;
 import com.pranicdoc.cph.masterdata.model.ProtocolCatalog;
 import org.springframework.data.domain.Page;
@@ -72,4 +73,10 @@ public interface ProtocolCatalogRepository extends JpaRepository<ProtocolCatalog
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "DELETE FROM protocol_catalog", nativeQuery = true)
     int hardDeleteAll();
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE protocol_catalog SET healer_id = :heir WHERE healer_id = :healerId", nativeQuery = true)
+    int handOver(@Param("healerId") UUID healerId, @Param("heir") UUID heir);
 }

@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.auth.repository;
 
+import java.util.List;
+import java.util.Collection;
 import com.pranicdoc.cph.auth.model.PasswordResetToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -26,4 +28,10 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     @Modifying
     @Query("UPDATE PasswordResetToken t SET t.usedAt = :now WHERE t.healerId = :healerId AND t.usedAt IS NULL")
     int invalidateOutstanding(@Param("healerId") UUID healerId, @Param("now") Instant now);
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM password_reset_token WHERE healer_id = :healerId", nativeQuery = true)
+    int eraseByHealerId(@Param("healerId") UUID healerId);
 }

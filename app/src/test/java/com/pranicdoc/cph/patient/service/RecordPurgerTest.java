@@ -1,94 +1,91 @@
 package com.pranicdoc.cph.patient.service;
 
+import com.pranicdoc.cph.common.util.TransactionService;
+import com.pranicdoc.cph.healing.repository.CaseClosureRepository;
+import com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository;
+import com.pranicdoc.cph.healing.repository.CaseMedicationRepository;
+import com.pranicdoc.cph.healing.repository.CaseRepository;
+import com.pranicdoc.cph.healing.repository.CaseSymptomRepository;
+import com.pranicdoc.cph.healing.repository.ChakraReadingRepository;
+import com.pranicdoc.cph.healing.repository.ChakraScanRepository;
+import com.pranicdoc.cph.healing.repository.DeclarationRepository;
+import com.pranicdoc.cph.healing.repository.HealerProtocolUnderstandingRepository;
+import com.pranicdoc.cph.healing.repository.HealingDetailsRepository;
+import com.pranicdoc.cph.healing.repository.PdfJobRepository;
+import com.pranicdoc.cph.healing.repository.ProtocolColorRepository;
+import com.pranicdoc.cph.healing.repository.ProtocolEntryRepository;
+import com.pranicdoc.cph.healing.repository.QualitativeFeedbackRepository;
+import com.pranicdoc.cph.healing.repository.SessionRepository;
+import com.pranicdoc.cph.healing.repository.SymptomFeedbackRepository;
+import com.pranicdoc.cph.healing.repository.TreatmentStepRepository;
+import com.pranicdoc.cph.notification.repository.FeedbackLinkRepository;
+import com.pranicdoc.cph.patient.repository.PatientMedicalHistoryRepository;
+import com.pranicdoc.cph.patient.repository.PatientRepository;
+import com.pranicdoc.cph.review.repository.ReviewCommentRepository;
+import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
+import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import com.pranicdoc.storage.exception.StorageException;
 import com.pranicdoc.storage.service.StorageService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * The file-deletion contract of the purger against mocked repositories. The erase SQL itself, the order
+ * and the history rows are proven on real SQL by the review-data integration tests.
+ */
 class RecordPurgerTest {
 
-    private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    private final UUID patientId = UUID.randomUUID();
+    private final UUID caseId = UUID.randomUUID();
+    private final UUID submissionId = UUID.randomUUID();
+
+    private final PatientRepository patients = mock(PatientRepository.class);
+    private final CaseRepository cases = mock(CaseRepository.class);
+    private final PdfJobRepository pdfJobs = mock(PdfJobRepository.class);
+    private final ReviewSubmissionRepository submissions = mock(ReviewSubmissionRepository.class);
+    private final ReviewRevisionRepository revisions = mock(ReviewRevisionRepository.class);
+    private final ReviewCommentRepository comments = mock(ReviewCommentRepository.class);
+    private final SessionRepository sessions = mock(SessionRepository.class);
     private final StorageService storage = mock(StorageService.class);
     /** Tasks the purger hands to its executor; tests run them by hand. */
     private final List<Runnable> queued = new java.util.ArrayList<>();
-    private final RecordPurger purger = new RecordPurger(jdbc, storage, queued::add);
 
-    private List<String> erasedTables() {
-        UUID id = UUID.randomUUID();
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), anyString())).thenReturn(1);
-        purger.purgePatient(id);
-        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbc, org.mockito.Mockito.atLeastOnce()).update(sql.capture(), any(Object[].class));
-        return sql.getAllValues().stream()
-                .filter(s -> s.startsWith("DELETE FROM"))
-                .map(s -> s.substring("DELETE FROM ".length()).split(" ")[0])
-                .collect(Collectors.toList());
+    private RecordPurger purgerWith(Executor executor) {
+        return new RecordPurger(patients, mock(PatientMedicalHistoryRepository.class), cases,
+                mock(CaseClosureRepository.class), mock(CaseMedicalSnapshotRepository.class),
+                mock(CaseMedicationRepository.class), mock(CaseSymptomRepository.class),
+                mock(DeclarationRepository.class), mock(FeedbackLinkRepository.class),
+                mock(HealerProtocolUnderstandingRepository.class), mock(HealingDetailsRepository.class),
+                mock(TreatmentStepRepository.class), sessions, mock(ChakraScanRepository.class),
+                mock(ChakraReadingRepository.class), mock(ProtocolEntryRepository.class),
+                mock(ProtocolColorRepository.class), mock(QualitativeFeedbackRepository.class),
+                mock(SymptomFeedbackRepository.class), pdfJobs, submissions, revisions, comments,
+                storage, executor, new TransactionService());
     }
 
-    @Test
-    void everyTableThatHoldsAPatientsDataIsErased() {
-        assertThat(erasedTables()).contains(
-                "patient", "patient_medical_history", "healing_case", "case_closure", "case_medical_snapshot",
-                "case_medication", "case_symptom", "declaration", "feedback_link", "healer_protocol_understanding",
-                "healing_details", "treatment_step", "treatment_step_targets", "healing_session", "pdf_job",
-                "chakra_scan", "chakra_reading", "protocol_entry", "protocol_color", "qualitative_feedback",
-                "symptom_feedback");
+    private RecordPurger purger;
+
+    @BeforeEach
+    void setUp() {
+        purger = purgerWith(queued::add);
     }
-
-    @Test
-    void childRowsAreErasedBeforeTheRowTheyPointAt() {
-        List<String> order = erasedTables();
-        assertThat(order.indexOf("chakra_reading")).isLessThan(order.indexOf("chakra_scan"));
-        assertThat(order.indexOf("chakra_scan")).isLessThan(order.indexOf("healing_session"));
-        assertThat(order.indexOf("protocol_color")).isLessThan(order.indexOf("protocol_entry"));
-        assertThat(order.indexOf("treatment_step_targets")).isLessThan(order.indexOf("treatment_step"));
-        assertThat(order.indexOf("healing_session")).isLessThan(order.indexOf("healing_case"));
-        assertThat(order.indexOf("healing_case")).isLessThan(order.lastIndexOf("patient"));
-        assertThat(order.lastIndexOf("patient")).isEqualTo(order.size() - 1);
-    }
-
-    @Test
-    void historyCopiesOfTheErasedRowsAreErasedToo() {
-        assertThat(erasedTables()).contains("patient_aud", "healing_case_aud", "healing_session_aud");
-    }
-
-    @Test
-    void consentRecordsAndTheAuditLogAreKeptOnPurpose() {
-        assertThat(erasedTables()).doesNotContain("consent", "audit_log", "reading_session");
-    }
-
-    @Test
-    void reviewRowsAreErasedBeforeTheCaseTheyPointAt() {
-        List<String> order = erasedTables();
-        assertThat(order).contains("review_comment", "review_revision", "review_submission");
-        assertThat(order.indexOf("review_comment")).isLessThan(order.indexOf("review_revision"));
-        assertThat(order.indexOf("review_revision")).isLessThan(order.indexOf("review_submission"));
-        assertThat(order.indexOf("review_submission")).isLessThan(order.lastIndexOf("healing_case"));
-    }
-
-    // ---- stored files -------------------------------------------------------------------------
-
-    private final UUID patientId = UUID.randomUUID();
 
     @AfterEach
     void clearSynchronization() {
@@ -98,17 +95,38 @@ class RecordPurgerTest {
     }
 
     private void storedFiles() {
-        when(jdbc.queryForList(contains("SELECT file_url FROM pdf_job"), eq(String.class), eq(patientId)))
-                .thenReturn(List.of("pdf/job-1.pdf", "pdf/job-2.pdf"));
-        when(jdbc.queryForList(contains("SELECT file_url FROM review_revision"), eq(String.class), eq(patientId)))
-                .thenReturn(List.of("review/sub-1/r1.pdf"));
-        when(jdbc.queryForList(contains("SELECT review_file_url FROM review_revision"), eq(String.class), eq(patientId)))
+        when(cases.findIdsByPatientId(patientId)).thenReturn(List.of(caseId));
+        when(submissions.findIdsByCaseIds(List.of(caseId))).thenReturn(List.of(submissionId));
+        when(pdfJobs.findFileUrlsByCaseIds(List.of(caseId))).thenReturn(List.of("pdf/job-1.pdf", "pdf/job-2.pdf"));
+        when(revisions.findFileUrlsBySubmissionIds(List.of(submissionId))).thenReturn(List.of("review/sub-1/r1.pdf"));
+        when(revisions.findReviewFileUrlsBySubmissionIds(List.of(submissionId)))
                 .thenReturn(List.of("review/sub-1/masked-r1.pdf"));
-        when(jdbc.queryForObject(anyString(), eq(Integer.class), anyString())).thenReturn(1);
     }
 
     private void runQueued() {
         queued.forEach(Runnable::run);
+    }
+
+    @Test
+    void thePatientRowGoesAfterTheirCasesAndTheirHistoryCopyWithIt() {
+        storedFiles();
+        when(sessions.findIdsByCaseIds(List.of(caseId))).thenReturn(List.of(UUID.randomUUID()));
+
+        purger.purgePatient(patientId);
+
+        var order = inOrder(sessions, cases, patients);
+        order.verify(sessions).eraseByIds(org.mockito.ArgumentMatchers.anyCollection());
+        order.verify(cases).eraseByIds(List.of(caseId));
+        order.verify(patients).eraseAuditByIds(List.of(patientId));
+        order.verify(patients).eraseByIds(List.of(patientId));
+    }
+
+    @Test
+    void aPatientWithoutCasesIsStillErased() {
+        purger.purgePatient(patientId);
+
+        verify(patients).eraseByIds(List.of(patientId));
+        verify(cases, never()).eraseByIds(org.mockito.ArgumentMatchers.anyCollection());
     }
 
     @Test
@@ -172,7 +190,7 @@ class RecordPurgerTest {
     @Test
     void purgePatient_aRejectingExecutorDoesNotFailTheErase() {
         storedFiles();
-        RecordPurger rejecting = new RecordPurger(jdbc, storage, task -> {
+        RecordPurger rejecting = purgerWith(task -> {
             throw new java.util.concurrent.RejectedExecutionException("full");
         });
         TransactionSynchronizationManager.initSynchronization();
@@ -194,7 +212,7 @@ class RecordPurgerTest {
         }).when(storage).delete(anyString());
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
         try {
-            RecordPurger async = new RecordPurger(jdbc, storage, pool);
+            RecordPurger async = purgerWith(pool);
             // The synchronisation is thread-bound, and assertTimeoutPreemptively runs on another thread.
             org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
                 TransactionSynchronizationManager.initSynchronization();

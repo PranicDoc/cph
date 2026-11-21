@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.healing.repository;
 
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.analytics.dto.DashboardTopSymptom;
 import com.pranicdoc.cph.analytics.dto.DashboardUpcomingSession;
 import com.pranicdoc.cph.common.enums.CaseStatus;
@@ -221,4 +222,26 @@ public interface CaseRepository extends JpaRepository<HealingCase, UUID> {
         String getPatientLastName();
         LocalDate getClosureDate();
     }
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+    // Ids are selected as text and converted to UUID: a native UUID column comes back as byte[] on H2.
+
+    @Query(value = "SELECT CAST(id AS VARCHAR(36)) FROM healing_case WHERE patient_id = :patientId", nativeQuery = true)
+    List<UUID> findIdsByPatientId(@Param("patientId") UUID patientId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healing_case_aud WHERE id IN (:ids)", nativeQuery = true)
+    int eraseAuditByIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healing_case WHERE id IN (:ids)", nativeQuery = true)
+    int eraseByIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE healing_case SET is_deleted = true, deleted_at = now(), deleted_with_patient = true, updated_at = now() WHERE patient_id = :patientId AND is_deleted = false", nativeQuery = true)
+    int trashByPatientId(@Param("patientId") UUID patientId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE healing_case SET is_deleted = false, deleted_at = NULL, deleted_with_patient = false, updated_at = now() WHERE patient_id = :patientId AND deleted_with_patient", nativeQuery = true)
+    int restoreByPatientId(@Param("patientId") UUID patientId);
 }

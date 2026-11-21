@@ -31,7 +31,7 @@ import static org.mockito.Mockito.verify;
 /** Runs the real purge SQL on H2 with the production foreign keys added, so a forgotten table fails here. */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({RecordPurger.class, RecordPurgerReviewDataIntegrationTest.SameThreadExecutor.class})
+@Import({RecordPurger.class, com.pranicdoc.cph.common.util.TransactionService.class, RecordPurgerReviewDataIntegrationTest.SameThreadExecutor.class})
 class RecordPurgerReviewDataIntegrationTest {
 
     /** The production purger hands file deletion to the notification executor; run it inline here. */
@@ -120,7 +120,6 @@ class RecordPurgerReviewDataIntegrationTest {
 
         // The test transaction never commits, so complete it by hand the way Spring does.
         TransactionSynchronizationManager.getSynchronizations().stream()
-                .filter(RecordPurger.DeleteStoredFilesAfterCommit.class::isInstance)
                 .forEach(TransactionSynchronization::afterCommit);
 
         verify(storage).delete("pdf/a.pdf");

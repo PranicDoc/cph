@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.healing.repository;
 
+import java.util.Collection;
+import org.springframework.data.jpa.repository.Modifying;
 import com.pranicdoc.cph.healing.model.HealerProtocolUnderstanding;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,4 +30,18 @@ public interface HealerProtocolUnderstandingRepository extends JpaRepository<Hea
                                                        @Param("caseId") UUID caseId, Pageable page);
 
     record ColorsOnly(UUID healingCaseId, String cleansingColorsJson, String energisingColorsJson) {}
+
+    // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healer_protocol_understanding_aud WHERE id IN (SELECT id FROM healer_protocol_understanding WHERE healing_case_id IN (:ids))", nativeQuery = true)
+    int eraseAuditByCaseIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healer_protocol_understanding WHERE healing_case_id IN (:ids)", nativeQuery = true)
+    int eraseByCaseIds(@Param("ids") Collection<UUID> ids);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM healer_protocol_understanding WHERE healer_id = :healerId", nativeQuery = true)
+    int eraseByHealerId(@Param("healerId") UUID healerId);
 }
