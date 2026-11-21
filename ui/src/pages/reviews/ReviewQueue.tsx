@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { useReviewStream } from "../../hooks/useReviewStream";
+import { useEventStream } from "../../hooks/useEventStream";
 import { reviewInboxKey } from "../../lib/reviewQueryKeys";
 import { inbox, STATUS_LABELS, type ReviewStatus } from "./reviewApi";
 
@@ -12,7 +12,7 @@ function formatDate(iso: string | null): string {
 /** The instructor's queue of submitted cases, oldest first. Live: stream events refetch it. */
 export default function ReviewQueue() {
   const [status, setStatus] = useState<ReviewStatus | "">("");
-  const { unreadCount, resetUnread } = useReviewStream();
+  const { unreadCount, resetUnread } = useEventStream();
   // Also when an event arrives while the queue is open: it is already on screen.
   useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 

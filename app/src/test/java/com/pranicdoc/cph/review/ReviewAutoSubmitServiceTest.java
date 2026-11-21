@@ -10,6 +10,7 @@ import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
+import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
 import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
 import com.pranicdoc.cph.review.service.ReviewRefusedException;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;
@@ -48,7 +49,7 @@ class ReviewAutoSubmitServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReviewAutoSubmitService(pdfJobs, cases, healers, assignments, submissions);
+        service = new ReviewAutoSubmitService(new PdfJobCaseResolver(pdfJobs, cases), healers, assignments, submissions);
         PdfJobEntity job = PdfJobEntity.builder().jobId("job-1").healingCaseId(caseId).build();
         when(pdfJobs.findFirstByJobIdOrderByCreatedAtDesc("job-1")).thenReturn(Optional.of(job));
         HealingCase c = HealingCase.builder().build();

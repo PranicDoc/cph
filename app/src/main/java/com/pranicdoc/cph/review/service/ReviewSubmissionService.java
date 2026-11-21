@@ -11,6 +11,7 @@ import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.dto.CaseReviewStatusResponse;
 import com.pranicdoc.cph.review.dto.RevisionResponse;
+import com.pranicdoc.cph.review.dto.SubmissionOutcome;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
@@ -22,6 +23,7 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -47,9 +49,11 @@ import java.util.stream.Collectors;
 /**
  * Healer-side case review: submit a case PDF to the linked instructor, resubmit while the review is
  * open, and read back status. Each revision is copied to its own storage key so it stays pinned to
- * the exact file that was submitted even after the PDF is regenerated.
+ * the exact file that was submitted even after the PDF is regenerated. A revision exists only when the
+ * case content changed: a submit whose case data hashes the same as the latest revision adds nothing.
  */
 @Service
+@Slf4j
 public class ReviewSubmissionService {
 
     static final String NO_REVIEWER_MESSAGE =
@@ -139,30 +143,56 @@ public class ReviewSubmissionService {
         if (latest.isPresent() && latest.get().getStatus() == ReviewStatus.APPROVED) {
             throw new ReviewRefusedException("Case is already approved");
         }
+        String hash = SnapshotHasher.hash(job.getHealingCaseData());
         if (latest.isPresent() && latest.get().getStatus() != ReviewStatus.DISMISSED) {
-            return addRevision(latest.get(), reviewerId, job, via);
+            ReviewSubmission open = latest.get();
+            Optional<ReviewRevision> latestRevision = revisions.findTopBySubmissionIdOrderByRevisionNoDesc(open.getId());
+            if (hash != null && latestRevision.map(r -> hash.equals(r.getSnapshotHash())).orElse(false)) {
+                return unchanged(open, latestRevision.get(), via);
+            }
+            return addRevision(open, reviewerId, job, hash, via);
         }
         ReviewSubmission created = submissions.saveAndFlush(ReviewSubmission.builder()
                 .caseId(caseId).healerId(healerId).reviewerId(reviewerId)
                 .stage(ReviewStage.REVIEWER).status(ReviewStatus.PENDING_REVIEW)
                 .submittedVia(via).build());
-        ReviewRevision first = saveRevision(created.getId(), 1, job, via);
+        ReviewRevision first = saveRevision(created.getId(), 1, job, hash, via);
         publishRevisionAdded(created, first);
-        return toResponse(created, List.of(first));
+        return toResponse(created, List.of(first), SubmissionOutcome.CREATED);
     }
 
-    private SubmissionResponse addRevision(ReviewSubmission open, UUID reviewerId, PdfJobEntity job, SubmittedVia via) {
+    private SubmissionResponse addRevision(ReviewSubmission open, UUID reviewerId, PdfJobEntity job, String hash,
+                                           SubmittedVia via) {
         int next = revisions.findTopBySubmissionIdOrderByRevisionNoDesc(open.getId())
                 .map(r -> r.getRevisionNo() + 1).orElse(1);
         List<ReviewRevision> previous = revisions.findBySubmissionIdOrderByRevisionNoAsc(open.getId());
-        ReviewRevision added = saveRevision(open.getId(), next, job, via);
+        ReviewRevision added = saveRevision(open.getId(), next, job, hash, via);
         open.setStatus(ReviewStatus.PENDING_REVIEW);
         open.setReviewerId(reviewerId);
         submissions.saveAndFlush(open);
         publishRevisionAdded(open, added);
         List<ReviewRevision> all = new java.util.ArrayList<>(previous);
         all.add(added);
-        return toResponse(open, all);
+        return toResponse(open, all, SubmissionOutcome.REVISION_ADDED);
+    }
+
+    /**
+     * The case is the same as the latest revision, so there is nothing new to review: no revision and
+     * no PDF copy. Only a manual submit while changes are requested does anything: it asks for review
+     * again (status back to pending, one STATUS_CHANGED, which the notifier mails to the instructor).
+     */
+    private SubmissionResponse unchanged(ReviewSubmission open, ReviewRevision latestRevision, SubmittedVia via) {
+        List<ReviewRevision> all = revisions.findBySubmissionIdOrderByRevisionNoAsc(open.getId());
+        if (via == SubmittedVia.MANUAL && open.getStatus() == ReviewStatus.CHANGES_REQUESTED) {
+            open.setStatus(ReviewStatus.PENDING_REVIEW);
+            submissions.saveAndFlush(open);
+            events.publish(new ReviewEvent(open.getId(), open.getHealerId(), open.getReviewerId(),
+                    ReviewEventType.STATUS_CHANGED, latestRevision.getRevisionNo()));
+            return toResponse(open, all, SubmissionOutcome.REREQUESTED);
+        }
+        log.info("Submit for case {} skipped via {}: unchanged since revision {}",
+                open.getCaseId(), via, latestRevision.getRevisionNo());
+        return toResponse(open, all, SubmissionOutcome.UNCHANGED);
     }
 
     /** Registered inside the submit transaction; the publisher sends it only after that commits. */
@@ -172,11 +202,12 @@ public class ReviewSubmissionService {
     }
 
     /** Pins the PDF bytes first, so a failed copy saves no revision row. */
-    private ReviewRevision saveRevision(UUID submissionId, int revisionNo, PdfJobEntity job, SubmittedVia via) {
+    private ReviewRevision saveRevision(UUID submissionId, int revisionNo, PdfJobEntity job, String hash,
+                                        SubmittedVia via) {
         String pinnedKey = files.pin(submissionId, revisionNo, job.getFileUrl());
         return revisions.saveAndFlush(ReviewRevision.builder()
                 .submissionId(submissionId).revisionNo(revisionNo).pdfJobId(job.getId())
-                .fileUrl(pinnedKey).submittedVia(via).submittedAt(Instant.now()).build());
+                .fileUrl(pinnedKey).snapshotHash(hash).submittedVia(via).submittedAt(Instant.now()).build());
     }
 
     /** True when the case has a completed PDF: the single eligibility rule for submitting. */
@@ -324,11 +355,16 @@ public class ReviewSubmissionService {
     }
 
     private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs) {
+        return toResponse(s, revs, null);
+    }
+
+    private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs,
+                                                 SubmissionOutcome outcome) {
         int latest = revs.stream().mapToInt(ReviewRevision::getRevisionNo).max().orElse(0);
         return new SubmissionResponse(s.getId(), s.getCaseId(), s.getHealerId(), s.getReviewerId(), s.getStage(),
                 s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,
                 s.getCreatedAt(), s.getUpdatedAt(),
                 revs.stream().map(r -> new RevisionResponse(r.getRevisionNo(), r.getPdfJobId(),
-                        r.getSubmittedVia(), r.getSubmittedAt())).toList());
+                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), outcome);
     }
 }

@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        // The async dispatch that ends a long-lived response (the review SSE stream)
+                        // The async dispatch that ends a long-lived response (the events SSE stream)
                         // runs without the JWT filter; its original request was already authorized.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // Public endpoints
@@ -98,7 +98,8 @@ public class SecurityConfig {
                         // otherwise resolve that healer's CASE:UPDATE / CASE:REVIEW grants on every review
                         // route and receive their review events. allOf(authenticated) too, since
                         // not().hasRole alone admits anonymous callers.
-                        .requestMatchers("/api/v1/reviews/**").access(AuthorizationManagers.allOf(
+                        // /api/v1/events/** is the SSE stream.
+                        .requestMatchers("/api/v1/reviews/**", "/api/v1/events/**").access(AuthorizationManagers.allOf(
                                 AuthenticatedAuthorizationManager.authenticated(),
                                 AuthorizationManagers.not(AuthorityAuthorizationManager.hasRole("PATIENT"))))
                         // All other requests require authentication

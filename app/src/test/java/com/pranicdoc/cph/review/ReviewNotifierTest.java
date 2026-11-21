@@ -17,7 +17,7 @@ import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.notify.ReviewEmails;
 import com.pranicdoc.cph.review.notify.ReviewNotifier;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
-import com.pranicdoc.cph.review.stream.ReviewStreamRegistry;
+import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -139,6 +139,18 @@ class ReviewNotifierTest {
     }
 
     @Test
+    void reRequest_statusChangedToPending_emailsReviewerLikeAResubmit() {
+        submission.setStatus(ReviewStatus.PENDING_REVIEW);
+
+        notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 2, null));
+
+        NotificationMessage m = sent();
+        assertThat(m.recipient()).isEqualTo("ravi@example.com");
+        assertThat(m.subject()).isEqualTo("HealingARK: A case was resubmitted for your review");
+        assertThat(m.body()).contains("version 2");
+    }
+
+    @Test
     void dismissal_sendsNothing() {
         submission.setStatus(ReviewStatus.DISMISSED);
 
@@ -189,7 +201,7 @@ class ReviewNotifierTest {
     void publisher_mailsOnceAfterCommitAndSurvivesNotifierFailure() {
         ReviewNotifier failing = mock(ReviewNotifier.class);
         doThrow(new IllegalStateException("boom")).when(failing).onEvent(any());
-        ReviewEventPublisher publisher = new ReviewEventPublisher(mock(ReviewStreamRegistry.class),
+        ReviewEventPublisher publisher = new ReviewEventPublisher(mock(EventStreamRegistry.class),
                 new ObjectMapper(), null, false, failing);
 
         assertThatCode(() -> publisher.publish(event(ReviewEventType.REVISION_ADDED, 1, null)))

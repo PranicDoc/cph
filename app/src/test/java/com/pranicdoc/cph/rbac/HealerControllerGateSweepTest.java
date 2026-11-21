@@ -13,7 +13,7 @@ import com.pranicdoc.cph.patient.controller.PatientController;
 import com.pranicdoc.cph.payments.CreditProxyController;
 import com.pranicdoc.cph.review.controller.HealerReviewController;
 import com.pranicdoc.cph.review.controller.ReviewerController;
-import com.pranicdoc.cph.review.stream.ReviewStreamController;
+import com.pranicdoc.cph.review.stream.EventStreamController;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import org.junit.jupiter.api.Test;
@@ -340,31 +340,31 @@ class HealerControllerGateSweepTest {
                 .isEqualTo(0);
     }
 
-    // ─── Case review — ReviewStreamController stays ungated (per-user SSE stream) ──
+    // ─── Case review — EventStreamController stays ungated (per-user SSE stream) ──
 
     /**
-     * The one {@code ReviewStreamController} route reachable by every authenticated healer
+     * The one {@code EventStreamController} route reachable by every authenticated healer
      * without a capability grant, with the reason it stays open.
      */
     private static final Map<String, String> REVIEW_STREAM_SELF_SERVICE_ROUTES = Map.of(
             "stream", "per-user stream, carries only that user's events");
 
     @Test
-    void reviewStreamControllerRemainsUngated() {
-        assertThat(requestMappedCount(ReviewStreamController.class))
-                .as("ReviewStreamController request-mapped method count — anti-vacuous guard")
+    void eventStreamControllerRemainsUngated() {
+        assertThat(requestMappedCount(EventStreamController.class))
+                .as("EventStreamController request-mapped method count — anti-vacuous guard")
                 .isEqualTo(1);
 
-        assertThat(ungatedMethodNames(ReviewStreamController.class))
-                .as("GET /api/v1/reviews/stream is self-service: %s. It is keyed to the caller's own "
+        assertThat(ungatedMethodNames(EventStreamController.class))
+                .as("GET /api/v1/events/stream is self-service: %s. It is keyed to the caller's own "
                         + "id and an instructor holding CASE:REVIEW and a healer holding CASE:UPDATE both "
                         + "need it, so no single capability gate fits; patient tokens are refused in "
                         + "SecurityConfig", REVIEW_STREAM_SELF_SERVICE_ROUTES.get("stream"))
                 .containsExactlyInAnyOrderElementsOf(REVIEW_STREAM_SELF_SERVICE_ROUTES.keySet());
 
         assertThat(countOccurrences(
-                readStrippedSource(sourcePathFor(ReviewStreamController.class)), "PreAuthorize"))
-                .as("ReviewStreamController.java comment-stripped source must contain zero "
+                readStrippedSource(sourcePathFor(EventStreamController.class)), "PreAuthorize"))
+                .as("EventStreamController.java comment-stripped source must contain zero "
                         + "occurrences of PreAuthorize — openness asserted by absence (D-07)")
                 .isEqualTo(0);
     }

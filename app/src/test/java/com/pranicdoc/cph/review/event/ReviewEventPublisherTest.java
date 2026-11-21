@@ -1,7 +1,7 @@
 package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pranicdoc.cph.review.stream.ReviewStreamRegistry;
+import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -45,7 +45,7 @@ class ReviewEventPublisherTest {
     }
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final ReviewStreamRegistry registry = mock(ReviewStreamRegistry.class);
+    private final EventStreamRegistry registry = mock(EventStreamRegistry.class);
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     private final TransactionTemplate tx = new TransactionTemplate(new InMemoryTxManager());
 
@@ -135,5 +135,37 @@ class ReviewEventPublisherTest {
                 ReviewEventPublisher.CHANNEL.getBytes(), "not json".getBytes()), null);
 
         verifyNoInteractions(registry);
+    }
+
+    @Test
+    void relayRoundTripsBothEventKinds() throws Exception {
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        PdfReadyEvent pdf = new PdfReadyEvent(UUID.randomUUID(), UUID.randomUUID(), "job-1");
+
+        publisher.publish(event);
+        publisher.publishPdfReady(pdf);
+
+        verify(redis, org.mockito.Mockito.times(2)).convertAndSend(eq(ReviewEventPublisher.CHANNEL), captor.capture());
+        ReviewRedisRelay relay = new ReviewRedisRelay(registry, mapper);
+        for (String json : captor.getAllValues()) {
+            relay.onMessage(new org.springframework.data.redis.connection.DefaultMessage(
+                    ReviewEventPublisher.CHANNEL.getBytes(), json.getBytes()), null);
+        }
+        verify(registry).deliver(event);
+        verify(registry).deliver(pdf);
+    }
+
+    @Test
+    void relay_stillReadsAReviewEventSentBeforeTheKindFieldExisted() throws Exception {
+        ReviewRedisRelay relay = new ReviewRedisRelay(registry, mapper);
+        String legacy = "{\"submissionId\":\"" + event.submissionId() + "\",\"healerId\":\"" + event.healerId()
+                + "\",\"reviewerId\":\"" + event.reviewerId() + "\",\"type\":\"REVISION_ADDED\","
+                + "\"revisionNo\":2,\"actor\":null}";
+
+        relay.onMessage(new org.springframework.data.redis.connection.DefaultMessage(
+                ReviewEventPublisher.CHANNEL.getBytes(), legacy.getBytes()), null);
+
+        verify(registry).deliver(event);
     }
 }

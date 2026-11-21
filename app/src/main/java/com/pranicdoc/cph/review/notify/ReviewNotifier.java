@@ -25,7 +25,7 @@ import java.util.concurrent.Executor;
  * rolled-back action sends nothing and a multi-instance deployment sends once.
  *
  * <ul>
- *   <li>submit / resubmit: the instructor</li>
+ *   <li>submit / resubmit / re-request of review: the instructor</li>
  *   <li>changes requested / approved: the healer</li>
  *   <li>a comment: the other party than its author</li>
  * </ul>
@@ -83,7 +83,9 @@ public class ReviewNotifier {
         ReviewSubmission s = found.get();
         return switch (event.type()) {
             case REVISION_ADDED -> toReviewer(s, event.revisionNo() == null ? 1 : event.revisionNo());
-            case STATUS_CHANGED -> decision(s);
+            case STATUS_CHANGED -> s.getStatus() == ReviewStatus.PENDING_REVIEW
+                    ? toReviewer(s, event.revisionNo() == null ? 1 : event.revisionNo()) // a re-request
+                    : decision(s);
             case COMMENT_ADDED -> reply(s, event.actor());
         };
     }

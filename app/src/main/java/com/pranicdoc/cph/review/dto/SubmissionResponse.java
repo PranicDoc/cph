@@ -21,5 +21,6 @@ public record SubmissionResponse(
         int latestRevisionNo,
         Instant createdAt,
         Instant updatedAt,
-        List<RevisionResponse> revisions) {
+        List<RevisionResponse> revisions,
+        SubmissionOutcome outcome) {
 }

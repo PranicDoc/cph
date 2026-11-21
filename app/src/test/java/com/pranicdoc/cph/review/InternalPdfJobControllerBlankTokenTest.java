@@ -1,6 +1,8 @@
 package com.pranicdoc.cph.review;
 
 import com.pranicdoc.cph.review.controller.InternalPdfJobController;
+import com.pranicdoc.cph.review.event.ReviewEventPublisher;
+import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
 import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +16,7 @@ class InternalPdfJobControllerBlankTokenTest {
     @Test
     void blankConfiguredToken_rejectsEverything() {
         ReviewAutoSubmitService autoSubmit = mock(ReviewAutoSubmitService.class);
-        InternalPdfJobController controller = new InternalPdfJobController(autoSubmit, "");
+        InternalPdfJobController controller = new InternalPdfJobController(autoSubmit, mock(PdfJobCaseResolver.class), mock(ReviewEventPublisher.class), "");
 
         assertThat(controller.completed("job-1", "").getStatusCode().value()).isEqualTo(401);
         assertThat(controller.completed("job-1", null).getStatusCode().value()).isEqualTo(401);

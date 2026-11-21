@@ -1,13 +1,13 @@
 import { useContext } from "react";
-import { ReviewStreamContext } from "../hooks/reviewStreamContext";
+import { EventStreamContext } from "../hooks/eventStreamContext";
 import { cn } from "../lib/utils";
 
 /**
  * A small dot on a nav item that has news (review events since the user last opened the review pages).
- * Renders nothing when there is none, or outside the live review stream.
+ * Renders nothing when there is none, or outside the live event stream.
  */
 export function NavUnreadDot({ className }: { className?: string }) {
-  const stream = useContext(ReviewStreamContext);
+  const stream = useContext(EventStreamContext);
   if (!stream || stream.unreadCount === 0) return null;
   return (
     <span

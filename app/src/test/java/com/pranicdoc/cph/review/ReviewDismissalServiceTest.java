@@ -175,7 +175,7 @@ class ReviewDismissalServiceTest {
         when(assignments.reviewerFor(healer)).thenReturn(Optional.of(reviewer));
         when(submissionService.latestFor(caseId)).thenReturn(Optional.of(s));
 
-        new ReviewAutoSubmitService(pdfJobs, cases, healers, assignments, submissionService).onPdfCompleted("job-1");
+        new ReviewAutoSubmitService(new com.pranicdoc.cph.review.service.PdfJobCaseResolver(pdfJobs, cases), healers, assignments, submissionService).onPdfCompleted("job-1");
 
         verify(submissionService, never()).submitAs(any(), any(), any());
     }

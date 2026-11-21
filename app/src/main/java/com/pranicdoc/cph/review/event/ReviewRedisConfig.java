@@ -1,7 +1,7 @@
 package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pranicdoc.cph.review.stream.ReviewStreamRegistry;
+import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +20,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 public class ReviewRedisConfig {
 
     @Bean
-    public ReviewRedisRelay reviewRedisRelay(ReviewStreamRegistry registry, ObjectMapper objectMapper) {
+    public ReviewRedisRelay reviewRedisRelay(EventStreamRegistry registry, ObjectMapper objectMapper) {
         return new ReviewRedisRelay(registry, objectMapper);
     }
 

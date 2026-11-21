@@ -1,5 +1,8 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.review.event.PdfReadyEvent;
+import com.pranicdoc.cph.review.event.ReviewEventPublisher;
+import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
 import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +20,8 @@ import java.security.MessageDigest;
 /**
  * Machine-to-machine webhook: pdfWorker tells cph a PDF job finished. No JWT; the shared
  * {@code X-Internal-Token} is checked here, and an unset token rejects every call (fail closed).
- * Whatever happens after the token check answers 204, so pdfWorker never retries a business skip.
+ * It also pushes a "PDF ready" event to the case's healer. Whatever happens after the token check
+ * answers 204, so pdfWorker never retries a business skip.
  */
 @RestController
 @RequestMapping("/internal/pdf-jobs")
@@ -25,11 +29,16 @@ import java.security.MessageDigest;
 public class InternalPdfJobController {
 
     private final ReviewAutoSubmitService autoSubmit;
+    private final PdfJobCaseResolver jobCases;
+    private final ReviewEventPublisher events;
     private final String expectedToken;
 
-    public InternalPdfJobController(ReviewAutoSubmitService autoSubmit,
+    public InternalPdfJobController(ReviewAutoSubmitService autoSubmit, PdfJobCaseResolver jobCases,
+                                    ReviewEventPublisher events,
                                     @Value("${cph.internal.token:}") String expectedToken) {
         this.autoSubmit = autoSubmit;
+        this.jobCases = jobCases;
+        this.events = events;
         this.expectedToken = expectedToken;
     }
 
@@ -39,12 +48,23 @@ public class InternalPdfJobController {
         if (!tokenMatches(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        publishPdfReady(jobId);
         try {
             autoSubmit.onPdfCompleted(jobId);
         } catch (Exception e) {
             log.warn("Auto-submit failed for PDF job {}", jobId, e);
         }
         return ResponseEntity.noContent().build();
+    }
+
+    /** Tells the case's healer their PDF is ready, whatever their auto-submit setting. Never throws. */
+    private void publishPdfReady(String jobId) {
+        try {
+            jobCases.resolve(jobId).ifPresent(jc ->
+                    events.publishPdfReady(new PdfReadyEvent(jc.healerId(), jc.caseId(), jobId)));
+        } catch (Exception e) {
+            log.warn("PDF-ready event not published for job {}", jobId, e);
+        }
     }
 
     private boolean tokenMatches(String token) {

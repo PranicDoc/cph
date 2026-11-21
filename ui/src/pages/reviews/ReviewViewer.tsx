@@ -4,7 +4,7 @@ import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useReviewStream } from "../../hooks/useReviewStream";
+import { useEventStream } from "../../hooks/useEventStream";
 import { REVIEW_INBOX_KEY, reviewFileKey, reviewInboxItemKey } from "../../lib/reviewQueryKeys";
 import PdfPinCanvas from "./PdfPinCanvas";
 import ThreadPanel from "./ThreadPanel";
@@ -31,7 +31,7 @@ import {
 export default function ReviewViewer() {
   const { submissionId = "" } = useParams<{ submissionId: string }>();
   // Live events refetch the submission below; the banner is derived from that refetch.
-  useReviewStream();
+  useEventStream();
 
   const [chosenRevision, setChosenRevision] = useState<number | null>(null);
   // The newest revision that existed when the page opened; shown until the reviewer picks another.

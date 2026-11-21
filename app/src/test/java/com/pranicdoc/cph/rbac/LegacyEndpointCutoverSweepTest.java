@@ -197,10 +197,10 @@ class LegacyEndpointCutoverSweepTest {
                         + "completed) — no user in play; permitAll in SecurityConfig, the controller checks "
                         + "X-Internal-Token itself and rejects every call when the token is unset, pinned in "
                         + "InternalPdfJobControllerTest");
-        m.put("com.pranicdoc.cph.review.stream.ReviewStreamController",
-                "per-user stream, carries only that user's events (GET /api/v1/reviews/stream, SSE) — "
+        m.put("com.pranicdoc.cph.review.stream.EventStreamController",
+                "per-user stream, carries only that user's events (GET /api/v1/events/stream, SSE) — "
                         + "self-service for every authenticated healer, asserted open by "
-                        + "HealerControllerGateSweepTest.reviewStreamControllerRemainsUngated; patient "
+                        + "HealerControllerGateSweepTest.eventStreamControllerRemainsUngated; patient "
                         + "tokens are refused in SecurityConfig");
         m.put(BootstrapController.class.getName(),
                 "asserted open by HealerControllerGateSweepTest.bootstrapControllerBootstrapIsUngated"

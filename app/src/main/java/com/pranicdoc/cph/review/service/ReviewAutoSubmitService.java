@@ -1,10 +1,6 @@
 package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.repository.HealerRepository;
-import com.pranicdoc.cph.healing.model.HealingCase;
-import com.pranicdoc.cph.healing.model.PdfJobEntity;
-import com.pranicdoc.cph.healing.repository.CaseRepository;
-import com.pranicdoc.cph.healing.repository.PdfJobRepository;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
@@ -23,33 +19,27 @@ import java.util.UUID;
 @Slf4j
 public class ReviewAutoSubmitService {
 
-    private final PdfJobRepository pdfJobs;
-    private final CaseRepository cases;
+    private final PdfJobCaseResolver jobCases;
     private final HealerRepository healers;
     private final ReviewerAssignmentService assignments;
     private final ReviewSubmissionService submissions;
 
-    public ReviewAutoSubmitService(PdfJobRepository pdfJobs, CaseRepository cases, HealerRepository healers,
+    public ReviewAutoSubmitService(PdfJobCaseResolver jobCases, HealerRepository healers,
                                    ReviewerAssignmentService assignments, ReviewSubmissionService submissions) {
-        this.pdfJobs = pdfJobs;
-        this.cases = cases;
+        this.jobCases = jobCases;
         this.healers = healers;
         this.assignments = assignments;
         this.submissions = submissions;
     }
 
     public void onPdfCompleted(String jobId) {
-        Optional<PdfJobEntity> job = pdfJobs.findFirstByJobIdOrderByCreatedAtDesc(jobId);
-        if (job.isEmpty() || job.get().getHealingCaseId() == null) {
+        Optional<PdfJobCaseResolver.JobCase> jobCase = jobCases.resolve(jobId);
+        if (jobCase.isEmpty()) {
             log.debug("Auto-submit: no case for PDF job {}", jobId);
             return;
         }
-        UUID caseId = job.get().getHealingCaseId();
-        Optional<HealingCase> healingCase = cases.findById(caseId);
-        if (healingCase.isEmpty()) {
-            return;
-        }
-        UUID healerId = healingCase.get().getHealerId();
+        UUID caseId = jobCase.get().caseId();
+        UUID healerId = jobCase.get().healerId();
         boolean optedIn = healers.findById(healerId).map(h -> h.isAutoSubmitForReview()).orElse(false);
         if (!optedIn) {
             return;

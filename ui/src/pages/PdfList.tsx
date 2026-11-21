@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import api from "../lib/axios";
 import { useUiVersion } from "../ui-version";
 import { saveAndViewFile } from "../lib/saveAndViewFile";
+import { useEventStream } from "../hooks/useEventStream";
 
 type PDFJob = ComputedPatient & {
   healingCaseId: string;
@@ -51,13 +52,33 @@ export function PdfList() {
     });
   }, [pdfJobs, patients]);
 
+  // Latest request wins, separately for resets (first page) and appends (load more): a slower, older
+  // response must not overwrite a newer one; a reset always supersedes appends, and no append may
+  // start (or land) while a reset is in flight, so a load-more never lands on a pre-reset list.
+  const resetSeq = useRef(0);
+  const appendSeq = useRef(0);
+  const resetInFlight = useRef(false);
+
   const fetchPdfRecords = async (
     cursor: string | null = null,
     searchQuery: string = "",
     isReset: boolean = false
   ) => {
-    if (isReset) setIsLoading(true);
-    else setIsFetchingMore(true);
+    if (!isReset && resetInFlight.current) return;
+    if (isReset) {
+      resetSeq.current += 1;
+      appendSeq.current += 1;
+      resetInFlight.current = true;
+      setIsLoading(true);
+      setIsFetchingMore(false);
+    } else {
+      appendSeq.current += 1;
+      setIsFetchingMore(true);
+    }
+    const resetId = resetSeq.current;
+    const appendId = appendSeq.current;
+    const isCurrent = () =>
+      resetId === resetSeq.current && (isReset || appendId === appendSeq.current);
 
     try {
       const params = new URLSearchParams({ limit: "10" });
@@ -67,6 +88,7 @@ export function PdfList() {
       const response = await api.get(
         `/api/v1/cases/pdfs?${params.toString()}`
       );
+      if (!isCurrent()) return;
       const result = response.data.data;
       const newItems = result.content || [];
       setPdfJobs((prev) => (isReset ? newItems : [...prev, ...newItems]));
@@ -75,16 +97,28 @@ export function PdfList() {
       setScrollPosition(nextCursor);
       setHasMore(newItems.length > 0 && nextCursor !== null);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error("Failed to fetch PDF records:", error);
     } finally {
-      setIsLoading(false);
-      setIsFetchingMore(false);
+      if (isCurrent()) {
+        if (isReset) {
+          resetInFlight.current = false;
+          setIsLoading(false);
+        } else {
+          setIsFetchingMore(false);
+        }
+      }
     }
   };
 
   useEffect(() => {
     fetchPdfRecords(null, "", true);
   }, []);
+
+  // A finished PDF shows up without a refresh; the list reloads from the top with the current search.
+  useEventStream(undefined, () => {
+    fetchPdfRecords(null, searchTerm, true);
+  });
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
