@@ -125,6 +125,10 @@ dependencies {
 	// --- Common DTOs ---
 	implementation 'com.pranicdoc:common-dtos:0.1.7'
 
+	// --- Harness Feature Management & Experimentation (Split-derived server-side SDK) ---
+	// Coordinate verified on Harness FME Java SDK docs and Maven Central; 4.19.1 published 2026-10-29.
+	implementation 'io.split.client:java-client:4.19.1'
+
 	// --- Lib Phone Number ---
 	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.31'
 

@@ -106,3 +106,7 @@ storage:
   access-key: test-access-key
   secret-key: test-secret-key
   presigned-expiry-minutes: 10
+
+features:
+  case-review:
+    default: false
