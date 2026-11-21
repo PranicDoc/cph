@@ -1,7 +1,8 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
@@ -9,8 +10,6 @@ import com.pranicdoc.cph.review.dto.HealerOption;
 import com.pranicdoc.cph.review.dto.ReviewerAssignmentResponse;
 import com.pranicdoc.cph.review.model.ReviewerAssignment;
 import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
-import com.pranicdoc.cph.review.service.ReviewSubmissionService;
-import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -56,6 +55,21 @@ class ReviewerAssignmentServiceTest {
         assertThatThrownBy(() -> service.assign(healerId, reviewerId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Reviewer must hold the CASE:REVIEW permission");
+        verify(assignments, never()).save(any());
+    }
+
+    @Test
+    void assign_unknownHealerOrReviewerIsNotFound() {
+        when(healers.findById(healerId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.assign(healerId, reviewerId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Healer");
+
+        when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
+        when(healers.findById(reviewerId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.assign(healerId, reviewerId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Reviewer");
         verify(assignments, never()).save(any());
     }
 

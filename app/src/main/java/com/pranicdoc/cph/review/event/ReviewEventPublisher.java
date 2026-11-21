@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.review.notify.ReviewNotifier;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -10,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Sends review and PDF-ready events to every cph instance once the change that caused them has committed. With
@@ -31,38 +30,37 @@ public class ReviewEventPublisher {
     private final StringRedisTemplate redis;
     private final boolean redisEnabled;
     private final ReviewNotifier notifier;
+    private final TransactionService transactionService;
 
+    // Hand-written: @Value constructor parameter, and the Redis template is looked up only when enabled.
     @Autowired
     public ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
                                 ObjectProvider<StringRedisTemplate> redis,
                                 @Value("${app.review.events.redis-enabled:true}") boolean redisEnabled,
-                                ReviewNotifier notifier) {
-        this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled, notifier);
+                                ReviewNotifier notifier, TransactionService transactionService) {
+        this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled, notifier,
+                transactionService);
     }
 
     ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
-                         StringRedisTemplate redis, boolean redisEnabled, ReviewNotifier notifier) {
+                         StringRedisTemplate redis, boolean redisEnabled, ReviewNotifier notifier,
+                         TransactionService transactionService) {
         this.notifier = notifier;
+        this.transactionService = transactionService;
         this.registry = registry;
         this.objectMapper = objectMapper;
         this.redis = redis;
         this.redisEnabled = redisEnabled && redis != null;
     }
 
-    /** Sends after the current transaction commits, and never on rollback; at once when none is active. */
+    /**
+     * Sends the live event after the current transaction commits, and never on rollback; at once when none
+     * is active. The email is built right here, inside the writing transaction, so its kind follows the
+     * state the action just wrote; the notifier queues its delivery for after the same commit.
+     */
     public void publish(ReviewEvent event) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    send(event);
-                    notifyByEmail(event);
-                }
-            });
-        } else {
-            send(event);
-            notifyByEmail(event);
-        }
+        notifyByEmail(event);
+        transactionService.runAfterCommitOrNow(() -> send(event));
     }
 
     /**

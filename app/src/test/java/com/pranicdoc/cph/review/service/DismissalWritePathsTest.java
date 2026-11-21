@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.enums.CaseStatus;

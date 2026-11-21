@@ -10,7 +10,7 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientEditSchema, patientMedicalHistorySchema } from "./schemas/RegistrationSchemas";
 import { Button } from "@/components/ui/button";
 import { useUiVersion } from "../ui-version";
-import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
+import { useApprovedEditGuard } from "../hooks/useApprovedEditGuard";
 
 /** The patient as the API returns it (GET /api/v1/patients/{id}). */
 export type PatientDetails = {

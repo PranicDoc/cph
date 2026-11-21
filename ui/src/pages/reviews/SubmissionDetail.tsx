@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useEventStream } from "../../hooks/useEventStream";
-import { reviewFileKey, reviewHealerSubmissionKey } from "../../lib/reviewQueryKeys";
+import { useReviewComments } from "../../hooks/useReviewComments";
+import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
+import { useHealerSubmission } from "../../hooks/useReviewSubmission";
+import { STATUS_LABELS } from "../../types/review";
 import PdfPinCanvas from "./PdfPinCanvas";
 import ThreadPanel from "./ThreadPanel";
-import { STATUS_LABELS, submission as fetchSubmission, submissionFileUrl } from "./reviewApi";
 import { pinsForRevision, scrollToThread } from "./threads";
-import { useReviewComments } from "./useReviewComments";
 
 /**
  * The healer's own submission, read-only: the PDF with the instructor's pins, and the threads with a
@@ -23,24 +23,13 @@ export default function SubmissionDetail() {
   const [chosenRevision, setChosenRevision] = useState<number | null>(null);
   const [activeThread, setActiveThread] = useState<string | null>(null);
 
-  const sub = useQuery({
-    queryKey: reviewHealerSubmissionKey(submissionId),
-    queryFn: () => fetchSubmission(submissionId),
-    enabled: !!submissionId,
-    retry: false,
-  });
+  const sub = useHealerSubmission(submissionId);
   const thread = useReviewComments("healer", submissionId);
 
   const latest = sub.data?.latestRevisionNo ?? 0;
   const displayed = chosenRevision ?? latest;
 
-  const file = useQuery({
-    queryKey: reviewFileKey(submissionId, displayed),
-    queryFn: () => submissionFileUrl(submissionId, displayed),
-    enabled: !!submissionId && displayed > 0,
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
+  const file = useReviewFileUrl("healer", submissionId, displayed);
 
   const denied = [sub.error, file.error, thread.comments.error].some(
     (e) => isAxiosError(e) && (e.response?.status === 403 || e.response?.status === 404)
@@ -130,7 +119,6 @@ export default function SubmissionDetail() {
             activeThreadId={activeThread}
             onSelectThread={selectThread}
             onReply={(parentId, body) => thread.add({ parentId, body })}
-            error={thread.error}
           />
         </div>
       </div>

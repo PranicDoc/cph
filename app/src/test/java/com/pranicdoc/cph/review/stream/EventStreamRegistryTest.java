@@ -54,7 +54,7 @@ class EventStreamRegistryTest {
         RecordingEmitter e = new RecordingEmitter();
         created.add(e);
         return e;
-    });
+    }, new com.fasterxml.jackson.databind.ObjectMapper());
 
     @Test
     void deliver_sendsOnlyToParties() {
@@ -163,5 +163,40 @@ class EventStreamRegistryTest {
                 .contains("event:pdf-ready")
                 .contains("{\"caseId\":\"" + caseId + "\",\"jobId\":\"job-9\"}")
                 .doesNotContain(healer.toString());
+    }
+
+    @Test
+    void deliver_withTheProductionObjectMapper_sendsTheSameFieldsToTheBrowser() throws Exception {
+        var production = new com.pranicdoc.cph.common.config.ObjectMapperConfig().objectMapper();
+        List<RecordingEmitter> emitters = new ArrayList<>();
+        EventStreamRegistry real = new EventStreamRegistry(() -> {
+            RecordingEmitter e = new RecordingEmitter();
+            emitters.add(e);
+            return e;
+        }, production);
+        UUID healer = UUID.randomUUID();
+        UUID submissionId = UUID.randomUUID();
+        real.open(healer);
+
+        real.deliver(new ReviewEvent(submissionId, healer, UUID.randomUUID(), ReviewEventType.REVISION_ADDED, 2));
+        real.deliver(new ReviewEvent(submissionId, healer, UUID.randomUUID(), ReviewEventType.STATUS_CHANGED, null));
+
+        var withRevision = production.readTree(dataOf(emitters.get(0).sent.get(0)));
+        assertThat(withRevision.get("submissionId").asText()).isEqualTo(submissionId.toString());
+        assertThat(withRevision.get("type").asText()).isEqualTo("REVISION_ADDED");
+        assertThat(withRevision.get("revisionNo").asInt()).isEqualTo(2);
+        assertThat(withRevision.size()).isEqualTo(3);
+
+        // The production mapper leaves a null revisionNo out of the payload altogether. The UI types it as
+        // number | null (useEventStream.ts:31) and nothing reads it for a status change.
+        var withoutRevision = production.readTree(dataOf(emitters.get(0).sent.get(1)));
+        assertThat(withoutRevision.has("revisionNo")).isFalse();
+        assertThat(withoutRevision.get("type").asText()).isEqualTo("STATUS_CHANGED");
+        assertThat(withoutRevision.size()).isEqualTo(2);
+    }
+
+    /** The JSON part of what one SSE send put on the wire. */
+    private static String dataOf(String wire) {
+        return wire.substring(wire.indexOf('{'), wire.lastIndexOf('}') + 1);
     }
 }

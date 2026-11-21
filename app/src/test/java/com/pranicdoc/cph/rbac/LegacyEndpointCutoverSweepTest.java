@@ -193,10 +193,10 @@ class LegacyEndpointCutoverSweepTest {
                         + "InternalApiKeyFilter checks X-Internal-Key (404 when unconfigured), pinned in "
                         + "InternalApiKeyFilterTest");
         m.put(com.pranicdoc.cph.review.controller.InternalPdfJobController.class.getName(),
-                "machine-to-machine PDF-completed webhook from pdfWorker (POST /internal/pdf-jobs/{jobId}/"
-                        + "completed) — no user in play; permitAll in SecurityConfig, the controller checks "
-                        + "X-Internal-Token itself and rejects every call when the token is unset, pinned in "
-                        + "InternalPdfJobControllerTest");
+                "machine-to-machine PDF-completed webhook from pdfWorker (POST /api/v1/internal/pdf-jobs/"
+                        + "{jobId}/completed) — no user in play; served by InternalApiSecurityConfig's own "
+                        + "filter chain, where InternalApiKeyFilter checks X-Internal-Key (404 when "
+                        + "unconfigured), pinned in InternalApiKeyFilterTest and InternalPdfJobControllerTest");
         m.put("com.pranicdoc.cph.review.stream.EventStreamController",
                 "per-user stream, carries only that user's events (GET /api/v1/events/stream, SSE) — "
                         + "self-service for every authenticated healer, asserted open by "

@@ -15,7 +15,7 @@ import { fromSymptomRating, toSymptomRating } from "@/lib/symptomRating";
 import { TEXT_LIMITS } from "@/lib/textLimits";
 import { CharacterCount } from "@/components/form/CharacterCount";
 import { SymptomRatingList, type FeedbackSymptom } from "@/components/feedback/SymptomRatingList";
-import { useApprovedEditGuard } from "./reviews/useApprovedEditGuard";
+import { useApprovedEditGuard } from "../hooks/useApprovedEditGuard";
 
 type FeedbackType = "INTERIM" | "FINAL";
 

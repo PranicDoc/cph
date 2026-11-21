@@ -1,8 +1,9 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.controller;
 
 import com.pranicdoc.cph.admin.AdminAuthz;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.exception.GlobalExceptionHandler;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.OAuth2AuthenticationSuccessHandler;
 import com.pranicdoc.cph.common.security.SecurityConfig;
@@ -13,9 +14,7 @@ import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
-import com.pranicdoc.cph.review.controller.HealerReviewController;
 import com.pranicdoc.cph.review.model.SubmittedVia;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
 import com.pranicdoc.cph.review.service.ReviewStorageException;
 import com.pranicdoc.cph.review.service.ReviewSubmissionService;
 import io.jsonwebtoken.Claims;
@@ -98,7 +97,7 @@ class HealerReviewControllerAuthorizationContractTest {
     private static MockHttpServletRequestBuilder request(String method, String path) {
         MockHttpServletRequestBuilder b = "POST".equals(method) ? post(path) : get(path);
         return b.cookie(new Cookie("accessToken", TOKEN))
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}");
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"revisionNo\":1,\"body\":\"x\"}");
     }
 
     private static final String ROUTES = """
@@ -128,6 +127,22 @@ class HealerReviewControllerAuthorizationContractTest {
         when(service.statusesFor(any())).thenReturn(Map.of());
         when(service.mySubmissions()).thenReturn(List.of());
         mockMvc.perform(request(method, BASE + path)).andExpect(status().is2xxSuccessful());
+    }
+
+    @Test
+    void invalidCommentBodyIs400WithTheValidationShape() throws Exception {
+        authenticate(true);
+        mockMvc.perform(post(BASE + "/submissions/" + CASE_ID + "/comments").cookie(new Cookie("accessToken", TOKEN))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"revisionNo\":1,\"page\":1,\"x\":1.5,\"y\":0.5,\"body\":\"  \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.title")
+                        .value("Validation Error"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.errors.x")
+                        .exists())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.errors.body")
+                        .exists());
+        verifyNoInteractions(commentService);
     }
 
     @Test

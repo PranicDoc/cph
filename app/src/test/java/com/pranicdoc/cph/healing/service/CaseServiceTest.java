@@ -84,6 +84,10 @@ class CaseServiceTest {
     @Mock private HealerRepository healerRepository;
     @Mock private com.pranicdoc.cph.auth.service.HealerCacheService healerService;
     @Mock private com.pranicdoc.cph.patient.service.PatientService patientService;
+    @Mock private com.pranicdoc.cph.common.http.StorageObjectReader storageObjectReader;
+    // The real service: it registers the after-commit publish on the synchronization this test opens.
+    @Spy  private com.pranicdoc.cph.common.util.TransactionService transactionService =
+            new com.pranicdoc.cph.common.util.TransactionService();
 
     // Stale-approval dismissal on every case write (case review); verified in DismissalWritePathsTest.
     @Mock
@@ -916,5 +920,34 @@ class CaseServiceTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(7, closure.getHealingCount());
         org.junit.jupiter.api.Assertions.assertEquals(java.time.LocalDate.of(2026, 5, 4), closure.getClosureDate());
+    }
+
+    @Test
+    void downloadFile_returnsTheBytesFromTheStorageReader() {
+        when(storageObjectReader.read("pdf/a.pdf")).thenReturn(new byte[]{7});
+
+        assertArrayEquals(new byte[]{7}, caseService.downloadFile("pdf/a.pdf"));
+    }
+
+    @Test
+    void downloadFile_aNon200FromStorage_isNotFound() {
+        when(storageObjectReader.read("pdf/a.pdf"))
+                .thenThrow(com.pranicdoc.cph.common.http.StorageReadException.notOk(404));
+
+        assertThrows(com.pranicdoc.cph.common.exception.ResourceNotFoundException.class,
+                () -> caseService.downloadFile("pdf/a.pdf"));
+    }
+
+    @Test
+    void downloadFile_anIoErrorOrInterrupt_isAnIllegalStateWithTheOldMessages() {
+        when(storageObjectReader.read("pdf/io.pdf"))
+                .thenThrow(com.pranicdoc.cph.common.http.StorageReadException.io(new java.io.IOException("x")));
+        when(storageObjectReader.read("pdf/int.pdf"))
+                .thenThrow(com.pranicdoc.cph.common.http.StorageReadException.interrupted(new InterruptedException()));
+
+        assertEquals("Could not read the file from storage",
+                assertThrows(IllegalStateException.class, () -> caseService.downloadFile("pdf/io.pdf")).getMessage());
+        assertEquals("Interrupted while reading the file from storage",
+                assertThrows(IllegalStateException.class, () -> caseService.downloadFile("pdf/int.pdf")).getMessage());
     }
 }

@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -54,7 +55,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_sendsAfterCommitOnly() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -72,8 +73,65 @@ class ReviewEventPublisherTest {
     }
 
     @Test
+    void publish_handsTheEventToTheNotifierInTheTransaction_butSendsTheLiveEventOnlyAfterCommit() {
+        var notifier = mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false,
+                notifier, new TransactionService());
+
+        tx.executeWithoutResult(status -> {
+            publisher.publish(event);
+            verify(notifier).onEvent(event);
+            verify(registry, never()).deliver(any());
+        });
+
+        verify(registry).deliver(event);
+    }
+
+    private ReviewEventPublisher publisherWithRealMail(com.pranicdoc.cph.auth.repository.HealerRepository healers,
+                                                       java.util.concurrent.Executor mailExecutor) {
+        var transactions = new TransactionService();
+        var channel = mock(com.pranicdoc.cph.notification.channel.NotificationChannel.class);
+        org.mockito.Mockito.when(channel.type()).thenReturn(com.pranicdoc.cph.notification.channel.ChannelType.EMAIL);
+        var sender = new com.pranicdoc.cph.notification.service.NotificationSender(
+                java.util.List.of(channel),
+                transactions, mailExecutor);
+        var notifier = new com.pranicdoc.cph.review.notify.ReviewNotifier(healers,
+                new com.pranicdoc.cph.review.notify.ReviewEmails(new com.pranicdoc.cph.notification.email.EmailTemplates()),
+                sender, "https://app.example.test/accept-invite");
+        return new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, notifier, transactions);
+    }
+
+    @Test
+    void publish_withMailLookupsThatWouldThrow_readsNothingInTheTransactionAndStillCommits() {
+        var healers = mock(com.pranicdoc.cph.auth.repository.HealerRepository.class);
+        org.mockito.Mockito.when(healers.findById(any())).thenThrow(new IllegalStateException("db down"));
+        ReviewEventPublisher publisher = publisherWithRealMail(healers, Runnable::run);
+
+        // A commit that had been marked rollback-only would throw UnexpectedRollbackException here.
+        tx.executeWithoutResult(status -> {
+            publisher.publish(event);
+            verifyNoInteractions(healers);
+            assertThat(status.isRollbackOnly()).isFalse();
+        });
+
+        verify(registry).deliver(event);
+    }
+
+    @Test
+    void publish_whenTheMailExecutorIsFull_stillDeliversTheLiveEvent() {
+        var healers = mock(com.pranicdoc.cph.auth.repository.HealerRepository.class);
+        ReviewEventPublisher publisher = publisherWithRealMail(healers, r -> {
+            throw new org.springframework.core.task.TaskRejectedException("queue full");
+        });
+
+        tx.executeWithoutResult(status -> publisher.publish(event));
+
+        verify(registry).deliver(event);
+    }
+
+    @Test
     void publish_sendsTheFullEventAsJsonOnTheReviewChannel() throws Exception {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
 
         publisher.publish(event);
@@ -84,7 +142,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_withRedisOff_deliversInProcessAfterCommit() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -97,7 +155,7 @@ class ReviewEventPublisherTest {
     @Test
     void publish_whenRedisFails_fallsBackToLocalDelivery() {
         doThrow(new RedisConnectionFailureException("down")).when(redis).convertAndSend(anyString(), anyString());
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
 
         publisher.publish(event);
 
@@ -139,7 +197,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void relayRoundTripsBothEventKinds() throws Exception {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class));
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         PdfReadyEvent pdf = new PdfReadyEvent(UUID.randomUUID(), UUID.randomUUID(), "job-1");
 

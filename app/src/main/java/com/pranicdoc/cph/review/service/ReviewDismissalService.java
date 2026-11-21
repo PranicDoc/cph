@@ -9,6 +9,7 @@ import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,18 +27,12 @@ import java.util.stream.Collectors;
  * case write path and runs in that write's transaction, so a rolled-back write dismisses nothing.
  */
 @Service
+@RequiredArgsConstructor
 public class ReviewDismissalService {
 
     private final ReviewSubmissionRepository submissions;
     private final ReviewRevisionRepository revisions;
     private final ReviewEventPublisher events;
-
-    public ReviewDismissalService(ReviewSubmissionRepository submissions, ReviewRevisionRepository revisions,
-                                  ReviewEventPublisher events) {
-        this.submissions = submissions;
-        this.revisions = revisions;
-        this.events = events;
-    }
 
     /** Dismisses the case's latest submission when it is APPROVED; otherwise does nothing. */
     @Transactional
@@ -73,6 +68,6 @@ public class ReviewDismissalService {
                 .map(ReviewRevision::getRevisionNo).orElse(null);
         // Sent after the write commits, and never if it rolls back.
         events.publish(new ReviewEvent(latest.getId(), latest.getHealerId(), latest.getReviewerId(),
-                ReviewEventType.STATUS_CHANGED, revisionNo));
+                ReviewEventType.STATUS_CHANGED, revisionNo, null, latest.getStatus()));
     }
 }

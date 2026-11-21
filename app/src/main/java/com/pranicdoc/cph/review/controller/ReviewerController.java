@@ -10,13 +10,9 @@ import com.pranicdoc.cph.review.model.AuthorSide;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.service.ReviewCommentService;
 import com.pranicdoc.cph.review.service.ReviewInboxService;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,7 +62,7 @@ public class ReviewerController {
 
     @PostMapping("/inbox/{id}/comments")
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
-    public CommentResponse addComment(@PathVariable UUID id, @RequestBody CommentRequest request) {
+    public CommentResponse addComment(@PathVariable UUID id, @Valid @RequestBody CommentRequest request) {
         return commentService.add(id, request, AuthorSide.REVIEWER);
     }
 
@@ -88,11 +84,5 @@ public class ReviewerController {
     @PreAuthorize("@rbacAuthz.hasPermission('CASE','REVIEW')")
     public SubmissionResponse requestChanges(@PathVariable UUID id, @Valid @RequestBody DecisionRequest request) {
         return service.requestChanges(id, request.revisionNo());
-    }
-
-    /** A refused decision (newer version submitted, submission closed) is a 409 carrying the reason. */
-    @ExceptionHandler(ReviewRefusedException.class)
-    public ProblemDetail handleRefused(ReviewRefusedException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 }

@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -14,9 +14,7 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
-import com.pranicdoc.cph.review.service.ReviewFileStore;
-import com.pranicdoc.cph.review.service.ReviewInboxService;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,7 +92,7 @@ class ReviewDecisionTest {
         assertThat(response.status()).isEqualTo(ReviewStatus.APPROVED);
         assertThat(s.getStatus()).isEqualTo(ReviewStatus.APPROVED);
         verify(submissions).saveAndFlush(s);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 2));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 2, null, ReviewStatus.APPROVED));
     }
 
     @Test
@@ -104,7 +102,7 @@ class ReviewDecisionTest {
         SubmissionResponse response = service.requestChanges(s.getId(), 1);
 
         assertThat(response.status()).isEqualTo(ReviewStatus.CHANGES_REQUESTED);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 1));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, me, ReviewEventType.STATUS_CHANGED, 1, null, ReviewStatus.CHANGES_REQUESTED));
     }
 
     @Test

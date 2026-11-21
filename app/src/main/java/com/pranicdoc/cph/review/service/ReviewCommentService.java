@@ -16,6 +16,7 @@ import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.repository.ReviewCommentRepository;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +33,13 @@ import java.util.stream.Collectors;
 /**
  * Pinned comments and threads on a submission. Access reuses the row-level checks of the two
  * submission services: the healer side needs {@code healerId == caller}; the reviewer side needs the
- * submission assigned to the caller and not their own. Invalid input throws
- * {@link IllegalArgumentException}, which the global handler maps to 400.
+ * submission assigned to the caller and not their own. Field rules (body length, page, x/y range,
+ * revisionNo) are Bean Validation on {@link CommentRequest}; this service keeps the cross-field and
+ * state rules and throws {@link IllegalArgumentException} (400) for them.
  */
 @Service
+@RequiredArgsConstructor
 public class ReviewCommentService {
-
-    static final int MAX_BODY = 4000;
 
     private final ReviewCommentRepository comments;
     private final ReviewRevisionRepository revisions;
@@ -47,19 +48,6 @@ public class ReviewCommentService {
     private final HealerRepository healers;
     private final SecurityContextUtil security;
     private final ReviewEventPublisher events;
-
-    public ReviewCommentService(ReviewCommentRepository comments, ReviewRevisionRepository revisions,
-                                ReviewSubmissionService healerSide, ReviewInboxService reviewerSide,
-                                HealerRepository healers, SecurityContextUtil security,
-                                ReviewEventPublisher events) {
-        this.comments = comments;
-        this.revisions = revisions;
-        this.healerSide = healerSide;
-        this.reviewerSide = reviewerSide;
-        this.healers = healers;
-        this.security = security;
-        this.events = events;
-    }
 
     private ReviewSubmission access(UUID submissionId, AuthorSide side) {
         return side == AuthorSide.HEALER
@@ -91,10 +79,7 @@ public class ReviewCommentService {
     @Transactional
     public CommentResponse add(UUID submissionId, CommentRequest req, AuthorSide side) {
         ReviewSubmission s = access(submissionId, side);
-        String body = req.body() == null ? "" : req.body().trim();
-        if (body.isEmpty() || body.length() > MAX_BODY) {
-            throw new IllegalArgumentException("Comment must be between 1 and " + MAX_BODY + " characters");
-        }
+        String body = req.body().trim();
         boolean hasPin = req.page() != null || req.x() != null || req.y() != null;
         if (hasPin) {
             validatePin(req);
@@ -139,7 +124,7 @@ public class ReviewCommentService {
                 .x(hasPin ? scale(req.x()) : null).y(hasPin ? scale(req.y()) : null)
                 .body(body).build());
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo(), side));
+                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo(), side, s.getStatus()));
         String name = healers.findById(me).map(Healer::getFullName).orElse("");
         return toResponse(saved, revision.getRevisionNo(), name == null ? "" : name);
     }
@@ -164,16 +149,6 @@ public class ReviewCommentService {
         if (req.page() == null || req.x() == null || req.y() == null) {
             throw new IllegalArgumentException("A pin needs page, x and y");
         }
-        if (req.page() < 1) {
-            throw new IllegalArgumentException("page must be 1 or more");
-        }
-        if (!inUnitRange(req.x()) || !inUnitRange(req.y())) {
-            throw new IllegalArgumentException("x and y must be between 0 and 1");
-        }
-    }
-
-    private static boolean inUnitRange(double v) {
-        return !Double.isNaN(v) && v >= 0 && v <= 1;
     }
 
     private static BigDecimal scale(Double v) {

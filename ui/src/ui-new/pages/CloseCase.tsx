@@ -12,7 +12,7 @@ import { useUsualPicks } from "@/hooks/useUsualPicks";
 import ChakraDetail from "../closure/ChakraDetail";
 import WrapUp from "../closure/WrapUp";
 import { PickerHost } from "../closure/pickerHost";
-import { useApprovedEditGuard } from "@/pages/reviews/useApprovedEditGuard";
+import { useApprovedEditGuard } from "@/hooks/useApprovedEditGuard";
 
 const hasReason = (row: HPUTable) => !!row.reason?.trim();
 

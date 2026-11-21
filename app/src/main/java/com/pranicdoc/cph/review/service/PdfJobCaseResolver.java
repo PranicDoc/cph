@@ -4,6 +4,7 @@ import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.PdfJobEntity;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.PdfJobRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 /** Finds the case and its healer behind a PDF job id, for the webhook that has no signed-in user. */
 @Service
+@RequiredArgsConstructor
 public class PdfJobCaseResolver {
 
     /** The case a PDF job belongs to and the healer who owns it. */
@@ -19,11 +21,6 @@ public class PdfJobCaseResolver {
 
     private final PdfJobRepository pdfJobs;
     private final CaseRepository cases;
-
-    public PdfJobCaseResolver(PdfJobRepository pdfJobs, CaseRepository cases) {
-        this.pdfJobs = pdfJobs;
-        this.cases = cases;
-    }
 
     /** Empty for an unknown job, a job with no case, or a missing case. */
     public Optional<JobCase> resolve(String jobId) {

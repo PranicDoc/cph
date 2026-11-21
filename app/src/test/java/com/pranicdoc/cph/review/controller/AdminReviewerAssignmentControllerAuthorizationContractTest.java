@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.controller;
 
 import com.pranicdoc.cph.admin.AdminAuthz;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
@@ -10,7 +10,6 @@ import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.common.tenant.TenantInterceptor;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.service.RolePermissionLookupService;
-import com.pranicdoc.cph.review.controller.AdminReviewerAssignmentController;
 import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;

@@ -1,8 +1,11 @@
 import { createElement, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { CASE_STATUSES_KEY } from "../../lib/reviewQueryKeys";
-import { APPROVED_EDIT_CONFIRM, APPROVED_EDIT_MESSAGE, caseStatuses } from "./reviewApi";
+import { useCaseReviewStatuses } from "./useCaseReviewStatuses";
+
+/** Shown before a healer edits a case whose review is approved. */
+export const APPROVED_EDIT_MESSAGE =
+  "This case is approved. Editing it will dismiss the approval and you will need a new review.";
+export const APPROVED_EDIT_CONFIRM = "Edit and dismiss approval";
 
 export interface ApprovedEditGuard {
   /** True while one of the cases has an approved review. */
@@ -27,13 +30,7 @@ export function useApprovedEditGuard(caseIds: string | string[] | null | undefin
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [Array.isArray(caseIds) ? caseIds.join(",") : caseIds]
   );
-  // Under the case-statuses key, so a live STATUS_CHANGED event refetches it.
-  const statuses = useQuery({
-    queryKey: [...CASE_STATUSES_KEY, "edit-guard", ids],
-    queryFn: () => caseStatuses(ids),
-    enabled: ids.length > 0,
-    retry: false,
-  });
+  const statuses = useCaseReviewStatuses(ids, { scope: "edit-guard", retry: false });
   const isApproved = ids.some((id) => statuses.data?.[id]?.status === "APPROVED");
 
   const [pending, setPending] = useState<(() => void) | null>(null);

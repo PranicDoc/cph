@@ -21,10 +21,13 @@ import com.pranicdoc.cph.common.exception.CaseLockedException;
 import com.pranicdoc.cph.common.exception.ConsentRequiredException;
 import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.http.StorageObjectReader;
+import com.pranicdoc.cph.common.http.StorageReadException;
 import com.pranicdoc.cph.common.security.CookieUtil;
 import com.pranicdoc.cph.common.security.JwtAuthFilter;
 import com.pranicdoc.cph.common.security.JwtService;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
+import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.payments.service.CreditGateService;
 import com.pranicdoc.cph.healing.service.MessageService;
 import com.pranicdoc.cph.healing.service.NotificationService;
@@ -57,8 +60,6 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -104,6 +105,8 @@ public class CaseService {
     private final SymptomFeedbackRepository symptomFeedbackRepository;
     // Every write below that changes an existing case's data dismisses its approved review.
     private final ReviewDismissalService reviewDismissalService;
+    private final StorageObjectReader storageObjectReader;
+    private final TransactionService transactionService;
 
     /**
      * Create case → auto-snapshot PatientMedicalHistory → CaseMedicalSnapshot.
@@ -688,20 +691,16 @@ public class CaseService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public byte[] downloadFile(String fileUrl) {
         try {
-            var request = java.net.http.HttpRequest.newBuilder(
-                    java.net.URI.create(storageService.generatePresignedDownloadUrl(fileUrl).toString()))
-                    .timeout(Duration.ofSeconds(30)).GET().build();
-            var response = java.net.http.HttpClient.newHttpClient()
-                    .send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
-            if (response.statusCode() != 200) {
-                throw new ResourceNotFoundException("File", fileUrl);
+            return storageObjectReader.read(fileUrl);
+        } catch (StorageReadException e) {
+            switch (e.reason()) {
+                case NOT_OK:
+                    throw new ResourceNotFoundException("File", fileUrl);
+                case INTERRUPTED:
+                    throw new IllegalStateException("Interrupted while reading the file from storage", e.getCause());
+                default:
+                    throw new IllegalStateException("Could not read the file from storage", e.getCause());
             }
-            return response.body();
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException("Could not read the file from storage", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while reading the file from storage", e);
         }
     }
 
@@ -816,14 +815,7 @@ public class CaseService {
     }
 
     private void publishJobMessage(String jobId, UUID healingCaseId) {
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        messageService.publish(jobId, healingCaseId);
-                    }
-                }
-        );
+        transactionService.runAfterCommit(() -> messageService.publish(jobId, healingCaseId));
     }
 
     @Transactional(readOnly = true)

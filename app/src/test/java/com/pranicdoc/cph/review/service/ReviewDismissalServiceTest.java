@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
@@ -16,10 +16,6 @@ import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
-import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
-import com.pranicdoc.cph.review.service.ReviewDismissalService;
-import com.pranicdoc.cph.review.service.ReviewSubmissionService;
-import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,7 +85,7 @@ class ReviewDismissalServiceTest {
         assertThat(s.isDismissedFromApproved()).isTrue();
         assertThat(s.getDismissReason()).isEqualTo("Session edited");
         verify(submissions).save(s);
-        verify(events).publish(new ReviewEvent(s.getId(), healer, reviewer, ReviewEventType.STATUS_CHANGED, 3));
+        verify(events).publish(new ReviewEvent(s.getId(), healer, reviewer, ReviewEventType.STATUS_CHANGED, 3, null, ReviewStatus.DISMISSED));
     }
 
     @Test

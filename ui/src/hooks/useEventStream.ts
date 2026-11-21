@@ -67,9 +67,8 @@ export function useEventStreamConnection(
     let openedBefore = false;
 
     const refetchAll = () => {
+      // The inbox and statuses keys sit under the review prefix, so this refetches them too.
       queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
-      queryClient.invalidateQueries({ queryKey: REVIEW_INBOX_KEY });
-      queryClient.invalidateQueries({ queryKey: REVIEW_STATUSES_KEY });
     };
 
     const onReview = (message: MessageEvent) => {

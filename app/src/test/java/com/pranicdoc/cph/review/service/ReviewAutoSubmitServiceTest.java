@@ -1,4 +1,4 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
@@ -10,11 +10,7 @@ import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.model.SubmittedVia;
-import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
-import com.pranicdoc.cph.review.service.ReviewAutoSubmitService;
-import com.pranicdoc.cph.review.service.ReviewRefusedException;
-import com.pranicdoc.cph.review.service.ReviewSubmissionService;
-import com.pranicdoc.cph.review.service.ReviewerAssignmentService;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

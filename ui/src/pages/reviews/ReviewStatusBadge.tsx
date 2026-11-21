@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { CaseReviewStatus } from "./reviewApi";
+import type { CaseReviewStatus } from "../../types/review";
 
 const REVIEW_STATUS_LABELS: Record<CaseReviewStatus, string> = {
   NOT_SUBMITTED: "Not submitted",

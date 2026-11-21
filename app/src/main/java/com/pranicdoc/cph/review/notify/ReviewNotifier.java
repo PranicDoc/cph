@@ -7,22 +7,23 @@ import com.pranicdoc.cph.notification.service.NotificationSender;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.model.AuthorSide;
 import com.pranicdoc.cph.review.model.ReviewStatus;
-import com.pranicdoc.cph.review.model.ReviewSubmission;
-import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Emails the right party when a review changes. {@link com.pranicdoc.cph.review.event.ReviewEventPublisher}
- * calls it once per event, on the instance that made the change and after that change committed, so a
- * rolled-back action sends nothing and a multi-instance deployment sends once.
+ * calls it once per event, on the instance that made the change, from inside the writing transaction.
+ * It reads nothing there: the kind of mail is decided from the event (which carries the submission's
+ * status at that moment), and the healer lookups and message build are handed to
+ * {@link NotificationSender#sendAfterCommit(java.util.function.Supplier)}, which runs them after commit on
+ * the notification executor. So a rolled-back action sends nothing, a multi-instance deployment sends
+ * once, and a failing lookup can neither mark the writing transaction rollback-only nor fail the request.
  *
  * <ul>
  *   <li>submit / resubmit / re-request of review: the instructor</li>
@@ -30,114 +31,99 @@ import java.util.concurrent.Executor;
  *   <li>a comment: the other party than its author</li>
  * </ul>
  *
- * The work runs on the notification executor and never throws: a mail outage or a missing row must not
- * fail or undo the review action. A status change that is neither of the two decisions (a dismissal)
- * sends nothing.
+ * It never throws: a mail outage or a missing row must not fail or undo the review action. A status
+ * change that is neither of the two decisions (a dismissal) sends nothing.
  */
 @Slf4j
 @Component
 public class ReviewNotifier {
 
-    private final ReviewSubmissionRepository submissions;
     private final HealerRepository healers;
     private final ReviewEmails emails;
     private final NotificationSender sender;
-    private final Executor executor;
     private final String appUrl;
 
-    public ReviewNotifier(ReviewSubmissionRepository submissions, HealerRepository healers, ReviewEmails emails,
-                          NotificationSender sender, @Qualifier("notificationExecutor") Executor executor,
-                          @Value("${app.invite.url}") String inviteUrl) {
-        this.submissions = submissions;
+    // Hand-written: @Value constructor parameter, and appUrl is derived from it.
+    public ReviewNotifier(HealerRepository healers, ReviewEmails emails,
+                          NotificationSender sender, @Value("${app.invite.url}") String inviteUrl) {
         this.healers = healers;
         this.emails = emails;
         this.sender = sender;
-        this.executor = executor;
         URI uri = URI.create(inviteUrl);
         this.appUrl = uri.getScheme() + "://" + uri.getAuthority();
     }
 
+    /**
+     * Decides from the event alone (no reads) whether and what to mail, and queues the lookups and the
+     * message build for after the caller's commit. Never throws.
+     */
     public void onEvent(ReviewEvent event) {
         try {
-            executor.execute(() -> notifySafely(event));
+            Supplier<NotificationMessage> mail = mailFor(event);
+            if (mail != null) {
+                sender.sendAfterCommit(mail);
+            }
         } catch (RuntimeException e) {
             log.warn("Review email for {} on submission {} not queued: {}",
                     event.type(), event.submissionId(), e.toString());
         }
     }
 
-    private void notifySafely(ReviewEvent event) {
-        try {
-            build(event).ifPresent(sender::sendNow);
-        } catch (RuntimeException e) {
-            log.warn("Review email for {} on submission {} not sent: {}",
-                    event.type(), event.submissionId(), e.toString());
+    /** Null when this event sends nothing. */
+    private Supplier<NotificationMessage> mailFor(ReviewEvent event) {
+        if (event.reviewerId() == null) { // the instructor's account was erased; nobody to tell yet
+            return null;
         }
-    }
-
-    private Optional<NotificationMessage> build(ReviewEvent event) {
-        Optional<ReviewSubmission> found = submissions.findById(event.submissionId());
-        if (found.isEmpty()) {
-            return Optional.empty();
-        }
-        ReviewSubmission s = found.get();
+        int revisionNo = event.revisionNo() == null ? 1 : event.revisionNo();
         return switch (event.type()) {
-            case REVISION_ADDED -> toReviewer(s, event.revisionNo() == null ? 1 : event.revisionNo());
-            case STATUS_CHANGED -> s.getStatus() == ReviewStatus.PENDING_REVIEW
-                    ? toReviewer(s, event.revisionNo() == null ? 1 : event.revisionNo()) // a re-request
-                    : decision(s);
-            case COMMENT_ADDED -> reply(s, event.actor());
+            case REVISION_ADDED -> () -> toReviewer(event, revisionNo);
+            case STATUS_CHANGED -> {
+                ReviewStatus status = event.status();
+                if (status == ReviewStatus.PENDING_REVIEW) { // a re-request
+                    yield () -> toReviewer(event, revisionNo);
+                }
+                if (status == ReviewStatus.CHANGES_REQUESTED || status == ReviewStatus.APPROVED) {
+                    yield () -> decision(event, status);
+                }
+                yield null; // a dismissal, or a status we do not mail
+            }
+            case COMMENT_ADDED -> event.actor() == null ? null : () -> reply(event, event.actor());
         };
     }
 
-    private Optional<NotificationMessage> toReviewer(ReviewSubmission s, int revisionNo) {
-        if (s.getReviewerId() == null) { // the instructor's account was erased; nobody to tell yet
-            return Optional.empty();
-        }
-        Optional<Healer> reviewer = healers.findById(s.getReviewerId());
-        Optional<Healer> healer = healers.findById(s.getHealerId());
+    private NotificationMessage toReviewer(ReviewEvent e, int revisionNo) {
+        Optional<Healer> reviewer = healers.findById(e.reviewerId());
+        Optional<Healer> healer = healers.findById(e.healerId());
         if (reviewer.isEmpty() || healer.isEmpty()) {
-            return Optional.empty();
+            return null;
         }
-        return Optional.of(emails.submitted(reviewer.get().getEmail(), reviewer.get().getFullName(),
-                healer.get().getFullName(), revisionNo, appUrl, link("/reviews/", s.getId())));
+        return emails.submitted(reviewer.get().getEmail(), reviewer.get().getFullName(),
+                healer.get().getFullName(), revisionNo, appUrl, link("/reviews/", e.submissionId()));
     }
 
-    private Optional<NotificationMessage> decision(ReviewSubmission s) {
-        if (s.getStatus() != ReviewStatus.CHANGES_REQUESTED && s.getStatus() != ReviewStatus.APPROVED) {
-            return Optional.empty();
-        }
-        if (s.getReviewerId() == null) {
-            return Optional.empty();
-        }
-        Optional<Healer> healer = healers.findById(s.getHealerId());
-        Optional<Healer> reviewer = healers.findById(s.getReviewerId());
+    private NotificationMessage decision(ReviewEvent e, ReviewStatus status) {
+        Optional<Healer> healer = healers.findById(e.healerId());
+        Optional<Healer> reviewer = healers.findById(e.reviewerId());
         if (healer.isEmpty() || reviewer.isEmpty()) {
-            return Optional.empty();
+            return null;
         }
-        String link = link("/submissions/", s.getId());
-        return Optional.of(s.getStatus() == ReviewStatus.APPROVED
+        String link = link("/submissions/", e.submissionId());
+        return status == ReviewStatus.APPROVED
                 ? emails.approved(healer.get().getEmail(), healer.get().getFullName(),
                         reviewer.get().getFullName(), appUrl, link)
                 : emails.changesRequested(healer.get().getEmail(), healer.get().getFullName(),
-                        reviewer.get().getFullName(), appUrl, link));
+                        reviewer.get().getFullName(), appUrl, link);
     }
 
-    private Optional<NotificationMessage> reply(ReviewSubmission s, AuthorSide actor) {
-        if (actor == null) {
-            return Optional.empty();
-        }
+    private NotificationMessage reply(ReviewEvent e, AuthorSide actor) {
         boolean fromHealer = actor == AuthorSide.HEALER;
-        if (s.getReviewerId() == null) {
-            return Optional.empty();
-        }
-        Optional<Healer> to = healers.findById(fromHealer ? s.getReviewerId() : s.getHealerId());
-        Optional<Healer> from = healers.findById(fromHealer ? s.getHealerId() : s.getReviewerId());
+        Optional<Healer> to = healers.findById(fromHealer ? e.reviewerId() : e.healerId());
+        Optional<Healer> from = healers.findById(fromHealer ? e.healerId() : e.reviewerId());
         if (to.isEmpty() || from.isEmpty()) {
-            return Optional.empty();
+            return null;
         }
-        return Optional.of(emails.reply(to.get().getEmail(), to.get().getFullName(), from.get().getFullName(),
-                appUrl, link(fromHealer ? "/reviews/" : "/submissions/", s.getId())));
+        return emails.reply(to.get().getEmail(), to.get().getFullName(), from.get().getFullName(),
+                appUrl, link(fromHealer ? "/reviews/" : "/submissions/", e.submissionId()));
     }
 
     private String link(String path, UUID submissionId) {

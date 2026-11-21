@@ -1,6 +1,5 @@
-package com.pranicdoc.cph.review;
+package com.pranicdoc.cph.review.service;
 
-import com.pranicdoc.cph.review.service.SnapshotHasher;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;

@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "./reviews/reviewApi";
+import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../hooks/useHealerProfile";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DeleteMyAccount } from "../components/DeleteMyAccount";

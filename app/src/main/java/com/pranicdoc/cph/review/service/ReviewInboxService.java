@@ -4,12 +4,12 @@ import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
+import com.pranicdoc.cph.common.exception.ReviewRefusedException;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.review.dto.InboxItemResponse;
-import com.pranicdoc.cph.review.dto.RevisionResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
@@ -20,6 +20,7 @@ import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
+
 /**
  * Instructor side of case review: the queue of submissions assigned to the caller, read access to
  * them, and the decisions (approve, request changes). Row-level rule on every call: the submission is
@@ -43,6 +46,7 @@ import java.util.stream.Collectors;
  * therefore answers 403.
  */
 @Service
+@RequiredArgsConstructor
 public class ReviewInboxService {
 
     static final String STALE_REVISION_MESSAGE = "A newer version was submitted. Refresh to review it.";
@@ -58,18 +62,6 @@ public class ReviewInboxService {
     private final ReviewFileStore files;
     private final SecurityContextUtil security;
     private final ReviewEventPublisher events;
-
-    public ReviewInboxService(ReviewSubmissionRepository submissions, ReviewRevisionRepository revisions,
-                              CaseRepository cases, HealerRepository healers, ReviewFileStore files,
-                              SecurityContextUtil security, ReviewEventPublisher events) {
-        this.submissions = submissions;
-        this.revisions = revisions;
-        this.cases = cases;
-        this.healers = healers;
-        this.files = files;
-        this.security = security;
-        this.events = events;
-    }
 
     /** Approves the latest revision; counts toward the healer's approved cases. */
     @Auditable(action = "APPROVE_REVIEW")
@@ -105,7 +97,7 @@ public class ReviewInboxService {
         s.setStatus(decision);
         submissions.saveAndFlush(s);
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.STATUS_CHANGED, latest));
+                ReviewEventType.STATUS_CHANGED, latest, null, s.getStatus()));
         return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
     }
 
@@ -143,15 +135,6 @@ public class ReviewInboxService {
     public SubmissionResponse getItem(UUID submissionId) {
         ReviewSubmission s = assignedSubmission(submissionId);
         return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
-    }
-
-    private static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs) {
-        int latest = revs.stream().mapToInt(ReviewRevision::getRevisionNo).max().orElse(0);
-        return new SubmissionResponse(s.getId(), s.getCaseId(), s.getHealerId(), s.getReviewerId(), s.getStage(),
-                s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,
-                s.getCreatedAt(), s.getUpdatedAt(),
-                revs.stream().map(r -> new RevisionResponse(r.getRevisionNo(), r.getPdfJobId(),
-                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), null);
     }
 
     /** Presigned URL of one revision; the masked copy wins when one exists. */
