@@ -10,6 +10,8 @@ import java.util.Map;
  *
  * @param grants      resource name to the verbs granted on it, across every role the user holds
  * @param elevations  master-data resource name to when the user's "unlock shared entries" ends
+ * @param caseReviewEnabled whether the case-review workflow is switched on for everyone (global flag)
  */
-public record MyPermissionsResponse(Map<String, List<String>> grants, Map<String, Instant> elevations) {
+public record MyPermissionsResponse(Map<String, List<String>> grants, Map<String, Instant> elevations,
+                                    boolean caseReviewEnabled) {
 }

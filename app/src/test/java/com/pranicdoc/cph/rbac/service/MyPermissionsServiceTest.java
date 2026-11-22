@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.rbac.service;
 
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.dto.MyPermissionsResponse;
@@ -29,7 +30,33 @@ class MyPermissionsServiceTest {
     @Mock private SecurityContextUtil securityContextUtil;
     @Mock private RolePermissionLookupService lookupService;
     @Mock private MasterDataElevationService elevationService;
+    @Mock private FeatureFlags featureFlags;
     @InjectMocks private MyPermissionsService service;
+
+    @Test
+    void superAdminResponseCarriesTheFlag() {
+        when(rbacAuthz.isSuperAdmin()).thenReturn(true);
+
+        when(featureFlags.caseReviewEnabled()).thenReturn(true);
+        assertThat(service.current().caseReviewEnabled()).isTrue();
+
+        when(featureFlags.caseReviewEnabled()).thenReturn(false);
+        assertThat(service.current().caseReviewEnabled()).isFalse();
+    }
+
+    @Test
+    void regularUserResponseCarriesTheFlag() {
+        UUID healerId = UUID.randomUUID();
+        when(rbacAuthz.isSuperAdmin()).thenReturn(false);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.effectiveGrants(healerId)).thenReturn(Map.of());
+
+        when(featureFlags.caseReviewEnabled()).thenReturn(true);
+        assertThat(service.current().caseReviewEnabled()).isTrue();
+
+        when(featureFlags.caseReviewEnabled()).thenReturn(false);
+        assertThat(service.current().caseReviewEnabled()).isFalse();
+    }
 
     @Test
     void superAdminGetsEverySupportedVerbOfEveryResourceWithoutReadingGrants() {
