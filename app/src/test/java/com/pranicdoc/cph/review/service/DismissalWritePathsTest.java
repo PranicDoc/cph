@@ -57,6 +57,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -105,6 +106,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @Import(TestRedisConfig.class)
 @ActiveProfiles("test")
+@TestPropertySource(properties = "features.case-review.default=true")
 @Transactional
 class DismissalWritePathsTest {
 

@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.model.PdfJobEntity;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
@@ -50,6 +51,7 @@ class ReviewDismissalServiceTest {
     @Mock private ReviewSubmissionRepository submissions;
     @Mock private ReviewRevisionRepository revisions;
     @Mock private ReviewEventPublisher events;
+    @Mock private FeatureFlags flags;
 
     private ReviewDismissalService service;
 
@@ -59,7 +61,8 @@ class ReviewDismissalServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReviewDismissalService(submissions, revisions, events);
+        when(flags.caseReviewEnabled()).thenReturn(true);
+        service = new ReviewDismissalService(submissions, revisions, events, flags);
     }
 
     private ReviewSubmission latest(UUID forCase, ReviewStatus status) {
@@ -174,5 +177,15 @@ class ReviewDismissalServiceTest {
         new ReviewAutoSubmitService(new com.pranicdoc.cph.review.service.PdfJobCaseResolver(pdfJobs, cases), healers, assignments, submissionService).onPdfCompleted("job-1");
 
         verify(submissionService, never()).submitAs(any(), any(), any());
+    }
+
+    @Test
+    void doesNothingWhenCaseReviewIsOff() {
+        when(flags.caseReviewEnabled()).thenReturn(false);
+
+        service.onCaseModified(caseId, "edited");
+        service.onCasesModified(List.of(caseId), "edited");
+
+        verifyNoInteractions(submissions, revisions, events);
     }
 }

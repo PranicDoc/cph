@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.security.InternalApiKeyFilter;
 import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
@@ -32,10 +33,15 @@ class InternalPdfJobControllerTest {
     private final ReviewAutoSubmitService autoSubmit = mock(ReviewAutoSubmitService.class);
     private final PdfJobCaseResolver jobCases = mock(PdfJobCaseResolver.class);
     private final ReviewEventPublisher events = mock(ReviewEventPublisher.class);
+    private final FeatureFlags flags = mock(FeatureFlags.class);
+
+    {
+        when(flags.caseReviewEnabled()).thenReturn(true);
+    }
 
     private MockMvc mvcWithKey(String configuredKey) {
         return MockMvcBuilders
-                .standaloneSetup(new InternalPdfJobController(autoSubmit, jobCases, events))
+                .standaloneSetup(new InternalPdfJobController(autoSubmit, jobCases, events, flags))
                 .addFilters(new InternalApiKeyFilter(configuredKey))
                 .build();
     }
@@ -47,20 +53,20 @@ class InternalPdfJobControllerTest {
     @Test
     void missingKey_401() throws Exception {
         mvc().perform(post(PATH)).andExpect(status().isUnauthorized());
-        verifyNoInteractions(autoSubmit, jobCases, events);
+        verifyNoInteractions(autoSubmit, jobCases, events, flags);
     }
 
     @Test
     void wrongKey_401() throws Exception {
         mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "nope")).andExpect(status().isUnauthorized());
-        verifyNoInteractions(autoSubmit, jobCases, events);
+        verifyNoInteractions(autoSubmit, jobCases, events, flags);
     }
 
     @Test
     void unconfiguredKey_404_evenWithAnEmptyHeader() throws Exception {
         mvcWithKey("").perform(post(PATH).header(InternalApiKeyFilter.HEADER, "")).andExpect(status().isNotFound());
         mvcWithKey("").perform(post(PATH)).andExpect(status().isNotFound());
-        verifyNoInteractions(autoSubmit, jobCases, events);
+        verifyNoInteractions(autoSubmit, jobCases, events, flags);
     }
 
     @Test
@@ -99,5 +105,14 @@ class InternalPdfJobControllerTest {
         doThrow(new IllegalStateException("boom")).when(autoSubmit).onPdfCompleted("job-1");
 
         mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void completedIsANoOpWhenOff() throws Exception {
+        when(flags.caseReviewEnabled()).thenReturn(false);
+
+        mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret")).andExpect(status().isNoContent());
+
+        verifyNoInteractions(jobCases, autoSubmit, events);
     }
 }

@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.review.event.PdfReadyEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
 import com.pranicdoc.cph.review.service.PdfJobCaseResolver;
@@ -27,9 +28,13 @@ public class InternalPdfJobController {
     private final ReviewAutoSubmitService autoSubmit;
     private final PdfJobCaseResolver jobCases;
     private final ReviewEventPublisher events;
+    private final FeatureFlags flags;
 
     @PostMapping("/{jobId}/completed")
     public ResponseEntity<Void> completed(@PathVariable String jobId) {
+        if (!flags.caseReviewEnabled()) {
+            return ResponseEntity.noContent().build();
+        }
         publishPdfReady(jobId);
         try {
             autoSubmit.onPdfCompleted(jobId);
