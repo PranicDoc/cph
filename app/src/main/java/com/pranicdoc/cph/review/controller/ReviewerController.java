@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.common.feature.RequiresCaseReview;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.review.dto.CommentRequest;
 import com.pranicdoc.cph.review.dto.CommentResponse;
@@ -29,6 +30,7 @@ import java.util.UUID;
  * check that the submission is assigned to the caller and is not their own case.
  */
 @RestController
+@RequiresCaseReview
 @RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
 public class ReviewerController {

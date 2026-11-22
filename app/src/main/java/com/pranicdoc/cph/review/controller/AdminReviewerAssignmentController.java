@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.common.feature.RequiresCaseReview;
 import com.pranicdoc.cph.admin.AdminAuthz;
 import com.pranicdoc.cph.review.dto.AssignReviewerRequest;
 import com.pranicdoc.cph.review.dto.HealerOption;
@@ -24,6 +25,7 @@ import java.util.UUID;
  * (no RBAC permission opens it), enforced with {@link AdminAuthz#assertSuperAdmin()}.
  */
 @RestController
+@RequiresCaseReview
 @RequestMapping("/api/v1/admin/reviewer-assignments")
 @RequiredArgsConstructor
 public class AdminReviewerAssignmentController {
