@@ -29,11 +29,11 @@ class FmeTreatmentSourceTest {
     private FmeTreatmentSource localhost(String flagValue, long timeoutMs) throws Exception {
         file = Files.createTempFile("fme-split", ".yaml");
         Files.writeString(file, "- case_review_enabled:\n    treatment: \"" + flagValue + "\"\n");
-        SplitClientConfig config = SplitClientConfig.builder()
-                .splitFile(file.toString())
-                .setBlockUntilReadyTimeout((int) timeoutMs)
-                .build();
-        return new FmeTreatmentSource("localhost", config, timeoutMs);
+        String path = file.toString();
+        return new FmeTreatmentSource("localhost", timeoutMs, ms -> SplitClientConfig.builder()
+                .splitFile(path)
+                .setBlockUntilReadyTimeout(ms)
+                .build());
     }
 
     @Test
@@ -57,12 +57,39 @@ class FmeTreatmentSourceTest {
     @Test
     void neverBlocksPastTheTimeout() {
         // Unreachable endpoints and a tiny timeout: the SDK can never become ready.
-        SplitClientConfig config = SplitClientConfig.builder()
-                .endpoint("http://127.0.0.1:1", "http://127.0.0.1:1")
-                .setBlockUntilReadyTimeout(50)
-                .build();
-        assertThatCode(() -> source = new FmeTreatmentSource("not-a-real-key", config, 50))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> source = unreachable(50)).doesNotThrowAnyException();
         assertThat(source.treatment("cph", "case_review_enabled")).isEqualTo("control");
+    }
+
+    private static FmeTreatmentSource unreachable(long timeoutMs) {
+        return new FmeTreatmentSource("not-a-real-key", timeoutMs, ms -> SplitClientConfig.builder()
+                .endpoint("http://127.0.0.1:1", "http://127.0.0.1:1")
+                .setBlockUntilReadyTimeout(ms)
+                .build());
+    }
+
+    @Test
+    void unbuildableConfigDoesNotFailStartup() {
+        assertThatCode(() -> source = new FmeTreatmentSource("k", 50, ms -> {
+            throw new IllegalArgumentException("bad config");
+        })).doesNotThrowAnyException();
+        assertThat(source.treatment("cph", "case_review_enabled")).isEqualTo("control");
+        assertThatCode(() -> source.destroy()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void zeroAndNegativeTimeoutsDoNotThrow() throws Exception {
+        // Localhost mode: no network threads, so nothing lingers in the shared test JVM.
+        assertThatCode(() -> source = localhost("on", 0)).doesNotThrowAnyException();
+        source.destroy();
+        assertThatCode(() -> source = localhost("on", -5)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void nonNumericTimeoutFallsBack() {
+        assertThat(FmeTreatmentSource.parseTimeout("abc")).isEqualTo(3000);
+        assertThat(FmeTreatmentSource.parseTimeout("")).isEqualTo(3000);
+        assertThat(FmeTreatmentSource.parseTimeout(null)).isEqualTo(3000);
+        assertThat(FmeTreatmentSource.parseTimeout(" 250 ")).isEqualTo(250);
     }
 }
