@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.controller;
 
+import com.pranicdoc.cph.common.feature.RequiresCaseReview;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.review.dto.ApprovedCountResponse;
@@ -30,6 +31,7 @@ import java.util.UUID;
  * check that the case or submission belongs to the caller.
  */
 @RestController
+@RequiresCaseReview
 @RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
 public class HealerReviewController {

@@ -14,6 +14,7 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.LinkStatus;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.exception.InsufficientCreditsException;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.common.exception.TokenExpiredException;
@@ -62,6 +63,7 @@ public class AuthService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final CreditServiceClient creditServiceClient;
     private final ReviewerAssignmentService reviewerAssignments;
+    private final FeatureFlags flags;
     private static final String PATIENT = "PATIENT";
 
     // ─── Login ──────────────────────────────────────────────────
@@ -162,7 +164,7 @@ public class AuthService {
     public HealerResponse getCurrentHealer() {
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Healer healer = findOrThrow(healerId);
-        return toResponse(healer).withReviewerLinked(reviewerAssignments.reviewerFor(healerId).isPresent());
+        return toResponse(healer).withReviewerLinked(reviewerLinked(healerId));
     }
 
     // ─── Update current healer profile ─────────────────────────
@@ -210,7 +212,7 @@ public class AuthService {
         Healer healer = findOrThrow(healerId);
         healer.setAutoSubmitForReview(request.autoSubmitForReview());
         return toResponse(healerRepository.save(healer))
-                .withReviewerLinked(reviewerAssignments.reviewerFor(healerId).isPresent());
+                .withReviewerLinked(reviewerLinked(healerId));
     }
 
     // ─── Change current healer password ─────────────────────────
@@ -304,6 +306,11 @@ public class AuthService {
     private Healer findOrThrow(UUID id) {
         return healerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", id));
+    }
+
+    /** False without a lookup while case review is off, so the profile stays what it was before review existed. */
+    private boolean reviewerLinked(UUID healerId) {
+        return flags.caseReviewEnabled() && reviewerAssignments.reviewerFor(healerId).isPresent();
     }
 
     private HealerResponse toResponse(Healer h) {

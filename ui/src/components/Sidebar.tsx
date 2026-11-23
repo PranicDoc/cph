@@ -15,6 +15,8 @@ export interface SidebarNavItem {
   verb?: string;
   /** Shown only to users who hold exactly this operation on this resource (e.g. CASE:REVIEW). */
   requires?: { resource: string; operation: string };
+  /** Hidden while this feature flag is off (the server reports it with the permissions). */
+  requiresFeature?: "caseReview";
   /** Shows a dot while there are unseen review events (the item is one of the review pages that clears it). */
   unreadDot?: boolean;
 }

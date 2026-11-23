@@ -179,6 +179,15 @@ dashboard:
   cache:
     ttl-minutes: 5
 
+# Feature flags via Harness Feature Management & Experimentation (FME).
+# A blank sdk-key means no SDK is started and flags use their configured default. Never put a literal key here.
+features:
+  fme:
+    sdk-key: ${HARNESS_FME_SDK_KEY:}
+    ready-timeout-ms: ${HARNESS_FME_READY_TIMEOUT_MS:3000}
+  case-review:
+    default: false
+
 resilience4j:
   circuitbreaker:
     instances:

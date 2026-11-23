@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.service;
 
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.review.event.ReviewEvent;
 import com.pranicdoc.cph.review.event.ReviewEventPublisher;
 import com.pranicdoc.cph.review.event.ReviewEventType;
@@ -33,10 +34,14 @@ public class ReviewDismissalService {
     private final ReviewSubmissionRepository submissions;
     private final ReviewRevisionRepository revisions;
     private final ReviewEventPublisher events;
+    private final FeatureFlags flags;
 
     /** Dismisses the case's latest submission when it is APPROVED; otherwise does nothing. */
     @Transactional
     public void onCaseModified(UUID caseId, String reason) {
+        if (!flags.caseReviewEnabled()) {
+            return;
+        }
         submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER)
                 .ifPresent(latest -> dismissIfApproved(latest, reason));
     }
@@ -44,7 +49,7 @@ public class ReviewDismissalService {
     /** Same as {@link #onCaseModified} for a write that touched several cases at once, in one query. */
     @Transactional
     public void onCasesModified(Collection<UUID> caseIds, String reason) {
-        if (caseIds.isEmpty()) {
+        if (!flags.caseReviewEnabled() || caseIds.isEmpty()) {
             return;
         }
         Comparator<ReviewSubmission> byCreated = Comparator.comparing(ReviewSubmission::getCreatedAt,

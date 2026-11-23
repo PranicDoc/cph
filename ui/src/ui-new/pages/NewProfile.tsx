@@ -5,6 +5,7 @@ import { useCreditAccount } from "../../hooks/useCreditAccount";
 import { planEndLine } from "../lib/planEnd";
 import { CreditHistoryCard } from "../components/CreditHistoryCard";
 import { HlSwitch } from "../components/Controls";
+import { useCaseReviewEnabled } from "../../hooks/useCaseReviewEnabled";
 import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../../hooks/useHealerProfile";
 
 const GOOGLE_G_ICON = "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
@@ -85,6 +86,7 @@ function RowsSkeleton({ rows }: { rows: number }) {
 
 export default function NewProfile({ page }: { page: ProfilePageState }) {
   const { data: account, isLoading: accountLoading } = useCreditAccount();
+  const caseReviewEnabled = useCaseReviewEnabled();
   const credits = account ? account.free_balance + account.paid_balance : null;
 
   return (
@@ -191,6 +193,7 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
 
           <CreditHistoryCard />
 
+          {caseReviewEnabled && (
           <section className="surface card">
             <div className="card-h">
               <h2>Case review</h2>
@@ -207,6 +210,7 @@ export default function NewProfile({ page }: { page: ProfilePageState }) {
             <div className="small muted" style={{ marginTop: 10 }}>{AUTO_SUBMIT_NOTE}</div>
             {page.noInstructorLinked && <div className="small muted" style={{ marginTop: 6 }}>{NO_INSTRUCTOR_LINE}</div>}
           </section>
+          )}
 
           <section className="surface card">
             <div className="card-h">

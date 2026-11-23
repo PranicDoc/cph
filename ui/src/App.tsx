@@ -20,6 +20,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/admin/AdminRoute";
 import AdminLayout from "./components/admin/AdminLayout";
 import { PatientProvider } from "./context/PatientContext";
+import { CaseReviewRoute } from "./components/CaseReviewRoute";
 import { EventStreamRoute } from "./context/EventStreamProvider";
 import Unauthorized from "./pages/Unauthorized";
 import Forbidden from "./pages/Forbidden";
@@ -79,10 +80,12 @@ const router = createBrowserRouter(
             <Route path="cases/:healingCaseId/feedback" lazy={page(() => import("./pages/ManualFeedback"))} />
             <Route path="cases/:healingCaseId/close" lazy={page(() => import("./ui-new/pages/CloseCase"))} />
             <Route path="profile" lazy={page(() => import("./pages/Profile"))} />
-            <Route path="reviews" lazy={page(() => import("./pages/reviews/ReviewQueue"))} />
-            <Route path="reviews/:submissionId" lazy={page(() => import("./pages/reviews/ReviewViewer"))} />
-            <Route path="submissions" lazy={page(() => import("./pages/reviews/MySubmissions"))} />
-            <Route path="submissions/:submissionId" lazy={page(() => import("./pages/reviews/SubmissionDetail"))} />
+            <Route element={<CaseReviewRoute />}>
+              <Route path="reviews" lazy={page(() => import("./pages/reviews/ReviewQueue"))} />
+              <Route path="reviews/:submissionId" lazy={page(() => import("./pages/reviews/ReviewViewer"))} />
+              <Route path="submissions" lazy={page(() => import("./pages/reviews/MySubmissions"))} />
+              <Route path="submissions/:submissionId" lazy={page(() => import("./pages/reviews/SubmissionDetail"))} />
+            </Route>
           </Route>
         </Route>
         {/* Sibling of the Layout route, not nested inside it: /legal-center
@@ -108,7 +111,9 @@ const router = createBrowserRouter(
           <Route path="roles" lazy={page(() => import("./pages/admin/RolesPage"))} />
           <Route path="roles/new" lazy={page(() => import("./pages/admin/RoleFormPage"))} />
           <Route path="roles/:id/edit" lazy={page(() => import("./pages/admin/RoleFormPage"))} />
-          <Route path="reviewer-assignments" lazy={page(() => import("./pages/admin/ReviewerAssignmentsPage"))} />
+          <Route element={<CaseReviewRoute />}>
+            <Route path="reviewer-assignments" lazy={page(() => import("./pages/admin/ReviewerAssignmentsPage"))} />
+          </Route>
         </Route>
       </Route>
 

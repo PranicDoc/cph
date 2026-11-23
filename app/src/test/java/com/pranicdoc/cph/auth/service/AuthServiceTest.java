@@ -6,6 +6,7 @@ import com.pranicdoc.cph.auth.dto.HealerResponse;
 import com.pranicdoc.cph.auth.dto.ReviewPreferencesRequest;
 import com.pranicdoc.cph.auth.dto.UiVersionRequest;
 import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.impl.AuthService;
 import com.pranicdoc.cph.common.enums.LinkStatus;
@@ -81,6 +82,9 @@ class AuthServiceTest {
 
     @Mock
     private ReviewerAssignmentService reviewerAssignments;
+
+    @Mock
+    private FeatureFlags flags;
 
     @InjectMocks
     private AuthService authService;
@@ -283,11 +287,26 @@ class AuthServiceTest {
         when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
         when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
 
+        when(flags.caseReviewEnabled()).thenReturn(true);
         when(reviewerAssignments.reviewerFor(healerId)).thenReturn(Optional.of(UUID.randomUUID()));
         assertTrue(authService.getCurrentHealer().reviewerLinked());
 
         when(reviewerAssignments.reviewerFor(healerId)).thenReturn(Optional.empty());
         assertFalse(authService.getCurrentHealer().reviewerLinked());
+    }
+
+    @Test
+    void profileSkipsTheReviewerLookupWhenOff() {
+        UUID healerId = UUID.randomUUID();
+        Healer healer = Healer.builder().fullName("Asha Rao").email("asha@example.com").role(Role.HEALER).build();
+        healer.setId(healerId);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(healerRepository.findById(healerId)).thenReturn(Optional.of(healer));
+        when(flags.caseReviewEnabled()).thenReturn(false);
+
+        assertFalse(authService.getCurrentHealer().reviewerLinked());
+
+        verify(reviewerAssignments, never()).reviewerFor(any());
     }
 
     // ─── Name change credits ─────────────────────────────────────

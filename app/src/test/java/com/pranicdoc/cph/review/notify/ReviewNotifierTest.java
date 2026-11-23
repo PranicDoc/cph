@@ -3,6 +3,7 @@ package com.pranicdoc.cph.review.notify;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.notification.channel.ChannelType;
 import com.pranicdoc.cph.notification.channel.NotificationMessage;
@@ -221,11 +222,17 @@ class ReviewNotifierTest {
         ReviewNotifier failing = mock(ReviewNotifier.class);
         doThrow(new IllegalStateException("boom")).when(failing).onEvent(any());
         ReviewEventPublisher publisher = new ReviewEventPublisher(mock(EventStreamRegistry.class),
-                new ObjectMapper(), null, false, failing, new TransactionService());
+                new ObjectMapper(), null, false, failing, new TransactionService(), flagsOn());
 
         assertThatCode(() -> publisher.publish(event(ReviewEventType.REVISION_ADDED, 1, null,
                 ReviewStatus.PENDING_REVIEW))).doesNotThrowAnyException();
 
         verify(failing).onEvent(any());
+    }
+
+    private static FeatureFlags flagsOn() {
+        FeatureFlags flags = mock(FeatureFlags.class);
+        when(flags.caseReviewEnabled()).thenReturn(true);
+        return flags;
     }
 }

@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.auth.controller;
 
+import com.pranicdoc.cph.common.feature.RequiresCaseReview;
 import com.pranicdoc.cph.auth.dto.AcceptInviteRequest;
 import com.pranicdoc.cph.auth.dto.ChangePasswordRequest;
 import com.pranicdoc.cph.auth.dto.EraseAccountRequest;
@@ -169,6 +170,7 @@ public class AuthController {
 
     /** Case-review preferences of the signed-in healer (opt-in auto-submit). PUT /api/v1/auth/me/review-preferences */
     @PutMapping("/me/review-preferences")
+    @RequiresCaseReview
     public ResponseEntity<HealerResponse> updateReviewPreferences(
             @Valid @RequestBody ReviewPreferencesRequest request) {
         return ResponseEntity.ok(authService.updateReviewPreferences(request));

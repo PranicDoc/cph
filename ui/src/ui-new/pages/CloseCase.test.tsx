@@ -7,6 +7,7 @@ import { QueryClient } from "@tanstack/react-query";
 import CloseCase from "./CloseCase";
 import { renderWithDataRouter } from "../../test/renderWithDataRouter";
 
+vi.mock("../../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("@/lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));

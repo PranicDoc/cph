@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, type ReactNode } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { EventStreamContext, type EventStreamValue } from "../hooks/eventStreamContext";
+import { useCaseReviewEnabled } from "../hooks/useCaseReviewEnabled";
 import { useMyPermissions } from "../hooks/useMyPermissions";
 import { useEventStreamConnection, type PdfReadyStreamEvent, type ReviewStreamEvent } from "../hooks/useEventStream";
 import { hasPermission } from "../lib/adminAccess";
@@ -61,10 +62,12 @@ export function EventStreamProvider({ enabled, children }: { enabled: boolean; c
  */
 export function EventStreamRoute() {
   const { data: permissions } = useMyPermissions();
+  const caseReviewEnabled = useCaseReviewEnabled();
   const enabled =
-    hasPermission(permissions, "CASE", "UPDATE") ||
-    hasPermission(permissions, "CASE", "REVIEW") ||
-    hasPermission(permissions, "PDF", "CREATE");
+    caseReviewEnabled &&
+    (hasPermission(permissions, "CASE", "UPDATE") ||
+      hasPermission(permissions, "CASE", "REVIEW") ||
+      hasPermission(permissions, "PDF", "CREATE"));
   return (
     <EventStreamProvider enabled={enabled}>
       <Outlet />

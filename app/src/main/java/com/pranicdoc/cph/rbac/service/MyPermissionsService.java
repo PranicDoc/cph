@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.rbac.service;
 
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.masterdata.service.MasterDataElevationService;
 import com.pranicdoc.cph.rbac.RbacAuthz;
@@ -37,16 +38,18 @@ public class MyPermissionsService {
     private final SecurityContextUtil securityContextUtil;
     private final RolePermissionLookupService lookupService;
     private final MasterDataElevationService elevationService;
+    private final FeatureFlags featureFlags;
 
     public MyPermissionsResponse current() {
         if (rbacAuthz.isSuperAdmin()) {
-            return new MyPermissionsResponse(ALL_GRANTS, Map.of());
+            return new MyPermissionsResponse(ALL_GRANTS, Map.of(), featureFlags.caseReviewEnabled());
         }
         UUID healerId = securityContextUtil.getCurrentHealerId();
         Map<String, List<String>> grants = new TreeMap<>();
         lookupService.effectiveGrants(healerId)
                 .forEach((resource, operations) -> grants.put(resource.name(), names(operations)));
-        return new MyPermissionsResponse(grants, elevationService.activeFor(healerId));
+        return new MyPermissionsResponse(grants, elevationService.activeFor(healerId),
+                featureFlags.caseReviewEnabled());
     }
 
     private static Map<String, List<String>> allGrants() {

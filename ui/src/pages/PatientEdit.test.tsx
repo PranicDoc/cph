@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import PatientEdit from "./PatientEdit";
 import { renderWithDataRouter } from "../test/renderWithDataRouter";
 
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("@/lib/axios", () => ({ default: { get: vi.fn(), put: vi.fn() } }));
 vi.mock("../lib/axios", () => ({ default: { get: vi.fn(), put: vi.fn() } }));
 const view = vi.hoisted(() => ({ isNewView: false }));

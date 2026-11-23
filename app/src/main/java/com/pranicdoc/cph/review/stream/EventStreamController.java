@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.stream;
 
+import com.pranicdoc.cph.common.feature.RequiresCaseReview;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -15,6 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * tokens are refused in SecurityConfig.
  */
 @RestController
+@RequiresCaseReview
 @RequiredArgsConstructor
 public class EventStreamController {
 

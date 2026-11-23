@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useCaseReviewEnabled } from "../hooks/useCaseReviewEnabled";
 import { AUTO_SUBMIT_LABEL, AUTO_SUBMIT_NOTE, NO_INSTRUCTOR_LINE } from "../hooks/useHealerProfile";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -58,6 +59,7 @@ export default function Profile() {
   const linkGoogleMutation = useLinkGoogle();
   const unlinkGoogleMutation = useUnlinkGoogle();
   const reviewPrefMutation = useUpdateReviewPreferences();
+  const caseReviewEnabled = useCaseReviewEnabled();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ fullName: "", email: "", phone: "" });
@@ -497,6 +499,7 @@ export default function Profile() {
       </div>
 
       {/* ── Case review ── */}
+      {caseReviewEnabled && (
       <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-3">
         <h2 className="text-sm font-semibold text-primary-dark">Case review</h2>
         <div className="flex items-center justify-between gap-4">
@@ -515,6 +518,7 @@ export default function Profile() {
           <p className="text-xs text-text-light">{NO_INSTRUCTOR_LINE}</p>
         )}
       </div>
+      )}
 
       {/* ── Google Account ── */}
       <div className="bg-card border border-border rounded-xl shadow-sm p-5 space-y-4">

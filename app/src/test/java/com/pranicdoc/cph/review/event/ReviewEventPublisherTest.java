@@ -1,6 +1,7 @@
 package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,16 @@ class ReviewEventPublisherTest {
         }
     }
 
+    private static FeatureFlags flags() {
+        return flags(true);
+    }
+
+    private static FeatureFlags flags(boolean on) {
+        FeatureFlags flags = mock(FeatureFlags.class);
+        org.mockito.Mockito.when(flags.caseReviewEnabled()).thenReturn(on);
+        return flags;
+    }
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final EventStreamRegistry registry = mock(EventStreamRegistry.class);
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
@@ -55,7 +66,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_sendsAfterCommitOnly() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService(), flags());
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -76,7 +87,7 @@ class ReviewEventPublisherTest {
     void publish_handsTheEventToTheNotifierInTheTransaction_butSendsTheLiveEventOnlyAfterCommit() {
         var notifier = mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class);
         ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false,
-                notifier, new TransactionService());
+                notifier, new TransactionService(), flags());
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -98,7 +109,7 @@ class ReviewEventPublisherTest {
         var notifier = new com.pranicdoc.cph.review.notify.ReviewNotifier(healers,
                 new com.pranicdoc.cph.review.notify.ReviewEmails(new com.pranicdoc.cph.notification.email.EmailTemplates()),
                 sender, "https://app.example.test/accept-invite");
-        return new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, notifier, transactions);
+        return new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, notifier, transactions, flags());
     }
 
     @Test
@@ -131,7 +142,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_sendsTheFullEventAsJsonOnTheReviewChannel() throws Exception {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService(), flags());
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
 
         publisher.publish(event);
@@ -142,7 +153,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void publish_withRedisOff_deliversInProcessAfterCommit() {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, (StringRedisTemplate) null, false, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService(), flags());
 
         tx.executeWithoutResult(status -> {
             publisher.publish(event);
@@ -155,7 +166,7 @@ class ReviewEventPublisherTest {
     @Test
     void publish_whenRedisFails_fallsBackToLocalDelivery() {
         doThrow(new RedisConnectionFailureException("down")).when(redis).convertAndSend(anyString(), anyString());
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService(), flags());
 
         publisher.publish(event);
 
@@ -197,7 +208,7 @@ class ReviewEventPublisherTest {
 
     @Test
     void relayRoundTripsBothEventKinds() throws Exception {
-        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService());
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class), new TransactionService(), flags());
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         PdfReadyEvent pdf = new PdfReadyEvent(UUID.randomUUID(), UUID.randomUUID(), "job-1");
 
@@ -225,5 +236,17 @@ class ReviewEventPublisherTest {
                 ReviewEventPublisher.CHANNEL.getBytes(), legacy.getBytes()), null);
 
         verify(registry).deliver(event);
+    }
+
+    @Test
+    void sendsNothingWhenOff() {
+        var notifier = mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, notifier,
+                new TransactionService(), flags(false));
+
+        publisher.publish(event);
+        publisher.publishPdfReady(new PdfReadyEvent(UUID.randomUUID(), UUID.randomUUID(), "job-1"));
+
+        verifyNoInteractions(notifier, registry, redis);
     }
 }

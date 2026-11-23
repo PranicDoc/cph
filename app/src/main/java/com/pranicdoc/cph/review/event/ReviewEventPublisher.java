@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pranicdoc.cph.common.feature.FeatureFlags;
 import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.review.notify.ReviewNotifier;
 import com.pranicdoc.cph.review.stream.EventStreamRegistry;
@@ -31,20 +32,23 @@ public class ReviewEventPublisher {
     private final boolean redisEnabled;
     private final ReviewNotifier notifier;
     private final TransactionService transactionService;
+    private final FeatureFlags flags;
 
     // Hand-written: @Value constructor parameter, and the Redis template is looked up only when enabled.
     @Autowired
     public ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
                                 ObjectProvider<StringRedisTemplate> redis,
                                 @Value("${app.review.events.redis-enabled:true}") boolean redisEnabled,
-                                ReviewNotifier notifier, TransactionService transactionService) {
+                                ReviewNotifier notifier, TransactionService transactionService,
+                                FeatureFlags flags) {
         this(registry, objectMapper, redisEnabled ? redis.getIfAvailable() : null, redisEnabled, notifier,
-                transactionService);
+                transactionService, flags);
     }
 
     ReviewEventPublisher(EventStreamRegistry registry, ObjectMapper objectMapper,
                          StringRedisTemplate redis, boolean redisEnabled, ReviewNotifier notifier,
-                         TransactionService transactionService) {
+                         TransactionService transactionService, FeatureFlags flags) {
+        this.flags = flags;
         this.notifier = notifier;
         this.transactionService = transactionService;
         this.registry = registry;
@@ -59,6 +63,9 @@ public class ReviewEventPublisher {
      * state the action just wrote; the notifier queues its delivery for after the same commit.
      */
     public void publish(ReviewEvent event) {
+        if (!flags.caseReviewEnabled()) {
+            return;
+        }
         notifyByEmail(event);
         transactionService.runAfterCommitOrNow(() -> send(event));
     }
@@ -81,6 +88,9 @@ public class ReviewEventPublisher {
      * has no transaction to wait for, so it goes out at once. No email. Same Redis fan-out as review events.
      */
     public void publishPdfReady(PdfReadyEvent event) {
+        if (!flags.caseReviewEnabled()) {
+            return;
+        }
         send(event);
     }
 

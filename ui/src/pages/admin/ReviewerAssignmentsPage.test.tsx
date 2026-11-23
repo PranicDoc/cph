@@ -109,8 +109,8 @@ describe("Reviewer Links nav item", () => {
     const { adminNavItems } = await import("../../config/adminNavItems");
     const { visibleNavItems } = await import("../../lib/adminAccess");
     const path = "/admin/reviewer-assignments";
-    const ordinary = { grants: { ROLES: ["READ"], CREDIT_ACCOUNTS: ["READ"], CASE: ["READ", "UPDATE"] } };
-    const supadm = { grants: { CREDIT_ACCOUNTS: ["READ", "ADMIN"] } };
+    const ordinary = { caseReviewEnabled: true, grants: { ROLES: ["READ"], CREDIT_ACCOUNTS: ["READ"], CASE: ["READ", "UPDATE"] } };
+    const supadm = { caseReviewEnabled: true, grants: { CREDIT_ACCOUNTS: ["READ", "ADMIN"] } };
     expect(visibleNavItems(ordinary, adminNavItems).some((i) => i.path === path)).toBe(false);
     expect(visibleNavItems(supadm, adminNavItems).some((i) => i.path === path)).toBe(true);
   });
