@@ -232,7 +232,7 @@ class ReviewNotifierTest {
 
     private static FeatureFlags flagsOn() {
         FeatureFlags flags = mock(FeatureFlags.class);
-        when(flags.caseReviewEnabled()).thenReturn(true);
+        when(flags.caseReviewEnabledFor(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         return flags;
     }
 }

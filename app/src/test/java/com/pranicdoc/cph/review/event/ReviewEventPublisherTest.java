@@ -52,7 +52,7 @@ class ReviewEventPublisherTest {
 
     private static FeatureFlags flags(boolean on) {
         FeatureFlags flags = mock(FeatureFlags.class);
-        org.mockito.Mockito.when(flags.caseReviewEnabled()).thenReturn(on);
+        org.mockito.Mockito.when(flags.caseReviewEnabledFor(any())).thenReturn(on);
         return flags;
     }
 
@@ -246,6 +246,38 @@ class ReviewEventPublisherTest {
 
         publisher.publish(event);
         publisher.publishPdfReady(new PdfReadyEvent(UUID.randomUUID(), UUID.randomUUID(), "job-1"));
+
+        verifyNoInteractions(notifier, registry, redis);
+    }
+
+    @Test
+    void eventForAnEnabledHealerIsSent() {
+        var notifier = mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class);
+        FeatureFlags perHealer = mock(FeatureFlags.class);
+        org.mockito.Mockito.when(perHealer.caseReviewEnabledFor(event.healerId())).thenReturn(true);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, notifier,
+                new TransactionService(), perHealer);
+        PdfReadyEvent pdf = new PdfReadyEvent(event.healerId(), UUID.randomUUID(), "job-1");
+
+        publisher.publish(event);
+        publisher.publishPdfReady(pdf);
+
+        verify(notifier).onEvent(event);
+        verify(redis, org.mockito.Mockito.times(2)).convertAndSend(eq(ReviewEventPublisher.CHANNEL), anyString());
+    }
+
+    @Test
+    void eventForAnotherHealerIsSuppressed() {
+        var notifier = mock(com.pranicdoc.cph.review.notify.ReviewNotifier.class);
+        FeatureFlags perHealer = mock(FeatureFlags.class);
+        UUID other = UUID.randomUUID();
+        org.mockito.Mockito.when(perHealer.caseReviewEnabledFor(other)).thenReturn(true);
+        org.mockito.Mockito.when(perHealer.caseReviewEnabledFor(event.healerId())).thenReturn(false);
+        ReviewEventPublisher publisher = new ReviewEventPublisher(registry, mapper, redis, true, notifier,
+                new TransactionService(), perHealer);
+
+        publisher.publish(event);
+        publisher.publishPdfReady(new PdfReadyEvent(event.healerId(), UUID.randomUUID(), "job-1"));
 
         verifyNoInteractions(notifier, registry, redis);
     }

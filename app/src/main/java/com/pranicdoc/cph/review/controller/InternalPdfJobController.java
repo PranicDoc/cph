@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Optional;
+
 /**
  * Machine-to-machine webhook: pdfWorker tells cph a PDF job finished. No JWT; authentication is done
  * before this controller by InternalApiKeyFilter (InternalApiSecurityConfig's filter chain, header
@@ -32,10 +34,11 @@ public class InternalPdfJobController {
 
     @PostMapping("/{jobId}/completed")
     public ResponseEntity<Void> completed(@PathVariable String jobId) {
-        if (!flags.caseReviewEnabled()) {
+        Optional<PdfJobCaseResolver.JobCase> jobCase = resolve(jobId);
+        if (jobCase.isEmpty() || !flags.caseReviewEnabledFor(jobCase.get().healerId())) {
             return ResponseEntity.noContent().build();
         }
-        publishPdfReady(jobId);
+        publishPdfReady(jobId, jobCase.get());
         try {
             autoSubmit.onPdfCompleted(jobId);
         } catch (Exception e) {
@@ -44,11 +47,20 @@ public class InternalPdfJobController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Tells the case's healer their PDF is ready, whatever their auto-submit setting. Never throws. */
-    private void publishPdfReady(String jobId) {
+    /** The job's case, or empty when unknown or the lookup fails: the webhook never errors on a business skip. */
+    private Optional<PdfJobCaseResolver.JobCase> resolve(String jobId) {
         try {
-            jobCases.resolve(jobId).ifPresent(jc ->
-                    events.publishPdfReady(new PdfReadyEvent(jc.healerId(), jc.caseId(), jobId)));
+            return jobCases.resolve(jobId);
+        } catch (Exception e) {
+            log.warn("Case for PDF job {} not resolved", jobId, e);
+            return Optional.empty();
+        }
+    }
+
+    /** Tells the case's healer their PDF is ready, whatever their auto-submit setting. Never throws. */
+    private void publishPdfReady(String jobId, PdfJobCaseResolver.JobCase jobCase) {
+        try {
+            events.publishPdfReady(new PdfReadyEvent(jobCase.healerId(), jobCase.caseId(), jobId));
         } catch (Exception e) {
             log.warn("PDF-ready event not published for job {}", jobId, e);
         }
