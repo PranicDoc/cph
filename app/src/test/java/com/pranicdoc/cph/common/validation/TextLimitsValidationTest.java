@@ -9,6 +9,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,5 +59,29 @@ class TextLimitsValidationTest {
                 chars(TextLimits.HISTORY_BOX + 1));
 
         assertThat(validator.validate(history)).hasSize(1);
+    }
+
+    @Test
+    void patientHistoriesAreLimitedToAtMostTwoLines() {
+        String atLimit = chars(TextLimits.HISTORY_LINE);
+        String over = chars(TextLimits.HISTORY_LINE + 1);
+
+        assertThat(validator.validate(historyWith(null, null, atLimit, atLimit, atLimit, atLimit))).isEmpty();
+        assertThat(validator.validate(historyWith(null, null, over, over, over, over))).hasSize(4);
+    }
+
+    @Test
+    void heightAndWeightAreOptionalButBounded() {
+        assertThat(validator.validate(historyWith(null, null, null, null, null, null))).isEmpty();
+        assertThat(validator.validate(historyWith(new BigDecimal("50"), new BigDecimal("2"), null, null, null, null))).isEmpty();
+        assertThat(validator.validate(historyWith(new BigDecimal("250"), new BigDecimal("500"), null, null, null, null))).isEmpty();
+        assertThat(validator.validate(historyWith(new BigDecimal("49.9"), new BigDecimal("1.9"), null, null, null, null))).hasSize(2);
+        assertThat(validator.validate(historyWith(new BigDecimal("250.1"), new BigDecimal("500.1"), null, null, null, null))).hasSize(2);
+    }
+
+    private static MedicalHistoryRequest historyWith(BigDecimal height, BigDecimal weight, String past, String surgical,
+                                                     String family, String psychosocial) {
+        return new MedicalHistoryRequest(null, null, null, null, null, null, null, null, null, null, null, null,
+                height, weight, past, surgical, family, psychosocial);
     }
 }

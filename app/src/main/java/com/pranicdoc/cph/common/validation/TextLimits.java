@@ -19,6 +19,12 @@ public final class TextLimits {
     public static final int MEDIUM_BOX = 500;
     /** The wide boxes on the medical history page. */
     public static final int HISTORY_BOX = 600;
+    /** Past, surgical, family and psychosocial history: a line or two each under "Additional notes" on the PDF. */
+    public static final int HISTORY_LINE = 120;
+    /** The free-text answers of a problem's presenting illness (character, aggravating, relieving, timing pattern). */
+    public static final int PRESENTING_ILLNESS = 250;
+    /** The most problems a chief complaint can list. */
+    public static final int MAX_CHIEF_COMPLAINTS = 10;
     /** The optional reason for healing a chakra. */
     public static final int CHAKRA_REASON = 300;
     public static final int FINAL_FEEDBACK = 1500;

@@ -101,22 +101,7 @@ public class PatientService {
 
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
-                    .healingCase(healingCase)
-                    .generalHealth(history.getGeneralHealth())
-                    .diet(history.getDiet())
-                    .exercise(history.getExercise())
-                    .exerciseFrequency(history.getExerciseFrequency())
-                    .hypertension(history.getHypertension())
-                    .giIssues(history.getGiIssues())
-                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
-                    .pregnant(history.getPregnant())
-                    .cancer(history.getCancer())
-                    .cancerLocation(history.getCancerLocation())
-                    .cancerDetails(history.getCancerDetails())
-                    .additionalNotes(history.getAdditionalNotes())
-                    .build();
-            healingCase.setMedicalSnapshot(snapshot);
+            CaseMedicalSnapshot.upsert(healingCase, history);
         }
 
         HealingCase savedCase = caseRepository.save(healingCase);
@@ -192,18 +177,7 @@ public class PatientService {
             patient.setMedicalHistory(history);
         }
 
-        history.setGeneralHealth(request.generalHealth());
-        history.setDiet(request.diet());
-        history.setExercise(request.exercise());
-        history.setExerciseFrequency(request.exerciseFrequency());
-        history.setHypertension(request.hypertension());
-        history.setGiIssues(request.giIssues());
-        history.setStressDepressionAnxiety(request.stressDepressionAnxiety());
-        history.setPregnant(request.pregnant());
-        history.setCancer(request.cancer());
-        history.setCancerLocation(request.cancerLocation());
-        history.setCancerDetails(request.cancerDetails());
-        history.setAdditionalNotes(request.additionalNotes());
+        history.apply(request);
 
         patientRepository.save(patient);
         // The case PDF / Case Summary read each case's snapshot: keep it at the current values.
@@ -296,7 +270,9 @@ public class PatientService {
                 h.getGeneralHealth(), h.getDiet(), h.getExercise(), h.getExerciseFrequency(),
                 h.getHypertension(), h.getGiIssues(), h.getStressDepressionAnxiety(),
                 h.getPregnant(), h.getCancer(), h.getCancerLocation(),
-                h.getCancerDetails(), h.getAdditionalNotes()
+                h.getCancerDetails(), h.getAdditionalNotes(),
+                h.getHeightCm(), h.getWeightKg(), h.getPastHistory(), h.getSurgicalHistory(),
+                h.getFamilyHistory(), h.getPsychosocialHistory()
         );
     }
 
