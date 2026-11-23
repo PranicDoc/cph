@@ -6,6 +6,8 @@ export interface MyPermissions {
   grants: Record<string, string[]>;
   /** Master-data resource to when the user's "unlock shared entries" ends (ISO time). */
   elevations?: Record<string, string>;
+  /** The global case-review feature flag; absent or false hides every review surface. */
+  caseReviewEnabled?: boolean;
 }
 
 /** Whether the user holds this verb on this resource. False until the permissions have loaded. */
@@ -17,9 +19,10 @@ export function hasPermission(perms: MyPermissions | undefined, resource: string
  * A menu item is shown when it needs no permission, or when the user holds its verb (READ unless
  * the item names another) on any of the resources it lists, or the one operation on the one
  * resource named by `requires`. Gated items stay hidden until the
- * permissions have loaded.
+ * permissions have loaded. An item with `requiresFeature` is also hidden while that feature is off.
  */
 export function canSeeNavItem(perms: MyPermissions | undefined, item: SidebarNavItem): boolean {
+  if (item.requiresFeature === "caseReview" && perms?.caseReviewEnabled !== true) return false;
   if (item.requires) {
     return hasPermission(perms, item.requires.resource, item.requires.operation);
   }

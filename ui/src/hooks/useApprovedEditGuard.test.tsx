@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import api from "../lib/axios";
 import { useApprovedEditGuard } from "./useApprovedEditGuard";
 
+vi.mock("./useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));

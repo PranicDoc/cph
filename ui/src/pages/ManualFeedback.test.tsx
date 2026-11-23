@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import ManualFeedback from "./ManualFeedback";
 import { renderWithDataRouter } from "../test/renderWithDataRouter";
 
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("@/lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));

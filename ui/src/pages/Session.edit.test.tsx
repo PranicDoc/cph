@@ -9,6 +9,7 @@ import api from "../lib/axios";
 import { buildSessionSchema } from "./schemas/sessionSchema";
 import { splitClosureComments } from "@/hooks/useCaseClosure";
 
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), put: vi.fn() },
 }));

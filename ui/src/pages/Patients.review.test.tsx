@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Patients from "./Patients";
 import api from "../lib/axios";
 
+const caseReview = vi.hoisted(() => ({ on: true }));
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => caseReview.on }));
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));
@@ -36,7 +38,10 @@ vi.mock("../hooks/useCreditAccount", () => ({
 }));
 
 describe("Patients: submit for review", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    caseReview.on = true;
+  });
 
   it("offers Submit only on cases with a generated PDF that are not approved", async () => {
     vi.mocked(api.get).mockResolvedValue({
@@ -87,5 +92,25 @@ describe("Patients: submit for review", () => {
     expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
     // Patient b has no PDF yet: nothing to say about review.
     expect(screen.queryByText("Not submitted")).not.toBeInTheDocument();
+  });
+
+  it("shows no review badge or Submit button, and asks for no statuses, while case review is off", async () => {
+    caseReview.on = false;
+    vi.mocked(api.get).mockResolvedValue({
+      data: [{ caseId: "case-a", status: "APPROVED", eligible: true, latestRevisionNo: 1 }],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Patients />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect((await screen.findAllByText("Patient a", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved")).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith("/api/v1/reviews/case-statuses", expect.anything());
   });
 });

@@ -8,6 +8,8 @@ import ClassicDashboard from "./Dashboard";
 import NewDashboard from "../ui-new/pages/NewDashboard";
 import api from "../lib/axios";
 
+const caseReview = vi.hoisted(() => ({ on: true }));
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => caseReview.on }));
 vi.mock("../lib/axios", () => ({ default: { get: vi.fn() } }));
 vi.mock("../ui-version", () => ({
   // The classic page is what we want here; the new view is imported directly below.
@@ -48,6 +50,7 @@ function wrap(ui: ReactNode) {
 describe("dashboard approved cases tile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    caseReview.on = true;
     vi.mocked(api.get).mockImplementation((url: string) =>
       url === "/api/v1/reviews/my-approved-count"
         ? Promise.resolve({ data: { count: 5 } })
@@ -66,6 +69,16 @@ describe("dashboard approved cases tile", () => {
     expect(await screen.findByText("Approved cases")).toBeInTheDocument();
     expect(await screen.findByTestId("approved-cases-value")).toHaveTextContent("5");
   });
+
+  for (const [name, Page] of [["classic", ClassicDashboard], ["new view", NewDashboard]] as const) {
+    it(`leaves the tile out and asks for no count while case review is off (${name})`, async () => {
+      caseReview.on = false;
+      wrap(<Page />);
+      expect(await screen.findByText(/Active Patients/i)).toBeInTheDocument();
+      expect(screen.queryByText("Approved cases")).not.toBeInTheDocument();
+      expect(api.get).not.toHaveBeenCalledWith("/api/v1/reviews/my-approved-count");
+    });
+  }
 
   it("leaves the tile out when the healer may not use case review", async () => {
     vi.mocked(api.get).mockRejectedValue({ response: { status: 403 } });

@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Session from "./Session";
 import api from "../lib/axios";
 
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
 }));

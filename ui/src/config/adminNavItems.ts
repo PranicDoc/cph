@@ -19,5 +19,5 @@ export const adminNavItems: AdminNavItem[] = [
   { label: "Legal Documents", path: "/admin/legal-documents", icon: FileText, anyOf: ["LEGAL_DOCUMENTS"], group: "Content" },
   { label: "Roles & Permissions", path: "/admin/roles", icon: ShieldCheck, anyOf: ["ROLES"], group: "Access" },
   // SUPADM-only: opened by CREDIT_ACCOUNTS:ADMIN, which only SUPADM holds by default (like Accounts).
-  { label: "Reviewer Links", path: "/admin/reviewer-assignments", icon: UserCheck, anyOf: ["CREDIT_ACCOUNTS"], verb: "ADMIN", group: "Access" },
+  { label: "Reviewer Links", path: "/admin/reviewer-assignments", icon: UserCheck, anyOf: ["CREDIT_ACCOUNTS"], verb: "ADMIN", requiresFeature: "caseReview", group: "Access" },
 ];

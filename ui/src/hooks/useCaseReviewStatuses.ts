@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useCaseReviewEnabled } from "./useCaseReviewEnabled";
 import api from "../lib/axios";
 import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
 import type { CaseReviewStatusResponse } from "../types/review";
@@ -24,10 +25,11 @@ async function fetchCaseStatuses(caseIds: string[]): Promise<Record<string, Case
  * ids; `retry: false` is opt-in for a check that must not delay the page.
  */
 export function useCaseReviewStatuses(caseIds: string[], options?: { scope?: string; retry?: false }) {
+  const enabled = useCaseReviewEnabled();
   return useQuery({
     queryKey: options?.scope ? [...CASE_STATUSES_KEY, options.scope, caseIds] : [...CASE_STATUSES_KEY, caseIds],
     queryFn: () => fetchCaseStatuses(caseIds),
-    enabled: caseIds.length > 0,
+    enabled: enabled && caseIds.length > 0,
     ...(options?.retry === false ? { retry: false } : {}),
   });
 }

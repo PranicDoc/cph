@@ -71,3 +71,30 @@ describe("navigation by permission", () => {
     expect(canSeeNavItem(undefined, reviews)).toBe(false);
   });
 });
+
+describe("navigation by feature flag", () => {
+  const reviews: SidebarNavItem = {
+    label: "Reviews",
+    path: "/reviews",
+    icon: Users,
+    requires: { resource: "CASE", operation: "REVIEW" },
+    requiresFeature: "caseReview",
+  };
+  const reviewer = { CASE: ["REVIEW"] };
+
+  it("hides a feature item while the flag is off or absent, even for a user holding the permission", () => {
+    expect(canSeeNavItem({ grants: reviewer, caseReviewEnabled: false }, reviews)).toBe(false);
+    expect(canSeeNavItem({ grants: reviewer }, reviews)).toBe(false);
+    expect(canSeeNavItem(undefined, reviews)).toBe(false);
+  });
+
+  it("shows it once the flag is on and the user holds the permission", () => {
+    expect(canSeeNavItem({ grants: reviewer, caseReviewEnabled: true }, reviews)).toBe(true);
+    expect(canSeeNavItem({ grants: { CASE: ["READ"] }, caseReviewEnabled: true }, reviews)).toBe(false);
+  });
+
+  it("leaves items without a feature requirement alone", () => {
+    const patients: SidebarNavItem = { label: "Patients", path: "/p", icon: Users, anyOf: ["PATIENT"] };
+    expect(canSeeNavItem({ grants: { PATIENT: ["READ"] }, caseReviewEnabled: false }, patients)).toBe(true);
+  });
+});

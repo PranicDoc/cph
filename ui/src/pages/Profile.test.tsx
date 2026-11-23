@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+const caseReview = vi.hoisted(() => ({ on: true }));
+vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => caseReview.on }));
 vi.mock("../lib/axios", () => ({ default: { get: vi.fn(), put: vi.fn() } }));
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ user: { id: "h1", fullName: "Asha Rao", email: "asha@example.com" }, setUser: vi.fn() }),
@@ -131,7 +133,21 @@ describe("Profile case review toggle", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    caseReview.on = true;
   });
+
+  for (const [name, isNew] of [["new view", true], ["classic view", false]] as const) {
+    it(`hidesTheAutoSubmitToggle_whileCaseReviewIsOff (${name})`, async () => {
+      caseReview.on = false;
+      view.isNewView = isNew;
+      mGet.mockResolvedValue({ data: { ...profile, autoSubmitForReview: false, reviewerLinked: false } });
+      renderProfile();
+
+      await screen.findAllByText("asha@example.com");
+      expect(screen.queryByRole("switch", { name: LABEL })).not.toBeInTheDocument();
+      expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+    });
+  }
 
   for (const [name, isNew] of [["new view", true], ["classic view", false]] as const) {
     it(`toggleDefaultsOff_andShowsNote (${name})`, async () => {
