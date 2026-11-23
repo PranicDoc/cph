@@ -29,3 +29,22 @@ describe("buildMedicalHistoryUpdate", () => {
     expect(on.cancerDetails).toBe("Stage 1");
   });
 });
+
+describe("height, weight and the four histories", () => {
+  it("sends height and weight as numbers, empty boxes as null, and trims the histories", () => {
+    const body = buildMedicalHistoryUpdate({
+      heightCm: "162", weightKg: " 71.5 ", pastHistory: " Typhoid 2016 ", surgicalHistory: "  ",
+      familyHistory: "Father: diabetes", psychosocialHistory: null,
+    });
+    expect(body.heightCm).toBe(162);
+    expect(body.weightKg).toBe(71.5);
+    expect(body.pastHistory).toBe("Typhoid 2016");
+    expect(body.surgicalHistory).toBeNull();
+    expect(body.familyHistory).toBe("Father: diabetes");
+    expect(body.psychosocialHistory).toBeNull();
+
+    const empty = buildMedicalHistoryUpdate({ heightCm: "", weightKg: null });
+    expect(empty.heightCm).toBeNull();
+    expect(empty.weightKg).toBeNull();
+  });
+});

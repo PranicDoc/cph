@@ -97,6 +97,27 @@ export const patientDemographicsSchema: FormSchema = [
 
 export const patientMedicalHistorySchema: FormSchema = [
   {
+    fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
+    fields: [
+      {
+        name: "heightCm",
+        label: "Height (cm, optional)",
+        type: "number",
+        placeholder: "E.g. 162",
+        helpText: "Used to work out BMI on the case sheet. Enter your height in centimetres, between 50 and 250.",
+        validate: (value) => rangeMessage(value, 50, 250, "Height", "cm"),
+      },
+      {
+        name: "weightKg",
+        label: "Weight (kg, optional)",
+        type: "number",
+        placeholder: "E.g. 71",
+        helpText: "Used to work out BMI on the case sheet. Enter your weight in kilograms, between 2 and 500.",
+        validate: (value) => rangeMessage(value, 2, 500, "Weight", "kg"),
+      },
+    ],
+  },
+  {
     fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-6",
     fields: [
       {
@@ -200,10 +221,60 @@ export const patientMedicalHistorySchema: FormSchema = [
         label: "Additional Notes",
         type: "textarea",
         placeholder: "Any other relevant medical history...",
+        helpText: "Any ongoing condition the healer should know about, such as asthma or thyroid.",
+      },
+    ],
+  },
+  {
+    fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-6 mt-6",
+    fields: [
+      {
+        name: "pastHistory",
+        maxLength: TEXT_LIMITS.historyLine,
+        label: "Past History",
+        type: "textarea",
+        rows: 3,
+        placeholder: "For example: typhoid in 2016, recovered",
+        helpText: "Times you were admitted to a hospital for an illness and recovered. One or two lines is enough. This prints under Additional Notes on the PDF.",
+      },
+      {
+        name: "surgicalHistory",
+        maxLength: TEXT_LIMITS.historyLine,
+        label: "Surgical History",
+        type: "textarea",
+        rows: 3,
+        placeholder: "For example: appendix removed, 2009",
+        helpText: "Any operations you have had, with the year. Leave empty if none.",
+      },
+      {
+        name: "familyHistory",
+        maxLength: TEXT_LIMITS.historyLine,
+        label: "Family History",
+        type: "textarea",
+        rows: 3,
+        placeholder: "For example: father has diabetes",
+        helpText: "Health conditions that run in your close family, such as diabetes, heart disease or high blood pressure.",
+      },
+      {
+        name: "psychosocialHistory",
+        maxLength: TEXT_LIMITS.historyLine,
+        label: "Psychosocial History",
+        type: "textarea",
+        rows: 3,
+        placeholder: "For example: stress at work, poor sleep",
+        helpText: "Stress, work, sleep, relationships or other life factors that affect how you feel.",
       },
     ],
   },
 ];
+
+/** Height and weight are optional; when filled they must be a number inside the range the server accepts. */
+function rangeMessage(value: unknown, min: number, max: number, what: string, unit: string): string | undefined {
+  if (value === null || value === undefined || String(value).trim() === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < min || n > max) return `${what} must be between ${min} and ${max} ${unit}`;
+  return undefined;
+}
 
 /**
  * The patient edit page: the medical history with the declaration date straight after the exercise

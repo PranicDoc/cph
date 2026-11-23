@@ -1,11 +1,14 @@
 import type { ColorCategory } from "./lib/colorCategory";
+import type { ChiefComplaintDetails } from "./lib/chiefComplaints";
 
 export interface HealingSession {
   id: string;
   patientId: string;
   healerId: string;
 
+  /** The chief complaint as one text block ("problem since 3 months" per line), kept for older readers. */
   medicalCondition?: string;
+  chiefComplaints?: ChiefComplaintDetails[];
   healingDetails?: HealingDetails;
   labFindings?: string[];
 
@@ -42,6 +45,14 @@ export interface MedicalSnapshot {
   cancerLocation: string;
   cancerDetails: string;
   additionalNotes: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bmi?: number | null;
+  bmiCategory?: string | null;
+  pastHistory?: string | null;
+  surgicalHistory?: string | null;
+  familyHistory?: string | null;
+  psychosocialHistory?: string | null;
 }
 
 interface HealingDetails {

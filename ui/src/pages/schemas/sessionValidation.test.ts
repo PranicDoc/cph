@@ -5,8 +5,11 @@ import {
   PROTOCOL_REQUIRED,
 } from "./sessionValidation";
 
+const row = (problem: string, durationValue: number | string, durationUnit: string) =>
+  ({ problem, durationValue, durationUnit }) as never;
+
 const complete = {
-  medicalCondition: "Neck pain for 5 days",
+  chiefComplaints: [row("Neck pain", 5, "DAYS")],
   healingDetails: { selectedProtocols: [{ id: "p1" }], detailedProtocol: "" },
 };
 
@@ -17,20 +20,20 @@ describe("sessionStep0Errors", () => {
 
   it("flags a whitespace-only chief complaint", () => {
     expect(
-      sessionStep0Errors({ ...complete, medicalCondition: "   " })
-    ).toEqual({ medicalCondition: CHIEF_COMPLAINT_REQUIRED });
+      sessionStep0Errors({ ...complete, chiefComplaints: [row("   ", "", "")] })
+    ).toEqual({ chiefComplaints: CHIEF_COMPLAINT_REQUIRED });
   });
 
   it("flags a missing chief complaint", () => {
     expect(sessionStep0Errors({ healingDetails: complete.healingDetails })).toEqual({
-      medicalCondition: CHIEF_COMPLAINT_REQUIRED,
+      chiefComplaints: CHIEF_COMPLAINT_REQUIRED,
     });
   });
 
   it("flags missing protocol when neither a selected protocol nor detailed text is present", () => {
     expect(
       sessionStep0Errors({
-        medicalCondition: "Neck pain",
+        chiefComplaints: [row("Neck pain", 5, "DAYS")],
         healingDetails: { selectedProtocols: [], detailedProtocol: "  " },
       })
     ).toEqual({ "healingDetails.selectedProtocols": PROTOCOL_REQUIRED });
@@ -39,7 +42,7 @@ describe("sessionStep0Errors", () => {
   it("accepts free-text detailed protocol in place of a selected protocol", () => {
     expect(
       sessionStep0Errors({
-        medicalCondition: "Neck pain",
+        chiefComplaints: [row("Neck pain", 5, "DAYS")],
         healingDetails: { selectedProtocols: [], detailedProtocol: "Custom sweep protocol" },
       })
     ).toEqual({});
@@ -47,7 +50,7 @@ describe("sessionStep0Errors", () => {
 
   it("reports both errors on a fully empty form", () => {
     expect(sessionStep0Errors({})).toEqual({
-      medicalCondition: CHIEF_COMPLAINT_REQUIRED,
+      chiefComplaints: CHIEF_COMPLAINT_REQUIRED,
       "healingDetails.selectedProtocols": PROTOCOL_REQUIRED,
     });
   });

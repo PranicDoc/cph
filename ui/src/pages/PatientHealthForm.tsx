@@ -10,9 +10,15 @@ import { DynamicFormEngine } from "../components/DynamicFormEngine";
 import { patientSessionSchema } from "./schemas/patientSessionSchema";
 import { TreatmentStep } from "../interfaces";
 import { Button } from "@/components/ui/button";
+import {
+  type ChiefComplaintRow,
+  chiefComplaintsPayload,
+  complaintRowsFromResponse,
+  emptyComplaintRow,
+} from "../lib/chiefComplaints";
 
 type PatientFormValues = {
-  medicalCondition: string;
+  chiefComplaints: ChiefComplaintRow[];
   symptoms: any[];
   medications: any[];
   basicBookPg: string;
@@ -40,7 +46,7 @@ export default function PatientHealthForm() {
 
   const form = useForm({
     defaultValues: {
-      medicalCondition: "",
+      chiefComplaints: [emptyComplaintRow()] as ChiefComplaintRow[],
       symptoms: [],
       medications: [],
       basicBookPg: "",
@@ -59,9 +65,10 @@ export default function PatientHealthForm() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, medications, ...rest } = value;
+        const { labFindings, medications, chiefComplaints, ...rest } = value;
         const payload = {
           ...rest,
+          chiefComplaints: chiefComplaintsPayload(chiefComplaints),
           // Omit the key entirely when the patient added no medications, rather than
           // sending medications: []. CaseService.updateCaseDetails treats a null/absent
           // medications field as "don't touch" and an explicit [] as "clear existing" —
@@ -99,7 +106,7 @@ export default function PatientHealthForm() {
         setCaseStatus(data.status);
 
         const values: PatientFormValues = {
-          medicalCondition: data.medicalCondition || "",
+          chiefComplaints: complaintRowsFromResponse(data.chiefComplaints),
           symptoms: data.symptoms || [],
           medications: data.medications || [],
           basicBookPg: data.basicBookPg || "",

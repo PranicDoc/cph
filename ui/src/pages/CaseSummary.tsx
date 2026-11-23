@@ -4,7 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowLeft, BookText, User, Stethoscope, Pill, Activity, CheckCircle2, XCircle, Download } from "lucide-react";
 import api from "../lib/axios";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import {
+  BmiValue,
+  ChiefComplaintsView,
+  HistoriesView,
+  PresentingIllnessView,
+} from "../components/caseSheet/CaseSheetViews";
+import { heightWeightText, type ChiefComplaintDetails } from "../lib/chiefComplaints";
 import { Skeleton } from "../components/ui/skeleton";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -97,6 +104,15 @@ export interface CaseMedicalSnapshot {
   cancerLocation?: string;
   cancerDetails?: string;
   additionalNotes?: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  /** Worked out by the server from height and weight; null when either is missing. */
+  bmi?: number | null;
+  bmiCategory?: string | null;
+  pastHistory?: string | null;
+  surgicalHistory?: string | null;
+  familyHistory?: string | null;
+  psychosocialHistory?: string | null;
 }
 
 export interface CaseSummaryData {
@@ -109,6 +125,7 @@ export interface CaseSummaryData {
   occupation?: string;
   caseId: string;
   medicalCondition?: string;
+  chiefComplaints?: ChiefComplaintDetails[];
   labFindings?: string[];
   complementaryTreatments?: boolean;
   complementaryDetails?: string;
@@ -166,7 +183,7 @@ function SectionHeading({ icon, label }: { icon: React.ReactNode; label: string 
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="hl-sumrow flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border last:border-0">
       <span className="text-xs font-medium text-text-light w-40 shrink-0">{label}</span>
@@ -547,7 +564,8 @@ export default function CaseSummary() {
 
         <div className="bg-card border border-border rounded-xl p-4">
           <SectionHeading icon={<Stethoscope className="w-4 h-4" />} label="Case Details" />
-          <InfoRow label="Medical Condition" value={fmt(data.medicalCondition)} />
+          <InfoRow label="Chief Complaints" value={<ChiefComplaintsView complaints={data.chiefComplaints} />} />
+          <InfoRow label="Presenting Illness" value={<PresentingIllnessView complaints={data.chiefComplaints} />} />
           {data.labFindings && data.labFindings.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4 py-1.5 border-b border-border">
               <span className="text-xs font-medium text-text-light w-40 shrink-0">Lab Findings</span>
@@ -576,6 +594,8 @@ export default function CaseSummary() {
           <SectionHeading icon={<Activity className="w-4 h-4" />} label="Medical History (at case start)" />
           <div className="grid sm:grid-cols-2 gap-x-8">
             <InfoRow label="General Health" value={fmt(data.medicalSnapshot.generalHealth)} />
+            <InfoRow label="Height, Weight" value={heightWeightText(data.medicalSnapshot.heightCm, data.medicalSnapshot.weightKg)} />
+            <InfoRow label="BMI" value={<BmiValue bmi={data.medicalSnapshot.bmi} category={data.medicalSnapshot.bmiCategory} />} />
             <InfoRow label="Diet" value={fmt(data.medicalSnapshot.diet)} />
             <InfoRow
               label="Exercise"
@@ -603,6 +623,9 @@ export default function CaseSummary() {
                 <InfoRow label="Additional Notes" value={data.medicalSnapshot.additionalNotes} />
               </div>
             )}
+            <div className="sm:col-span-2">
+              <InfoRow label="Histories" value={<HistoriesView snapshot={data.medicalSnapshot} />} />
+            </div>
           </div>
         </div>
       )}

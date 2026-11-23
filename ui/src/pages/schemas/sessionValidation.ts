@@ -9,19 +9,31 @@
  * page later, so both are required before a session can start.
  */
 
+import {
+  type ChiefComplaintRow,
+  CHIEF_COMPLAINT_REQUIRED,
+  chiefComplaintsError,
+} from "../../lib/chiefComplaints";
+
+export { CHIEF_COMPLAINT_REQUIRED };
+
 export type SessionStep0Values = {
-  medicalCondition?: string | null;
+  chiefComplaints?: ChiefComplaintRow[] | null;
   healingDetails?: {
     selectedProtocols?: unknown[] | null;
     detailedProtocol?: string | null;
   } | null;
 };
 
-export const CHIEF_COMPLAINT_REQUIRED = "Chief complaint is required";
 export const PROTOCOL_REQUIRED = "Select at least one protocol";
 
+/** The message for the chief complaint table, or undefined when every problem has its duration and period. */
+export function chiefComplaintMessage(values: SessionStep0Values): string | undefined {
+  return chiefComplaintsError(values.chiefComplaints);
+}
+
 export function hasChiefComplaint(values: SessionStep0Values): boolean {
-  return (values.medicalCondition ?? "").trim().length > 0;
+  return chiefComplaintMessage(values) === undefined;
 }
 
 export function hasProtocol(values: SessionStep0Values): boolean {
@@ -41,8 +53,9 @@ export function sessionStep0Errors(
   values: SessionStep0Values
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (!hasChiefComplaint(values)) {
-    errors.medicalCondition = CHIEF_COMPLAINT_REQUIRED;
+  const complaintError = chiefComplaintMessage(values);
+  if (complaintError) {
+    errors.chiefComplaints = complaintError;
   }
   if (!hasProtocol(values)) {
     errors["healingDetails.selectedProtocols"] = PROTOCOL_REQUIRED;

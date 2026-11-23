@@ -31,6 +31,13 @@ import {
 } from "../components/ui/accordion";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import {
+  type ChiefComplaintRow,
+  chiefComplaintsPayload,
+  complaintRowsFromResponse,
+  emptyComplaintRow,
+} from "../lib/chiefComplaints";
+import { ChiefComplaintsView, PresentingIllnessView } from "../components/caseSheet/CaseSheetViews";
 import type { ColumnDef } from "@tanstack/react-table";
 
 const ProtocolStrip = lazy(() => import("../ui-new/session/ProtocolStrip"));
@@ -56,7 +63,7 @@ const BOOK_FIELD_MAP: Record<string, "basicBookPg" | "advancedBookPg" | "psychot
 const bookToField = (book: string) => BOOK_FIELD_MAP[book] ?? "basicBookPg";
 
 type SessionFormValues = {
-  medicalCondition: string;
+  chiefComplaints: ChiefComplaintRow[];
   symptoms: string[];
   medications: string[];
   labFindings: (File | string)[];
@@ -106,7 +113,7 @@ export default function Session() {
 
   // Snapshot of the last‑fetched form values (used by Cancel)
   const initialFormValuesRef = useRef<SessionFormValues>({
-    medicalCondition: "",
+    chiefComplaints: [emptyComplaintRow()],
     symptoms: [],
     medications: [],
     labFindings: [] as (File | string)[],
@@ -123,7 +130,7 @@ export default function Session() {
 
   const sessionForm = useForm({
     defaultValues: {
-      medicalCondition: "",
+      chiefComplaints: [emptyComplaintRow()] as ChiefComplaintRow[],
       symptoms: [] as string[],
       medications: [] as string[],
       labFindings: [] as (File | string)[],
@@ -140,7 +147,7 @@ export default function Session() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, healingDetails, medications, ...rest } = value;
+        const { labFindings, healingDetails, medications, chiefComplaints, ...rest } = value;
         const { selectedProtocols, ...restHealingDetails } = healingDetails;
         const files = labFindings.filter((f): f is File => f instanceof File);
         const existingKeys = labFindings.filter(
@@ -163,6 +170,7 @@ export default function Session() {
 
         const payload = {
           ...rest,
+          chiefComplaints: chiefComplaintsPayload(chiefComplaints),
           medications: filteredMedications,
           healingDetails: { ...restHealingDetails, protocolName },
           basicBookPg: buckets.basicBookPg.join(","),
@@ -196,7 +204,7 @@ export default function Session() {
   });
 
   const mapResponseToFormValues = (data: any): SessionFormValues => ({
-    medicalCondition: data.medicalCondition || "",
+    chiefComplaints: complaintRowsFromResponse(data.chiefComplaints),
     symptoms: data.symptoms || [],
     medications: data.medications || [],
     labFindings: data.labFindings || [],
@@ -228,7 +236,7 @@ export default function Session() {
         stepEditModeRef.current[0] = initialEdit;
 
         const resetValues: SessionFormValues = {
-          medicalCondition: data.medicalCondition || "",
+          chiefComplaints: complaintRowsFromResponse(data.chiefComplaints),
           symptoms: data.symptoms || [],
           medications: data.medications || [],
           labFindings: data?.labFindings || [],
@@ -508,8 +516,12 @@ export default function Session() {
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldDisplay
               label="Chief Complaint"
-              value={sessionData.medicalCondition}
+              value={<ChiefComplaintsView complaints={sessionData.chiefComplaints} />}
             />
+            <div className="space-y-1 sm:col-span-2">
+              <dt className="text-sm font-medium text-muted-foreground">Presenting Illness</dt>
+              <dd><PresentingIllnessView complaints={sessionData.chiefComplaints} /></dd>
+            </div>
             <FieldDisplay
               label="Symptoms"
               value={sessionData.symptoms

@@ -39,6 +39,7 @@ const draftCase = {
   patientId: "patient-1",
   status: "DRAFT",
   medicalCondition: "",
+  chiefComplaints: [],
   symptoms: [],
   medications: [],
   labFindings: [],
@@ -80,18 +81,20 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     await waitFor(() => {
       expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
     });
-    // Chief Complaint (a `required` field) shows its own error too.
-    expect(screen.getByText(/^required$/i)).toBeInTheDocument();
+    // The chief complaint table shows its own error too.
+    expect(screen.getAllByText(/chief complaint is required/i).length).toBeGreaterThan(0);
     expect(api.patch).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("still blocks when only the chief complaint is filled (protocol missing)", async () => {
     const user = userEvent.setup();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { ...draftCase, chiefComplaints: [{ id: "cc-1", problem: "Neck pain", durationValue: 5, durationUnit: "DAYS" }] },
+    });
     renderSession();
 
-    const chiefComplaint = await screen.findByPlaceholderText(/stomachache for 4 days/i);
-    await user.type(chiefComplaint, "Neck pain for 5 days");
+    expect(await screen.findByDisplayValue("Neck pain")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
@@ -111,7 +114,7 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     (api.get as any).mockResolvedValue({
       data: {
         ...draftCase,
-        medicalCondition: "Neck pain for 5 days",
+        chiefComplaints: [{ id: "cc-1", problem: "Neck pain", durationValue: 5, durationUnit: "DAYS" }],
         healingDetails: { protocolName: "Headache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
       },
     });
@@ -126,7 +129,7 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     (api.get as any).mockResolvedValue({
       data: {
         ...draftCase,
-        medicalCondition: "Toothache",
+        chiefComplaints: [{ id: "cc-1", problem: "Toothache", durationValue: 2, durationUnit: "DAYS" }],
         healingDetails: { protocolName: "Toothache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
       },
     });
