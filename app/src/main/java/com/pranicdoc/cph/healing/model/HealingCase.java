@@ -93,6 +93,14 @@ public class HealingCase extends TenantEntity {
     @JsonManagedReference
     private List<CaseSymptom> symptoms = new ArrayList<>();
 
+    /** The problems of the chief complaint, in the order entered; see ChiefComplaintRules. */
+    @OneToMany(mappedBy = "healingCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @jakarta.persistence.OrderBy("sortOrder ASC")
+    @Builder.Default
+    @JsonManagedReference
+    @Setter(AccessLevel.NONE)
+    private List<CaseChiefComplaint> chiefComplaints = new ArrayList<>();
+
     @OneToMany(mappedBy = "healingCase", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @JsonManagedReference

@@ -266,7 +266,9 @@ class DismissalWritePathsTest {
     }
 
     private CaseUpdateRequest caseUpdate() {
-        return new CaseUpdateRequest(healingCase.getId(), "Migraine and stress",
+        return new CaseUpdateRequest(healingCase.getId(),
+                List.of(new com.pranicdoc.cph.healing.dto.ChiefComplaintRequest(null, "Migraine and stress", 2,
+                        com.pranicdoc.cph.common.enums.DurationUnit.MONTHS, null)),
                 List.of(new SymptomRequest("Headache", null, null)),
                 new HealingDetailsRequest("General sweeping", "Basic", "Sweep the head", List.of()),
                 null, null, null, null, null, null, false, null, false, null, List.of(), null);

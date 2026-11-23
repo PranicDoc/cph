@@ -3,6 +3,7 @@ package com.pranicdoc.cph.patient.service;
 import com.pranicdoc.cph.common.util.TransactionService;
 import com.pranicdoc.cph.healing.repository.CaseClosureRepository;
 import com.pranicdoc.cph.healing.repository.CaseMedicalSnapshotRepository;
+import com.pranicdoc.cph.healing.repository.CaseChiefComplaintRepository;
 import com.pranicdoc.cph.healing.repository.CaseMedicationRepository;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.healing.repository.CaseSymptomRepository;
@@ -61,7 +62,7 @@ public class RecordPurger {
      */
     public static final List<String> PURGED_TABLES = List.of(
             "patient", "patient_medical_history", "healing_case", "case_closure", "case_medical_snapshot",
-            "case_medication", "case_symptom", "declaration", "feedback_link", "healer_protocol_understanding",
+            "case_medication", "case_chief_complaint", "case_symptom", "declaration", "feedback_link", "healer_protocol_understanding",
             "healing_details", "treatment_step", "treatment_step_targets", "healing_session", "chakra_scan",
             "chakra_reading", "protocol_entry", "protocol_color", "qualitative_feedback", "symptom_feedback",
             "pdf_job", "review_submission", "review_revision", "review_comment");
@@ -72,6 +73,7 @@ public class RecordPurger {
     private final CaseClosureRepository closures;
     private final CaseMedicalSnapshotRepository snapshots;
     private final CaseMedicationRepository medications;
+    private final CaseChiefComplaintRepository chiefComplaints;
     private final CaseSymptomRepository caseSymptoms;
     private final DeclarationRepository declarations;
     private final FeedbackLinkRepository feedbackLinks;
@@ -98,7 +100,7 @@ public class RecordPurger {
     public RecordPurger(PatientRepository patients, PatientMedicalHistoryRepository medicalHistories,
                         CaseRepository cases, CaseClosureRepository closures,
                         CaseMedicalSnapshotRepository snapshots, CaseMedicationRepository medications,
-                        CaseSymptomRepository caseSymptoms, DeclarationRepository declarations,
+                        CaseChiefComplaintRepository chiefComplaints, CaseSymptomRepository caseSymptoms, DeclarationRepository declarations,
                         FeedbackLinkRepository feedbackLinks, HealerProtocolUnderstandingRepository understandings,
                         HealingDetailsRepository healingDetails, TreatmentStepRepository treatmentSteps,
                         SessionRepository sessions, ChakraScanRepository scans, ChakraReadingRepository readings,
@@ -114,6 +116,7 @@ public class RecordPurger {
         this.closures = closures;
         this.snapshots = snapshots;
         this.medications = medications;
+        this.chiefComplaints = chiefComplaints;
         this.caseSymptoms = caseSymptoms;
         this.declarations = declarations;
         this.feedbackLinks = feedbackLinks;
@@ -185,6 +188,8 @@ public class RecordPurger {
         snapshots.eraseByCaseIds(caseIds);
         medications.eraseAuditByCaseIds(caseIds);
         medications.eraseByCaseIds(caseIds);
+        chiefComplaints.eraseAuditByCaseIds(caseIds);
+        chiefComplaints.eraseByCaseIds(caseIds);
         List<UUID> symptomIds = caseSymptoms.findIdsByCaseIds(caseIds);
         if (!symptomIds.isEmpty()) {
             symptomFeedback.eraseAuditByCaseSymptomIds(symptomIds);

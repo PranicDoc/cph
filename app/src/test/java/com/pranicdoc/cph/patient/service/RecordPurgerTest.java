@@ -70,7 +70,8 @@ class RecordPurgerTest {
     private RecordPurger purgerWith(Executor executor) {
         return new RecordPurger(patients, mock(PatientMedicalHistoryRepository.class), cases,
                 mock(CaseClosureRepository.class), mock(CaseMedicalSnapshotRepository.class),
-                mock(CaseMedicationRepository.class), mock(CaseSymptomRepository.class),
+                mock(CaseMedicationRepository.class), mock(com.pranicdoc.cph.healing.repository.CaseChiefComplaintRepository.class),
+                mock(CaseSymptomRepository.class),
                 mock(DeclarationRepository.class), mock(FeedbackLinkRepository.class),
                 mock(HealerProtocolUnderstandingRepository.class), mock(HealingDetailsRepository.class),
                 mock(TreatmentStepRepository.class), sessions, mock(ChakraScanRepository.class),

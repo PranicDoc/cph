@@ -80,7 +80,7 @@ class RecordPurgerFullPlanIntegrationTest {
         UUID details = seed("healing_details", "healing_case_id", caseId);
         UUID step = seed("treatment_step", "healing_details_id", details);
         seedValueRow("treatment_step_targets", "treatment_step_id", step);
-        for (String t : List.of("case_closure", "case_medical_snapshot", "case_medication", "declaration",
+        for (String t : List.of("case_closure", "case_medical_snapshot", "case_medication", "case_chief_complaint", "declaration",
                 "healer_protocol_understanding")) {
             seed(t, "healing_case_id", caseId);
         }
