@@ -63,7 +63,7 @@ public class ReviewEventPublisher {
      * state the action just wrote; the notifier queues its delivery for after the same commit.
      */
     public void publish(ReviewEvent event) {
-        if (!flags.caseReviewEnabled()) {
+        if (!flags.caseReviewEnabledFor(event.healerId())) {
             return;
         }
         notifyByEmail(event);
@@ -88,7 +88,7 @@ public class ReviewEventPublisher {
      * has no transaction to wait for, so it goes out at once. No email. Same Redis fan-out as review events.
      */
     public void publishPdfReady(PdfReadyEvent event) {
-        if (!flags.caseReviewEnabled()) {
+        if (!flags.caseReviewEnabledFor(event.healerId())) {
             return;
         }
         send(event);

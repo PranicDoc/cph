@@ -16,7 +16,6 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,7 +35,7 @@ class InternalPdfJobControllerTest {
     private final FeatureFlags flags = mock(FeatureFlags.class);
 
     {
-        when(flags.caseReviewEnabled()).thenReturn(true);
+        when(flags.caseReviewEnabledFor(HEALER_ID)).thenReturn(true);
     }
 
     private MockMvc mvcWithKey(String configuredKey) {
@@ -70,7 +69,7 @@ class InternalPdfJobControllerTest {
     }
 
     @Test
-    void validKey_204_publishesPdfReady_andRunsAutoSubmit() throws Exception {
+    void completedPublishesAndAutoSubmitsForAnEnabledHealer() throws Exception {
         when(jobCases.resolve("job-1")).thenReturn(Optional.of(new PdfJobCaseResolver.JobCase(CASE_ID, HEALER_ID)));
 
         mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret")).andExpect(status().isNoContent());
@@ -80,14 +79,13 @@ class InternalPdfJobControllerTest {
     }
 
     @Test
-    void unknownJob_204_publishesNothing() throws Exception {
+    void completedIsANoOpForAnUnknownJob() throws Exception {
         when(jobCases.resolve("ghost")).thenReturn(Optional.empty());
 
         mvc().perform(post("/api/v1/internal/pdf-jobs/ghost/completed").header(InternalApiKeyFilter.HEADER, "s3cret"))
                 .andExpect(status().isNoContent());
 
-        verify(events, never()).publishPdfReady(any());
-        verify(autoSubmit).onPdfCompleted("ghost");
+        verifyNoInteractions(events, autoSubmit);
     }
 
     @Test
@@ -102,17 +100,19 @@ class InternalPdfJobControllerTest {
 
     @Test
     void autoSubmitThrows_still204() throws Exception {
+        when(jobCases.resolve("job-1")).thenReturn(Optional.of(new PdfJobCaseResolver.JobCase(CASE_ID, HEALER_ID)));
         doThrow(new IllegalStateException("boom")).when(autoSubmit).onPdfCompleted("job-1");
 
         mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret")).andExpect(status().isNoContent());
     }
 
     @Test
-    void completedIsANoOpWhenOff() throws Exception {
-        when(flags.caseReviewEnabled()).thenReturn(false);
+    void completedIsANoOpForAHealerNotOnTheList() throws Exception {
+        when(jobCases.resolve("job-1")).thenReturn(Optional.of(new PdfJobCaseResolver.JobCase(CASE_ID, HEALER_ID)));
+        when(flags.caseReviewEnabledFor(HEALER_ID)).thenReturn(false);
 
         mvc().perform(post(PATH).header(InternalApiKeyFilter.HEADER, "s3cret")).andExpect(status().isNoContent());
 
-        verifyNoInteractions(jobCases, autoSubmit, events);
+        verifyNoInteractions(events, autoSubmit);
     }
 }
