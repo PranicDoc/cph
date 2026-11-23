@@ -21,9 +21,11 @@ class CaseReviewGateCoverageTest {
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
 
+        List<String> found = new ArrayList<>();
         List<String> ungated = new ArrayList<>();
         for (BeanDefinition bd : scanner.findCandidateComponents("com.pranicdoc.cph.review")) {
             Class<?> type = Class.forName(bd.getBeanClassName());
+            found.add(type.getSimpleName());
             // InternalPdfJobController answers 204 itself instead of 404 (it is not user-facing).
             if (type == InternalPdfJobController.class) {
                 continue;
@@ -32,6 +34,7 @@ class CaseReviewGateCoverageTest {
                 ungated.add(type.getSimpleName());
             }
         }
+        assertThat(found).as("the scan must find review controllers").isNotEmpty();
         assertThat(ungated).as("review controllers missing @RequiresCaseReview").isEmpty();
     }
 

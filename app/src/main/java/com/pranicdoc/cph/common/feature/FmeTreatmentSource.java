@@ -7,7 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.context.annotation.Condition;
+import org.springframework.context.annotation.ConditionContext;
+import org.springframework.context.annotation.Conditional;
+import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeoutException;
@@ -21,8 +25,16 @@ import java.util.function.IntFunction;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("!'${features.fme.sdk-key:}'.isBlank()")
+@Conditional(FmeTreatmentSource.SdkKeyPresent.class)
 public class FmeTreatmentSource implements TreatmentSource, DisposableBean {
+
+    /** Matches only when a non-blank SDK key is configured; the key is read, never spliced into an expression. */
+    static class SdkKeyPresent implements Condition {
+        @Override
+        public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+            return StringUtils.hasText(context.getEnvironment().getProperty("features.fme.sdk-key"));
+        }
+    }
 
     private static final long DEFAULT_READY_TIMEOUT_MS = 3000;
 
@@ -52,8 +64,8 @@ public class FmeTreatmentSource implements TreatmentSource, DisposableBean {
             Thread.currentThread().interrupt();
             log.warn("Interrupted waiting for Harness FME SDK; flags serve off until it is ready");
         } catch (Exception e) {
-            log.warn("Harness FME SDK unavailable, flags serve off: {}: {}", e.getClass().getSimpleName(),
-                    e.getMessage());
+            // Class name only: an SDK exception message could echo the key or endpoint.
+            log.warn("Harness FME client unavailable, serving control ({})", e.getClass().getSimpleName());
         }
         this.client = built;
     }

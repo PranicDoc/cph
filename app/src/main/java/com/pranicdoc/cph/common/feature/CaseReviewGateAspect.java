@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Answers 404 for {@link RequiresCaseReview} endpoints while the case-review flag is off.
- * Lowest precedence so method security ({@code @PreAuthorize}) runs first: an unauthorized
- * caller still gets 401/403 rather than learning the feature exists via 404.
+ * Lowest precedence, so it runs after method security ({@code @PreAuthorize}) and after request
+ * binding and validation. Consequences: an unauthorized caller sees 403 (the route's existence is
+ * not hidden from authenticated users), and a malformed body can return 400 even while the flag is
+ * off. Only the route's existence leaks; no review data is reachable.
  */
 @Aspect
 @Component

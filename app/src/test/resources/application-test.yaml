@@ -108,5 +108,7 @@ storage:
   presigned-expiry-minutes: 10
 
 features:
+  fme:
+    sdk-key: ""
   case-review:
     default: false
