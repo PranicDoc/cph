@@ -130,4 +130,33 @@ class ChiefComplaintRulesTest {
         assertTrue(legacy.isLegacy());
         assertFalse(a.isLegacy());
     }
+    @Test
+    void aRepeatedIdNeverMergesTwoProblemsIntoOne() {
+        HealingCase c = HealingCase.builder().build();
+        CaseChiefComplaint saved = new CaseChiefComplaint();
+        saved.setId(UUID.randomUUID());
+        c.getChiefComplaints().add(saved);
+
+        ChiefComplaintRules.apply(c, List.of(
+                new ChiefComplaintRequest(saved.getId(), "Headache", 3, DurationUnit.MONTHS, null),
+                new ChiefComplaintRequest(saved.getId(), "Knee pain", 2, DurationUnit.DAYS, null)));
+
+        assertEquals(List.of("Headache", "Knee pain"),
+                c.getChiefComplaints().stream().map(CaseChiefComplaint::getProblem).toList());
+    }
+
+    @Test
+    void theRowsReadBackInTheOrderTheyWereSent() {
+        HealingCase c = HealingCase.builder().build();
+        CaseChiefComplaint saved = new CaseChiefComplaint();
+        saved.setId(UUID.randomUUID());
+        c.getChiefComplaints().add(saved);
+
+        ChiefComplaintRules.apply(c, List.of(
+                row("Knee pain", 2, DurationUnit.DAYS),
+                new ChiefComplaintRequest(saved.getId(), "Headache", 3, DurationUnit.MONTHS, null)));
+
+        assertEquals("Knee pain since 2 days\nHeadache since 3 months",
+                ChiefComplaintRules.summary(c.getChiefComplaints()));
+    }
 }

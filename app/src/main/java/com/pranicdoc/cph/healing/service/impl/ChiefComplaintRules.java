@@ -49,7 +49,8 @@ final class ChiefComplaintRules {
         int order = 0;
         for (ChiefComplaintRequest request : rows) {
             CaseChiefComplaint row = request.id() == null ? null : findById(existing, request.id());
-            if (row == null) {
+            // A repeated id is a new row: two problems must never be written onto one.
+            if (row == null || result.contains(row)) {
                 row = new CaseChiefComplaint();
                 row.setHealingCase(healingCase);
             }
@@ -64,6 +65,8 @@ final class ChiefComplaintRules {
         for (CaseChiefComplaint row : result) {
             if (!existing.contains(row)) existing.add(row);
         }
+        // The list in memory answers this request, so it must read in the order sent, not the order loaded.
+        existing.sort(java.util.Comparator.comparingInt(CaseChiefComplaint::getSortOrder));
     }
 
     /** The text shown where the complaint is one block: one "problem since N unit" line per row. */
