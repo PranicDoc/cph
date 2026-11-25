@@ -115,12 +115,17 @@ export default function ReviewerAssignmentsPage() {
           key={target.id}
           healer={target}
           candidates={eligible.data ?? []}
-          currentReviewerId={reviewerByHealer.get(target.id)?.reviewerId}
+          currentReviewerId={reviewerByHealer.get(target.id)?.reviewerId ?? undefined}
           currentUserId={user?.id}
           pending={assign.isPending}
-          onAssign={(reviewerId) =>
-            assign.mutate({ healerId: target.id, reviewerId }, { onSuccess: () => setTarget(null) })
-          }
+          onAssign={(reviewerId) => {
+            const healerId = target.id;
+            // A late success must not close a picker opened since for another healer.
+            assign.mutate(
+              { healerId, reviewerId },
+              { onSuccess: () => setTarget((t) => (t?.id === healerId ? null : t)) }
+            );
+          }}
           onClose={() => setTarget(null)}
         />
       )}

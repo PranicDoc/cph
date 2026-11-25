@@ -23,6 +23,10 @@ interface AssignReviewerDialogProps {
   candidates: HealerOption[];
   currentReviewerId?: string;
   currentUserId?: string;
+  /** True while the accounts are still on their way. */
+  loading?: boolean;
+  /** What else this assignment changes, when the opening screen needs to say so. */
+  note?: string;
   pending: boolean;
   onAssign: (reviewerId: string) => void;
   onClose: () => void;
@@ -47,8 +51,10 @@ function CandidatePill({ candidate }: { candidate: HealerOption }) {
  * Mount it only while it is open: search and selection start fresh each time.
  */
 export function AssignReviewerDialog({
-  healer, candidates, currentReviewerId, currentUserId, pending, onAssign, onClose,
+  healer, candidates, currentReviewerId, currentUserId, loading, note, pending, onAssign, onClose,
 }: AssignReviewerDialogProps) {
+  // Whatever had focus before the dialog took it. There is no Dialog trigger for Radix to return to.
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(currentReviewerId);
 
@@ -61,7 +67,13 @@ export function AssignReviewerDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-3.5 sm:max-w-[560px]">
+      <DialogContent
+        className="flex max-h-[90dvh] flex-col gap-3.5 sm:max-w-[560px]"
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          opener?.focus();
+        }}
+      >
         <DialogHeader className="pr-8">
           <DialogTitle className="text-xl font-semibold leading-tight">
             Assign a reviewer for {healer.fullName}
@@ -118,15 +130,22 @@ export function AssignReviewerDialog({
               </span>
             </label>
           ))}
-          {shown.length === 0 && <p className="p-3.5 text-text-light">No accounts match your search.</p>}
+          {shown.length === 0 && (
+            <p className="p-3.5 text-text-light">
+              {loading ? "Loading accounts…" : "No accounts match your search."}
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-[13px] leading-snug text-text">
           <Info className="mt-0.5 size-[18px] shrink-0" aria-hidden="true" />
-          <p>
-            Someone without the Review permission will see the Reviews screen for the healers
-            assigned to them, and nothing else.
-          </p>
+          <div className="space-y-1">
+            {note && <p className="font-semibold">{note}</p>}
+            <p>
+              Someone without the Review permission will see the Reviews screen for the healers
+              assigned to them, and nothing else.
+            </p>
+          </div>
         </div>
 
         <DialogFooter>

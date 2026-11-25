@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ReviewerAssignmentsPage from "./ReviewerAssignmentsPage";
@@ -255,5 +255,37 @@ describe("Reviewer Links nav item", () => {
     const supadm = { caseReviewEnabled: true, grants: { CREDIT_ACCOUNTS: ["READ", "ADMIN"] } };
     expect(visibleNavItems(ordinary, adminNavItems).some((i) => i.path === path)).toBe(false);
     expect(visibleNavItems(supadm, adminNavItems).some((i) => i.path === path)).toBe(true);
+  });
+});
+
+describe("Reviewer picker focus and late results", () => {
+  it("returns focus to the button that opened it", async () => {
+    stubApi([]);
+    const user = userEvent.setup();
+    renderPage();
+    const opener = await screen.findByRole("button", { name: "Assign a reviewer for Asha" });
+    await user.click(opener);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("stays open for another healer when an earlier assignment succeeds late", async () => {
+    stubApi([]);
+    let finish!: (value: unknown) => void;
+    mPut.mockReturnValue(new Promise((resolve) => (finish = resolve)) as never);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Assign a reviewer for Asha" }));
+    let dialog = within(await screen.findByRole("dialog"));
+    await user.click(dialog.getByRole("radio", { name: /Ravi/ }));
+    await user.click(dialog.getByRole("button", { name: "Assign Ravi" }));
+    await user.click(dialog.getByRole("button", { name: "Cancel" }));
+
+    await user.click(screen.getByRole("button", { name: "Assign a reviewer for Ravi" }));
+    await act(async () => finish({ data: { healerName: "Asha", reviewerName: "Ravi" } }));
+
+    dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Assign a reviewer for Ravi")).toBeInTheDocument();
+    expect(dialog.queryByText("This reassigns all of this healer's open reviews.")).not.toBeInTheDocument();
   });
 });
