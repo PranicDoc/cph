@@ -11,6 +11,9 @@ import api from "../lib/axios";
 import { useUiVersion } from "../ui-version";
 import { saveAndViewFile } from "../lib/saveAndViewFile";
 import { useEventStream } from "../hooks/useEventStream";
+import { useCaseReviewStatuses } from "../hooks/useCaseReviewStatuses";
+import { ReviewStatusBadge } from "./reviews/ReviewStatusBadge";
+import { SubmitForReviewButton } from "./reviews/SubmitForReviewButton";
 
 type PDFJob = ComputedPatient & {
   healingCaseId: string;
@@ -205,6 +208,10 @@ export function PdfList() {
     }
   };
 
+  // Empty (and nothing is asked for) while case review is off.
+  const caseIds = useMemo(() => pdfJobs.map((job) => job.healingCaseId), [pdfJobs]);
+  const { data: reviewStatuses } = useCaseReviewStatuses(caseIds, { scope: "pdf-list" });
+
   // --- Table Configuration ---
 
   const columnHelper = createColumnHelper<PDFJob>();
@@ -229,11 +236,14 @@ export function PdfList() {
     }),
     columnHelper.display({
       id: "actions",
-      header: () => <div className="text-right">Download PDF</div>,
+      header: () => <div className="text-right">{reviewStatuses ? "Actions" : "Download PDF"}</div>,
       cell: (info) => {
         const record = info.row.original;
+        const review = reviewStatuses?.[record.healingCaseId];
         return (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {review && <ReviewStatusBadge status={review.status} />}
+            {review?.eligible && <SubmitForReviewButton caseId={record.healingCaseId} status={review.status} />}
             <Button onClick={() => handleDownloadPdf(record)}>
               <Download className="w-4 h-4" />
               Download

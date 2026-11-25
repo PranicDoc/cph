@@ -52,7 +52,6 @@ import {
 } from "@/components/ui/select";
 import { ClosurePopup } from "./Closure";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { SubmitForReviewButton } from "./reviews/SubmitForReviewButton";
 import { ReviewStatusBadge } from "./reviews/ReviewStatusBadge";
 import { useCaseReviewStatuses } from "../hooks/useCaseReviewStatuses";
 import { UpgradeModal } from "../components/UpgradeModal";
@@ -360,9 +359,6 @@ export default function Patients() {
       <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-2">
         {review && (review.eligible || !review.status.startsWith("NOT_SUBMITTED")) && (
           <ReviewStatusBadge status={review.status} />
-        )}
-        {review?.eligible && (
-          <SubmitForReviewButton caseId={patient.healingCaseId} status={review.status} />
         )}
         <DropdownMenu
           open={openMenu === `${variant}:${patient.id}`}

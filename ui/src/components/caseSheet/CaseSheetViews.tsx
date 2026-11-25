@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { InfoTip } from "@/components/InfoTip";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { type ChiefComplaintDetails, complaintLine, formatDuration } from "@/lib/chiefComplaints";
 
 const TAG_TONE: Record<string, string> = {
@@ -54,19 +57,51 @@ export function ChiefComplaintsView({ complaints }: { complaints?: ChiefComplain
 const hasDetails = (c: ChiefComplaintDetails) =>
   !!(c.onset || c.location || c.characterText || c.aggravatingFactor || c.relievingFactor || c.timing || c.timingPattern);
 
-/** The presenting-illness answers, one block per problem; problems with no answers say so. */
+/**
+ * A "Click to view" link, like lab findings and medications, that opens the presenting-illness answers.
+ * With nothing answered there is no link.
+ */
 export function PresentingIllnessView({ complaints }: { complaints?: ChiefComplaintDetails[] | null }) {
+  const [open, setOpen] = useState(false);
   const list = (complaints ?? []).filter((c) => c.problem);
-  if (list.length === 0) return <span>—</span>;
+  if (!list.some(hasDetails)) return <span>—</span>;
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <>
+      <Button
+        type="button"
+        variant="link"
+        onClick={() => setOpen(true)}
+        className="h-auto p-0 text-sm font-normal underline underline-offset-2 decoration-primary/40 hover:decoration-primary"
+      >
+        Click to view
+      </Button>
+      {open && (
+        <Dialog open onOpenChange={(next) => !next && setOpen(false)}>
+          <DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+            <div className="border-b border-border px-5 py-4">
+              <DialogTitle className="text-sm font-semibold text-text-dark">Presenting illness</DialogTitle>
+            </div>
+            <div className="overflow-y-auto px-5 py-4">
+              <PresentingIllnessBlocks list={list} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+/** One block per problem; a problem with no answers says so. */
+function PresentingIllnessBlocks({ list }: { list: ChiefComplaintDetails[] }) {
+  return (
+    <div className="space-y-3">
       {list.map((c, i) => {
         const duration = formatDuration(c.durationValue, c.durationUnit);
         const timing = c.timing === "PATTERN" && c.timingPattern ? `Pattern: ${c.timingPattern}` : sentence(c.timing);
         const rows: [string, string | null | undefined][] = [
           ["Onset", sentence(c.onset)],
           ["Location", c.location],
-          ["Character", c.characterText],
+          ["Feels like", c.characterText],
           ["Worse with", c.aggravatingFactor],
           ["Better with", c.relievingFactor],
           ["Timing", timing],

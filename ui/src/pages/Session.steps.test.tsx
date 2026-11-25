@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Session from "./Session";
 import api from "../lib/axios";
 
+const navigate = vi.hoisted(() => vi.fn());
 vi.mock("../hooks/useCaseReviewEnabled", () => ({ useCaseReviewEnabled: () => true }));
 vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), patch: vi.fn(), post: vi.fn() },
@@ -14,7 +15,7 @@ vi.mock("../lib/axios", () => ({
 
 vi.mock("react-router-dom", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-router-dom")>();
-  return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ healingCaseId: "case-1" }) };
+  return { ...actual, useNavigate: () => navigate, useParams: () => ({ healingCaseId: "case-1" }) };
 });
 
 vi.mock("../context/PatientContext", () => ({
@@ -78,6 +79,17 @@ describe("Session: the case details are three steps", () => {
     await user.click(button(/3\s*lab findings and more/i));
     expect(button(nextToIllness)).toBeVisible();
     noButton(/^save$/i);
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it("offers Cancel, not Back to patients, while editing; on a new case Cancel returns to the patients", async () => {
+    const user = open(draft());
+    await screen.findByRole("button", { name: nextToIllness });
+    noButton(/back to patients/i);
+
+    await user.click(button(/^cancel$/i));
+
+    expect(navigate).toHaveBeenCalledWith("/patients");
     expect(api.patch).not.toHaveBeenCalled();
   });
 

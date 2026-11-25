@@ -43,13 +43,9 @@ describe("Patients: submit for review", () => {
     caseReview.on = true;
   });
 
-  it("offers Submit only on cases with a generated PDF that are not approved", async () => {
+  it("leaves submitting to the PDF and submissions pages, and still asks for each case's status", async () => {
     vi.mocked(api.get).mockResolvedValue({
-      data: [
-        { caseId: "case-a", status: "NOT_SUBMITTED", eligible: true, latestRevisionNo: null },
-        { caseId: "case-b", status: "NOT_SUBMITTED", eligible: false, latestRevisionNo: null },
-        { caseId: "case-c", status: "APPROVED", eligible: true, latestRevisionNo: 1 },
-      ],
+      data: [{ caseId: "case-a", status: "NOT_SUBMITTED", eligible: true, latestRevisionNo: null }],
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -60,12 +56,8 @@ describe("Patients: submit for review", () => {
       </QueryClientProvider>
     );
 
-    // Only Patient a qualifies (b has no PDF, c is approved, d is not closed); the page may render
-    // the same row in more than one layout, so check who owns every button rather than counting.
-    const found = await screen.findAllByRole("button", { name: /submit for review/i }, { timeout: 5000 });
-    for (const button of found) {
-      expect(button.closest("tr,[role=button]")?.textContent).toContain("Patient a");
-    }
+    expect((await screen.findAllByText("Not submitted", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/case-statuses", {
       params: { caseIds: "case-a,case-b,case-c" },
     });

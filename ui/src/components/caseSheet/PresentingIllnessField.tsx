@@ -191,6 +191,7 @@ export function PresentingIllnessField({
               <LabelWithTip htmlFor="pi-location" tip='Which part of the body the problem is in, for example "right knee" or "lower back".'>Location</LabelWithTip>
               <Input
                 id="pi-location"
+                placeholder='Which part of the body, for example "right knee" or "lower back".'
                 value={history.location ?? ""}
                 maxLength={TEXT_LIMITS.shortText}
                 disabled={readOnly}
@@ -200,10 +201,14 @@ export function PresentingIllnessField({
           </div>
 
           <div className="space-y-4">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">What it feels like</p>
+            <Label htmlFor="pi-character" className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              What it feels like
+            </Label>
             <div className="space-y-1.5">
-              <LabelWithTip htmlFor="pi-character" tip="Describe the problem in your own words: sharp, dull, burning, throbbing, heavy and so on.">Character</LabelWithTip>
-              {textArea("pi-character", "characterText", { rows: 5 })}
+              {textArea("pi-character", "characterText", {
+                rows: 5,
+                placeholder: "Describe the problem in your own words: sharp, dull, burning, throbbing, heavy and so on.",
+              })}
             </div>
           </div>
 
@@ -211,11 +216,17 @@ export function PresentingIllnessField({
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">What changes it</p>
             <div className="space-y-1.5">
               <LabelWithTip htmlFor="pi-worse" tip="Anything that makes the problem stronger, such as movement, food, weather or stress.">Makes it worse</LabelWithTip>
-              {textArea("pi-worse", "aggravatingFactor", { rows: 2 })}
+              {textArea("pi-worse", "aggravatingFactor", {
+                rows: 2,
+                placeholder: "What makes it stronger, such as movement, food, weather or stress.",
+              })}
             </div>
             <div className="space-y-1.5">
               <LabelWithTip htmlFor="pi-better" tip="Anything that eases the problem, such as rest, warmth, a medicine or a position.">Makes it better</LabelWithTip>
-              {textArea("pi-better", "relievingFactor", { rows: 2 })}
+              {textArea("pi-better", "relievingFactor", {
+                rows: 2,
+                placeholder: "What eases it, such as rest, warmth, a medicine or a position.",
+              })}
             </div>
           </div>
         </div>

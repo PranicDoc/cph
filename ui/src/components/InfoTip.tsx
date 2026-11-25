@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 /**
@@ -24,9 +25,9 @@ export function InfoTip({ text, label = "More information" }: { text: string; la
             e.preventDefault();
             setOpen((wasOpen) => (pointer.current === "mouse" ? true : !wasOpen));
           }}
-          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-current text-[11px] font-bold italic leading-none text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          i
+          <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
         </button>
       </PopoverTrigger>
       <PopoverContent

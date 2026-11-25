@@ -12,6 +12,7 @@ vi.mock("../lib/axios", () => ({
   default: { get: vi.fn(), defaults: { baseURL: "" } },
   refreshSession: vi.fn(),
 }));
+vi.mock("../hooks/useCaseReviewStatuses", () => ({ useCaseReviewStatuses: () => ({ data: undefined }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../ui-version", () => ({ useUiVersion: () => ({ isNewView: false }) }));
 vi.mock("../context/PatientContext", () => ({
