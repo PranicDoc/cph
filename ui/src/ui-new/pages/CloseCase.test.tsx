@@ -85,6 +85,8 @@ describe("CloseCase page", () => {
     vi.restoreAllMocks();
     ref.loading = false;
     window.matchMedia = stubMatchMedia;
+    localStorage.clear();
+    localStorage.setItem("hl.hpu.batchSize", "1");
   });
 
   it("lists every scanned chakra with its status and reason, the progress, and the wrap-up step", async () => {
@@ -149,7 +151,10 @@ describe("CloseCase page", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByLabelText(/Why did you work on this chakra/);
+    const reason = await screen.findByLabelText(/Why did you work on this chakra/);
+    // Retyped to the same words: an edited chakra, so there is something to send.
+    await user.clear(reason);
+    await user.type(reason, solarPlexus.reason);
     await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
 
     expect(mPost).toHaveBeenCalledTimes(1);
@@ -339,8 +344,9 @@ describe("CloseCase page", () => {
       selections: [solarPlexus, { chakra: "Spleen", energisingColors: [], cleansingColors: [{ color: "Green", properties: [] }] }],
     });
 
-    await screen.findByLabelText(/Why did you work on this chakra/);
-    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
+    const saved = await screen.findByLabelText(/Why did you work on this chakra/);
+    await user.type(saved, "!");
+    await user.click(screen.getByRole("button", { name: "Next: Spleen" }));
 
     await waitFor(() => expect(panelTitle()).toHaveTextContent("Spleen"));
     expect(mPost).not.toHaveBeenCalled();
@@ -353,7 +359,7 @@ describe("CloseCase page", () => {
 
     const reason = await screen.findByLabelText(/Why did you work on this chakra/);
     await user.clear(reason);
-    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Next: Spleen" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Add why you worked on this chakra");
     expect(reason).toHaveAttribute("aria-invalid", "true");
@@ -402,6 +408,7 @@ describe("CloseCase page", () => {
     await screen.findByLabelText(/Why did you work on this chakra/);
     mPost.mockReturnValue(new Promise(() => {}));
 
+    await user.type(screen.getByLabelText(/Why did you work on this chakra/), "!");
     await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
     within(list()).getAllByRole("button").forEach((b) => expect(b).toBeDisabled());
   });
@@ -411,7 +418,7 @@ describe("CloseCase page", () => {
     renderPage();
 
     await screen.findByLabelText(/Why did you work on this chakra/);
-    await user.click(screen.getByRole("button", { name: "Save and next: Spleen" }));
+    await user.click(screen.getByRole("button", { name: "Next: Spleen" }));
     await waitFor(() => expect(panelTitle()).toHaveFocus());
     expect(panelTitle()).toHaveTextContent("Spleen");
 
@@ -487,5 +494,141 @@ describe("CloseCase page", () => {
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Add or change cleansing colours" }));
     expect(document.querySelector(".hl-cc-panel")?.contains(screen.getByRole("dialog", { name: "Cleansing colours" }))).toBe(false);
+  });
+
+  describe("saving in batches", () => {
+    const names = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"];
+    const reasonBox = () => screen.getByLabelText(/Why did you work on this chakra/);
+    const forward = () => screen.getByRole("button", { name: /^(save and next|next)\b/i });
+    const sentChakras = (call: number) =>
+      (mPost.mock.calls[call][1] as { chakraSelections: { chakra: string }[] }).chakraSelections.map((c) => c.chakra);
+
+    async function fill(user: ReturnType<typeof userEvent.setup>, upTo: number) {
+      for (let i = 0; i < upTo; i++) {
+        await waitFor(() => expect(panelTitle()).toHaveTextContent(names[i]));
+        await user.type(reasonBox(), "because");
+        await user.click(forward());
+      }
+    }
+
+    beforeEach(() => localStorage.removeItem("hl.hpu.batchSize"));
+
+    it("saves once for every five chakras by default, always sending every completed one", async () => {
+      const user = userEvent.setup();
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+
+      await fill(user, 4);
+      expect(mPost).not.toHaveBeenCalled();
+      expect(screen.getByText("4 not saved yet")).toBeInTheDocument();
+
+      await fill2(user, 4);
+      expect(mPost).toHaveBeenCalledTimes(1);
+      expect(sentChakras(0)).toEqual(names.slice(0, 5));
+      await waitFor(() => expect(screen.queryByText(/not saved yet/)).not.toBeInTheDocument());
+
+      await fill2(user, 5);
+      await fill2(user, 6);
+      // The last chakra saves what is left, so nothing waits on the wrap-up step.
+      expect(mPost).toHaveBeenCalledTimes(2);
+      expect(sentChakras(1)).toEqual(names);
+    });
+
+    async function fill2(user: ReturnType<typeof userEvent.setup>, i: number) {
+      await waitFor(() => expect(panelTitle()).toHaveTextContent(names[i]));
+      await user.type(reasonBox(), "because");
+      await user.click(forward());
+    }
+
+    it("says Next while nothing will be sent, and Save and next when it will", async () => {
+      localStorage.setItem("hl.hpu.batchSize", "5");
+      const user = userEvent.setup();
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      expect(screen.getByRole("button", { name: "Next: C2" })).toBeInTheDocument();
+      await fill(user, 4);
+      await user.type(reasonBox(), "because");
+      expect(screen.getByRole("button", { name: "Save and next: C6" })).toBeInTheDocument();
+    });
+
+    it("lets the healer choose 5, 10 or all, and remembers the choice", async () => {
+      const user = userEvent.setup();
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      const choice = screen.getByRole("combobox", { name: "Save after" });
+      expect(choice).toHaveValue("5");
+      expect(within(choice).getAllByRole("option").map((o) => o.textContent)).toEqual(
+        ["every 5 chakras", "every 10 chakras", "all chakras"]);
+
+      await user.selectOptions(choice, "all");
+
+      expect(localStorage.getItem("hl.hpu.batchSize")).toBe("all");
+      await fill(user, 6);
+      expect(mPost).not.toHaveBeenCalled();
+      await fill2(user, 6);
+      expect(mPost).toHaveBeenCalledTimes(1);
+      expect(sentChakras(0)).toEqual(names);
+    });
+
+    it("falls back to five when the stored value is not usable", async () => {
+      localStorage.setItem("hl.hpu.batchSize", "banana");
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      expect(screen.getByRole("combobox", { name: "Save after" })).toHaveValue("5");
+    });
+
+    it("never stores what the healer wrote in the browser", async () => {
+      const user = userEvent.setup();
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      await user.type(reasonBox(), "private note");
+      await user.click(forward());
+      expect(JSON.stringify({ ...localStorage })).not.toContain("private note");
+    });
+
+    it("asks before leaving with unsaved chakras, and can save them on the way out", async () => {
+      const user = userEvent.setup();
+      const { router } = renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      await fill(user, 2);
+
+      await user.click(screen.getByRole("button", { name: "Back to session" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Chakras not saved yet" });
+      expect(router.state.location.pathname).toBe("/cases/c1/close");
+      await user.click(within(dialog).getByRole("button", { name: "Save and leave" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
+      expect(mPost).toHaveBeenCalledTimes(1);
+      expect(sentChakras(0)).toEqual(["C1", "C2"]);
+    });
+
+    it("can leave without saving, or stay", async () => {
+      const user = userEvent.setup();
+      const { router } = renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      await fill(user, 1);
+
+      await user.click(screen.getByRole("button", { name: "Back to session" }));
+      await user.click(await screen.findByRole("button", { name: "Stay" }));
+      expect(router.state.location.pathname).toBe("/cases/c1/close");
+
+      await user.click(screen.getByRole("button", { name: "Back to session" }));
+      await user.click(await screen.findByRole("button", { name: "Leave without saving" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/session/c1"));
+      expect(mPost).not.toHaveBeenCalled();
+    });
+
+    it("keeps chakras marked unsaved when a save fails", async () => {
+      localStorage.setItem("hl.hpu.batchSize", "1");
+      const user = userEvent.setup();
+      renderPage({ selections: [], chakras: names });
+      await screen.findByLabelText(/Why did you work on this chakra/);
+      mPost.mockRejectedValueOnce(new Error("offline"));
+      await user.type(reasonBox(), "because");
+      await user.click(forward());
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(panelTitle()).toHaveTextContent("C1");
+      expect(screen.getByText("1 not saved yet")).toBeInTheDocument();
+    });
   });
 });
