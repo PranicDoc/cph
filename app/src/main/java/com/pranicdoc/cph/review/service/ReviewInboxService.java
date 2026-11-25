@@ -1,6 +1,5 @@
 package com.pranicdoc.cph.review.service;
 
-import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -31,20 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
 
 /**
  * Instructor side of case review: the queue of submissions assigned to the caller, read access to
@@ -114,7 +108,7 @@ public class ReviewInboxService {
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
                 ReviewEventType.STATUS_CHANGED, latest, null, s.getStatus(),
                 ReviewEvent.standIn(security.getCurrentHealerId(), s.getReviewerId())));
-        return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
+        return respond(s);
     }
 
     /** The caller's queue, oldest latest-revision first; healer and case names are batch-loaded. */
@@ -133,9 +127,9 @@ public class ReviewInboxService {
             return List.of();
         }
         Map<UUID, List<ReviewRevision>> bySubmission = revisionsOf(mine);
-        Map<UUID, String> healerNames =
-                namesOf(mine.stream().map(ReviewSubmission::getHealerId).collect(Collectors.toSet()));
-        Map<UUID, HealingCase> caseById = casesOf(mine);
+        Map<UUID, String> healerNames = SubmissionLabels.namesOf(healers,
+                mine.stream().map(ReviewSubmission::getHealerId).collect(Collectors.toSet()));
+        Map<UUID, HealingCase> caseById = SubmissionLabels.casesOf(cases, mine);
 
         return mine.stream()
                 .map(s -> toItem(s, bySubmission.getOrDefault(s.getId(), List.of()),
@@ -160,15 +154,11 @@ public class ReviewInboxService {
             return List.of();
         }
         Map<UUID, List<ReviewRevision>> bySubmission = revisionsOf(matching);
-        Map<UUID, String> names = namesOf(matching.stream()
-                .flatMap(s -> Stream.of(s.getHealerId(), s.getReviewerId()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
-        Map<UUID, HealingCase> caseById = casesOf(matching);
+        SubmissionLabels labels = SubmissionLabels.of(healers, cases, matching);
 
         return matching.stream()
-                .map(s -> toAdminItem(s, bySubmission.getOrDefault(s.getId(), List.of()), names,
-                        caseById.get(s.getCaseId())))
+                .map(s -> toAdminItem(s, bySubmission.getOrDefault(s.getId(), List.of()), labels.names(),
+                        labels.cases().get(s.getCaseId())))
                 .sorted(Comparator.comparing(AdminReviewItemResponse::submittedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
@@ -176,8 +166,13 @@ public class ReviewInboxService {
 
     @Transactional(readOnly = true)
     public SubmissionResponse getItem(UUID submissionId) {
-        ReviewSubmission s = assignedSubmission(submissionId);
-        return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
+        return respond(assignedSubmission(submissionId));
+    }
+
+    /** Takes a submission that has already passed the row check. */
+    private SubmissionResponse respond(ReviewSubmission s) {
+        return SubmissionLabels.of(healers, cases, List.of(s))
+                .respond(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
     }
 
     /** Presigned URL of one revision; the masked copy wins when one exists. */
@@ -230,29 +225,6 @@ public class ReviewInboxService {
                 .collect(Collectors.groupingBy(ReviewRevision::getSubmissionId));
     }
 
-    private Map<UUID, String> namesOf(Set<UUID> healerIds) {
-        return healers.findAllById(healerIds).stream()
-                .collect(Collectors.toMap(Healer::getId, h -> h.getFullName() == null ? "" : h.getFullName()));
-    }
-
-    private Map<UUID, HealingCase> casesOf(List<ReviewSubmission> rows) {
-        return cases.findAllById(rows.stream().map(ReviewSubmission::getCaseId).collect(Collectors.toSet()))
-                .stream().collect(Collectors.toMap(HealingCase::getId, Function.identity()));
-    }
-
-    /** The case's medical condition is the label healers see for a case; fall back to its creation date. */
-    private static String caseTitle(HealingCase c) {
-        if (c == null) {
-            return "Case";
-        }
-        String condition = c.getMedicalCondition();
-        if (condition != null && !condition.isBlank()) {
-            return condition;
-        }
-        return c.getCreatedAt() == null ? "Case"
-                : "Case of " + c.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate();
-    }
-
     private static ReviewRevision latestOf(List<ReviewRevision> revs) {
         return revs.stream().max(Comparator.comparingInt(ReviewRevision::getRevisionNo)).orElse(null);
     }
@@ -261,7 +233,8 @@ public class ReviewInboxService {
                                                        Map<UUID, String> names, HealingCase c) {
         ReviewRevision latest = latestOf(revs);
         return new AdminReviewItemResponse(s.getId(), s.getHealerId(), names.getOrDefault(s.getHealerId(), ""),
-                s.getReviewerId(), s.getReviewerId() == null ? null : names.get(s.getReviewerId()), caseTitle(c),
+                s.getReviewerId(), s.getReviewerId() == null ? null : names.get(s.getReviewerId()),
+                SubmissionLabels.caseTitle(c),
                 latest == null ? 0 : latest.getRevisionNo(), s.getStatus(),
                 latest == null ? null : latest.getSubmittedAt());
     }
@@ -269,7 +242,7 @@ public class ReviewInboxService {
     private static InboxItemResponse toItem(ReviewSubmission s, List<ReviewRevision> revs, String healerName,
                                             HealingCase c) {
         ReviewRevision latest = latestOf(revs);
-        return new InboxItemResponse(s.getId(), healerName, caseTitle(c),
+        return new InboxItemResponse(s.getId(), healerName, SubmissionLabels.caseTitle(c),
                 latest == null ? 0 : latest.getRevisionNo(), s.getStatus(),
                 latest == null ? null : latest.getSubmittedAt());
     }

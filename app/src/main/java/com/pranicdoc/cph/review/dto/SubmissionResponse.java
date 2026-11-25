@@ -22,5 +22,8 @@ public record SubmissionResponse(
         Instant createdAt,
         Instant updatedAt,
         List<RevisionResponse> revisions,
-        SubmissionOutcome outcome) {
+        SubmissionOutcome outcome,
+        String caseTitle,
+        String healerName,
+        String reviewerName) {
 }

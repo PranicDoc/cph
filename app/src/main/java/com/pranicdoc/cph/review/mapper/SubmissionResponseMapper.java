@@ -14,18 +14,19 @@ public final class SubmissionResponseMapper {
     private SubmissionResponseMapper() {
     }
 
-    public static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs) {
-        return toResponse(s, revs, null);
-    }
-
-    /** {@code outcome} says what a submit did; it is null for every other read. */
+    /**
+     * {@code outcome} says what a submit did; it is null for every other read. The title and names are
+     * looked up by the caller; {@code reviewerName} is null without a reviewer account.
+     */
     public static SubmissionResponse toResponse(ReviewSubmission s, List<ReviewRevision> revs,
-                                                SubmissionOutcome outcome) {
+                                                SubmissionOutcome outcome, String caseTitle, String healerName,
+                                                String reviewerName) {
         int latest = revs.stream().mapToInt(ReviewRevision::getRevisionNo).max().orElse(0);
         return new SubmissionResponse(s.getId(), s.getCaseId(), s.getHealerId(), s.getReviewerId(), s.getStage(),
                 s.getStatus(), s.isDismissedFromApproved(), s.getDismissReason(), s.getSubmittedVia(), latest,
                 s.getCreatedAt(), s.getUpdatedAt(),
                 revs.stream().map(r -> new RevisionResponse(r.getRevisionNo(), r.getPdfJobId(),
-                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), outcome);
+                        r.getSubmittedVia(), r.getSubmittedAt())).toList(), outcome,
+                caseTitle, healerName, reviewerName);
     }
 }

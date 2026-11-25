@@ -91,6 +91,49 @@ class ReviewInboxServiceTest {
     }
 
     @Test
+    void getItem_namesTheCaseHealerAndReviewer() {
+        ReviewSubmission s = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+        when(healers.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healer(healerA, "Meera Nair"), healer(me, "Asha Rao")));
+        when(cases.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healingCase(s.getCaseId(), "Chronic migraine")));
+
+        var response = service.getItem(s.getId());
+
+        org.assertj.core.api.Assertions.assertThat(response.caseTitle()).isEqualTo("Chronic migraine");
+        org.assertj.core.api.Assertions.assertThat(response.healerName()).isEqualTo("Meera Nair");
+        org.assertj.core.api.Assertions.assertThat(response.reviewerName()).isEqualTo("Asha Rao");
+    }
+
+    @Test
+    void getItem_deletedReviewerHasNoName_andCaseWithoutConditionIsTitledByDate() {
+        ReviewSubmission s = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+        HealingCase untitled = healingCase(s.getCaseId(), " ");
+        untitled.setCreatedAt(Instant.parse("2026-11-01T10:00:00Z"));
+        when(healers.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healer(healerA, "Meera Nair")));
+        when(cases.findAllById(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(untitled));
+
+        var response = service.getItem(s.getId());
+
+        org.assertj.core.api.Assertions.assertThat(response.caseTitle()).isEqualTo("Case of 2026-11-01");
+        org.assertj.core.api.Assertions.assertThat(response.reviewerId()).isEqualTo(me);
+        org.assertj.core.api.Assertions.assertThat(response.reviewerName()).isNull();
+    }
+
+    @Test
+    void getItem_refusedCallerLoadsNoNames() {
+        ReviewSubmission s = submission(healerA, healerB, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.getItem(s.getId())).isInstanceOf(AccessDeniedException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(healers, cases);
+    }
+
+    @Test
     void inbox_onlyOwnAssignments_oldestFirst() {
         ReviewSubmission newer = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
         ReviewSubmission older = submission(healerB, me, ReviewStatus.PENDING_REVIEW);
