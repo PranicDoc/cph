@@ -198,7 +198,7 @@ export default function PatientHealthForm() {
       className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
     >
       {!isNewView && <h2 className="text-xl font-semibold">Your Health Details</h2>}
-      <CaseSheetSteps form={form} schema={patientSessionSchema} step={steps.step} onSelect={steps.goTo} />
+      <CaseSheetSteps form={form} schema={patientSessionSchema} step={steps.step} onSelect={steps.goTo} patternCheck={steps.patternCheck} />
       <div className="flex justify-end pt-4 border-t border-border">
         <CaseSheetStepButtons
           step={steps.step}

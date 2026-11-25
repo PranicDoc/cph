@@ -13,8 +13,8 @@ import java.util.UUID;
 
 /**
  * The chief-complaint rules, in one place: a blank problem is skipped, a problem needs a duration and a
- * period, at least one problem and at most {@link TextLimits#MAX_CHIEF_COMPLAINTS}. Also brings a case's
- * rows in line with an edited list, keeping the rows that stay (same id) instead of recreating them.
+ * period, timing PATTERN needs its description, at least one problem and at most
+ * {@link TextLimits#MAX_CHIEF_COMPLAINTS}. Also brings a case's rows in line with an edited list, keeping the rows that stay (same id) instead of recreating them.
  */
 final class ChiefComplaintRules {
 
@@ -29,6 +29,10 @@ final class ChiefComplaintRules {
                 String problem = row.problem().trim();
                 if (row.durationValue() == null || row.durationValue() < 1 || row.durationUnit() == null) {
                     throw new IllegalArgumentException("Enter how long you have had \"" + problem + "\"");
+                }
+                ProblemHistoryRequest history = row.problemHistory();
+                if (history != null && history.timing() == Timing.PATTERN && blankToNull(history.timingPattern()) == null) {
+                    throw new IllegalArgumentException("Describe the pattern for \"" + problem + "\"");
                 }
                 rows.add(new ChiefComplaintRequest(row.id(), problem, row.durationValue(), row.durationUnit(),
                         row.problemHistory()));

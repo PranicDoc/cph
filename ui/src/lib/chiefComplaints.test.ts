@@ -4,6 +4,7 @@ import {
   MAX_CHIEF_COMPLAINTS,
   type ChiefComplaintRow,
   chiefComplaintsError,
+  needsPatternDescription,
   chiefComplaintsPayload,
   complaintLine,
   complaintRowsFromResponse,
@@ -17,6 +18,23 @@ import {
 
 const row = (problem: string, durationValue: string | number, durationUnit: ChiefComplaintRow["durationUnit"]): ChiefComplaintRow =>
   ({ problem, durationValue, durationUnit });
+
+describe("needsPatternDescription", () => {
+  const timed = (timing: "PATTERN" | "CONSTANT", timingPattern?: string) =>
+    ({ ...row("Headache", 3, "DAYS"), problemHistory: { timing, timingPattern } });
+
+  it("is true only when timing is Pattern and nothing is written", () => {
+    expect(needsPatternDescription(timed("PATTERN"))).toBe(true);
+    expect(needsPatternDescription(timed("PATTERN", "   "))).toBe(true);
+    expect(needsPatternDescription(timed("PATTERN", "mornings"))).toBe(false);
+    expect(needsPatternDescription(timed("CONSTANT"))).toBe(false);
+    expect(needsPatternDescription(row("Headache", 3, "DAYS"))).toBe(false);
+  });
+
+  it("ignores a row with a blank problem, which is never saved", () => {
+    expect(needsPatternDescription({ ...timed("PATTERN"), problem: " " })).toBe(false);
+  });
+});
 
 describe("chiefComplaintsError", () => {
   it("needs at least one problem", () => {

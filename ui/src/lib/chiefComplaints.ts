@@ -73,6 +73,12 @@ export function periodError(row: ChiefComplaintRow): string | undefined {
   return row.durationUnit ? undefined : PERIOD_REQUIRED;
 }
 
+export const PATTERN_REQUIRED = "Describe the pattern for this problem";
+
+/** Timing "Pattern" is the one presenting-illness answer that needs another: what the pattern is. */
+export const needsPatternDescription = (row: ChiefComplaintRow): boolean =>
+  isFilledRow(row) && row.problemHistory?.timing === "PATTERN" && !(row.problemHistory.timingPattern ?? "").trim();
+
 /** The message for the whole table, or undefined when it may be saved. */
 export function chiefComplaintsError(rows: ChiefComplaintRow[] | null | undefined): string | undefined {
   const filled = (rows ?? []).filter(isFilledRow);

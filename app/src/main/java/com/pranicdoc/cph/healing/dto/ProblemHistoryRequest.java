@@ -5,7 +5,10 @@ import com.pranicdoc.cph.common.enums.Timing;
 import com.pranicdoc.cph.common.validation.TextLimits;
 import jakarta.validation.constraints.Size;
 
-/** The history of presenting illness for one chief-complaint problem; every answer is optional. */
+/**
+ * The history of presenting illness for one chief-complaint problem. Every answer is optional, except that
+ * timing PATTERN needs {@code timingPattern}; ChiefComplaintRules checks that.
+ */
 public record ProblemHistoryRequest(
         Onset onset,
         @Size(max = TextLimits.SHORT_TEXT, message = "Location can be at most {max} characters") String location,

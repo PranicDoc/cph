@@ -35,7 +35,7 @@ export function caseSheetComplaintFields(
           name: "chiefComplaints",
           label: "Presenting illness",
           type: "custom",
-          helpText: "Describe each problem you listed above: how it started, where it is, what it feels like, and what changes it. All answers are optional.",
+          helpText: "Describe each problem you listed above: how it started, where it is, what it feels like, and what changes it. All answers are optional, except that choosing Pattern needs a description.",
           // Both sections edit one value and a field name keeps a single set of validators: the later
           // field would replace the first one's, so it carries the same rule and leaves the message to it.
           validate,

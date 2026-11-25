@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { InfoTip } from "@/components/InfoTip";
 import { CharacterCount } from "@/components/form/CharacterCount";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,10 @@ import {
   formatDuration,
   hasProblemHistory,
   isCompleteRow,
+  needsPatternDescription,
+  PATTERN_REQUIRED,
 } from "@/lib/chiefComplaints";
+import { PatternCheckContext } from "./useCaseSheetSteps";
 
 const ONSETS: { value: Onset; label: string }[] = [
   { value: "SUDDEN", label: "Sudden" },
@@ -74,8 +77,9 @@ function LabelWithTip({ htmlFor, children, tip }: { htmlFor?: string; children: 
 
 /**
  * The history of presenting illness, one problem at a time: pick the problem in the dropdown, then answer
- * onset, location, character, what makes it worse or better, and timing. Everything is optional. The problems
- * and their durations come from the chief complaint table above; only complete rows appear.
+ * onset, location, character, what makes it worse or better, and timing. Everything is optional, except that
+ * timing "Pattern" needs its description. The problems and their durations come from the chief complaint table
+ * above; only complete rows appear.
  */
 export function PresentingIllnessField({
   value,
@@ -90,6 +94,16 @@ export function PresentingIllnessField({
   // Index in `rows` of each problem that can be described (problem, duration and period filled in).
   const eligible = rows.map((r, i) => (isCompleteRow(r) ? i : -1)).filter((i) => i >= 0);
   const [selected, setSelected] = useState(0);
+  // Problems whose pattern box was left, so an empty one is only pointed out after the person had a chance to type.
+  const [leftPattern, setLeftPattern] = useState<(string | number)[]>([]);
+  const patternCheck = useContext(PatternCheckContext);
+  const [seenCheck, setSeenCheck] = useState(patternCheck);
+  if (patternCheck !== seenCheck) {
+    // A move was just refused: open the first problem whose pattern is missing.
+    setSeenCheck(patternCheck);
+    const missing = eligible.findIndex((i) => needsPatternDescription(rows[i]));
+    if (missing >= 0) setSelected(missing);
+  }
 
   if (eligible.length === 0) {
     return (
@@ -103,6 +117,8 @@ export function PresentingIllnessField({
   const rowIndex = eligible[position];
   const row = rows[rowIndex];
   const history: ProblemHistory = row.problemHistory ?? {};
+  const rowKey = row.id ?? rowIndex;
+  const patternMissing = !readOnly && needsPatternDescription(row) && (patternCheck > 0 || leftPattern.includes(rowKey));
   const filledCount = eligible.filter((i) => hasProblemHistory(rows[i].problemHistory)).length;
 
   const set = (patch: Partial<ProblemHistory>) =>
@@ -110,7 +126,7 @@ export function PresentingIllnessField({
 
   const textArea = (
     id: string, field: "characterText" | "aggravatingFactor" | "relievingFactor" | "timingPattern",
-    opts: { rows?: number; placeholder?: string } = {},
+    opts: { rows?: number; placeholder?: string; required?: boolean; invalid?: boolean; onBlur?: () => void } = {},
   ) => (
     <>
       <Textarea
@@ -120,6 +136,10 @@ export function PresentingIllnessField({
         maxLength={TEXT_LIMITS.presentingIllness}
         disabled={readOnly}
         placeholder={opts.placeholder}
+        required={opts.required}
+        aria-invalid={opts.invalid || undefined}
+        aria-describedby={opts.invalid ? `${id}-error` : undefined}
+        onBlur={opts.onBlur}
         onChange={(e) => set({ [field]: e.target.value })}
         className="p-3"
       />
@@ -131,7 +151,7 @@ export function PresentingIllnessField({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="w-full space-y-1.5 sm:max-w-md">
-          <LabelWithTip htmlFor="pi-problem" tip="These are the problems from the chief complaints. Pick one, then answer the questions below. All answers are optional.">
+          <LabelWithTip htmlFor="pi-problem" tip="These are the problems from the chief complaints. Pick one, then answer the questions below. All answers are optional, except that choosing Pattern needs a description.">
             Choose a problem
           </LabelWithTip>
           <Select value={String(position)} onValueChange={(v) => setSelected(Number(v))}>
@@ -208,8 +228,16 @@ export function PresentingIllnessField({
           </div>
           {history.timing === "PATTERN" && (
             <div className="space-y-1.5">
-              <Label htmlFor="pi-pattern" className="text-sm font-medium">Describe the pattern</Label>
-              {textArea("pi-pattern", "timingPattern", { placeholder: "For example: every morning, or only on weekdays" })}
+              <Label htmlFor="pi-pattern" className="text-sm font-medium">
+                Describe the pattern<span aria-hidden="true" className="text-danger"> *</span>
+              </Label>
+              {textArea("pi-pattern", "timingPattern", {
+                placeholder: "For example: every morning, or only on weekdays",
+                required: true,
+                invalid: patternMissing,
+                onBlur: () => setLeftPattern((keys) => (keys.includes(rowKey) ? keys : [...keys, rowKey])),
+              })}
+              {patternMissing && <p id="pi-pattern-error" className="text-sm text-danger">{PATTERN_REQUIRED}</p>}
             </div>
           )}
         </div>

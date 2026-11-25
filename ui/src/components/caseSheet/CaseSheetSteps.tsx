@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DynamicFormEngine, type FormSchema } from "@/components/DynamicFormEngine";
 import { cn } from "@/lib/utils";
-import { CASE_SHEET_STEPS, LAST_STEP } from "./useCaseSheetSteps";
+import { CASE_SHEET_STEPS, LAST_STEP, PatternCheckContext } from "./useCaseSheetSteps";
 
 /** The step names as chips on a laptop, and as "Step 1 of 3" on a phone. */
 function StepHeader({ step, onSelect }: { step: number; onSelect: (step: number) => void }) {
@@ -56,22 +56,24 @@ export function CaseSheetSteps({
   schema,
   step,
   onSelect,
+  patternCheck,
 }: {
   form: unknown;
   schema: FormSchema;
   step: number;
   onSelect: (step: number) => void;
+  patternCheck: number;
 }) {
   const panels = [schema.slice(0, 1), schema.slice(1, 2), schema.slice(2)];
   return (
-    <>
+    <PatternCheckContext.Provider value={patternCheck}>
       <StepHeader step={step} onSelect={onSelect} />
       {panels.map((panel, i) => (
         <div key={CASE_SHEET_STEPS[i]} hidden={i !== step}>
           <DynamicFormEngine form={form} schema={panel} />
         </div>
       ))}
-    </>
+    </PatternCheckContext.Provider>
   );
 }
 

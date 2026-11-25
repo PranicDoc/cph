@@ -111,6 +111,24 @@ describe("Session: the case details are three steps", () => {
     });
   });
 
+  it("stays on presenting illness, at the problem concerned, while a pattern is not described", async () => {
+    const knee = { id: "cc-2", problem: "Knee pain", durationValue: 2, durationUnit: "DAYS", timing: "PATTERN" };
+    const user = open(draft([neck, knee], "Headache"));
+    await screen.findByRole("button", { name: nextToIllness });
+
+    await user.click(button(/3\s*lab findings and more/i));
+
+    expect(await screen.findByText("Describe the pattern for this problem")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Knee pain" })).toBeVisible();
+    expect(button(nextToRest)).toBeVisible();
+    noButton(/^save$/i);
+
+    await user.type(screen.getByLabelText(/describe the pattern/i), "after walking");
+    await user.click(button(nextToRest));
+    expect(button(/^save$/i)).toBeVisible();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
   it("never saves from an earlier step: Enter stays put, and a form submit only moves on", async () => {
     const user = open(draft([neck], "Headache"));
     const problem = await screen.findByDisplayValue("Neck pain");

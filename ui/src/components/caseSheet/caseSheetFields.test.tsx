@@ -90,6 +90,24 @@ describe("PresentingIllnessField", () => {
     expect(screen.queryByLabelText(/describe the pattern/i)).not.toBeInTheDocument();
   });
 
+  it("requires the pattern description, and says so once the box is left empty", async () => {
+    const user = userEvent.setup();
+    render(<IllnessHarness initial={[complete("Headache", "a")]} />);
+    await user.click(screen.getByRole("radio", { name: "Pattern" }));
+    const box = screen.getByLabelText(/describe the pattern/i);
+    expect(box).toBeRequired();
+    expect(screen.queryByText("Describe the pattern for this problem")).not.toBeInTheDocument();
+
+    await user.click(box);
+    await user.tab();
+    expect(screen.getByText("Describe the pattern for this problem")).toBeInTheDocument();
+    expect(box).toHaveAttribute("aria-invalid", "true");
+
+    await user.type(box, "mornings");
+    expect(screen.queryByText("Describe the pattern for this problem")).not.toBeInTheDocument();
+    expect(box).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("clears an answer when the chosen option is chosen again", async () => {
     const user = userEvent.setup();
     render(<IllnessHarness initial={[complete("Headache", "a")]} />);

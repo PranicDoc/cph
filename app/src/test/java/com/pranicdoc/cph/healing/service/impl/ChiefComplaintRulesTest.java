@@ -41,6 +41,22 @@ class ChiefComplaintRulesTest {
     }
 
     @Test
+    void timingPatternNeedsItsDescription() {
+        for (String blank : new String[] {null, "  "}) {
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> ChiefComplaintRules.validRows(List.of(timed(Timing.PATTERN, blank))));
+            assertTrue(refused.getMessage().contains("Knee pain"));
+        }
+        assertEquals(1, ChiefComplaintRules.validRows(List.of(timed(Timing.PATTERN, "mornings"))).size());
+        assertEquals(1, ChiefComplaintRules.validRows(List.of(timed(Timing.CONSTANT, null))).size());
+    }
+
+    private static ChiefComplaintRequest timed(Timing timing, String pattern) {
+        return new ChiefComplaintRequest(null, "Knee pain", 2, DurationUnit.DAYS,
+                new ProblemHistoryRequest(null, null, null, null, null, timing, pattern));
+    }
+
+    @Test
     void atLeastOneProblemIsRequired() {
         assertThrows(IllegalArgumentException.class, () -> ChiefComplaintRules.validRows(null));
         assertThrows(IllegalArgumentException.class, () -> ChiefComplaintRules.validRows(List.of()));

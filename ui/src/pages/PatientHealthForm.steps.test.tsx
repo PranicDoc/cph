@@ -31,7 +31,12 @@ describe("PatientHealthForm: three steps", () => {
     await user.click(screen.getByRole("combobox", { name: /period 1/i }));
     await user.click(await screen.findByRole("option", { name: "Days" }));
     await user.click(screen.getByRole("button", { name: /^next: presenting illness$/i }));
-    await user.click(await screen.findByRole("button", { name: /^next: lab findings and more$/i }));
+    await user.click(await screen.findByRole("radio", { name: "Pattern" }));
+    await user.click(screen.getByRole("button", { name: /^next: lab findings and more$/i }));
+    expect(await screen.findByText("Describe the pattern for this problem")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /submit my details/i })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/describe the pattern/i), "at night");
+    await user.click(screen.getByRole("button", { name: /^next: lab findings and more$/i }));
 
     expect(screen.getByRole("button", { name: /submit my details/i })).toBeVisible();
     expect(api.patch).not.toHaveBeenCalled();

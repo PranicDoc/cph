@@ -740,7 +740,7 @@ export default function Session() {
         }}
         className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
       >
-        <CaseSheetSteps form={sessionForm} schema={schema} step={detailSteps.step} onSelect={detailSteps.goTo} />
+        <CaseSheetSteps form={sessionForm} schema={schema} step={detailSteps.step} onSelect={detailSteps.goTo} patternCheck={detailSteps.patternCheck} />
 
         {/* <sessionForm.Field name="healingDetails">
           {(field) => (
