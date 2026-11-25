@@ -3,17 +3,21 @@ import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useEventStream } from "../../hooks/useEventStream";
 import { useReviewComments } from "../../hooks/useReviewComments";
 import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
 import { useHealerSubmission } from "../../hooks/useReviewSubmission";
-import { STATUS_LABELS } from "../../types/review";
 import PdfPinCanvas from "./PdfPinCanvas";
+import { ReviewStatusBadge } from "./ReviewStatusBadge";
+import RevisionPicker from "./RevisionPicker";
+import { SubmitForReviewButton } from "./SubmitForReviewButton";
 import ThreadPanel from "./ThreadPanel";
 import { pinsForRevision, scrollToThread } from "./threads";
+import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
 
 /**
- * The healer's own submission, read-only: the PDF with the instructor's pins, and the threads with a
+ * The healer's own submission, read-only but for replies and resubmitting: the PDF with the instructor's pins, and the threads with a
  * reply box. No pin placement, no resolve, no approve: those belong to the instructor.
  */
 export default function SubmissionDetail() {
@@ -36,11 +40,11 @@ export default function SubmissionDetail() {
   );
   if (denied) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-3 p-4">
-        <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <div className={PAGE}>
+        <p role="alert" className={WARN_BOX}>
           This submission is not available.
         </p>
-        <Link to="/submissions" className="text-sm underline">
+        <Link to="/submissions" className="ongr text-sm underline">
           Back to submissions
         </Link>
       </div>
@@ -54,33 +58,27 @@ export default function SubmissionDetail() {
     setActiveThread(id);
     scrollToThread(id);
   };
+  const submission = sub.data;
+  const status = submission?.status;
+  const canResubmit = status === "CHANGES_REQUESTED" || status === "DISMISSED";
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <Link to="/submissions" className="text-sm underline">
+    <div className={PAGE}>
+      <div className="page-head flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <Link to="/submissions" className="ongr text-sm underline">
             Back
           </Link>
-          {sub.data && <span className="text-sm text-muted-foreground">{STATUS_LABELS[sub.data.status]}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          {revisions.length > 1 && (
-            <label className="flex items-center gap-2 text-sm">
-              Version
-              <select
-                className="rounded border bg-background px-2 py-1"
-                value={displayed}
-                onChange={(e) => setChosenRevision(Number(e.target.value))}
-              >
-                {revisions.map((r) => (
-                  <option key={r.revisionNo} value={r.revisionNo}>
-                    {r.revisionNo}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold">Submission</h1>
+            {status && <ReviewStatusBadge className={HEAD_BADGE} status={status} />}
+          </div>
+          {submission && (
+            <p className="muted mt-1 text-sm text-muted-foreground">Last updated {formatWhen(submission.updatedAt)}</p>
           )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <RevisionPicker revisions={revisions} latestRevisionNo={latest} value={displayed} onChange={setChosenRevision} />
           <Button
             type="button"
             size="sm"
@@ -94,14 +92,21 @@ export default function SubmissionDetail() {
         </div>
       </div>
 
+      {status === "CHANGES_REQUESTED" && (
+        <div role="status" className={WARN_BOX}>
+          <b>Your instructor asked for changes.</b> Read the pinned comments, edit the case, then generate a new PDF and
+          resubmit.
+        </div>
+      )}
+
       {(sub.isError || file.isError) && (
-        <p role="alert" className="text-sm text-red-500">
+        <p role="alert" className="ongr text-sm text-destructive">
           Could not load this submission.
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section aria-label={`Case sheet PDF, revision ${displayed}`} className={cn(SURFACE, "min-w-0 self-start p-2")}>
           {file.data && (
             <PdfPinCanvas
               key={file.data}
@@ -111,7 +116,7 @@ export default function SubmissionDetail() {
               onSelectPin={selectThread}
             />
           )}
-        </div>
+        </section>
         <div className="lg:sticky lg:top-4 lg:max-h-[85vh] lg:self-start lg:overflow-y-auto">
           <ThreadPanel
             comments={comments}
@@ -122,6 +127,19 @@ export default function SubmissionDetail() {
           />
         </div>
       </div>
+
+      {submission && canResubmit && (
+        <div className={cn(SURFACE, "flex flex-wrap items-center justify-end gap-3 p-3")}>
+          <p className="muted min-w-[16rem] flex-1 text-sm text-muted-foreground">
+            {status === "CHANGES_REQUESTED" &&
+              `If nothing changed since R${latest}, resubmitting asks your instructor to look again without creating a new revision.`}
+          </p>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/session/${submission.caseId}`}>Edit case</Link>
+          </Button>
+          <SubmitForReviewButton caseId={submission.caseId} status={submission.status} variant="default" />
+        </div>
+      )}
     </div>
   );
 }

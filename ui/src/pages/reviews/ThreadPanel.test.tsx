@@ -22,6 +22,17 @@ const comment = (over: Partial<ReviewComment>): ReviewComment => ({
 });
 
 describe("ThreadPanel authors", () => {
+  it("counts the open threads in the panel header", () => {
+    render(
+      <ThreadPanel
+        comments={[comment({}), comment({ id: "c2", resolvedAt: "2026-11-02T10:00:00Z" }), comment({ id: "c3", parentId: "c1" })]}
+        latestRevisionNo={1}
+        onReply={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("1 open")).toBeInTheDocument();
+  });
+
   it("rendersDeletedUserForACommentWhoseAuthorIsNull", () => {
     render(
       <ThreadPanel

@@ -78,6 +78,31 @@ describe("ReviewViewer", () => {
     mockApi();
   });
 
+  it("titles the page from the queue row and explains what approving does", async () => {
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      url === "/api/v1/reviews/inbox"
+        ? Promise.resolve({ data: [{ submissionId: "s1", healerName: "Meera", caseTitle: "Migraine",
+            latestRevisionNo: 1, status: "PENDING_REVIEW", submittedAt: "2026-11-01T10:00:00Z" }] })
+        : base(url)
+    );
+    renderViewer();
+    expect(await screen.findByRole("heading", { name: "Migraine" })).toBeInTheDocument();
+    expect(screen.getByText(/^Meera, submitted/)).toBeInTheDocument();
+    expect(screen.getByText(/^Approving locks this revision/)).toBeInTheDocument();
+  });
+
+  it("opens a submission with no assigned reviewer that is not in the queue", async () => {
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      url.endsWith("/inbox/s1") ? Promise.resolve({ data: { ...submission(1), reviewerId: null } }) : base(url)
+    );
+    renderViewer();
+    await screen.findByTestId("pdf");
+    expect(screen.getByRole("heading", { name: "Review" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+  });
+
   it("downloadButtonPresent once the file URL is known", async () => {
     renderViewer();
     const button = await screen.findByRole("button", { name: /download/i });
@@ -206,6 +231,7 @@ describe("ReviewViewer", () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.endsWith("/inbox/s1/comments")) return Promise.resolve({ data: [] });
       if (url.endsWith("/inbox/s1")) return Promise.resolve({ data: { ...submission(1), status: "APPROVED" } });
+      if (url.endsWith("/inbox")) return Promise.resolve({ data: [] });
       return Promise.resolve({ data: { url: "https://r2/rev1.pdf" } });
     });
     renderViewer();

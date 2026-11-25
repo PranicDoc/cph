@@ -7,12 +7,15 @@ import { useEventStream } from "../../hooks/useEventStream";
 import { useReviewComments } from "../../hooks/useReviewComments";
 import { useReviewDecision } from "../../hooks/useReviewDecision";
 import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
+import { useReviewInbox } from "../../hooks/useReviewInbox";
 import { useReviewerSubmission } from "../../hooks/useReviewSubmission";
-import { extractDetail } from "../../lib/utils";
-import { STATUS_LABELS } from "../../types/review";
+import { cn, extractDetail } from "../../lib/utils";
 import PdfPinCanvas from "./PdfPinCanvas";
+import { ReviewStatusBadge } from "./ReviewStatusBadge";
+import RevisionPicker from "./RevisionPicker";
 import ThreadPanel from "./ThreadPanel";
 import { pinsForRevision, scrollToThread } from "./threads";
+import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
 
 /** Shown in the viewer when the instructor loses the submission (reassigned) while it is open. */
 const MOVED_MESSAGE = "This submission was moved to another instructor";
@@ -36,6 +39,8 @@ export default function ReviewViewer() {
   const [openedAt, setOpenedAt] = useState<number | null>(null);
 
   const submission = useReviewerSubmission(submissionId);
+  // The queue row names the case and healer. A submission outside the caller's queue has none.
+  const queueRow = useReviewInbox().data?.find((i) => i.submissionId === submissionId);
 
   const latest = submission.data?.latestRevisionNo ?? 0;
   if (openedAt === null && latest > 0) setOpenedAt(latest);
@@ -58,11 +63,11 @@ export default function ReviewViewer() {
   const forbidden = [submission.error, file.error, thread.comments.error].some((e) => isAxiosError(e) && e.response?.status === 403);
   if (forbidden) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-3 p-4">
-        <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <div className={PAGE}>
+        <p role="alert" className={WARN_BOX}>
           {MOVED_MESSAGE}
         </p>
-        <Link to="/reviews" className="text-sm underline">
+        <Link to="/reviews" className="ongr text-sm underline">
           Back to reviews
         </Link>
       </div>
@@ -85,35 +90,30 @@ export default function ReviewViewer() {
     setActiveThread(id);
     scrollToThread(id);
   };
+  const submittedAt = revisions.find((r) => r.revisionNo === latest)?.submittedAt ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <Link to="/reviews" className="text-sm underline">
+    <div className={PAGE}>
+      <div className="page-head flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <Link to="/reviews" className="ongr text-sm underline">
             Back
           </Link>
-          {submission.data && (
-            <span className="text-sm text-muted-foreground">{STATUS_LABELS[submission.data.status]}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="break-words text-2xl font-semibold">{queueRow?.caseTitle ?? "Review"}</h1>
+            {status && (
+              <ReviewStatusBadge className={HEAD_BADGE} status={status} label={status === "DISMISSED" ? "Dismissed" : undefined} />
+            )}
+          </div>
+          {submittedAt && (
+            <p className="muted mt-1 text-sm text-muted-foreground">
+              {queueRow ? `${queueRow.healerName}, submitted ` : "Submitted "}
+              {formatWhen(submittedAt)}
+            </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {revisions.length > 1 && (
-            <label className="flex items-center gap-2 text-sm">
-              Version
-              <select
-                className="rounded border bg-background px-2 py-1"
-                value={displayed}
-                onChange={(e) => setChosenRevision(Number(e.target.value))}
-              >
-                {revisions.map((r) => (
-                  <option key={r.revisionNo} value={r.revisionNo}>
-                    {r.revisionNo}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          <RevisionPicker revisions={revisions} latestRevisionNo={latest} value={displayed} onChange={setChosenRevision} />
           <Button
             type="button"
             size="sm"
@@ -134,17 +134,11 @@ export default function ReviewViewer() {
             <Download className="h-3.5 w-3.5" />
             Download
           </Button>
-          <Button type="button" size="sm" variant="outline" disabled={!canDecide} onClick={() => decide("request-changes")}>
-            Request changes
-          </Button>
-          <Button type="button" size="sm" disabled={!canDecide} onClick={() => decide("approve")}>
-            Approve
-          </Button>
         </div>
       </div>
 
       {decisionError && (
-        <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+        <p role="alert" className={WARN_BOX}>
           {decisionError}
         </p>
       )}
@@ -152,7 +146,7 @@ export default function ReviewViewer() {
       {hasNewer && (
         <button
           type="button"
-          className="w-full rounded border border-blue-300 bg-blue-50 p-2 text-sm text-blue-900"
+          className="w-full rounded-xl border border-primary bg-primary/10 p-3 text-sm font-medium"
           onClick={() => {
             setChosenRevision(latest);
             decision.reset();
@@ -163,12 +157,12 @@ export default function ReviewViewer() {
       )}
 
       {(submission.isError || file.isError) && (
-        <p role="alert" className="text-sm text-red-500">
+        <p role="alert" className="ongr text-sm text-destructive">
           Could not load this submission.
         </p>
       )}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section aria-label={`Case sheet PDF, revision ${displayed}`} className={cn(SURFACE, "min-w-0 self-start p-2")}>
           {file.data && (
             <PdfPinCanvas
               key={file.data}
@@ -186,7 +180,7 @@ export default function ReviewViewer() {
               }
             />
           )}
-        </div>
+        </section>
         <div className="lg:sticky lg:top-4 lg:max-h-[85vh] lg:self-start lg:overflow-y-auto">
           <ThreadPanel
             comments={comments}
@@ -205,6 +199,25 @@ export default function ReviewViewer() {
             onCancelDraft={() => setDraft(null)}
           />
         </div>
+      </div>
+
+      <div className={cn(SURFACE, "flex flex-wrap items-center justify-end gap-3 p-3")}>
+        <p className="muted min-w-[16rem] flex-1 text-sm text-muted-foreground">
+          Approving locks this revision. Any later edit to the case sets the approval aside and asks the healer to submit
+          again.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="text-[color:var(--warn,var(--color-amber-900))]"
+          disabled={!canDecide}
+          onClick={() => decide("request-changes")}
+        >
+          Request changes
+        </Button>
+        <Button type="button" disabled={!canDecide} onClick={() => decide("approve")}>
+          Approve
+        </Button>
       </div>
     </div>
   );

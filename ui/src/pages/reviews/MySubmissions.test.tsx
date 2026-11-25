@@ -70,9 +70,43 @@ describe("MySubmissions", () => {
     expect(within(rows[0]).getByText(/Version 1/)).toBeInTheDocument();
     expect(within(rows[0]).getByText(/Version 2/)).toBeInTheDocument();
     expect(within(rows[0]).getByText(/automatic/i)).toBeInTheDocument();
-    expect(within(rows[0]).getByRole("link", { name: /open submission/i })).toHaveAttribute("href", "/submissions/s2");
+    expect(within(rows[0]).getByRole("link", { name: "Open and resubmit" })).toHaveAttribute("href", "/submissions/s2");
+    expect(within(rows[0]).getByRole("link", { name: /view case/i })).toHaveAttribute("href", "/cases/c2/summary");
+    expect(within(rows[1]).getByRole("link", { name: "View" })).toHaveAttribute("href", "/submissions/s1");
     expect(within(rows[1]).getByText("Approved")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/my-submissions");
+  });
+
+  it("counts approved, waiting and needs-attention cases from the list", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [
+        submission({ id: "a", caseId: "c1", status: "PENDING_REVIEW" }),
+        submission({ id: "b", caseId: "c2", status: "CHANGES_REQUESTED" }),
+        submission({ id: "c", caseId: "c3", status: "DISMISSED" }),
+        submission({ id: "d", caseId: "c4", status: "APPROVED" }),
+        submission({ id: "e", caseId: "c5", status: "APPROVED" }),
+        submission({ id: "f", caseId: "c6", status: "APPROVED" }),
+        // An older submission of a case already counted: only the newest one is the case's state.
+        submission({ id: "g", caseId: "c1", status: "DISMISSED" }),
+      ],
+    });
+    renderPage();
+
+    const card = async (name: string) => within(await screen.findByRole("group", { name }));
+    expect((await card("Approved cases")).getByText("3")).toBeInTheDocument();
+    expect((await card("Waiting for your instructor")).getByText("1")).toBeInTheDocument();
+    expect((await card("Needs your attention")).getByText("2")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["PENDING_REVIEW", "Open"],
+    ["CHANGES_REQUESTED", "Open and resubmit"],
+    ["DISMISSED", "Open and resubmit"],
+    ["APPROVED", "View"],
+  ])("labels the row action of a %s submission '%s'", async (status, label) => {
+    vi.mocked(api.get).mockResolvedValue({ data: [submission({ status })] });
+    renderPage();
+    expect(await screen.findByRole("link", { name: label })).toHaveAttribute("href", "/submissions/s1");
   });
 
   it("says so when nothing was submitted yet", async () => {

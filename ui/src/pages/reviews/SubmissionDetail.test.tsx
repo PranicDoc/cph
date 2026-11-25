@@ -68,6 +68,51 @@ describe("SubmissionDetail", () => {
     vi.mocked(api.post).mockResolvedValue({ data: comment({ id: "c2", parentId: "c1", authorSide: "HEALER", body: "Done" }) });
   });
 
+  const BANNER = "Your instructor asked for changes.";
+  const serve = (status: string) =>
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.endsWith("/submissions/s1"))
+        return Promise.resolve({
+          data: {
+            id: "s1", caseId: "c1", healerId: "me", reviewerId: null, stage: "REVIEWER", status,
+            dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo: 1,
+            createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z",
+            revisions: [{ revisionNo: 1, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z" }],
+          },
+        });
+      if (url.endsWith("/comments")) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: { url: "https://r2/rev1.pdf" } });
+    });
+
+  it("shows the changes-requested banner, edit link and resubmit, which submits the case", async () => {
+    const user = userEvent.setup();
+    serve("CHANGES_REQUESTED");
+    renderDetail();
+
+    expect(await screen.findByText(BANNER)).toBeInTheDocument();
+    expect(screen.getByText(/nothing changed since R1/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit case" })).toHaveAttribute("href", "/session/c1");
+
+    await user.click(screen.getByRole("button", { name: "Resubmit for review" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/v1/reviews/cases/c1/submit"));
+  });
+
+  it("a dismissed submission can be submitted again, without the banner", async () => {
+    serve("DISMISSED");
+    renderDetail();
+    expect(await screen.findByRole("button", { name: "Submit for review" })).toBeInTheDocument();
+    expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+  });
+
+  it.each(["PENDING_REVIEW", "APPROVED"])("shows no banner or resubmit bar when %s", async (status) => {
+    serve(status);
+    renderDetail();
+    await screen.findByTestId("pdf");
+    expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit case" })).not.toBeInTheDocument();
+  });
+
   it("healerThread_hasReplyButNoApprove", async () => {
     const user = userEvent.setup();
     renderDetail();

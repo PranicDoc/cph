@@ -19,17 +19,36 @@ const TONES: Record<CaseReviewStatus, string> = {
   DISMISSED: "bg-red-100 text-red-800",
 };
 
+/** The new view's badge colour for each tone; it has no effect in the classic view, where TONES applies. */
+const BADGE_CLASSES: Record<CaseReviewStatus, string> = {
+  NOT_SUBMITTED: "off",
+  NOT_SUBMITTED_NO_REVIEWER: "off",
+  PENDING_REVIEW: "",
+  CHANGES_REQUESTED: "warn",
+  APPROVED: "ok",
+  DISMISSED: "bad",
+};
+
+interface Props {
+  status: CaseReviewStatus;
+  className?: string;
+  /** Replaces the healer-facing wording, e.g. on the instructor's screens. */
+  label?: string;
+}
+
 /** A case's review state as a small pill; the label says what the healer should do next. */
-export function ReviewStatusBadge({ status, className }: { status: CaseReviewStatus; className?: string }) {
+export function ReviewStatusBadge({ status, className, label }: Props) {
   return (
     <span
       className={cn(
+        "badge",
+        BADGE_CLASSES[status],
         "inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
         TONES[status],
         className
       )}
     >
-      {REVIEW_STATUS_LABELS[status]}
+      {label ?? REVIEW_STATUS_LABELS[status]}
     </span>
   );
 }
