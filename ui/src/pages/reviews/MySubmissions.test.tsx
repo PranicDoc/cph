@@ -109,6 +109,24 @@ describe("MySubmissions", () => {
     expect(await screen.findByRole("link", { name: label })).toHaveAttribute("href", "/submissions/s1");
   });
 
+  it("a superseded submission only offers 'View', as a secondary action", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [
+        submission({ id: "new", caseId: "c1", status: "CHANGES_REQUESTED" }),
+        submission({ id: "old", caseId: "c1", status: "DISMISSED" }),
+      ],
+    });
+    renderPage();
+
+    const rows = await screen.findAllByTestId("submission-row");
+    const current = within(rows[0]).getByRole("link", { name: "Open and resubmit" });
+    const superseded = within(rows[1]).getByRole("link", { name: "View" });
+    expect(superseded).toHaveAttribute("href", "/submissions/old");
+    expect(within(rows[1]).queryByRole("link", { name: "Open and resubmit" })).not.toBeInTheDocument();
+    expect(current).toHaveAttribute("data-variant", "default");
+    expect(superseded).toHaveAttribute("data-variant", "outline");
+  });
+
   it("says so when nothing was submitted yet", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: [] });
     renderPage();

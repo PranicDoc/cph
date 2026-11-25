@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEventStream } from "../../hooks/useEventStream";
+import { useMySubmissions } from "../../hooks/useMySubmissions";
 import { useReviewComments } from "../../hooks/useReviewComments";
 import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
 import { useHealerSubmission } from "../../hooks/useReviewSubmission";
@@ -12,6 +13,7 @@ import PdfPinCanvas from "./PdfPinCanvas";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
 import RevisionPicker from "./RevisionPicker";
 import { SubmitForReviewButton } from "./SubmitForReviewButton";
+import { newestByCase } from "./submissions";
 import ThreadPanel from "./ThreadPanel";
 import { pinsForRevision, scrollToThread } from "./threads";
 import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
@@ -23,11 +25,13 @@ import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
 export default function SubmissionDetail() {
   const { submissionId = "" } = useParams<{ submissionId: string }>();
   useEventStream();
+  const navigate = useNavigate();
 
   const [chosenRevision, setChosenRevision] = useState<number | null>(null);
   const [activeThread, setActiveThread] = useState<string | null>(null);
 
   const sub = useHealerSubmission(submissionId);
+  const mine = useMySubmissions();
   const thread = useReviewComments("healer", submissionId);
 
   const latest = sub.data?.latestRevisionNo ?? 0;
@@ -60,7 +64,16 @@ export default function SubmissionDetail() {
   };
   const submission = sub.data;
   const status = submission?.status;
-  const canResubmit = status === "CHANGES_REQUESTED" || status === "DISMISSED";
+  // The server submits by case and acts on its newest submission, so no other one offers a resubmit.
+  const isNewest = !!submission && newestByCase(mine.data ?? []).get(submission.caseId)?.id === submission.id;
+  const canResubmit = isNewest && (status === "CHANGES_REQUESTED" || status === "DISMISSED");
+  const followSubmit = ({ id }: { id: string }) => {
+    if (id === submissionId) return;
+    // The page stays mounted for the new submission: drop what was chosen on this one.
+    setChosenRevision(null);
+    setActiveThread(null);
+    navigate(`/submissions/${id}`);
+  };
 
   return (
     <div className={PAGE}>
@@ -137,7 +150,12 @@ export default function SubmissionDetail() {
           <Button asChild size="sm" variant="outline">
             <Link to={`/session/${submission.caseId}`}>Edit case</Link>
           </Button>
-          <SubmitForReviewButton caseId={submission.caseId} status={submission.status} variant="default" />
+          <SubmitForReviewButton
+            caseId={submission.caseId}
+            status={submission.status}
+            variant="default"
+            onSubmitted={followSubmit}
+          />
         </div>
       )}
     </div>

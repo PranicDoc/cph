@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -69,8 +69,13 @@ describe("SubmissionDetail", () => {
   });
 
   const BANNER = "Your instructor asked for changes.";
-  const serve = (status: string) =>
+  /** `newer` is a later submission of the same case; the list is newest first, as the server sends it. */
+  const serve = (status: string, newer?: { id: string; status: string }) =>
     vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.endsWith("/my-submissions"))
+        return Promise.resolve({
+          data: [...(newer ? [{ ...newer, caseId: "c1" }] : []), { id: "s1", caseId: "c1", status }],
+        });
       if (url.endsWith("/submissions/s1"))
         return Promise.resolve({
           data: {
@@ -102,6 +107,57 @@ describe("SubmissionDetail", () => {
     renderDetail();
     expect(await screen.findByRole("button", { name: "Submit for review" })).toBeInTheDocument();
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+  });
+
+  it.each(["PENDING_REVIEW", "APPROVED"])(
+    "a dismissed submission superseded by a %s one offers no resubmit",
+    async (newerStatus) => {
+      serve("DISMISSED", { id: "s2", status: newerStatus });
+      renderDetail();
+      await screen.findByTestId("pdf");
+      await waitFor(() => expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/my-submissions"));
+      await act(async () => {});
+      expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Edit case" })).not.toBeInTheDocument();
+    }
+  );
+
+  it("offers no resubmit while it is unknown whether this is the case's newest submission", async () => {
+    serve("DISMISSED");
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      url.endsWith("/my-submissions") ? new Promise(() => {}) : base(url)
+    );
+    renderDetail();
+    await screen.findByTestId("pdf");
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+  });
+
+  it("moves to the new submission when the submit creates one", async () => {
+    const user = userEvent.setup();
+    serve("DISMISSED");
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "s9", caseId: "c1", latestRevisionNo: 1, outcome: "CREATED" } });
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Submit for review" }));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/submissions/s9"));
+  });
+
+  it("a submit refetches the open submission and the submissions list", async () => {
+    const user = userEvent.setup();
+    serve("CHANGES_REQUESTED");
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "s1", caseId: "c1", latestRevisionNo: 1, outcome: "REREQUESTED" } });
+    renderDetail();
+    const button = await screen.findByRole("button", { name: "Resubmit for review" });
+    vi.mocked(api.get).mockClear();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/submissions/s1");
+      expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/my-submissions");
+    });
   });
 
   it.each(["PENDING_REVIEW", "APPROVED"])("shows no banner or resubmit bar when %s", async (status) => {

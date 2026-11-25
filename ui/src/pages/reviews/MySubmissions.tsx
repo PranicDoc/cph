@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useEventStream } from "../../hooks/useEventStream";
 import { useMySubmissions } from "../../hooks/useMySubmissions";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
+import { newestByCase } from "./submissions";
 import { formatWhen, PAGE, SURFACE, TABLE } from "./ui";
 import type { SubmissionResponse } from "../../types/review";
 
@@ -14,14 +15,15 @@ function formatDate(iso: string): string {
 
 const needsResubmit = (s: SubmissionResponse) => s.status === "CHANGES_REQUESTED" || s.status === "DISMISSED";
 
-function actionLabel(s: SubmissionResponse): string {
-  if (needsResubmit(s)) return "Open and resubmit";
-  return s.status === "APPROVED" ? "View" : "Open";
+/** A superseded submission is history: it can only be viewed. */
+function actionLabel(s: SubmissionResponse, superseded: boolean): string {
+  if (superseded || s.status === "APPROVED") return "View";
+  return needsResubmit(s) ? "Open and resubmit" : "Open";
 }
 
-/** Counts cases, not submissions: the list is newest first, so a case's first row is its current state. */
+/** Counts cases, not submissions: a case's newest submission is its current state. */
 function SubmissionCounts({ submissions }: { submissions: SubmissionResponse[] }) {
-  const current = [...new Map([...submissions].reverse().map((s) => [s.caseId, s])).values()];
+  const current = [...newestByCase(submissions).values()];
   const cards = [
     {
       label: "Approved cases",
@@ -52,7 +54,7 @@ function SubmissionCounts({ submissions }: { submissions: SubmissionResponse[] }
   );
 }
 
-function SubmissionRow({ s }: { s: SubmissionResponse }) {
+function SubmissionRow({ s, superseded }: { s: SubmissionResponse; superseded: boolean }) {
   return (
     <tr data-testid="submission-row" className={TABLE.row}>
       <td className={TABLE.title}>
@@ -81,8 +83,8 @@ function SubmissionRow({ s }: { s: SubmissionResponse }) {
         <ReviewStatusBadge status={s.status} />
       </td>
       <td className={TABLE.actions} data-label="">
-        <Button asChild size="sm" variant={needsResubmit(s) ? "default" : "outline"}>
-          <Link to={`/submissions/${s.id}`}>{actionLabel(s)}</Link>
+        <Button asChild size="sm" variant={!superseded && needsResubmit(s) ? "default" : "outline"}>
+          <Link to={`/submissions/${s.id}`}>{actionLabel(s, superseded)}</Link>
         </Button>
       </td>
     </tr>
@@ -99,6 +101,7 @@ export default function MySubmissions() {
   useEffect(() => resetUnread(), [resetUnread, unreadCount]);
 
   const { data, isLoading, isError } = useMySubmissions();
+  const newest = newestByCase(data ?? []);
 
   return (
     <div className={PAGE}>
@@ -137,7 +140,7 @@ export default function MySubmissions() {
             </thead>
             <tbody className={TABLE.body}>
               {data.map((s) => (
-                <SubmissionRow key={s.id} s={s} />
+                <SubmissionRow key={s.id} s={s} superseded={newest.get(s.caseId) !== s} />
               ))}
             </tbody>
           </table>
