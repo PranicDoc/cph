@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import { adminItemForPath, canSeeNavItem, firstAdminPath, hasPermission, visibleNavItems, type MyPermissions } from "./adminAccess";
 import type { AdminNavItem } from "../config/adminNavItems";
 import type { SidebarNavItem } from "../components/Sidebar";
+import { adminNavItems } from "../config/adminNavItems";
 
 const items: AdminNavItem[] = [
   { label: "Accounts", path: "/admin/accounts", icon: Users, anyOf: ["CREDIT_ACCOUNTS"] },
@@ -96,5 +97,23 @@ describe("navigation by feature flag", () => {
   it("leaves items without a feature requirement alone", () => {
     const patients: SidebarNavItem = { label: "Patients", path: "/p", icon: Users, anyOf: ["PATIENT"] };
     expect(canSeeNavItem({ grants: { PATIENT: ["READ"] }, caseReviewEnabled: false }, patients)).toBe(true);
+  });
+});
+
+describe("All reviews nav item", () => {
+  const labels = (perms: MyPermissions) => visibleNavItems(perms, adminNavItems).map((i) => i.label);
+  const admin: MyPermissions = { grants: { CREDIT_ACCOUNTS: ["READ", "ADMIN"] }, caseReviewEnabled: true };
+
+  it("is shown to a super admin while case review is on", () => {
+    expect(labels({ ...admin, superAdmin: true })).toContain("All reviews");
+  });
+
+  it("is hidden from anyone else, even with the same grants", () => {
+    expect(labels(admin)).not.toContain("All reviews");
+    expect(labels({ ...admin, superAdmin: false })).not.toContain("All reviews");
+  });
+
+  it("is hidden while case review is off", () => {
+    expect(labels({ ...admin, superAdmin: true, caseReviewEnabled: false })).not.toContain("All reviews");
   });
 });

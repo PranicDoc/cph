@@ -3,16 +3,17 @@ import { isAxiosError } from "axios";
 import { Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "../../context/AuthContext";
 import { useEventStream } from "../../hooks/useEventStream";
 import { useReviewComments } from "../../hooks/useReviewComments";
 import { useReviewDecision } from "../../hooks/useReviewDecision";
 import { useReviewFileUrl } from "../../hooks/useReviewFileUrl";
-import { useReviewInbox } from "../../hooks/useReviewInbox";
 import { useReviewerSubmission } from "../../hooks/useReviewSubmission";
 import { cn, extractDetail } from "../../lib/utils";
 import PdfPinCanvas from "./PdfPinCanvas";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
 import RevisionPicker from "./RevisionPicker";
+import SuperAdminBanner from "./SuperAdminBanner";
 import ThreadPanel from "./ThreadPanel";
 import { pinsForRevision, scrollToThread } from "./threads";
 import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
@@ -39,8 +40,7 @@ export default function ReviewViewer() {
   const [openedAt, setOpenedAt] = useState<number | null>(null);
 
   const submission = useReviewerSubmission(submissionId);
-  // The queue row names the case and healer. A submission outside the caller's queue has none.
-  const queueRow = useReviewInbox().data?.find((i) => i.submissionId === submissionId);
+  const { user } = useAuth();
 
   const latest = submission.data?.latestRevisionNo ?? 0;
   if (openedAt === null && latest > 0) setOpenedAt(latest);
@@ -90,6 +90,10 @@ export default function ReviewViewer() {
     setActiveThread(id);
     scrollToThread(id);
   };
+  // A super admin may be here without being the assigned reviewer, including when there is none.
+  const actingAsSuperAdmin =
+    user?.role === "SUPADM" && !!submission.data && submission.data.reviewerId !== user.id;
+  const healerName = submission.data?.healerName;
   const submittedAt = revisions.find((r) => r.revisionNo === latest)?.submittedAt ?? null;
 
   return (
@@ -100,14 +104,14 @@ export default function ReviewViewer() {
             Back
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="break-words text-2xl font-semibold">{queueRow?.caseTitle ?? "Review"}</h1>
+            <h1 className="break-words text-2xl font-semibold">{submission.data?.caseTitle ?? "Review"}</h1>
             {status && (
               <ReviewStatusBadge className={HEAD_BADGE} status={status} label={status === "DISMISSED" ? "Dismissed" : undefined} />
             )}
           </div>
           {submittedAt && (
             <p className="muted mt-1 text-sm text-muted-foreground">
-              {queueRow ? `${queueRow.healerName}, submitted ` : "Submitted "}
+              {healerName ? `${healerName}, submitted ` : "Submitted "}
               {formatWhen(submittedAt)}
             </p>
           )}
@@ -136,6 +140,8 @@ export default function ReviewViewer() {
           </Button>
         </div>
       </div>
+
+      {actingAsSuperAdmin && <SuperAdminBanner />}
 
       {decisionError && (
         <p role="alert" className={WARN_BOX}>

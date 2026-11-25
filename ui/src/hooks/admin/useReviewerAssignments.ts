@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../../lib/axios";
+import { ALL_REVIEWS_KEY } from "../../lib/reviewQueryKeys";
 import { extractDetail } from "../../lib/utils";
 
 export interface ReviewerAssignment {
@@ -48,6 +49,8 @@ export function useAssignReviewer() {
       api.put<ReviewerAssignment>(`${BASE}/${healerId}`, { reviewerId }).then((r) => r.data),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: QK });
+      // Assigning also moves the healer's open reviews.
+      qc.invalidateQueries({ queryKey: ALL_REVIEWS_KEY });
       toast.success(`${data.healerName ?? "Healer"} is now reviewed by ${data.reviewerName ?? "the instructor"}`);
     },
     onError: (e) => toast.error(extractDetail(e) || "Failed to link the instructor", { duration: 5000 }),

@@ -7,6 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReviewViewer from "./ReviewViewer";
 import api from "../../lib/axios";
 
+const auth = vi.hoisted(() => ({ user: { id: "me", role: "HEALER" } }));
+vi.mock("../../context/AuthContext", () => ({ useAuth: () => auth }));
 vi.mock("../../lib/axios", () => ({
   default: { get: vi.fn(), post: vi.fn(), defaults: { baseURL: "" } },
   refreshSession: vi.fn(),
@@ -37,6 +39,7 @@ function submission(latestRevisionNo: number) {
     id: "s1", caseId: "c1", healerId: "h1", reviewerId: "me", stage: "REVIEWER", status: "PENDING_REVIEW",
     dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo,
     createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-01T10:00:00Z",
+    caseTitle: "Migraine", healerName: "Meera", reviewerName: "Asha",
     revisions: Array.from({ length: latestRevisionNo }, (_, i) => ({
       revisionNo: i + 1, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z",
     })),
@@ -74,33 +77,66 @@ describe("ReviewViewer", () => {
     FakeEventSource.instances = [];
     currentLatest = 1;
     currentComments = [];
+    auth.user = { id: "me", role: "HEALER" };
     vi.stubGlobal("EventSource", FakeEventSource);
     mockApi();
   });
 
-  it("titles the page from the queue row and explains what approving does", async () => {
-    const base = vi.mocked(api.get).getMockImplementation()!;
-    vi.mocked(api.get).mockImplementation((url: string) =>
-      url === "/api/v1/reviews/inbox"
-        ? Promise.resolve({ data: [{ submissionId: "s1", healerName: "Meera", caseTitle: "Migraine",
-            latestRevisionNo: 1, status: "PENDING_REVIEW", submittedAt: "2026-11-01T10:00:00Z" }] })
-        : base(url)
-    );
+  it("titles the page from the submission and explains what approving does", async () => {
     renderViewer();
     expect(await screen.findByRole("heading", { name: "Migraine" })).toBeInTheDocument();
     expect(screen.getByText(/^Meera, submitted/)).toBeInTheDocument();
     expect(screen.getByText(/^Approving locks this revision/)).toBeInTheDocument();
+    // The assigned reviewer is not acting as super admin.
+    expect(screen.queryByText("You are acting as super admin.")).not.toBeInTheDocument();
   });
 
-  it("opens a submission with no assigned reviewer that is not in the queue", async () => {
+  const serveSubmission = (over: Record<string, unknown>) => {
     const base = vi.mocked(api.get).getMockImplementation()!;
     vi.mocked(api.get).mockImplementation((url: string) =>
-      url.endsWith("/inbox/s1") ? Promise.resolve({ data: { ...submission(1), reviewerId: null } }) : base(url)
+      url.endsWith("/inbox/s1") ? Promise.resolve({ data: { ...submission(1), ...over } }) : base(url)
     );
+  };
+
+  it("opens a submission with no assigned reviewer for a super admin, who can decide and comment", async () => {
+    const user = userEvent.setup();
+    auth.user = { id: "sa", role: "SUPADM" };
+    serveSubmission({ reviewerId: null, reviewerName: null });
+    vi.mocked(api.post).mockResolvedValue({ data: {} });
     renderViewer();
     await screen.findByTestId("pdf");
-    expect(screen.getByRole("heading", { name: "Review" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    expect(screen.getByRole("heading", { name: "Migraine" })).toBeInTheDocument();
+    expect(screen.getByText(/^Meera, submitted/)).toBeInTheDocument();
+    expect(screen.getByText("You are acting as super admin.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Request changes" })).toBeEnabled());
+
+    await user.type(screen.getByRole("textbox", { name: "Add a general comment" }), "Looks fine");
+    await user.click(screen.getByRole("button", { name: "Comment" }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        expect.stringContaining("/inbox/s1/comments"),
+        expect.objectContaining({ body: "Looks fine", revisionNo: 1 })
+      )
+    );
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(vi.mocked(api.post).mock.calls.some((c) => String(c[0]).includes("/s1/approve"))).toBe(true)
+    );
+  });
+
+  it("warns a super admin on a submission assigned to someone else", async () => {
+    auth.user = { id: "sa", role: "SUPADM" };
+    renderViewer();
+    expect(await screen.findByText("You are acting as super admin.")).toBeInTheDocument();
+  });
+
+  it("does not warn a super admin who is the assigned reviewer", async () => {
+    auth.user = { id: "me", role: "SUPADM" };
+    renderViewer();
+    await screen.findByRole("heading", { name: "Migraine" });
+    expect(screen.queryByText("You are acting as super admin.")).not.toBeInTheDocument();
   });
 
   it("downloadButtonPresent once the file URL is known", async () => {

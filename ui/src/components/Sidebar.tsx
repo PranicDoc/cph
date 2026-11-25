@@ -17,6 +17,8 @@ export interface SidebarNavItem {
   requires?: { resource: string; operation: string };
   /** Hidden while this feature flag is off (the server reports it with the permissions). */
   requiresFeature?: "caseReview";
+  /** Shown to super admins only, whatever anyone else has been granted. */
+  superAdminOnly?: boolean;
   /** Shows a dot while there are unseen review events (the item is one of the review pages that clears it). */
   unreadDot?: boolean;
 }
