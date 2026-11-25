@@ -71,6 +71,12 @@ function renderSession() {
   return { ...result, rerenderSession: () => result.rerender(tree()) };
 }
 
+/** The Save button is on the last step of the case details. */
+async function save(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /3\s*lab findings and more/i }));
+  await user.click(screen.getByRole("button", { name: /^save$/i }));
+}
+
 /** The JSON part of the case PATCH sent last. */
 async function lastPatchPayload(): Promise<Record<string, unknown>> {
   const form = (api.patch as Mock).mock.calls.at(-1)![1] as FormData;
@@ -173,7 +179,7 @@ describe("Session: saving case details", () => {
     rerenderSession();
 
     await user.click(screen.getByRole("button", { name: /edit session/i }));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await save(user);
 
     expect(api.patch).toHaveBeenCalled();
     const payload = await lastPatchPayload();
@@ -196,7 +202,7 @@ describe("Session: saving case details", () => {
     await user.click(screen.getByRole("button", { name: /edit session/i }));
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     await user.click(screen.getByRole("button", { name: /edit session/i }));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await save(user);
 
     expect((await lastPatchPayload()).advancedBookPg).toBe("77");
   });
@@ -208,7 +214,7 @@ describe("Session: saving case details", () => {
     renderSession();
 
     await user.click(await screen.findByRole("button", { name: /edit session/i }));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await save(user);
 
     expect(api.patch).toHaveBeenCalledWith("/api/v1/cases", expect.any(FormData), expect.anything());
     expect(await screen.findByRole("button", { name: /proceed to session/i })).toBeInTheDocument();
@@ -222,9 +228,9 @@ describe("Session: saving case details", () => {
     renderSession();
 
     await user.click(await screen.findByRole("button", { name: /edit session/i }));
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await save(user);
 
-    expect(await screen.findByRole("button", { name: /^save$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^save$/i })).toBeVisible();
     expect(screen.queryByRole("button", { name: /proceed to session/i })).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,8 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
-import { DynamicFormEngine } from "../components/DynamicFormEngine";
+import { CaseSheetStepButtons, CaseSheetSteps } from "../components/caseSheet/CaseSheetSteps";
+import { useCaseSheetSteps } from "../components/caseSheet/useCaseSheetSteps";
 import { patientSessionSchema } from "./schemas/patientSessionSchema";
 import { TreatmentStep } from "../interfaces";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,8 @@ export default function PatientHealthForm() {
       }
     },
   });
+
+  const steps = useCaseSheetSteps(form);
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -185,20 +188,31 @@ export default function PatientHealthForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        // Enter on an earlier step moves on; only the last step submits.
+        if (!steps.isLast) {
+          steps.goTo(steps.step + 1);
+          return;
+        }
         form.handleSubmit();
       }}
       className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
     >
       {!isNewView && <h2 className="text-xl font-semibold">Your Health Details</h2>}
-      <DynamicFormEngine form={form} schema={patientSessionSchema} />
+      <CaseSheetSteps form={form} schema={patientSessionSchema} step={steps.step} onSelect={steps.goTo} />
       <div className="flex justify-end pt-4 border-t border-border">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-6 py-2.5 h-auto gap-2"
-        >
-          {isSubmitting ? "Submitting..." : isNewView ? "Submit my details" : "Submit My Details"}
-        </Button>
+        <CaseSheetStepButtons
+          step={steps.step}
+          onSelect={steps.goTo}
+          submit={
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 h-auto gap-2"
+            >
+              {isSubmitting ? "Submitting..." : isNewView ? "Submit my details" : "Submit My Details"}
+            </Button>
+          }
+        />
       </div>
     </form>
     </div>

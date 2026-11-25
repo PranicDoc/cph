@@ -6,7 +6,8 @@ import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
-import { DynamicFormEngine } from "../components/DynamicFormEngine";
+import { CaseSheetStepButtons, CaseSheetSteps } from "../components/caseSheet/CaseSheetSteps";
+import { useCaseSheetSteps } from "../components/caseSheet/useCaseSheetSteps";
 import { buildSessionSchema } from "./schemas/sessionSchema";
 import { sessionStep0Errors } from "./schemas/sessionValidation";
 import { SessionHeader } from "./SessionHeader";
@@ -203,6 +204,9 @@ export default function Session() {
     },
   });
 
+  // The case details are edited in steps; each way into the form starts at the first one.
+  const detailSteps = useCaseSheetSteps(sessionForm);
+
   const mapResponseToFormValues = (data: any): SessionFormValues => ({
     chiefComplaints: complaintRowsFromResponse(data.chiefComplaints),
     symptoms: data.symptoms || [],
@@ -315,6 +319,7 @@ export default function Session() {
 
   // Toggle edit mode manually (via edit icon)
   const toggleEdit = () => {
+    detailSteps.goTo(0);
     setIsEdit(true);
     populateForm(withCurrentCatalog(initialFormValuesRef.current));
     stepEditModeRef.current[0] = true;
@@ -702,6 +707,11 @@ export default function Session() {
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          // Enter on an earlier step moves on; only the last step saves.
+          if (!detailSteps.isLast) {
+            detailSteps.goTo(detailSteps.step + 1);
+            return;
+          }
           const step0Errors = sessionStep0Errors(sessionForm.state.values);
           let saved = false;
           try {
@@ -713,8 +723,9 @@ export default function Session() {
             // error already logged in onSubmit
           }
           if (Object.keys(step0Errors).length > 0) {
-            document
-              .querySelector('[aria-invalid="true"], .text-danger')
+            // Only on the step that is showing, and only error text: danger-coloured buttons are not errors.
+            Array.from(document.querySelectorAll('[aria-invalid="true"], p.text-danger'))
+              .find((el) => !el.closest("[hidden]"))
               ?.scrollIntoView({ behavior: "smooth", block: "center" });
             return;
           }
@@ -729,7 +740,7 @@ export default function Session() {
         }}
         className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
       >
-        <DynamicFormEngine form={sessionForm} schema={schema} />
+        <CaseSheetSteps form={sessionForm} schema={schema} step={detailSteps.step} onSelect={detailSteps.goTo} />
 
         {/* <sessionForm.Field name="healingDetails">
           {(field) => (
@@ -764,29 +775,35 @@ export default function Session() {
             )}
           </div>
 
-          <sessionForm.Subscribe
-            selector={(state: any) => state.values}
-            children={(values: any) => {
-              const incomplete =
-                isEdit && Object.keys(sessionStep0Errors(values)).length > 0;
-              return (
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  aria-disabled={incomplete || undefined}
-                  title={
-                    incomplete
-                      ? "Fill all required fields to save"
-                      : undefined
-                  }
-                  className={`flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2 ${
-                    incomplete ? "opacity-50" : ""
-                  }`}
-                >
-                  Save
-                </Button>
-              );
-            }}
+          <CaseSheetStepButtons
+            step={detailSteps.step}
+            onSelect={detailSteps.goTo}
+            submit={
+              <sessionForm.Subscribe
+                selector={(state: any) => state.values}
+                children={(values: any) => {
+                  const incomplete =
+                    isEdit && Object.keys(sessionStep0Errors(values)).length > 0;
+                  return (
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      aria-disabled={incomplete || undefined}
+                      title={
+                        incomplete
+                          ? "Fill all required fields to save"
+                          : undefined
+                      }
+                      className={`flex-1 sm:flex-none px-6 py-2.5 h-auto gap-2 ${
+                        incomplete ? "opacity-50" : ""
+                      }`}
+                    >
+                      Save
+                    </Button>
+                  );
+                }}
+              />
+            }
           />
         </div>
       </form>

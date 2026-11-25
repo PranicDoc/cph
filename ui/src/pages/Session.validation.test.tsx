@@ -62,6 +62,11 @@ function renderSession() {
   );
 }
 
+/** The Save button is on the last step of the case details. */
+async function goToLastStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: /3\s*lab findings and more/i }));
+}
+
 describe("Session step 0 — mandatory fields before Start Session", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,16 +78,11 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     const user = userEvent.setup();
     renderSession();
 
-    const startButton = await screen.findByRole("button", { name: /^save$/i });
-    expect(startButton).toHaveAttribute("aria-disabled", "true");
+    await user.click(await screen.findByRole("button", { name: /^next: presenting illness$/i }));
 
-    await user.click(startButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
-    });
-    // The chief complaint table shows its own error too.
-    expect(screen.getAllByText(/chief complaint is required/i).length).toBeGreaterThan(0);
+    // The chief complaint table shows its own error, and the form does not move on to Save.
+    expect((await screen.findAllByText(/chief complaint is required/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
     expect(api.patch).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -95,7 +95,10 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     renderSession();
 
     expect(await screen.findByDisplayValue("Neck pain")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await goToLastStep(user);
+    const save = screen.getByRole("button", { name: /^save$/i });
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await user.click(save);
 
     await waitFor(() => {
       expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
@@ -120,6 +123,7 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     });
     renderSession();
 
+    await goToLastStep(userEvent.setup());
     expect((await screen.findAllByText("Headache")).length).toBeGreaterThan(0);
     const startButton = screen.getByRole("button", { name: /^save$/i });
     expect(startButton).not.toHaveAttribute("aria-disabled", "true");
