@@ -60,7 +60,8 @@ class ReviewInboxServiceTest {
         // The row rules below are those of a caller holding CASE:REVIEW; see ReviewerAccessAfterUnlinkTest
         // for a caller who only has access through an assignment.
         org.mockito.Mockito.lenient().when(rbacAuthz.hasPermission("CASE", "REVIEW")).thenReturn(true);
-        when(security.getCurrentHealerId()).thenReturn(me);
+        // Lenient: a wrong-stage submission is refused before the caller is looked up.
+        org.mockito.Mockito.lenient().when(security.getCurrentHealerId()).thenReturn(me);
     }
 
     private ReviewSubmission submission(UUID healer, UUID reviewer, ReviewStatus status) {

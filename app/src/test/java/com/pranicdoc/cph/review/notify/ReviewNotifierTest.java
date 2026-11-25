@@ -138,6 +138,63 @@ class ReviewNotifierTest {
         verifyNoInteractions(healers);
     }
 
+    private final UUID standInId = UUID.randomUUID();
+
+    /** A super admin acted on the reviewer side of a submission that is not assigned to them. */
+    private ReviewEvent standInEvent(UUID storedReviewer, ReviewEventType type, AuthorSide actor,
+                                     ReviewStatus status) {
+        when(healers.findById(standInId)).thenReturn(Optional.of(healer("Sana Iyer", "sana@example.com")));
+        return new ReviewEvent(submissionId, healerId, storedReviewer, type, 1, actor, status, standInId);
+    }
+
+    @Test
+    void standInDecision_emailsHealerNamingWhoDecided_notTheAssignedReviewer() {
+        notifier.onEvent(standInEvent(reviewerId, ReviewEventType.STATUS_CHANGED, null, ReviewStatus.APPROVED));
+
+        NotificationMessage m = built();
+        assertThat(m.recipient()).isEqualTo("asha@example.com");
+        assertThat(m.body()).contains("Sana Iyer approved").doesNotContain("Ravi Menon");
+    }
+
+    @Test
+    void standInDecisionWithNoAssignedReviewer_stillEmailsTheHealer() {
+        notifier.onEvent(standInEvent(null, ReviewEventType.STATUS_CHANGED, null, ReviewStatus.CHANGES_REQUESTED));
+
+        NotificationMessage m = built();
+        assertThat(m.recipient()).isEqualTo("asha@example.com");
+        assertThat(m.body()).contains("Sana Iyer asked for changes");
+    }
+
+    @Test
+    void standInComment_emailsHealerNamingTheAuthor() {
+        notifier.onEvent(standInEvent(null, ReviewEventType.COMMENT_ADDED, AuthorSide.REVIEWER,
+                ReviewStatus.PENDING_REVIEW));
+
+        NotificationMessage m = built();
+        assertThat(m.recipient()).isEqualTo("asha@example.com");
+        assertThat(m.body()).contains("Sana Iyer added a comment");
+    }
+
+    @Test
+    void nobodyIsEmailedAboutTheirOwnAction() {
+        // A healer stored as their own reviewer.
+        for (ReviewEventType type : ReviewEventType.values()) {
+            for (AuthorSide actor : AuthorSide.values()) {
+                for (ReviewStatus status : ReviewStatus.values()) {
+                    notifier.onEvent(new ReviewEvent(submissionId, healerId, healerId, type, 1, actor, status));
+                }
+            }
+        }
+        // A super admin deciding, or commenting on, their own submission that is not assigned to them.
+        notifier.onEvent(new ReviewEvent(submissionId, healerId, reviewerId, ReviewEventType.STATUS_CHANGED, 1,
+                null, ReviewStatus.APPROVED, healerId));
+        notifier.onEvent(new ReviewEvent(submissionId, healerId, null, ReviewEventType.COMMENT_ADDED, 1,
+                AuthorSide.REVIEWER, ReviewStatus.PENDING_REVIEW, healerId));
+
+        assertNothingQueued();
+        verifyNoInteractions(healers);
+    }
+
     @Test
     void reRequest_statusChangedToPending_emailsReviewerLikeAResubmit() {
         notifier.onEvent(event(ReviewEventType.STATUS_CHANGED, 2, null, ReviewStatus.PENDING_REVIEW));

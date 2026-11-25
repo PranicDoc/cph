@@ -219,6 +219,11 @@ class LegacyEndpointCutoverSweepTest {
                         + "so it carries no @PreAuthorize gate; every route calls "
                         + "AdminAuthz.assertSuperAdmin(), pinned in AdminReviewerAssignmentController"
                         + "AuthorizationContractTest (403 for a non-SUPADM on all four routes)");
+        m.put("com.pranicdoc.cph.review.controller.AdminReviewController",
+                "SUPADM-only (list of every case review): no RBAC permission opens it, so it carries "
+                        + "no @PreAuthorize gate; its route calls AdminAuthz.assertSuperAdmin(), pinned in "
+                        + "AdminReviewerAssignmentControllerAuthorizationContractTest (403 for a non-SUPADM "
+                        + "and for a patient token)");
         return m;
     }
 

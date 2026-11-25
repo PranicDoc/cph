@@ -28,7 +28,7 @@ import java.util.UUID;
 /**
  * Instructor side of case review. Every route is open to a caller with CASE:REVIEW or with a healer
  * assigned to them ({@code ReviewAuthz}); the service adds the row-level check that the submission is
- * assigned to the caller and is not their own case.
+ * assigned to the caller and is not their own case, which only a super admin bypasses.
  */
 @RestController
 @RequiresCaseReview

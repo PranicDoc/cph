@@ -10,6 +10,7 @@ import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
 import com.pranicdoc.cph.rbac.RbacAuthz;
+import com.pranicdoc.cph.review.dto.AdminReviewItemResponse;
 import com.pranicdoc.cph.review.dto.InboxItemResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
@@ -35,11 +36,13 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
 
@@ -50,6 +53,10 @@ import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toRespons
  * therefore answers 403. A caller without CASE:REVIEW (in only through {@link ReviewAuthz}'s assignment
  * rule) must also be the healer's reviewer <em>now</em>: unlinking leaves submissions, and moving a healer
  * leaves the closed ones, stored against the old reviewer.
+ *
+ * <p>A caller who is a super admin <em>now</em> bypasses the row rule: any reviewer-stage submission, whether
+ * assigned to someone else, to no one, or their own. The bypass never rests on the stored ids, because a
+ * self-assignment can outlive the role. The super admin's "All reviews" list is here too.
  */
 @Service
 @RequiredArgsConstructor
@@ -105,7 +112,8 @@ public class ReviewInboxService {
         s.setStatus(decision);
         submissions.saveAndFlush(s);
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.STATUS_CHANGED, latest, null, s.getStatus()));
+                ReviewEventType.STATUS_CHANGED, latest, null, s.getStatus(),
+                ReviewEvent.standIn(security.getCurrentHealerId(), s.getReviewerId())));
         return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
     }
 
@@ -114,29 +122,54 @@ public class ReviewInboxService {
     public List<InboxItemResponse> inbox(ReviewStatus status) {
         UUID me = security.getCurrentHealerId();
         Predicate<UUID> reviewsNow = currentlyLinkedHealers(me);
+        boolean superAdmin = rbacAuthz.isSuperAdmin(); // the only caller who reviews their own cases
         List<ReviewSubmission> mine = submissions.findByReviewerIdAndStage(me, ReviewStage.REVIEWER).stream()
                 .filter(s -> me.equals(s.getReviewerId())) // never a submission whose instructor was erased
-                .filter(s -> !me.equals(s.getHealerId()))
+                .filter(s -> superAdmin || !me.equals(s.getHealerId()))
                 .filter(s -> reviewsNow.test(s.getHealerId()))
                 .filter(s -> status == null || s.getStatus() == status)
                 .toList();
         if (mine.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<ReviewRevision>> bySubmission = revisions
-                .findBySubmissionIdIn(mine.stream().map(ReviewSubmission::getId).toList()).stream()
-                .collect(Collectors.groupingBy(ReviewRevision::getSubmissionId));
-        Map<UUID, String> healerNames = healers
-                .findAllById(mine.stream().map(ReviewSubmission::getHealerId).collect(Collectors.toSet())).stream()
-                .collect(Collectors.toMap(Healer::getId, h -> h.getFullName() == null ? "" : h.getFullName()));
-        Map<UUID, HealingCase> caseById = cases
-                .findAllById(mine.stream().map(ReviewSubmission::getCaseId).collect(Collectors.toSet())).stream()
-                .collect(Collectors.toMap(HealingCase::getId, Function.identity()));
+        Map<UUID, List<ReviewRevision>> bySubmission = revisionsOf(mine);
+        Map<UUID, String> healerNames =
+                namesOf(mine.stream().map(ReviewSubmission::getHealerId).collect(Collectors.toSet()));
+        Map<UUID, HealingCase> caseById = casesOf(mine);
 
         return mine.stream()
                 .map(s -> toItem(s, bySubmission.getOrDefault(s.getId(), List.of()),
                         healerNames.getOrDefault(s.getHealerId(), ""), caseById.get(s.getCaseId())))
                 .sorted(Comparator.comparing(InboxItemResponse::submittedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    /**
+     * Every reviewer-stage submission, oldest latest-revision first; each filter is optional. Names and cases
+     * are batch-loaded. The caller (the SUPADM-only admin route) enforces who may ask.
+     */
+    @Transactional(readOnly = true)
+    public List<AdminReviewItemResponse> allReviews(ReviewStatus status, UUID reviewerId, UUID healerId) {
+        List<ReviewSubmission> matching = submissions.findByStage(ReviewStage.REVIEWER).stream()
+                .filter(s -> status == null || s.getStatus() == status)
+                .filter(s -> reviewerId == null || reviewerId.equals(s.getReviewerId()))
+                .filter(s -> healerId == null || healerId.equals(s.getHealerId()))
+                .toList();
+        if (matching.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<ReviewRevision>> bySubmission = revisionsOf(matching);
+        Map<UUID, String> names = namesOf(matching.stream()
+                .flatMap(s -> Stream.of(s.getHealerId(), s.getReviewerId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+        Map<UUID, HealingCase> caseById = casesOf(matching);
+
+        return matching.stream()
+                .map(s -> toAdminItem(s, bySubmission.getOrDefault(s.getId(), List.of()), names,
+                        caseById.get(s.getCaseId())))
+                .sorted(Comparator.comparing(AdminReviewItemResponse::submittedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
@@ -158,18 +191,23 @@ public class ReviewInboxService {
     }
 
     /**
-     * Row-level check, shared with the comment service: assigned to the caller, not their own case, and for
-     * a caller without CASE:REVIEW, of a healer they review now.
+     * Row-level check, shared with the comment service. A reviewer-stage submission only, and either the
+     * caller is a super admin, or it is assigned to the caller, is not their own case and, for a caller
+     * without CASE:REVIEW, belongs to a healer they review now.
      */
     public ReviewSubmission assignedSubmission(UUID submissionId) {
         ReviewSubmission s = submissions.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", submissionId));
-        UUID me = security.getCurrentHealerId();
-        if (s.getStage() != ReviewStage.REVIEWER || !me.equals(s.getReviewerId()) || me.equals(s.getHealerId())
-                || !(holdsReviewPermission() || assignments.existsByHealerIdAndReviewerId(s.getHealerId(), me))) {
+        if (s.getStage() != ReviewStage.REVIEWER || !(rbacAuthz.isSuperAdmin() || isAssignedReviewer(s))) {
             throw new AccessDeniedException("Submission is not assigned to you");
         }
         return s;
+    }
+
+    private boolean isAssignedReviewer(ReviewSubmission s) {
+        UUID me = security.getCurrentHealerId();
+        return me.equals(s.getReviewerId()) && !me.equals(s.getHealerId())
+                && (holdsReviewPermission() || assignments.existsByHealerIdAndReviewerId(s.getHealerId(), me));
     }
 
     private boolean holdsReviewPermission() {
@@ -187,6 +225,21 @@ public class ReviewInboxService {
         return linked::contains;
     }
 
+    private Map<UUID, List<ReviewRevision>> revisionsOf(List<ReviewSubmission> rows) {
+        return revisions.findBySubmissionIdIn(rows.stream().map(ReviewSubmission::getId).toList()).stream()
+                .collect(Collectors.groupingBy(ReviewRevision::getSubmissionId));
+    }
+
+    private Map<UUID, String> namesOf(Set<UUID> healerIds) {
+        return healers.findAllById(healerIds).stream()
+                .collect(Collectors.toMap(Healer::getId, h -> h.getFullName() == null ? "" : h.getFullName()));
+    }
+
+    private Map<UUID, HealingCase> casesOf(List<ReviewSubmission> rows) {
+        return cases.findAllById(rows.stream().map(ReviewSubmission::getCaseId).collect(Collectors.toSet()))
+                .stream().collect(Collectors.toMap(HealingCase::getId, Function.identity()));
+    }
+
     /** The case's medical condition is the label healers see for a case; fall back to its creation date. */
     private static String caseTitle(HealingCase c) {
         if (c == null) {
@@ -200,9 +253,22 @@ public class ReviewInboxService {
                 : "Case of " + c.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate();
     }
 
+    private static ReviewRevision latestOf(List<ReviewRevision> revs) {
+        return revs.stream().max(Comparator.comparingInt(ReviewRevision::getRevisionNo)).orElse(null);
+    }
+
+    private static AdminReviewItemResponse toAdminItem(ReviewSubmission s, List<ReviewRevision> revs,
+                                                       Map<UUID, String> names, HealingCase c) {
+        ReviewRevision latest = latestOf(revs);
+        return new AdminReviewItemResponse(s.getId(), s.getHealerId(), names.getOrDefault(s.getHealerId(), ""),
+                s.getReviewerId(), s.getReviewerId() == null ? null : names.get(s.getReviewerId()), caseTitle(c),
+                latest == null ? 0 : latest.getRevisionNo(), s.getStatus(),
+                latest == null ? null : latest.getSubmittedAt());
+    }
+
     private static InboxItemResponse toItem(ReviewSubmission s, List<ReviewRevision> revs, String healerName,
                                             HealingCase c) {
-        ReviewRevision latest = revs.stream().max(Comparator.comparingInt(ReviewRevision::getRevisionNo)).orElse(null);
+        ReviewRevision latest = latestOf(revs);
         return new InboxItemResponse(s.getId(), healerName, caseTitle(c),
                 latest == null ? 0 : latest.getRevisionNo(), s.getStatus(),
                 latest == null ? null : latest.getSubmittedAt());
