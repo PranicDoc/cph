@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useCaseReviewEnabled } from "./useCaseReviewEnabled";
 import api from "../lib/axios";
 import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
@@ -30,6 +30,7 @@ export function useCaseReviewStatuses(caseIds: string[], options?: { scope?: str
     queryKey: options?.scope ? [...CASE_STATUSES_KEY, options.scope, caseIds] : [...CASE_STATUSES_KEY, caseIds],
     queryFn: () => fetchCaseStatuses(caseIds),
     enabled: enabled && caseIds.length > 0,
+    placeholderData: keepPreviousData,
     ...(options?.retry === false ? { retry: false } : {}),
   });
 }

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useEventStream } from "../../hooks/useEventStream";
 import { useMySubmissions } from "../../hooks/useMySubmissions";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
+import { SubmitFromPdfs } from "./SubmitFromPdfs";
 import { newestByCase, reviewerLabel } from "./submissions";
 import { formatWhen, PAGE, SURFACE, TABLE } from "./ui";
 import type { SubmissionResponse } from "../../types/review";
@@ -117,6 +118,7 @@ export default function MySubmissions() {
             Case sheets you sent to your instructor. The status tells you what to do next.
           </p>
         </div>
+        <SubmitFromPdfs />
       </div>
       {isLoading && <p className="ongr text-sm text-muted-foreground">Loading…</p>}
       {isError && (

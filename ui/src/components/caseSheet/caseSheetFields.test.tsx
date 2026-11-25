@@ -108,6 +108,16 @@ describe("PresentingIllnessField", () => {
     expect(box).not.toHaveAttribute("aria-invalid", "true");
   });
 
+  it("asks what it feels like in one box, with the guidance written inside it", () => {
+    render(<IllnessHarness initial={[complete("Headache", "a")]} />);
+    expect(screen.getByRole("textbox", { name: "What it feels like" })).toHaveAttribute(
+      "placeholder", "Describe the problem in your own words: sharp, dull, burning, throbbing, heavy and so on.");
+    expect(screen.queryByText("Character")).not.toBeInTheDocument();
+    for (const name of ["Location", "Makes it worse", "Makes it better"]) {
+      expect(screen.getByRole("textbox", { name }).getAttribute("placeholder")).toBeTruthy();
+    }
+  });
+
   it("clears an answer when the chosen option is chosen again", async () => {
     const user = userEvent.setup();
     render(<IllnessHarness initial={[complete("Headache", "a")]} />);
@@ -118,6 +128,13 @@ describe("PresentingIllnessField", () => {
 });
 
 describe("InfoTip", () => {
+  it("is drawn as the information icon", () => {
+    render(<InfoTip text="Help" label="About height" />);
+    const trigger = screen.getByRole("button", { name: "About height" });
+    expect(trigger.querySelector("svg.lucide-info")).not.toBeNull();
+    expect(trigger).toHaveTextContent("");
+  });
+
   it("opens its text on click and closes it on a second tap", async () => {
     const user = userEvent.setup();
     render(<InfoTip text="Enter your height in centimetres." label="About height" />);
@@ -138,14 +155,26 @@ describe("read-only views", () => {
     expect(screen.getByText("Duration missing")).toBeInTheDocument();
   });
 
-  it("shows the presenting illness answers, or says none were entered", () => {
+  it("keeps presenting illness behind a view link, and shows each problem's answers in a popup", async () => {
+    const user = userEvent.setup();
     render(<PresentingIllnessView complaints={[
       { problem: "Headache", durationValue: 3, durationUnit: "MONTHS", onset: "GRADUAL", timing: "PATTERN", timingPattern: "after 3 pm" },
       { problem: "Poor sleep", durationValue: 1, durationUnit: "YEARS" },
     ]} />);
+    expect(screen.queryByText("Gradual")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Click to view" }));
+
+    expect(screen.getByRole("dialog", { name: "Presenting illness" })).toBeInTheDocument();
     expect(screen.getByText("Gradual")).toBeInTheDocument();
     expect(screen.getByText("Pattern: after 3 pm")).toBeInTheDocument();
     expect(screen.getByText("No details entered.")).toBeInTheDocument();
+  });
+
+  it("offers no presenting illness link when nothing was answered", () => {
+    render(<PresentingIllnessView complaints={[{ problem: "Headache", durationValue: 3, durationUnit: "MONTHS" }]} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText("\u2014")).toBeInTheDocument();
   });
 
   it("shows BMI with its tag, or Not provided", () => {

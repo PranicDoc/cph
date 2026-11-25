@@ -757,22 +757,12 @@ export default function Session() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/patients")}
+              // A new case has no saved view to go back to, so cancelling leaves for the patient list.
+              onClick={sessionData.status === "DRAFT" ? () => navigate("/patients") : handleCancel}
               className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
             >
-              {isNewView ? "Back to patients" : "Back to Patients"}
+              Cancel
             </Button>
-
-            {sessionData.status !== "DRAFT" && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                className="w-full sm:w-auto px-6 py-2.5 h-auto border-2 text-text"
-              >
-                Cancel
-              </Button>
-            )}
           </div>
 
           <CaseSheetStepButtons
