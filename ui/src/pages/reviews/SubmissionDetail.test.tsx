@@ -54,6 +54,7 @@ describe("SubmissionDetail", () => {
             id: "s1", caseId: "c1", healerId: "me", reviewerId: "r1", stage: "REVIEWER", status: "CHANGES_REQUESTED",
             dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo: 2,
             createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z",
+            caseTitle: "Insomnia and anxiety", healerName: "Meera", reviewerName: "Asha Rao",
             revisions: [1, 2].map((n) => ({ revisionNo: n, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z" })),
           },
         });
@@ -69,6 +70,26 @@ describe("SubmissionDetail", () => {
   });
 
   const BANNER = "Your instructor asked for changes.";
+
+  it("is headed by the case and names the instructor", async () => {
+    renderDetail();
+    expect(await screen.findByRole("heading", { name: "Insomnia and anxiety" })).toBeInTheDocument();
+    expect(screen.getByText(/^Instructor: Asha Rao, last updated /)).toBeInTheDocument();
+  });
+
+  it.each([
+    [null, null, /^No instructor linked, last updated /],
+    ["gone", null, /^Instructor: Unknown, last updated /],
+  ])("words the instructor line for reviewer id %s", async (reviewerId, reviewerName, line) => {
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      const response = (await base(url)) as { data: object };
+      return url.endsWith("/submissions/s1") ? { data: { ...response.data, reviewerId, reviewerName } } : response;
+    });
+    renderDetail();
+    expect(await screen.findByText(line)).toBeInTheDocument();
+  });
+
   /** `newer` is a later submission of the same case; the list is newest first, as the server sends it. */
   const serve = (status: string, newer?: { id: string; status: string }) =>
     vi.mocked(api.get).mockImplementation((url: string) => {
@@ -82,6 +103,7 @@ describe("SubmissionDetail", () => {
             id: "s1", caseId: "c1", healerId: "me", reviewerId: null, stage: "REVIEWER", status,
             dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo: 1,
             createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z",
+            caseTitle: "Insomnia and anxiety", healerName: "Meera", reviewerName: "Asha Rao",
             revisions: [{ revisionNo: 1, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z" }],
           },
         });

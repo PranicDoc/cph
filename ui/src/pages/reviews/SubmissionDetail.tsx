@@ -13,7 +13,7 @@ import PdfPinCanvas from "./PdfPinCanvas";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
 import RevisionPicker from "./RevisionPicker";
 import { SubmitForReviewButton } from "./SubmitForReviewButton";
-import { newestByCase } from "./submissions";
+import { newestByCase, reviewerLabel } from "./submissions";
 import ThreadPanel from "./ThreadPanel";
 import { pinsForRevision, scrollToThread } from "./threads";
 import { formatWhen, HEAD_BADGE, PAGE, SURFACE, WARN_BOX } from "./ui";
@@ -83,11 +83,16 @@ export default function SubmissionDetail() {
             Back
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold">Submission</h1>
+            <h1 className="break-words text-2xl font-semibold">{submission?.caseTitle ?? "Submission"}</h1>
             {status && <ReviewStatusBadge className={HEAD_BADGE} status={status} />}
           </div>
           {submission && (
-            <p className="muted mt-1 text-sm text-muted-foreground">Last updated {formatWhen(submission.updatedAt)}</p>
+            <p className="muted mt-1 text-sm text-muted-foreground">
+              {`${submission.reviewerId != null ? "Instructor: " : ""}${reviewerLabel(
+                submission.reviewerId,
+                submission.reviewerName
+              )}, last updated ${formatWhen(submission.updatedAt)}`}
+            </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">

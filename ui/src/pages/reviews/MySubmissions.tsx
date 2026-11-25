@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useEventStream } from "../../hooks/useEventStream";
 import { useMySubmissions } from "../../hooks/useMySubmissions";
 import { ReviewStatusBadge } from "./ReviewStatusBadge";
-import { newestByCase } from "./submissions";
+import { newestByCase, reviewerLabel } from "./submissions";
 import { formatWhen, PAGE, SURFACE, TABLE } from "./ui";
 import type { SubmissionResponse } from "../../types/review";
 
@@ -58,7 +58,12 @@ function SubmissionRow({ s, superseded }: { s: SubmissionResponse; superseded: b
   return (
     <tr data-testid="submission-row" className={TABLE.row}>
       <td className={TABLE.title}>
-        <div className="name font-semibold">Submitted {formatDate(s.createdAt)}</div>
+        <div className="name break-words font-semibold">{s.caseTitle}</div>
+        {s.reviewerId != null && (
+          <div className="muted text-xs text-muted-foreground">
+            Instructor: {reviewerLabel(s.reviewerId, s.reviewerName)}
+          </div>
+        )}
         <Link to={`/cases/${s.caseId}/summary`} className="text-xs underline">
           View case
         </Link>

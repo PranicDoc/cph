@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ReviewComment } from "../../types/review";
 import { buildThreads } from "./threads";
-import { SURFACE } from "./ui";
+import { formatWhen, SURFACE } from "./ui";
 
 interface Props {
   comments: ReviewComment[];
@@ -148,6 +148,9 @@ export default function ThreadPanel({
                 <span className="ml-1 text-xs text-muted-foreground">
                   {c.authorSide === "REVIEWER" ? "Instructor" : "Healer"}
                 </span>
+                <time dateTime={c.createdAt} className="ml-2 text-xs tabular-nums text-muted-foreground">
+                  {formatWhen(c.createdAt)}
+                </time>
                 <p className="whitespace-pre-wrap break-words">{c.body}</p>
               </div>
             ))}

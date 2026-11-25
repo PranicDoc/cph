@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import ThreadPanel from "./ThreadPanel";
+import { formatWhen } from "./ui";
 import type { ReviewComment } from "../../types/review";
 
 const comment = (over: Partial<ReviewComment>): ReviewComment => ({
@@ -22,6 +23,19 @@ const comment = (over: Partial<ReviewComment>): ReviewComment => ({
 });
 
 describe("ThreadPanel authors", () => {
+  it("shows when each comment and reply was written", () => {
+    const replyAt = "2026-11-03T15:30:00Z";
+    render(
+      <ThreadPanel
+        comments={[comment({}), comment({ id: "c2", parentId: "c1", createdAt: replyAt })]}
+        latestRevisionNo={1}
+        onReply={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(formatWhen("2026-11-01T10:00:00Z"))).toHaveAttribute("datetime", "2026-11-01T10:00:00Z");
+    expect(screen.getByText(formatWhen(replyAt))).toHaveAttribute("datetime", replyAt);
+  });
+
   it("counts the open threads in the panel header", () => {
     render(
       <ThreadPanel
