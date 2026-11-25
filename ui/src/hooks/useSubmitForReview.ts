@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../lib/axios";
-import { CASE_STATUSES_KEY } from "../lib/reviewQueryKeys";
+import { REVIEW_KEY } from "../lib/reviewQueryKeys";
 import { extractDetail } from "../lib/utils";
 import type { SubmissionResponse } from "../types/review";
 
@@ -22,7 +22,8 @@ export function useSubmitForReview(caseId: string) {
       } else {
         toast.success("Submitted for review");
       }
-      queryClient.invalidateQueries({ queryKey: CASE_STATUSES_KEY });
+      // Every review query: case statuses, the open submission and the submissions list.
+      queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
     },
     onError: (e) => toast.error(extractDetail(e) || "Could not submit this case for review."),
   });

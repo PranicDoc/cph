@@ -14,6 +14,8 @@ export function useMyPermissions() {
     queryKey: ["my-permissions", user?.id],
     queryFn: () => api.get("/api/v1/auth/me/permissions").then((r) => r.data),
     enabled: isAuthenticated && !!user?.id,
+    // The response has no such flag; menus and route guards need it beside the grants.
+    select: (permissions) => ({ ...permissions, superAdmin: user?.role === "SUPADM" }),
     staleTime: 60_000,
     // Without permissions the gated tabs stay hidden, so don't give up on one failed request.
     // A 401/403 is a real answer: the axios client has already tried refreshing.

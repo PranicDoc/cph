@@ -44,6 +44,9 @@ class ReviewInboxServiceTest {
     @Mock private SecurityContextUtil security;
     @Mock private com.pranicdoc.cph.review.event.ReviewEventPublisher events;
 
+    @Mock private com.pranicdoc.cph.rbac.RbacAuthz rbacAuthz;
+    @Mock private com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository assignments;
+
     private ReviewInboxService service;
 
     private final UUID me = UUID.randomUUID();
@@ -52,8 +55,13 @@ class ReviewInboxServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security, events);
-        when(security.getCurrentHealerId()).thenReturn(me);
+        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security, events,
+                rbacAuthz, assignments);
+        // The row rules below are those of a caller holding CASE:REVIEW; see ReviewerAccessAfterUnlinkTest
+        // for a caller who only has access through an assignment.
+        org.mockito.Mockito.lenient().when(rbacAuthz.hasPermission("CASE", "REVIEW")).thenReturn(true);
+        // Lenient: a wrong-stage submission is refused before the caller is looked up.
+        org.mockito.Mockito.lenient().when(security.getCurrentHealerId()).thenReturn(me);
     }
 
     private ReviewSubmission submission(UUID healer, UUID reviewer, ReviewStatus status) {
@@ -80,6 +88,49 @@ class ReviewInboxServiceTest {
         HealingCase c = HealingCase.builder().medicalCondition(condition).build();
         c.setId(id);
         return c;
+    }
+
+    @Test
+    void getItem_namesTheCaseHealerAndReviewer() {
+        ReviewSubmission s = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+        when(healers.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healer(healerA, "Meera Nair"), healer(me, "Asha Rao")));
+        when(cases.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healingCase(s.getCaseId(), "Chronic migraine")));
+
+        var response = service.getItem(s.getId());
+
+        org.assertj.core.api.Assertions.assertThat(response.caseTitle()).isEqualTo("Chronic migraine");
+        org.assertj.core.api.Assertions.assertThat(response.healerName()).isEqualTo("Meera Nair");
+        org.assertj.core.api.Assertions.assertThat(response.reviewerName()).isEqualTo("Asha Rao");
+    }
+
+    @Test
+    void getItem_deletedReviewerHasNoName_andCaseWithoutConditionIsTitledByDate() {
+        ReviewSubmission s = submission(healerA, me, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+        HealingCase untitled = healingCase(s.getCaseId(), " ");
+        untitled.setCreatedAt(Instant.parse("2026-11-01T10:00:00Z"));
+        when(healers.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(healer(healerA, "Meera Nair")));
+        when(cases.findAllById(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(untitled));
+
+        var response = service.getItem(s.getId());
+
+        org.assertj.core.api.Assertions.assertThat(response.caseTitle()).isEqualTo("Case of 2026-11-01");
+        org.assertj.core.api.Assertions.assertThat(response.reviewerId()).isEqualTo(me);
+        org.assertj.core.api.Assertions.assertThat(response.reviewerName()).isNull();
+    }
+
+    @Test
+    void getItem_refusedCallerLoadsNoNames() {
+        ReviewSubmission s = submission(healerA, healerB, ReviewStatus.PENDING_REVIEW);
+        when(submissions.findById(s.getId())).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.getItem(s.getId())).isInstanceOf(AccessDeniedException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(healers, cases);
     }
 
     @Test

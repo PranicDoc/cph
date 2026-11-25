@@ -44,3 +44,8 @@ export const MY_SUBMISSIONS_KEY = ["review", "my-submissions"] as const;
 
 /** How many of the healer's cases are approved (dashboard tile). */
 export const APPROVED_COUNT_KEY = ["review", "approved-count"] as const;
+
+/** The super admin's list of every submission, one entry per filter combination. */
+export const ALL_REVIEWS_KEY = ["review", "all"] as const;
+export const allReviewsKey = (status?: string, reviewerId?: string, healerId?: string) =>
+  ["review", "all", status ?? "all", reviewerId ?? "any", healerId ?? "any"] as const;

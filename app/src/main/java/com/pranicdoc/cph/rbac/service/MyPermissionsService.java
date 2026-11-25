@@ -7,6 +7,7 @@ import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.dto.MyPermissionsResponse;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
+import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,11 +18,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * The signed-in user's own permissions, read with the same rules as {@link RbacAuthz}: the
  * super admin holds every supported verb of every resource, everyone else the union of their
- * roles' grants. Returned as plain grants so the UI only ever checks permissions.
+ * roles' grants. Returned as plain grants so the UI only ever checks permissions. A caller assigned
+ * as someone's case reviewer also gets CASE:REVIEW here, matching {@code ReviewAuthz}, which opens the
+ * review routes to them without a role grant.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,6 +43,7 @@ public class MyPermissionsService {
     private final RolePermissionLookupService lookupService;
     private final MasterDataElevationService elevationService;
     private final FeatureFlags featureFlags;
+    private final ReviewerAssignmentRepository assignments;
 
     public MyPermissionsResponse current() {
         if (rbacAuthz.isSuperAdmin()) {
@@ -48,8 +53,19 @@ public class MyPermissionsService {
         Map<String, List<String>> grants = new TreeMap<>();
         lookupService.effectiveGrants(healerId)
                 .forEach((resource, operations) -> grants.put(resource.name(), names(operations)));
+        if (assignments.existsByReviewerId(healerId)) {
+            grants.merge(Resource.CASE.name(), names(List.of(Operation.REVIEW)), MyPermissionsService::union);
+        }
         return new MyPermissionsResponse(grants, elevationService.activeFor(healerId),
                 featureFlags.caseReviewEnabled());
+    }
+
+    /** Both verb-name lists, without duplicates, in {@link Operation} order. */
+    private static List<String> union(List<String> held, List<String> added) {
+        return names(Stream.concat(held.stream(), added.stream())
+                .distinct()
+                .map(Operation::valueOf)
+                .toList());
     }
 
     private static Map<String, List<String>> allGrants() {

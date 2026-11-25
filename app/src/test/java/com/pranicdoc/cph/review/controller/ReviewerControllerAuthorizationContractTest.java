@@ -43,11 +43,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The instructor side of case review is gated CASE:REVIEW on every route: a caller without it gets
- * 403 and the service is never reached.
+ * The instructor side of case review is open to a caller with CASE:REVIEW or with at least one healer
+ * assigned to them: a caller with neither gets 403 on every route and the service is never reached.
  */
 @WebMvcTest(ReviewerController.class)
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, AdminAuthz.class, SecurityContextUtil.class,
+        com.pranicdoc.cph.review.service.ReviewAuthz.class,
         ReviewerControllerAuthorizationContractTest.RbacAuthzSliceConfig.class})
 @ActiveProfiles("test")
 class ReviewerControllerAuthorizationContractTest {
@@ -65,6 +66,7 @@ class ReviewerControllerAuthorizationContractTest {
     @MockBean private ReviewInboxService service;
     @MockBean private com.pranicdoc.cph.review.service.ReviewCommentService commentService;
     @MockBean private RolePermissionLookupService lookupService;
+    @MockBean private com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository assignments;
     @MockBean private JwtService jwtService;
     @MockBean private TenantInterceptor tenantInterceptor;
     @MockBean private HealerCacheService healerCacheService;
@@ -122,6 +124,25 @@ class ReviewerControllerAuthorizationContractTest {
         when(service.inbox(any())).thenReturn(List.of());
         mockMvc.perform(request(method, BASE + path))
                 .andExpect(status().is2xxSuccessful());
+    }
+
+    @ParameterizedTest(name = "{0} {1} -> 2xx for an assigned reviewer without CASE:REVIEW")
+    @CsvSource(textBlock = ROUTES)
+    void assignedWithoutCaseReviewIsAdmitted(String method, String path) throws Exception {
+        authenticate(false);
+        when(assignments.existsByReviewerId(CALLER)).thenReturn(true);
+        when(service.getFileUrl(any(), anyInt())).thenReturn(new PreSignedUrlResponse("https://r2/x", Instant.now()));
+        when(service.inbox(any())).thenReturn(List.of());
+        mockMvc.perform(request(method, BASE + path))
+                .andExpect(status().is2xxSuccessful());
+    }
+
+    @Test
+    void unassigningRemovesAccessOnTheNextRequest() throws Exception {
+        authenticate(false);
+        when(assignments.existsByReviewerId(CALLER)).thenReturn(true, false);
+        mockMvc.perform(request("GET", BASE + "/inbox")).andExpect(status().isOk());
+        mockMvc.perform(request("GET", BASE + "/inbox")).andExpect(status().isForbidden());
     }
 
     @Test

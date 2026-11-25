@@ -113,6 +113,7 @@ const router = createBrowserRouter(
           <Route path="roles/:id/edit" lazy={page(() => import("./pages/admin/RoleFormPage"))} />
           <Route element={<CaseReviewRoute />}>
             <Route path="reviewer-assignments" lazy={page(() => import("./pages/admin/ReviewerAssignmentsPage"))} />
+            <Route path="all-reviews" lazy={page(() => import("./pages/admin/AllReviewsPage"))} />
           </Route>
         </Route>
       </Route>

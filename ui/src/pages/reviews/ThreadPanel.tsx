@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { ReviewComment } from "../../types/review";
 import { buildThreads } from "./threads";
+import { formatWhen, SURFACE } from "./ui";
 
 interface Props {
   comments: ReviewComment[];
@@ -93,11 +95,17 @@ export default function ThreadPanel({
   onCancelDraft,
 }: Props) {
   const threads = buildThreads(comments);
+  const openCount = threads.filter((t) => t.root.resolvedAt == null).length;
 
   return (
-    <aside aria-label="Comments" className="w-full space-y-3">
+    <aside aria-label="Comments" className={cn(SURFACE, "w-full space-y-3 p-3")}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">Comments</h2>
+        <span className="badge off text-xs tabular-nums text-muted-foreground">{openCount} open</span>
+      </div>
+
       {draftPin && onSubmitDraft && (
-        <section className="space-y-2 rounded border border-blue-300 bg-blue-50/50 p-3">
+        <section className="space-y-2 rounded-xl border border-primary bg-primary/10 p-3">
           <h3 className="text-sm font-medium">New pin on page {draftPin.page}</h3>
           <Composer label="Describe what needs changing" submitLabel="Post pin" onSubmit={onSubmitDraft}
             onCancel={onCancelDraft} autoFocus />
@@ -112,10 +120,11 @@ export default function ThreadPanel({
           <section
             key={root.id}
             data-thread-id={root.id}
-            className={
-              "space-y-2 rounded border p-3 " + (root.id === activeThreadId ? "border-blue-500 " : "") +
-              (resolved ? "opacity-70" : "")
-            }
+            className={cn(
+              "space-y-2 rounded-xl border p-3",
+              root.id === activeThreadId && "border-primary bg-primary/10",
+              resolved && "opacity-70"
+            )}
           >
             <header className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {pinNumber != null ? (
@@ -126,7 +135,7 @@ export default function ThreadPanel({
                 <span className="font-medium">General</span>
               )}
               {root.revisionNo < latestRevisionNo && <span>on version {root.revisionNo}</span>}
-              {resolved && <span className="rounded bg-gray-100 px-1.5 py-0.5">Resolved</span>}
+              {resolved && <span className="rounded bg-muted px-1.5 py-0.5">Resolved</span>}
             </header>
 
             {[root, ...replies].map((c) => (
@@ -139,6 +148,9 @@ export default function ThreadPanel({
                 <span className="ml-1 text-xs text-muted-foreground">
                   {c.authorSide === "REVIEWER" ? "Instructor" : "Healer"}
                 </span>
+                <time dateTime={c.createdAt} className="ml-2 text-xs tabular-nums text-muted-foreground">
+                  {formatWhen(c.createdAt)}
+                </time>
                 <p className="whitespace-pre-wrap break-words">{c.body}</p>
               </div>
             ))}
@@ -154,7 +166,7 @@ export default function ThreadPanel({
       })}
 
       {onAddGeneral && (
-        <section className="space-y-2 rounded border border-dashed p-3">
+        <section className="space-y-2 rounded-xl border border-dashed p-3">
           <h3 className="text-sm font-medium">General comment</h3>
           <Composer label="Add a general comment" submitLabel="Comment" onSubmit={onAddGeneral} />
         </section>

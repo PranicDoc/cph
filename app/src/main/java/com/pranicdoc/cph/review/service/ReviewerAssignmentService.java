@@ -3,6 +3,7 @@ package com.pranicdoc.cph.review.service;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -27,8 +28,11 @@ import java.util.stream.Collectors;
 
 /**
  * Which instructor reviews which healer. SUPADM-only administration; the HTTP gate lives in
- * the controller. Eligibility uses the real role grants (RolePermissionLookupService), not
- * MyPermissionsService, because SUPADM accounts hold every permission there by a bypass.
+ * the controller. Any active account can be assigned, because being assigned itself grants review
+ * access ({@link ReviewAuthz}). Only a SUPADM account may be its own reviewer; this service is the sole
+ * guard of that rule (the database does not constrain it). The picker's "has Review permission" flag uses
+ * the real role grants (RolePermissionLookupService), not MyPermissionsService, because SUPADM accounts
+ * hold every permission there by a bypass.
  */
 @Service
 public class ReviewerAssignmentService {
@@ -74,18 +78,16 @@ public class ReviewerAssignmentService {
     @Transactional(readOnly = true)
     public List<HealerOption> eligibleReviewers() {
         return healers.findByActiveTrue().stream()
-                .filter(h -> permissions.hasPermission(h.getId(), Resource.CASE, Operation.REVIEW))
                 .sorted(Comparator.comparing(Healer::getFullName, String.CASE_INSENSITIVE_ORDER))
-                .map(h -> new HealerOption(h.getId(), h.getFullName(), h.getEmail()))
+                .map(h -> new HealerOption(h.getId(), h.getFullName(), h.getEmail(),
+                        permissions.hasPermission(h.getId(), Resource.CASE, Operation.REVIEW),
+                        h.getRole() == Role.SUPADM))
                 .toList();
     }
 
     @Auditable(action = "ASSIGN_REVIEWER")
     @Transactional
     public ReviewerAssignmentResponse assign(UUID healerId, UUID reviewerId) {
-        if (healerId.equals(reviewerId)) {
-            throw new IllegalArgumentException("A healer cannot be their own reviewer");
-        }
         Healer healer = healers.findById(healerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Healer", healerId));
         Healer reviewer = healers.findById(reviewerId)
@@ -93,8 +95,8 @@ public class ReviewerAssignmentService {
         if (!reviewer.isActive()) {
             throw new IllegalArgumentException("Reviewer must be an active healer");
         }
-        if (!permissions.hasPermission(reviewerId, Resource.CASE, Operation.REVIEW)) {
-            throw new IllegalArgumentException("Reviewer must hold the CASE:REVIEW permission");
+        if (healerId.equals(reviewerId) && reviewer.getRole() != Role.SUPADM) {
+            throw new IllegalArgumentException("A healer cannot be their own reviewer");
         }
         ReviewerAssignment link = assignments.findByHealerId(healerId)
                 .orElseGet(() -> ReviewerAssignment.builder().healerId(healerId).build());

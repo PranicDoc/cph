@@ -1,5 +1,7 @@
 package com.pranicdoc.cph.review.service;
 
+import com.pranicdoc.cph.auth.model.Healer;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.http.StorageObjectReader;
 import com.pranicdoc.cph.common.security.SecurityContextUtil;
@@ -70,6 +72,7 @@ class ReviewSubmissionServiceTest {
     @Mock private SecurityContextUtil security;
     @Mock private PlatformTransactionManager txManager;
     @Mock private ReviewEventPublisher events;
+    @Mock private HealerRepository healers;
 
     private ReviewFileStore files;
     private ReviewSubmissionService service;
@@ -84,7 +87,7 @@ class ReviewSubmissionServiceTest {
         files = spy(new ReviewFileStore(storage, reader));
         doReturn(pdfBytes).when(files).fetch(anyString());
         service = new ReviewSubmissionService(submissions, revisions, cases, pdfJobs, assignments,
-                files, security, new TransactionTemplate(txManager), events);
+                files, security, new TransactionTemplate(txManager), events, healers);
 
         when(security.getCurrentHealerId()).thenReturn(healerId);
         when(cases.findById(caseId)).thenReturn(Optional.of(ownedCase(caseId, healerId)));
@@ -491,5 +494,66 @@ class ReviewSubmissionServiceTest {
         when(submissions.countByHealerIdAndStageAndStatus(healerId, ReviewStage.REVIEWER, ReviewStatus.APPROVED))
                 .thenReturn(3L);
         assertThat(service.approvedCount(healerId)).isEqualTo(3L);
+    }
+
+    private static Healer named(UUID id, String name) {
+        Healer h = new Healer();
+        h.setId(id);
+        h.setFullName(name);
+        return h;
+    }
+
+    @Test
+    void submit_responseNamesTheCaseHealerAndReviewer() {
+        HealingCase healingCase = ownedCase(caseId, healerId);
+        healingCase.setMedicalCondition("Chronic migraine");
+        when(cases.findById(caseId)).thenReturn(Optional.of(healingCase));
+        when(cases.findAllById(any())).thenReturn(List.of(healingCase));
+        when(healers.findAllById(any()))
+                .thenReturn(List.of(named(healerId, "Meera Nair"), named(reviewerId, "Asha Rao")));
+
+        var response = service.submit(caseId, SubmittedVia.MANUAL);
+
+        assertThat(response.caseTitle()).isEqualTo("Chronic migraine");
+        assertThat(response.healerName()).isEqualTo("Meera Nair");
+        assertThat(response.reviewerName()).isEqualTo("Asha Rao");
+    }
+
+    @Test
+    void mySubmissions_namesEveryRowFromOneBatchPerKind() {
+        HealingCase first = ownedCase(caseId, healerId);
+        first.setMedicalCondition("Chronic migraine");
+        HealingCase second = ownedCase(UUID.randomUUID(), healerId);
+        second.setMedicalCondition("Lower back pain");
+        ReviewSubmission linked = existing(ReviewStatus.PENDING_REVIEW);
+        ReviewSubmission unlinked = existing(ReviewStatus.DISMISSED);
+        unlinked.setCaseId(second.getId());
+        unlinked.setReviewerId(null);
+        when(submissions.findByHealerIdOrderByCreatedAtDesc(healerId)).thenReturn(List.of(linked, unlinked));
+        when(cases.findAllById(any())).thenReturn(List.of(first, second));
+        when(healers.findAllById(any()))
+                .thenReturn(List.of(named(healerId, "Meera Nair"), named(reviewerId, "Asha Rao")));
+
+        var rows = service.mySubmissions();
+
+        assertThat(rows).extracting(r -> r.caseTitle()).containsExactly("Chronic migraine", "Lower back pain");
+        assertThat(rows).extracting(r -> r.reviewerName()).containsExactly("Asha Rao", null);
+        assertThat(rows).extracting(r -> r.healerName()).containsOnly("Meera Nair");
+        verify(healers, org.mockito.Mockito.times(1)).findAllById(any());
+        verify(cases, org.mockito.Mockito.times(1)).findAllById(any());
+        verify(healers, never()).findById(any());
+        verify(cases, never()).findById(any());
+    }
+
+    @Test
+    void getSubmission_refusedCallerLoadsNoNames() {
+        ReviewSubmission others = existing(ReviewStatus.PENDING_REVIEW);
+        others.setHealerId(UUID.randomUUID());
+        when(submissions.findById(others.getId())).thenReturn(Optional.of(others));
+
+        assertThatThrownBy(() -> service.getSubmission(others.getId()))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(healers);
     }
 }

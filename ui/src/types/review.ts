@@ -42,6 +42,11 @@ export interface SubmissionResponse {
   revisions: RevisionResponse[];
   /** What a submit did; absent on plain reads. */
   outcome?: SubmissionOutcome | null;
+  /** The case's medical condition, else "Case of <date>". */
+  caseTitle: string;
+  healerName: string | null;
+  /** Null without a reviewer, and when the reviewer's account is gone: tell them apart by reviewerId. */
+  reviewerName: string | null;
 }
 
 export type ReviewStatus = SubmissionResponse["status"];

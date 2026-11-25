@@ -28,6 +28,8 @@ public interface ReviewSubmissionRepository extends JpaRepository<ReviewSubmissi
 
     List<ReviewSubmission> findByReviewerIdAndStage(UUID reviewerId, ReviewStage stage);
 
+    List<ReviewSubmission> findByStage(ReviewStage stage);
+
     long countByHealerIdAndStageAndStatus(UUID healerId, ReviewStage stage, ReviewStatus status);
 
     /** Approved-case counts for a page of healers at once; healers with none are absent from the result. */

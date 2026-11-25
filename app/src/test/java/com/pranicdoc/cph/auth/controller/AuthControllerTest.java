@@ -132,6 +132,25 @@ class AuthControllerTest {
     }
 
     @Test
+    void reviewPreferences_patientLink_cannotChangeTheOwningHealersPreference() throws Exception {
+        openPatientLink();
+        mockMvc.perform(put("/api/v1/auth/me/review-preferences").cookie(accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"autoSubmitForReview\":true}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void reviewPreferences_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(put("/api/v1/auth/me/review-preferences")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"autoSubmitForReview\":true}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(authService);
+    }
+
+    @Test
     void changePassword_unauthenticated_returns401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/change-password")
                         .contentType(MediaType.APPLICATION_JSON)

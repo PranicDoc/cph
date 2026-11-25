@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -54,6 +54,7 @@ describe("SubmissionDetail", () => {
             id: "s1", caseId: "c1", healerId: "me", reviewerId: "r1", stage: "REVIEWER", status: "CHANGES_REQUESTED",
             dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo: 2,
             createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z",
+            caseTitle: "Insomnia and anxiety", healerName: "Meera", reviewerName: "Asha Rao",
             revisions: [1, 2].map((n) => ({ revisionNo: n, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z" })),
           },
         });
@@ -66,6 +67,128 @@ describe("SubmissionDetail", () => {
       return Promise.reject(new Error("unexpected " + url));
     });
     vi.mocked(api.post).mockResolvedValue({ data: comment({ id: "c2", parentId: "c1", authorSide: "HEALER", body: "Done" }) });
+  });
+
+  const BANNER = "Your instructor asked for changes.";
+
+  it("is headed by the case and names the instructor", async () => {
+    renderDetail();
+    expect(await screen.findByRole("heading", { name: "Insomnia and anxiety" })).toBeInTheDocument();
+    expect(screen.getByText(/^Instructor: Asha Rao, last updated /)).toBeInTheDocument();
+  });
+
+  it.each([
+    [null, null, /^No instructor linked, last updated /],
+    ["gone", null, /^Instructor: Unknown, last updated /],
+  ])("words the instructor line for reviewer id %s", async (reviewerId, reviewerName, line) => {
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      const response = (await base(url)) as { data: object };
+      return url.endsWith("/submissions/s1") ? { data: { ...response.data, reviewerId, reviewerName } } : response;
+    });
+    renderDetail();
+    expect(await screen.findByText(line)).toBeInTheDocument();
+  });
+
+  /** `newer` is a later submission of the same case; the list is newest first, as the server sends it. */
+  const serve = (status: string, newer?: { id: string; status: string }) =>
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.endsWith("/my-submissions"))
+        return Promise.resolve({
+          data: [...(newer ? [{ ...newer, caseId: "c1" }] : []), { id: "s1", caseId: "c1", status }],
+        });
+      if (url.endsWith("/submissions/s1"))
+        return Promise.resolve({
+          data: {
+            id: "s1", caseId: "c1", healerId: "me", reviewerId: null, stage: "REVIEWER", status,
+            dismissedFromApproved: false, dismissReason: null, submittedVia: "MANUAL", latestRevisionNo: 1,
+            createdAt: "2026-11-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z",
+            caseTitle: "Insomnia and anxiety", healerName: "Meera", reviewerName: "Asha Rao",
+            revisions: [{ revisionNo: 1, pdfJobId: null, submittedVia: "MANUAL", submittedAt: "2026-11-01T10:00:00Z" }],
+          },
+        });
+      if (url.endsWith("/comments")) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: { url: "https://r2/rev1.pdf" } });
+    });
+
+  it("shows the changes-requested banner, edit link and resubmit, which submits the case", async () => {
+    const user = userEvent.setup();
+    serve("CHANGES_REQUESTED");
+    renderDetail();
+
+    expect(await screen.findByText(BANNER)).toBeInTheDocument();
+    expect(screen.getByText(/nothing changed since R1/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit case" })).toHaveAttribute("href", "/session/c1");
+
+    await user.click(screen.getByRole("button", { name: "Resubmit for review" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/v1/reviews/cases/c1/submit"));
+  });
+
+  it("a dismissed submission can be submitted again, without the banner", async () => {
+    serve("DISMISSED");
+    renderDetail();
+    expect(await screen.findByRole("button", { name: "Submit for review" })).toBeInTheDocument();
+    expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+  });
+
+  it.each(["PENDING_REVIEW", "APPROVED"])(
+    "a dismissed submission superseded by a %s one offers no resubmit",
+    async (newerStatus) => {
+      serve("DISMISSED", { id: "s2", status: newerStatus });
+      renderDetail();
+      await screen.findByTestId("pdf");
+      await waitFor(() => expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/my-submissions"));
+      await act(async () => {});
+      expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Edit case" })).not.toBeInTheDocument();
+    }
+  );
+
+  it("offers no resubmit while it is unknown whether this is the case's newest submission", async () => {
+    serve("DISMISSED");
+    const base = vi.mocked(api.get).getMockImplementation()!;
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      url.endsWith("/my-submissions") ? new Promise(() => {}) : base(url)
+    );
+    renderDetail();
+    await screen.findByTestId("pdf");
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+  });
+
+  it("moves to the new submission when the submit creates one", async () => {
+    const user = userEvent.setup();
+    serve("DISMISSED");
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "s9", caseId: "c1", latestRevisionNo: 1, outcome: "CREATED" } });
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "Submit for review" }));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/submissions/s9"));
+  });
+
+  it("a submit refetches the open submission and the submissions list", async () => {
+    const user = userEvent.setup();
+    serve("CHANGES_REQUESTED");
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "s1", caseId: "c1", latestRevisionNo: 1, outcome: "REREQUESTED" } });
+    renderDetail();
+    const button = await screen.findByRole("button", { name: "Resubmit for review" });
+    vi.mocked(api.get).mockClear();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/submissions/s1");
+      expect(api.get).toHaveBeenCalledWith("/api/v1/reviews/my-submissions");
+    });
+  });
+
+  it.each(["PENDING_REVIEW", "APPROVED"])("shows no banner or resubmit bar when %s", async (status) => {
+    serve(status);
+    renderDetail();
+    await screen.findByTestId("pdf");
+    expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit case" })).not.toBeInTheDocument();
   });
 
   it("healerThread_hasReplyButNoApprove", async () => {

@@ -96,8 +96,12 @@ public class SecurityConfig {
                         // otherwise resolve that healer's CASE:UPDATE / CASE:REVIEW grants on every review
                         // route and receive their review events. allOf(authenticated) too, since
                         // not().hasRole alone admits anonymous callers.
-                        // /api/v1/events/** is the SSE stream.
-                        .requestMatchers("/api/v1/reviews/**", "/api/v1/events/**").access(AuthorizationManagers.allOf(
+                        // /api/v1/events/** is the SSE stream. review-preferences is the healer's own
+                        // auto-submit opt-in, which a patient link must not be able to change.
+                        // /api/v1/admin/reviews is the super admin's list of every review.
+                        .requestMatchers("/api/v1/reviews/**", "/api/v1/events/**",
+                                "/api/v1/auth/me/review-preferences",
+                                "/api/v1/admin/reviews", "/api/v1/admin/reviews/**").access(AuthorizationManagers.allOf(
                                 AuthenticatedAuthorizationManager.authenticated(),
                                 AuthorizationManagers.not(AuthorityAuthorizationManager.hasRole("PATIENT"))))
                         // All other requests require authentication

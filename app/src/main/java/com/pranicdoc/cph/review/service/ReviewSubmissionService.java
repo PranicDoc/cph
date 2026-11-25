@@ -1,5 +1,6 @@
 package com.pranicdoc.cph.review.service;
 
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.enums.JobStatus;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
@@ -46,8 +47,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
-
 /**
  * Healer-side case review: submit a case PDF to the linked instructor, resubmit while the review is
  * open, and read back status. Each revision is copied to its own storage key so it stays pinned to
@@ -74,6 +73,7 @@ public class ReviewSubmissionService {
     private final SecurityContextUtil security;
     private final TransactionTemplate tx;
     private final ReviewEventPublisher events;
+    private final HealerRepository healers;
 
     /**
      * Opens a new submission for the case, or adds a revision when one is open. Runs its writes in a
@@ -108,13 +108,13 @@ public class ReviewSubmissionService {
                         "Generate the case PDF before submitting it for review."));
 
         try {
-            return tx.execute(status -> openOrAddRevision(caseId, healerId, reviewerId, job, via));
+            return tx.execute(status -> openOrAddRevision(healingCase, healerId, reviewerId, job, via));
         } catch (DataIntegrityViolationException lostRace) {
             // The unique index (or the revision number) was taken by a concurrent submit.
             SubmissionResponse winner = tx.execute(status -> submissions
                     .findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER)
                     .filter(s -> s.getStatus() != ReviewStatus.DISMISSED)
-                    .map(s -> toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId())))
+                    .map(this::respond)
                     .orElse(null));
             if (winner == null) {
                 throw lostRace;
@@ -123,8 +123,9 @@ public class ReviewSubmissionService {
         }
     }
 
-    private SubmissionResponse openOrAddRevision(UUID caseId, UUID healerId, UUID reviewerId,
+    private SubmissionResponse openOrAddRevision(HealingCase healingCase, UUID healerId, UUID reviewerId,
                                                  PdfJobEntity job, SubmittedVia via) {
+        UUID caseId = healingCase.getId();
         Optional<ReviewSubmission> latest =
                 submissions.findTopByCaseIdAndStageOrderByCreatedAtDesc(caseId, ReviewStage.REVIEWER);
         if (latest.isPresent() && latest.get().getStatus() == ReviewStatus.APPROVED) {
@@ -145,7 +146,7 @@ public class ReviewSubmissionService {
                 .submittedVia(via).build());
         ReviewRevision first = saveRevision(created.getId(), 1, job, hash, via);
         publishRevisionAdded(created, first);
-        return toResponse(created, List.of(first), SubmissionOutcome.CREATED);
+        return respond(created, List.of(first), SubmissionOutcome.CREATED);
     }
 
     private SubmissionResponse addRevision(ReviewSubmission open, UUID reviewerId, PdfJobEntity job, String hash,
@@ -160,7 +161,7 @@ public class ReviewSubmissionService {
         publishRevisionAdded(open, added);
         List<ReviewRevision> all = new java.util.ArrayList<>(previous);
         all.add(added);
-        return toResponse(open, all, SubmissionOutcome.REVISION_ADDED);
+        return respond(open, all, SubmissionOutcome.REVISION_ADDED);
     }
 
     /**
@@ -175,11 +176,11 @@ public class ReviewSubmissionService {
             submissions.saveAndFlush(open);
             events.publish(new ReviewEvent(open.getId(), open.getHealerId(), open.getReviewerId(),
                     ReviewEventType.STATUS_CHANGED, latestRevision.getRevisionNo(), null, open.getStatus()));
-            return toResponse(open, all, SubmissionOutcome.REREQUESTED);
+            return respond(open, all, SubmissionOutcome.REREQUESTED);
         }
         log.info("Submit for case {} skipped via {}: unchanged since revision {}",
                 open.getCaseId(), via, latestRevision.getRevisionNo());
-        return toResponse(open, all, SubmissionOutcome.UNCHANGED);
+        return respond(open, all, SubmissionOutcome.UNCHANGED);
     }
 
     /** Registered inside the submit transaction; the publisher sends it only after that commits. */
@@ -290,13 +291,13 @@ public class ReviewSubmissionService {
                 .findBySubmissionIdIn(mine.stream().map(ReviewSubmission::getId).toList()).stream()
                 .sorted(Comparator.comparingInt(ReviewRevision::getRevisionNo))
                 .collect(Collectors.groupingBy(ReviewRevision::getSubmissionId));
-        return mine.stream().map(s -> toResponse(s, bySubmission.getOrDefault(s.getId(), List.of()))).toList();
+        SubmissionLabels labels = SubmissionLabels.of(healers, cases, mine);
+        return mine.stream().map(s -> labels.respond(s, bySubmission.getOrDefault(s.getId(), List.of()))).toList();
     }
 
     @Transactional(readOnly = true)
     public SubmissionResponse getSubmission(UUID submissionId) {
-        ReviewSubmission s = ownSubmission(submissionId);
-        return toResponse(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
+        return respond(ownSubmission(submissionId));
     }
 
     /** Presigned URL of one revision file; the masked copy wins when one exists. */
@@ -317,6 +318,16 @@ public class ReviewSubmissionService {
             throw new AccessDeniedException("Submission does not belong to you");
         }
         return s;
+    }
+
+    /** Both take a submission the caller has already been allowed to see. */
+    private SubmissionResponse respond(ReviewSubmission s) {
+        return SubmissionLabels.of(healers, cases, List.of(s))
+                .respond(s, revisions.findBySubmissionIdOrderByRevisionNoAsc(s.getId()));
+    }
+
+    private SubmissionResponse respond(ReviewSubmission s, List<ReviewRevision> all, SubmissionOutcome outcome) {
+        return SubmissionLabels.of(healers, cases, List.of(s)).respond(s, all, outcome);
     }
 
     private Optional<PdfJobEntity> completedJob(UUID caseId) {

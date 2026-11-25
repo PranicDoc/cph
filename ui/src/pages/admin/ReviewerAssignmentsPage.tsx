@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
+import { useAuth } from "../../context/AuthContext";
 import { useAdminHealers } from "../../hooks/admin/useAdminHealers";
 import {
   useAssignReviewer,
@@ -8,19 +9,18 @@ import {
   useUnassignReviewer,
 } from "../../hooks/admin/useReviewerAssignments";
 import { Button } from "@/components/ui/button";
-import { SingleSelect } from "@/components/ui/single-select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AssignReviewerDialog } from "./AssignReviewerDialog";
 
-/**
- * SUPADM links each healer to the instructor who reviews their cases. The picker offers only
- * active healers who hold CASE:REVIEW (the server returns exactly that list), never the healer
- * being linked.
- */
+/** SUPADM chooses who reviews each healer's cases. Any active account can be the reviewer. */
 export default function ReviewerAssignmentsPage() {
+  const { user } = useAuth();
   const healers = useAdminHealers();
   const assignments = useReviewerAssignments();
   const eligible = useEligibleReviewers();
   const assign = useAssignReviewer();
   const unassign = useUnassignReviewer();
+  const [target, setTarget] = useState<{ id: string; fullName: string } | null>(null);
 
   const reviewerByHealer = useMemo(
     () => new Map((assignments.data ?? []).map((a) => [a.healerId, a])),
@@ -34,70 +34,100 @@ export default function ReviewerAssignmentsPage() {
   return (
     <div>
       <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-text">Reviewer assignments</h1>
-        <p className="text-sm text-text-light mt-1">
-          Link each healer to the instructor who reviews their cases. Only instructors who hold the
-          case-review permission can be chosen.
-        </p>
+        <h1 className="text-2xl md:text-[28px] font-bold text-text">Reviewer links</h1>
+        <p className="text-sm text-text-light mt-1">Choose who reviews each healer's cases.</p>
       </div>
 
       {isLoading && <p className="text-text-light">Loading…</p>}
       {isError && <p className="text-red-500">Failed to load reviewer assignments.</p>}
 
       {!isLoading && !isError && (
-        <ul className="divide-y divide-border border border-border rounded-xl">
-          {rows.map((healer) => {
-            const link = reviewerByHealer.get(healer.id);
-            const options = (eligible.data ?? [])
-              .filter((r) => r.id !== healer.id)
-              .map((r) => ({ value: r.id, label: r.fullName }));
-            return (
-              <li
-                key={healer.id}
-                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold text-text truncate">{healer.fullName}</p>
-                  <p className="text-xs text-text-light truncate">{healer.email}</p>
-                  <p className="text-sm mt-1" data-testid={`reviewer-${healer.id}`}>
-                    {link ? (
-                      <>Reviewer: <span className="font-medium">{link.reviewerName ?? "Unknown"}</span></>
-                    ) : (
-                      <span className="text-text-light">No instructor linked</span>
-                    )}
-                  </p>
-                  {link && (
-                    <p className="text-xs text-text-light mt-0.5" data-testid={`approved-${healer.id}`}>
-                      Approved cases: {link.approvedCount ?? 0}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 sm:w-80">
-                  <SingleSelect
-                    aria-label={`Instructor for ${healer.fullName}`}
-                    value={link?.reviewerId ?? ""}
-                    onChange={(reviewerId) => assign.mutate({ healerId: healer.id, reviewerId })}
-                    options={options}
-                    placeholder="Choose an instructor"
-                    disabled={assign.isPending || options.length === 0}
-                  />
-                  {link && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={unassign.isPending}
-                      onClick={() => unassign.mutate(healer.id)}
-                      aria-label={`Unlink instructor from ${healer.fullName}`}
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4">Healer</TableHead>
+                <TableHead className="px-4">Reviewer</TableHead>
+                <TableHead className="px-4">Approved cases</TableHead>
+                <TableHead className="px-4">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((healer) => {
+                const link = reviewerByHealer.get(healer.id);
+                return (
+                  <TableRow key={healer.id}>
+                    <TableCell className="md:px-4 md:py-3">
+                      <p className="font-medium text-text whitespace-normal">{healer.fullName}</p>
+                      <p className="text-xs font-normal text-text-light break-all">{healer.email}</p>
+                    </TableCell>
+                    <TableCell className="md:px-4 whitespace-normal" data-label="Reviewer" data-testid={`reviewer-${healer.id}`}>
+                      {link ? (link.reviewerName ?? "Unknown") : <span className="text-text-light">Not linked</span>}
+                    </TableCell>
+                    {/* The API counts approved cases only for linked healers. */}
+                    <TableCell
+                      className="md:px-4 tabular-nums"
+                      data-label="Approved cases"
+                      data-testid={link ? `approved-${healer.id}` : undefined}
                     >
-                      Unlink
-                    </Button>
-                  )}
-                </div>
-              </li>
+                      {link ? (link.approvedCount ?? 0) : null}
+                    </TableCell>
+                    <TableCell className="md:px-4" data-label="">
+                      <div className="flex w-full justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTarget(healer)}
+                          aria-label={link ? `Change reviewer for ${healer.fullName}` : `Assign a reviewer for ${healer.fullName}`}
+                        >
+                          {link ? "Change" : "Assign"}
+                        </Button>
+                        {link && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={unassign.isPending}
+                            onClick={() => unassign.mutate(healer.id)}
+                            aria-label={`Unlink instructor from ${healer.fullName}`}
+                          >
+                            Unlink
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="p-4 text-text-light">No active healers.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {target && (
+        <AssignReviewerDialog
+          key={target.id}
+          healer={target}
+          candidates={eligible.data ?? []}
+          currentReviewerId={reviewerByHealer.get(target.id)?.reviewerId ?? undefined}
+          currentUserId={user?.id}
+          pending={assign.isPending}
+          onAssign={(reviewerId) => {
+            const healerId = target.id;
+            // A late success must not close a picker opened since for another healer.
+            assign.mutate(
+              { healerId, reviewerId },
+              { onSuccess: () => setTarget((t) => (t?.id === healerId ? null : t)) }
             );
-          })}
-          {rows.length === 0 && <li className="p-4 text-text-light">No active healers.</li>}
-        </ul>
+          }}
+          onClose={() => setTarget(null)}
+        />
       )}
     </div>
   );

@@ -32,8 +32,9 @@ import java.util.stream.Collectors;
 
 /**
  * Pinned comments and threads on a submission. Access reuses the row-level checks of the two
- * submission services: the healer side needs {@code healerId == caller}; the reviewer side needs the
- * submission assigned to the caller and not their own. Field rules (body length, page, x/y range,
+ * submission services: the healer side needs {@code healerId == caller}; the reviewer side needs
+ * {@link ReviewInboxService#assignedSubmission} (assigned to the caller and not their own, or a super
+ * admin). The route, not the caller's identity, decides a comment's side. Field rules (body length, page, x/y range,
  * revisionNo) are Bean Validation on {@link CommentRequest}; this service keeps the cross-field and
  * state rules and throws {@link IllegalArgumentException} (400) for them.
  */
@@ -124,7 +125,8 @@ public class ReviewCommentService {
                 .x(hasPin ? scale(req.x()) : null).y(hasPin ? scale(req.y()) : null)
                 .body(body).build());
         events.publish(new ReviewEvent(s.getId(), s.getHealerId(), s.getReviewerId(),
-                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo(), side, s.getStatus()));
+                ReviewEventType.COMMENT_ADDED, revision.getRevisionNo(), side, s.getStatus(),
+                side == AuthorSide.REVIEWER ? ReviewEvent.standIn(me, s.getReviewerId()) : null));
         String name = healers.findById(me).map(Healer::getFullName).orElse("");
         return toResponse(saved, revision.getRevisionNo(), name == null ? "" : name);
     }
