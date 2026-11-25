@@ -16,6 +16,9 @@ export interface HealerOption {
   id: string;
   fullName: string;
   email: string;
+  /** Holds CASE:REVIEW through a role. Not required to be assigned as a reviewer. */
+  hasReviewPermission: boolean;
+  superAdmin: boolean;
 }
 
 const BASE = "/api/v1/admin/reviewer-assignments";
@@ -30,7 +33,7 @@ export function useReviewerAssignments() {
   });
 }
 
-/** Active healers who hold CASE:REVIEW: the only ones that can be picked as a reviewer. */
+/** Every active account: any of them can be picked as a reviewer. */
 export function useEligibleReviewers() {
   return useQuery<HealerOption[]>({
     queryKey: QK_ELIGIBLE,
