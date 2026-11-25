@@ -101,6 +101,13 @@ class HealerControllerGateSweepTest {
             Pattern.compile("^@rbacAuthz\\.hasPermission\\('([A-Z_]+)','([A-Z]+)'\\)$");
 
     /**
+     * The one gate that is not the bare form: the instructor routes are open by CASE:REVIEW <em>or</em>
+     * by being assigned as someone's reviewer ({@code ReviewAuthz}). Only {@link ReviewerController} may
+     * use it, and every one of its routes must use exactly this literal.
+     */
+    private static final String REVIEWER_GATE = "@reviewAuthz.canReview()";
+
+    /**
      * The 9 {@code AuthController} routes that are {@code permitAll} in
      * {@code SecurityConfig} — reached before any principal exists.
      */
@@ -152,7 +159,7 @@ class HealerControllerGateSweepTest {
             new SweptController(CreditProxyController.class, 4, 4),
             // Case review, healer side: all eight routes gated CASE:UPDATE (class-level mapping not counted).
             new SweptController(HealerReviewController.class, 8, 8),
-            // Case review, instructor side: all eight inbox routes (incl. approve / request-changes) gated CASE:REVIEW.
+            // Case review, instructor side: all eight inbox routes (incl. approve / request-changes) gated by REVIEWER_GATE.
             new SweptController(ReviewerController.class, 8, 8));
 
     private static final int EXPECTED_TOTAL_MAPPED = 71;
@@ -506,6 +513,13 @@ class HealerControllerGateSweepTest {
                     continue;
                 }
                 gated++;
+                if (controller.type() == ReviewerController.class) {
+                    assertThat(preAuthorize.value())
+                            .as("ReviewerController.%s: @PreAuthorize must be exactly %s",
+                                    method.getName(), REVIEWER_GATE)
+                            .isEqualTo(REVIEWER_GATE);
+                    continue;
+                }
                 assertThat(preAuthorize.value())
                         .as("%s.%s: @PreAuthorize must be exactly a bare "
                                 + "@rbacAuthz.hasPermission('RESOURCE','VERB') expression (D-02/D-16) "
@@ -562,7 +576,13 @@ class HealerControllerGateSweepTest {
                 .hasSize(EXPECTED_TOTAL_GATED);
 
         Set<Resource> resolvedResources = new LinkedHashSet<>();
+        assertThat(literals.stream().filter(REVIEWER_GATE::equals).count())
+                .as("only the eight instructor routes use the assignment-aware gate")
+                .isEqualTo(8);
         for (String literal : literals) {
+            if (REVIEWER_GATE.equals(literal)) {
+                continue; // not a (resource, verb) literal; pinned per route by the Test 1 sweep
+            }
             Matcher matcher = BARE_GATE.matcher(literal);
             assertThat(matcher.matches())
                     .as("%s must be a bare @rbacAuthz.hasPermission('R','V') expression", literal)

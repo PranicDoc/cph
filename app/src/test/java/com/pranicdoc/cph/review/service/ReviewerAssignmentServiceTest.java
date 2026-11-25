@@ -2,6 +2,7 @@ package com.pranicdoc.cph.review.service;
 
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.common.enums.Role;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
@@ -47,15 +48,32 @@ class ReviewerAssignmentServiceTest {
     }
 
     @Test
-    void assign_rejectsReviewerWithoutCaseReview() {
+    void assignAllowsAnAccountWithoutReviewPermission() {
         when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
         when(healers.findById(reviewerId)).thenReturn(Optional.of(healer(reviewerId, "r", true)));
-        when(permissions.hasPermission(reviewerId, Resource.CASE, Operation.REVIEW)).thenReturn(false);
+        when(assignments.findByHealerId(healerId)).thenReturn(Optional.empty());
+        when(assignments.save(any(ReviewerAssignment.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThatThrownBy(() -> service.assign(healerId, reviewerId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Reviewer must hold the CASE:REVIEW permission");
-        verify(assignments, never()).save(any());
+        ReviewerAssignmentResponse response = service.assign(healerId, reviewerId);
+
+        assertThat(response.reviewerId()).isEqualTo(reviewerId);
+        verify(assignments).save(any(ReviewerAssignment.class));
+        org.mockito.Mockito.verifyNoInteractions(permissions);
+    }
+
+    @Test
+    void assignAllowsSelfForSuperAdmin() {
+        Healer admin = healer(healerId, "admin", true);
+        admin.setRole(Role.SUPADM);
+        when(healers.findById(healerId)).thenReturn(Optional.of(admin));
+        when(assignments.findByHealerId(healerId)).thenReturn(Optional.empty());
+        when(assignments.save(any(ReviewerAssignment.class))).thenAnswer(i -> i.getArgument(0));
+
+        ReviewerAssignmentResponse response = service.assign(healerId, healerId);
+
+        assertThat(response.healerId()).isEqualTo(healerId);
+        assertThat(response.reviewerId()).isEqualTo(healerId);
+        verify(reviewSubmissions).reassignOpen(healerId, healerId);
     }
 
     @Test
@@ -74,7 +92,11 @@ class ReviewerAssignmentServiceTest {
     }
 
     @Test
-    void assign_rejectsSelfLink() {
+    void assignRejectsSelfForOrdinaryHealer() {
+        Healer ordinary = healer(healerId, "h", true);
+        ordinary.setRole(Role.HEALER);
+        when(healers.findById(healerId)).thenReturn(Optional.of(ordinary));
+
         assertThatThrownBy(() -> service.assign(healerId, healerId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("A healer cannot be their own reviewer");
@@ -87,7 +109,6 @@ class ReviewerAssignmentServiceTest {
                 .healerId(healerId).reviewerId(UUID.randomUUID()).build();
         when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
         when(healers.findById(reviewerId)).thenReturn(Optional.of(healer(reviewerId, "r", true)));
-        when(permissions.hasPermission(reviewerId, Resource.CASE, Operation.REVIEW)).thenReturn(true);
         when(assignments.findByHealerId(healerId)).thenReturn(Optional.of(existing));
         when(assignments.save(any(ReviewerAssignment.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -104,7 +125,6 @@ class ReviewerAssignmentServiceTest {
     void assign_movesOpenSubmissions() {
         when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
         when(healers.findById(reviewerId)).thenReturn(Optional.of(healer(reviewerId, "r", true)));
-        when(permissions.hasPermission(reviewerId, Resource.CASE, Operation.REVIEW)).thenReturn(true);
         when(assignments.findByHealerId(healerId)).thenReturn(Optional.empty());
         when(assignments.save(any(ReviewerAssignment.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -114,26 +134,35 @@ class ReviewerAssignmentServiceTest {
     }
 
     @Test
-    void assign_rejectsInactiveReviewer() {
+    void assignStillRejectsInactiveReviewer() {
         when(healers.findById(healerId)).thenReturn(Optional.of(healer(healerId, "h", true)));
         when(healers.findById(reviewerId)).thenReturn(Optional.of(healer(reviewerId, "r", false)));
 
         assertThatThrownBy(() -> service.assign(healerId, reviewerId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Reviewer must be an active healer");
+        verify(assignments, never()).save(any());
     }
 
     @Test
-    void eligibleReviewers_returnsOnlyActiveHealersHoldingCaseReview() {
+    void candidatesListEveryActiveHealerWithFlags() {
         UUID holder = UUID.randomUUID();
-        UUID other = UUID.randomUUID();
-        when(healers.findByActiveTrue()).thenReturn(List.of(healer(holder, "holder", true), healer(other, "other", true)));
+        UUID admin = UUID.randomUUID();
+        UUID plain = UUID.randomUUID();
+        Healer superAdmin = healer(admin, "Bina", true);
+        superAdmin.setRole(Role.SUPADM);
+        when(healers.findByActiveTrue()).thenReturn(List.of(
+                healer(plain, "chitra", true), superAdmin, healer(holder, "Asha", true)));
         when(permissions.hasPermission(holder, Resource.CASE, Operation.REVIEW)).thenReturn(true);
-        when(permissions.hasPermission(other, Resource.CASE, Operation.REVIEW)).thenReturn(false);
+        when(permissions.hasPermission(admin, Resource.CASE, Operation.REVIEW)).thenReturn(false);
+        when(permissions.hasPermission(plain, Resource.CASE, Operation.REVIEW)).thenReturn(false);
 
         List<HealerOption> options = service.eligibleReviewers();
 
-        assertThat(options).extracting(HealerOption::id).containsExactly(holder);
+        assertThat(options).containsExactly(
+                new HealerOption(holder, "Asha", "Asha@x.org", true, false),
+                new HealerOption(admin, "Bina", "Bina@x.org", false, true),
+                new HealerOption(plain, "chitra", "chitra@x.org", false, false));
     }
 
     @Test

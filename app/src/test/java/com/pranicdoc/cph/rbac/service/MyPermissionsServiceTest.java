@@ -6,6 +6,7 @@ import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.rbac.dto.MyPermissionsResponse;
 import com.pranicdoc.cph.rbac.model.Operation;
 import com.pranicdoc.cph.rbac.model.Resource;
+import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +32,7 @@ class MyPermissionsServiceTest {
     @Mock private RolePermissionLookupService lookupService;
     @Mock private MasterDataElevationService elevationService;
     @Mock private FeatureFlags featureFlags;
+    @Mock private ReviewerAssignmentRepository assignments;
     @InjectMocks private MyPermissionsService service;
 
     @Test
@@ -69,7 +71,48 @@ class MyPermissionsServiceTest {
                 .containsExactlyInAnyOrderElementsOf(Resource.MASTER_DATA_PROTOCOLS.getSupportedOperations().stream()
                         .map(Operation::name).toList());
         assertThat(Arrays.stream(Resource.values()).map(Resource::name)).allMatch(me.grants()::containsKey);
-        verifyNoInteractions(lookupService);
+        verifyNoInteractions(lookupService, assignments);
+    }
+
+    @Test
+    void myPermissionsAddsCaseReviewOnlyForAssignedCallers() {
+        UUID healerId = UUID.randomUUID();
+        when(rbacAuthz.isSuperAdmin()).thenReturn(false);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.effectiveGrants(healerId)).thenReturn(Map.of(
+                Resource.CASE, EnumSet.of(Operation.READ, Operation.UPDATE)));
+
+        when(assignments.existsByReviewerId(healerId)).thenReturn(false);
+        assertThat(service.current().grants().get("CASE")).containsExactly("READ", "UPDATE");
+
+        when(assignments.existsByReviewerId(healerId)).thenReturn(true);
+        assertThat(service.current().grants().get("CASE")).containsExactly("READ", "UPDATE", "REVIEW");
+    }
+
+    @Test
+    void anAssignedCallerWithoutAnyCaseGrantGetsOnlyCaseReview() {
+        UUID healerId = UUID.randomUUID();
+        when(rbacAuthz.isSuperAdmin()).thenReturn(false);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.effectiveGrants(healerId)).thenReturn(Map.of());
+        when(assignments.existsByReviewerId(healerId)).thenReturn(true);
+
+        Map<String, java.util.List<String>> grants = service.current().grants();
+
+        assertThat(grants).containsOnlyKeys("CASE");
+        assertThat(grants.get("CASE")).containsExactly("REVIEW");
+    }
+
+    @Test
+    void anAssignedCallerWhoAlreadyHoldsCaseReviewGetsItOnce() {
+        UUID healerId = UUID.randomUUID();
+        when(rbacAuthz.isSuperAdmin()).thenReturn(false);
+        when(securityContextUtil.getCurrentHealerId()).thenReturn(healerId);
+        when(lookupService.effectiveGrants(healerId)).thenReturn(Map.of(
+                Resource.CASE, EnumSet.of(Operation.REVIEW)));
+        when(assignments.existsByReviewerId(healerId)).thenReturn(true);
+
+        assertThat(service.current().grants().get("CASE")).containsExactly("REVIEW");
     }
 
     @Test

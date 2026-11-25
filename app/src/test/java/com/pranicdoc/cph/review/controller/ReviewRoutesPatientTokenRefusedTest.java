@@ -47,6 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest({HealerReviewController.class, ReviewerController.class})
 @Import({SecurityConfig.class, GlobalExceptionHandler.class, AdminAuthz.class, SecurityContextUtil.class,
+        com.pranicdoc.cph.review.service.ReviewAuthz.class,
         ReviewRoutesPatientTokenRefusedTest.RbacAuthzSliceConfig.class})
 @ActiveProfiles("test")
 class ReviewRoutesPatientTokenRefusedTest {
@@ -65,6 +66,7 @@ class ReviewRoutesPatientTokenRefusedTest {
     @MockBean private ReviewInboxService inboxService;
     @MockBean private ReviewCommentService commentService;
     @MockBean private RolePermissionLookupService lookupService;
+    @MockBean private com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository assignments;
     @MockBean private JwtService jwtService;
     @MockBean private TenantInterceptor tenantInterceptor;
     @MockBean private HealerCacheService healerCacheService;
@@ -85,6 +87,7 @@ class ReviewRoutesPatientTokenRefusedTest {
         when(tenantInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(lookupService.hasPermission(OWNER, Resource.CASE, Operation.UPDATE)).thenReturn(true);
         when(lookupService.hasPermission(OWNER, Resource.CASE, Operation.REVIEW)).thenReturn(true);
+        when(assignments.existsByReviewerId(OWNER)).thenReturn(true);
     }
 
     private static MockHttpServletRequestBuilder request(String method, String path) {
