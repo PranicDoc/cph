@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,9 @@ import { useUsualPicks } from "@/hooks/useUsualPicks";
 import ChakraDetail from "../closure/ChakraDetail";
 import WrapUp from "../closure/WrapUp";
 import { PickerHost } from "../closure/pickerHost";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { HPU_BATCH_CHOICES, useHpuBatchSize } from "@/hooks/useHpuBatchSize";
+import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useApprovedEditGuard } from "@/hooks/useApprovedEditGuard";
 
 const hasReason = (row: HPUTable) => !!row.reason?.trim();
@@ -19,9 +23,11 @@ const hasReason = (row: HPUTable) => !!row.reason?.trim();
 /**
  * New-view close-case page: a list of the scanned chakras (plus a last "Wrap up" step) on the left,
  * the selected one on the right; on a phone the list and the selected item are separate screens.
- * "Save and next" saves the chakras that have a reason (the server refuses one without, and a save
- * replaces the whole set, so it waits while a chakra saved before lacks one); "Close case" saves
- * them all and closes the case.
+ * Edited chakras are collected and sent together: "Save and next" appears once a batch (the healer's
+ * setting) is full or on the last chakra, otherwise the button just says "Next". Every save carries all
+ * chakras that have a reason (the server refuses one without, and a save replaces the whole set, so it
+ * waits while a chakra saved before lacks one); "Close case" saves them all and closes the case.
+ * Leaving with unsaved chakras asks first.
  */
 export default function CloseCase() {
   const navigate = useNavigate();
@@ -54,6 +60,15 @@ export default function CloseCase() {
     else if (target === "row") rowRefs.current[selected]?.focus();
   }, [selected, detailOpen]);
 
+  const batch = useHpuBatchSize();
+  // Chakras edited since they were last sent, each with the number of its latest edit, so a save only
+  // clears what it actually carried.
+  const [dirty, setDirty] = useState<Record<string, number>>({});
+  const editCount = useRef(0);
+  const dirtyCount = Object.keys(dirty).length;
+  const saveable = rows.filter((r) => dirty[r.chakra] !== undefined && hasReason(r)).length;
+  const leaving = useUnsavedChangesPrompt(dirtyCount > 0);
+
   const done = rows.filter(hasReason).length;
   const allDone = ready && done === rows.length;
   // Saving without these would erase what was saved for them, so Save and next waits (Close case
@@ -78,12 +93,37 @@ export default function CloseCase() {
     focusTo.current = "row";
     setDetailOpen(false);
   };
+  /**
+   * Sends `selections` (every row when left out), marks them saved, then runs `then`. The mark is applied
+   * before `then`, so the leave warning cannot stop what follows; `keepGuard` leaves it until afterwards,
+   * for releasing a navigation the warning is already holding.
+   */
+  const send = (selections: HPUTable[] | undefined, then: () => void, keepGuard = false) => {
+    const sent = (selections ?? rows).map((r) => [r.chakra, dirty[r.chakra]] as const);
+    approvedEdit.guard(() =>
+      save.mutate(selections, {
+        onSuccess: () => {
+          if (keepGuard) then();
+          flushSync(() =>
+            setDirty((current) => {
+              const left = { ...current };
+              for (const [chakra, edit] of sent) if (left[chakra] === edit) delete left[chakra];
+              return left;
+            })
+          );
+          if (!keepGuard) then();
+        },
+      })
+    );
+  };
+  const canSave = saveable > 0 && unsaved.length === 0;
+  // A full batch is sent; so is whatever is left on the last chakra.
+  const willSave = canSave && (saveable >= batch.size || selected === rows.length - 1);
   const saveAndNext = () => {
     if (!hasReason(row)) return setReasonError(row.chakra);
     setReasonError(null);
-    const reasoned = rows.filter(hasReason);
-    if (reasoned.length === 0 || unsaved.length > 0) return openNext();
-    approvedEdit.guard(() => save.mutate(reasoned, { onSuccess: openNext }));
+    if (!willSave) return openNext();
+    send(rows.filter(hasReason), openNext);
   };
   // The button is always clickable (also to save an existing closure again with nothing changed:
   // the server recomputes the healing count and date). It only refuses while a chakra has no reason.
@@ -93,11 +133,8 @@ export default function CloseCase() {
       toast.error(`Add a reason for ${missing.chakra} (and every other chakra) before closing the case`);
       return;
     }
-    approvedEdit.guard(() =>
-      rows.length === 0
-        ? closure.closeMutation.mutate()
-        : save.mutate(undefined, { onSuccess: () => closure.closeMutation.mutate() })
-    );
+    if (rows.length === 0) return approvedEdit.guard(() => closure.closeMutation.mutate());
+    send(undefined, () => closure.closeMutation.mutate());
   };
 
   const closeButton = (className: string) => (
@@ -171,6 +208,23 @@ export default function CloseCase() {
               <i style={{ width: rows.length ? `${(done / rows.length) * 100}%` : "100%" }} />
             </div>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-2">
+            <label className="muted small flex items-center gap-2">
+              Save after
+              <select
+                value={batch.choice}
+                onChange={(e) => batch.setChoice(e.target.value)}
+                className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+              >
+                {HPU_BATCH_CHOICES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {dirtyCount > 0 && <span className="small muted">{dirtyCount} not saved yet</span>}
+          </div>
           <div className="hl-cc-rows">{rows.map((r, i) => listRow(r, i))}</div>
           {listRow(null, rows.length)}
         </nav>
@@ -213,6 +267,8 @@ export default function CloseCase() {
                       onChange={(field, value) => {
                         if (field === "reason" && String(value ?? "").trim()) setReasonError(null);
                         updateRow(selected, field, value);
+                        const edit = ++editCount.current;
+                        setDirty((current) => ({ ...current, [row.chakra]: edit }));
                       }}
                     />
                   </PickerHost.Provider>
@@ -235,7 +291,8 @@ export default function CloseCase() {
                       "Saving..."
                     ) : (
                       <span className="truncate">
-                        Save and next<span className="hl-cc-next-name">: {nameOf(selected + 1)}</span>
+                        {willSave ? "Save and next" : "Next"}
+                        <span className="hl-cc-next-name">: {nameOf(selected + 1)}</span>
                       </span>
                     )}
                     {!save.isPending && <ChevronRight aria-hidden="true" />}
@@ -248,6 +305,31 @@ export default function CloseCase() {
       </div>
 
       {!detailOpen && <div className="hl-cc-pin md:hidden">{closeButton("hl-btn48 w-full")}</div>}
+      <Dialog open={leaving.state === "blocked"} onOpenChange={(open) => !open && leaving.reset?.()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle>Chakras not saved yet</DialogTitle>
+          <DialogDescription>
+            {unsaved.length > 0
+              ? `Add a reason for ${unsaved[0].chakra} before saving, or leave without saving.`
+              : "Chakras without a reason can't be saved. The others can be saved before you leave."}
+          </DialogDescription>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => leaving.reset?.()}>
+              Stay
+            </Button>
+            <Button type="button" variant="outline" onClick={() => leaving.proceed?.()}>
+              Leave without saving
+            </Button>
+            <Button
+              type="button"
+              disabled={!canSave || busy}
+              onClick={() => send(rows.filter(hasReason), () => leaving.proceed?.(), true)}
+            >
+              Save and leave
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {approvedEdit.dialog}
     </div>
   );
