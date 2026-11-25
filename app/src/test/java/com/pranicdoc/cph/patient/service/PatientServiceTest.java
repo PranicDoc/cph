@@ -150,10 +150,12 @@ class PatientServiceTest {
     void upsertCopiesEveryMedicalHistoryField() throws Exception {
         var h = new com.pranicdoc.cph.patient.model.PatientMedicalHistory();
         var fields = java.util.Arrays.stream(h.getClass().getDeclaredFields())
-                .filter(f -> f.getType() == String.class || f.getType() == Boolean.class).toList();
+                .filter(f -> f.getType() == String.class || f.getType() == Boolean.class
+                        || f.getType() == java.math.BigDecimal.class).toList();
         for (var f : fields) {
             f.setAccessible(true);
-            f.set(h, f.getType() == String.class ? "v-" + f.getName() : Boolean.TRUE);
+            f.set(h, f.getType() == String.class ? "v-" + f.getName()
+                    : f.getType() == Boolean.class ? Boolean.TRUE : new java.math.BigDecimal("12.5"));
         }
         HealingCase c = HealingCase.builder().build();
         CaseMedicalSnapshot.upsert(c, h);
@@ -162,7 +164,7 @@ class PatientServiceTest {
             sf.setAccessible(true);
             assertEquals(f.get(h), sf.get(c.getMedicalSnapshot()), "upsert does not copy '" + f.getName() + "'");
         }
-        assertEquals(12, fields.size());
+        assertEquals(18, fields.size());
     }
 
     @AfterEach

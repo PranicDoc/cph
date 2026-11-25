@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public record CaseUpdateRequest(
         UUID healingCaseId,
-        @Size(max = TextLimits.MEDIUM_BOX, message = "Medical condition can be at most {max} characters") String medicalCondition,
+        @jakarta.validation.Valid List<ChiefComplaintRequest> chiefComplaints,
         @jakarta.validation.Valid List<SymptomRequest> symptoms,
         @jakarta.validation.Valid HealingDetailsRequest healingDetails,
         @Size(max = TextLimits.NOTE, message = "Protocol name can be at most {max} characters") String protocolName,

@@ -373,13 +373,19 @@ class CaseServiceTest {
         return buildUpdateRequest(caseId, "Test condition", medications, labFindings);
     }
 
+    /** One chief-complaint row with a valid duration, or a blank row when no problem is given. */
+    private static List<com.pranicdoc.cph.healing.dto.ChiefComplaintRequest> complaints(String problem) {
+        return List.of(new com.pranicdoc.cph.healing.dto.ChiefComplaintRequest(
+                null, problem, 3, com.pranicdoc.cph.common.enums.DurationUnit.MONTHS, null));
+    }
+
     private CaseUpdateRequest buildUpdateRequest(UUID caseId, String medicalCondition,
                                                  List<MedicationRequest> medications, List<String> labFindings) {
         HealingDetailsRequest healingDetailsRequest =
                 new HealingDetailsRequest("Test Protocol", "Test Book", "", null);
         return new CaseUpdateRequest(
                 caseId,
-                medicalCondition,
+                complaints(medicalCondition),
                 null,
                 healingDetailsRequest,
                 "Test Protocol",

@@ -190,12 +190,12 @@ class CaseControllerAuthorizationTest {
     static final String CASE_UPDATE_JSON = "{}";
 
     private static final CaseResponse CASE_RESPONSE = new CaseResponse(
-            ROW_ID, PATIENT_ID, HEALER_ID, null, null, List.of(),
+            ROW_ID, PATIENT_ID, HEALER_ID, null, List.of(), null, List.of(),
             null, null, null, null, null, null, null,
             null, null, null, null, List.of(), List.of(), List.of(), null);
     private static final CaseSummaryResponse CASE_SUMMARY = new CaseSummaryResponse(
             "Test", "Patient", null, null, null, "1234567890", null,
-            ROW_ID, null, List.of(), null, null, null, null, null, null, null,
+            ROW_ID, null, List.of(), List.of(), null, null, null, null, null, null, null,
             Instant.now(), null, null, List.of(), List.of(), List.of(), null);
     private static final PageResponse<CaseResponse> CASE_PAGE =
             new PageResponse<>(List.of(), 0, 10, 0L, 0, true);

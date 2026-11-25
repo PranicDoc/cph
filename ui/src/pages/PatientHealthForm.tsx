@@ -6,13 +6,20 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
 import { extractDetail } from "../lib/utils";
-import { DynamicFormEngine } from "../components/DynamicFormEngine";
+import { CaseSheetStepButtons, CaseSheetSteps } from "../components/caseSheet/CaseSheetSteps";
+import { useCaseSheetSteps } from "../components/caseSheet/useCaseSheetSteps";
 import { patientSessionSchema } from "./schemas/patientSessionSchema";
 import { TreatmentStep } from "../interfaces";
 import { Button } from "@/components/ui/button";
+import {
+  type ChiefComplaintRow,
+  chiefComplaintsPayload,
+  complaintRowsFromResponse,
+  emptyComplaintRow,
+} from "../lib/chiefComplaints";
 
 type PatientFormValues = {
-  medicalCondition: string;
+  chiefComplaints: ChiefComplaintRow[];
   symptoms: any[];
   medications: any[];
   basicBookPg: string;
@@ -40,7 +47,7 @@ export default function PatientHealthForm() {
 
   const form = useForm({
     defaultValues: {
-      medicalCondition: "",
+      chiefComplaints: [emptyComplaintRow()] as ChiefComplaintRow[],
       symptoms: [],
       medications: [],
       basicBookPg: "",
@@ -59,9 +66,10 @@ export default function PatientHealthForm() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
-        const { labFindings, medications, ...rest } = value;
+        const { labFindings, medications, chiefComplaints, ...rest } = value;
         const payload = {
           ...rest,
+          chiefComplaints: chiefComplaintsPayload(chiefComplaints),
           // Omit the key entirely when the patient added no medications, rather than
           // sending medications: []. CaseService.updateCaseDetails treats a null/absent
           // medications field as "don't touch" and an explicit [] as "clear existing" —
@@ -89,6 +97,8 @@ export default function PatientHealthForm() {
     },
   });
 
+  const steps = useCaseSheetSteps(form);
+
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
@@ -99,7 +109,7 @@ export default function PatientHealthForm() {
         setCaseStatus(data.status);
 
         const values: PatientFormValues = {
-          medicalCondition: data.medicalCondition || "",
+          chiefComplaints: complaintRowsFromResponse(data.chiefComplaints),
           symptoms: data.symptoms || [],
           medications: data.medications || [],
           basicBookPg: data.basicBookPg || "",
@@ -178,20 +188,31 @@ export default function PatientHealthForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        // Enter on an earlier step moves on; only the last step submits.
+        if (!steps.isLast) {
+          steps.goTo(steps.step + 1);
+          return;
+        }
         form.handleSubmit();
       }}
       className={`bg-card border border-border rounded-xl p-6 shadow-sm space-y-6${isNewView ? " session-form" : ""}`}
     >
       {!isNewView && <h2 className="text-xl font-semibold">Your Health Details</h2>}
-      <DynamicFormEngine form={form} schema={patientSessionSchema} />
+      <CaseSheetSteps form={form} schema={patientSessionSchema} step={steps.step} onSelect={steps.goTo} patternCheck={steps.patternCheck} />
       <div className="flex justify-end pt-4 border-t border-border">
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-6 py-2.5 h-auto gap-2"
-        >
-          {isSubmitting ? "Submitting..." : isNewView ? "Submit my details" : "Submit My Details"}
-        </Button>
+        <CaseSheetStepButtons
+          step={steps.step}
+          onSelect={steps.goTo}
+          submit={
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 h-auto gap-2"
+            >
+              {isSubmitting ? "Submitting..." : isNewView ? "Submit my details" : "Submit My Details"}
+            </Button>
+          }
+        />
       </div>
     </form>
     </div>

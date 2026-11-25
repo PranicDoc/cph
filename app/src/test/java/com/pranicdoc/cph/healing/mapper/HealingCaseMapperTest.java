@@ -23,7 +23,7 @@ class HealingCaseMapperTest {
         existing.setId(UUID.randomUUID());
         entity.getSymptoms().add(existing);
 
-        CaseUpdateRequest request = new CaseUpdateRequest(entity.getId(), "cond",
+        CaseUpdateRequest request = new CaseUpdateRequest(entity.getId(), List.of(),
                 List.of(new SymptomRequest("Headache", "", 1)),
                 null, null, null, null, null, null, null, false, null, false, null, null, null);
 

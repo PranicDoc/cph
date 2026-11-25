@@ -3,11 +3,13 @@ package com.pranicdoc.cph.patient.model;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.model.TenantEntity;
+import com.pranicdoc.cph.patient.dto.MedicalHistoryRequest;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.envers.Audited;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -68,4 +70,49 @@ public class PatientMedicalHistory extends TenantEntity {
     @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "additional_notes", columnDefinition = "TEXT")
     private String additionalNotes; // 🔒 Encrypted
+
+    /** Optional. BMI is derived from these two, never stored. */
+    @Column(name = "height_cm", precision = 5, scale = 1)
+    private BigDecimal heightCm;
+
+    @Column(name = "weight_kg", precision = 5, scale = 1)
+    private BigDecimal weightKg;
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "past_history", columnDefinition = "TEXT")
+    private String pastHistory; // 🔒 Encrypted
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "surgical_history", columnDefinition = "TEXT")
+    private String surgicalHistory; // 🔒 Encrypted
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "family_history", columnDefinition = "TEXT")
+    private String familyHistory; // 🔒 Encrypted
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "psychosocial_history", columnDefinition = "TEXT")
+    private String psychosocialHistory; // 🔒 Encrypted
+
+    /** Copy every editable field from the request; the one place create and update share. */
+    public void apply(MedicalHistoryRequest r) {
+        generalHealth = r.generalHealth();
+        diet = r.diet();
+        exercise = r.exercise();
+        exerciseFrequency = r.exerciseFrequency();
+        hypertension = r.hypertension();
+        giIssues = r.giIssues();
+        stressDepressionAnxiety = r.stressDepressionAnxiety();
+        pregnant = r.pregnant();
+        cancer = r.cancer();
+        cancerLocation = r.cancerLocation();
+        cancerDetails = r.cancerDetails();
+        additionalNotes = r.additionalNotes();
+        heightCm = r.heightCm();
+        weightKg = r.weightKg();
+        pastHistory = r.pastHistory();
+        surgicalHistory = r.surgicalHistory();
+        familyHistory = r.familyHistory();
+        psychosocialHistory = r.psychosocialHistory();
+    }
 }

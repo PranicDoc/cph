@@ -1,19 +1,14 @@
 import { FormSchema } from "../../components/DynamicFormEngine";
 import { TEXT_LIMITS } from "../../lib/textLimits";
 import { COMMON_SYMPTOMS } from "./sessionSchema";
+import { chiefComplaintMessage } from "./sessionValidation";
+import { caseSheetComplaintFields } from "./chiefComplaintFields";
 
 export const patientSessionSchema: FormSchema = [
+  ...caseSheetComplaintFields((_value, formValues) => chiefComplaintMessage(formValues)),
   {
-    fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
+    fieldsContainerClassName: "grid grid-cols-1 gap-4 mt-4",
     fields: [
-      {
-        name: "medicalCondition",
-        maxLength: TEXT_LIMITS.mediumBox,
-        label: "Chief Complaint",
-        type: "textarea",
-        placeholder: "Please state the main ailment that will be treated...", // TODO add examples
-        required: true,
-      },
       {
         name: "labFindings",
         label: "Lab Findings",

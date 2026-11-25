@@ -12,6 +12,7 @@ public record CaseResponse(
         UUID patientId,
         UUID healerId,
         String medicalCondition,
+        List<CaseChiefComplaint> chiefComplaints,
         HealingDetails healingDetails,
         List<String> labFindings,
         Boolean complementaryTreatments,

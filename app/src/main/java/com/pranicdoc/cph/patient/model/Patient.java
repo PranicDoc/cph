@@ -134,18 +134,7 @@ public class Patient extends TenantEntity {
     private static PatientMedicalHistory getPatientMedicalHistory(MedicalHistoryRequest historyReq, Patient p) {
         PatientMedicalHistory history = new PatientMedicalHistory();
         populateIds(history);
-        history.setGeneralHealth(historyReq.generalHealth());
-        history.setDiet(historyReq.diet());
-        history.setExercise(historyReq.exercise());
-        history.setExerciseFrequency(historyReq.exerciseFrequency());
-        history.setHypertension(historyReq.hypertension());
-        history.setGiIssues(historyReq.giIssues());
-        history.setStressDepressionAnxiety(historyReq.stressDepressionAnxiety());
-        history.setPregnant(historyReq.pregnant());
-        history.setCancer(historyReq.cancer());
-        history.setCancerLocation(historyReq.cancerLocation());
-        history.setCancerDetails(historyReq.cancerDetails());
-        history.setAdditionalNotes(historyReq.additionalNotes());
+        history.apply(historyReq);
         history.setPatient(p);
         return history;
     }

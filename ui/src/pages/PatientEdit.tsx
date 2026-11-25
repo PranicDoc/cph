@@ -44,6 +44,12 @@ export type MedicalHistoryDetails = {
   cancerLocation: string | null;
   cancerDetails: string | null;
   additionalNotes: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  pastHistory: string | null;
+  surgicalHistory: string | null;
+  familyHistory: string | null;
+  psychosocialHistory: string | null;
 };
 
 /** The declaration date of the patient's latest case (GET /api/v1/patients/{id}/declaration-date). */
@@ -91,6 +97,12 @@ function PatientEditForm({
     cancerLocation: history?.cancerLocation ?? null,
     cancerDetails: history?.cancerDetails ?? null,
     additionalNotes: history?.additionalNotes ?? null,
+    heightCm: history?.heightCm != null ? String(history.heightCm) : null,
+    weightKg: history?.weightKg != null ? String(history.weightKg) : null,
+    pastHistory: history?.pastHistory ?? null,
+    surgicalHistory: history?.surgicalHistory ?? null,
+    familyHistory: history?.familyHistory ?? null,
+    psychosocialHistory: history?.psychosocialHistory ?? null,
     declarationDate: savedDate,
   };
 

@@ -15,8 +15,22 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { usePatient } from "../context/PatientContext";
 import { Button } from "@/components/ui/button";
 import { serializeExercise } from "../lib/exercise";
+import { numberOrNull } from "../lib/patientUpdate";
 import { buildDeclaration, todayAsDate } from "../lib/declaration";
 import { useUiVersion } from "../ui-version";
+
+/** The medical history as the API takes it: exercise as one string, height and weight as numbers or null. */
+const historyPayload = (value: {
+  exercise: string[];
+  heightCm: string | null;
+  weightKg: string | null;
+  [key: string]: unknown;
+}) => ({
+  ...value,
+  exercise: serializeExercise(value.exercise),
+  heightCm: numberOrNull(value.heightCm),
+  weightKg: numberOrNull(value.weightKg),
+});
 
 export default function Registration() {
   const { isNewView } = useUiVersion();
@@ -116,6 +130,12 @@ export default function Registration() {
       cancerLocation: null,
       cancerDetails: null,
       additionalNotes: null,
+      heightCm: null as string | null,
+      weightKg: null as string | null,
+      pastHistory: null,
+      surgicalHistory: null,
+      familyHistory: null,
+      psychosocialHistory: null,
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
@@ -125,13 +145,13 @@ export default function Registration() {
             ...patientForm.state.values,
             firstName: patientForm.state.values.firstName.trim(),
             lastName: patientForm.state.values.lastName.trim(),
-            medicalHistory: { ...value, exercise: serializeExercise(value.exercise) },
+            medicalHistory: historyPayload(value),
           };
           const res = await api.post("/api/v1/patients/self-register", payload);
           setPatientId(res.data.id);
           toast.success("Patient registered");
         } else {
-          setPendingHistory({ ...value, exercise: serializeExercise(value.exercise) });
+          setPendingHistory(historyPayload(value));
         }
         setPatientFullName(
           patientForm.state.values.firstName.trim() +

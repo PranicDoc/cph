@@ -30,6 +30,7 @@ public abstract class CphCaseMapper {
     @Mapping(target = "sessions",    qualifiedByName = "toSortedSessions")
     @Mapping(target = "healerProtocolUnderstanding", expression = "java(caseProtocolUnderstanding(c))")
     @Mapping(target = "declarationDate", expression = "java(declarationDate(c))")
+    @Mapping(target = "chiefComplaints", source = "chiefComplaints")
     public abstract com.pranicdoc.common.dto.CaseSnapshot toCaseSnapshot(HealingCase c);
 
     @Mapping(target = "patientMedicalHistory", source = "medicalHistory")
@@ -57,6 +58,19 @@ public abstract class CphCaseMapper {
     public abstract TreatmentStepSnapshot toTreatmentStepSnapshot(TreatmentStep t);
 
     public abstract MedicalSnapshot         toMedicalSnapshot(CaseMedicalSnapshot m);
+
+    @Mapping(target = "problemHistory", expression = "java(problemHistory(c))")
+    public abstract com.pranicdoc.common.dto.ChiefComplaintSnapshot toChiefComplaintSnapshot(
+            com.pranicdoc.cph.healing.model.CaseChiefComplaint c);
+
+    /** The presenting-illness answers are flat columns on the row but one nested object on the wire. */
+    protected com.pranicdoc.common.dto.ProblemHistorySnapshot problemHistory(
+            com.pranicdoc.cph.healing.model.CaseChiefComplaint c) {
+        return new com.pranicdoc.common.dto.ProblemHistorySnapshot(
+                c.getOnset() == null ? null : c.getOnset().name(), c.getLocation(), c.getCharacterText(),
+                c.getAggravatingFactor(), c.getRelievingFactor(),
+                c.getTiming() == null ? null : c.getTiming().name(), c.getTimingPattern());
+    }
 
     @Mapping(target = "healerProtocolUnderstanding", ignore = true)
     // HealingSession has no protocolEntries (deprecated ProtocolEntry model); send an empty list, not null.

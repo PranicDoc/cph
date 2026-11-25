@@ -20,6 +20,10 @@ export const TEXT_LIMITS = {
   historyBox: 600,
   finalFeedback: 1500,
   closureComments: 3000,
+  /** Past, surgical, family and psychosocial history: a line or two each on the PDF. */
+  historyLine: 120,
+  /** The free-text answers of a problem's presenting illness. */
+  presentingIllness: 250,
   /** Why the healer worked on a chakra, on the protocol understanding. */
   chakraReason: 300,
 } as const;

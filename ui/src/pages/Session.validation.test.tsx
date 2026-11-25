@@ -39,6 +39,7 @@ const draftCase = {
   patientId: "patient-1",
   status: "DRAFT",
   medicalCondition: "",
+  chiefComplaints: [],
   symptoms: [],
   medications: [],
   labFindings: [],
@@ -61,6 +62,11 @@ function renderSession() {
   );
 }
 
+/** The Save button is on the last step of the case details. */
+async function goToLastStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: /3\s*lab findings and more/i }));
+}
+
 describe("Session step 0 — mandatory fields before Start Session", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -72,27 +78,27 @@ describe("Session step 0 — mandatory fields before Start Session", () => {
     const user = userEvent.setup();
     renderSession();
 
-    const startButton = await screen.findByRole("button", { name: /^save$/i });
-    expect(startButton).toHaveAttribute("aria-disabled", "true");
+    await user.click(await screen.findByRole("button", { name: /^next: presenting illness$/i }));
 
-    await user.click(startButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
-    });
-    // Chief Complaint (a `required` field) shows its own error too.
-    expect(screen.getByText(/^required$/i)).toBeInTheDocument();
+    // The chief complaint table shows its own error, and the form does not move on to Save.
+    expect((await screen.findAllByText(/chief complaint is required/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
     expect(api.patch).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("still blocks when only the chief complaint is filled (protocol missing)", async () => {
     const user = userEvent.setup();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { ...draftCase, chiefComplaints: [{ id: "cc-1", problem: "Neck pain", durationValue: 5, durationUnit: "DAYS" }] },
+    });
     renderSession();
 
-    const chiefComplaint = await screen.findByPlaceholderText(/stomachache for 4 days/i);
-    await user.type(chiefComplaint, "Neck pain for 5 days");
-    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(await screen.findByDisplayValue("Neck pain")).toBeInTheDocument();
+    await goToLastStep(user);
+    const save = screen.getByRole("button", { name: /^save$/i });
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await user.click(save);
 
     await waitFor(() => {
       expect(screen.getByText(/select at least one protocol/i)).toBeInTheDocument();
@@ -111,12 +117,13 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     (api.get as any).mockResolvedValue({
       data: {
         ...draftCase,
-        medicalCondition: "Neck pain for 5 days",
+        chiefComplaints: [{ id: "cc-1", problem: "Neck pain", durationValue: 5, durationUnit: "DAYS" }],
         healingDetails: { protocolName: "Headache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
       },
     });
     renderSession();
 
+    await goToLastStep(userEvent.setup());
     expect((await screen.findAllByText("Headache")).length).toBeGreaterThan(0);
     const startButton = screen.getByRole("button", { name: /^save$/i });
     expect(startButton).not.toHaveAttribute("aria-disabled", "true");
@@ -126,7 +133,7 @@ describe("Session step 0 — an already filled protocol is shown when the case i
     (api.get as any).mockResolvedValue({
       data: {
         ...draftCase,
-        medicalCondition: "Toothache",
+        chiefComplaints: [{ id: "cc-1", problem: "Toothache", durationValue: 2, durationUnit: "DAYS" }],
         healingDetails: { protocolName: "Toothache", bookReference: "", detailedProtocol: "", treatmentSteps: [] },
       },
     });

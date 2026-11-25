@@ -4,12 +4,8 @@ import { TEXT_LIMITS } from "../../lib/textLimits";
 import { ProtocolOption } from "../../components/ProtocolOption";
 import { FormSchema } from "../../components/DynamicFormEngine";
 import type { Protocol } from "../../hooks/admin/useMasterData";
-import {
-  hasChiefComplaint,
-  hasProtocol,
-  CHIEF_COMPLAINT_REQUIRED,
-  PROTOCOL_REQUIRED,
-} from "./sessionValidation";
+import { hasProtocol, chiefComplaintMessage, PROTOCOL_REQUIRED } from "./sessionValidation";
+import { caseSheetComplaintFields } from "./chiefComplaintFields";
 
 export const COMMON_SYMPTOMS = [
   "Headache",
@@ -22,19 +18,10 @@ export const COMMON_SYMPTOMS = [
 
 export function buildSessionSchema(protocols: Protocol[]): FormSchema {
   return [
+  ...caseSheetComplaintFields((_value, formValues) => chiefComplaintMessage(formValues)),
   {
-    fieldsContainerClassName: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4",
+    fieldsContainerClassName: "grid grid-cols-1 gap-4 mt-4",
     fields: [
-      {
-        name: "medicalCondition",
-        maxLength: TEXT_LIMITS.mediumBox,
-        label: "Chief Complaint",
-        type: "textarea",
-        placeholder: "E.g. Stomachache for 4 days or Neck pain for 5 days...",
-        required: true,
-        validate: (_value, formValues) =>
-          hasChiefComplaint(formValues) ? undefined : CHIEF_COMPLAINT_REQUIRED,
-      },
       {
         name: "labFindings",
         label: "Lab Findings",

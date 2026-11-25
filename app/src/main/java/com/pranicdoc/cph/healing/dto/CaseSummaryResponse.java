@@ -19,6 +19,7 @@ public record CaseSummaryResponse(
         String occupation,
         UUID caseId,
         String medicalCondition,
+        List<CaseChiefComplaint> chiefComplaints,
         List<String> labFindings,
         Boolean complementaryTreatments,
         String complementaryDetails,

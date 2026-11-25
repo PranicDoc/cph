@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   CheckboxField,
   FieldError,
+  type TanstackField,
   SelectField,
   TextField,
   TextareaField,
@@ -17,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useUiVersion } from "../ui-version";
 import { sentenceCase } from "../ui-new/lib/sentenceCase";
+import { InfoTip } from "./InfoTip";
 
 export type FieldType =
   | "text"
@@ -33,11 +35,18 @@ export type FieldType =
   | "chip"
   | "table"
   | "file"
-  | "multiselect";
+  | "multiselect"
+  | "custom";
 
 export type FieldConfig = {
   name: string;
   label: string;
+  /** Helper text, shown in a small "i" beside the label (hover on a laptop, tap on a phone). */
+  helpText?: string;
+  /** `custom` fields draw their own control from the field (value, handleChange). */
+  render?: (field: TanstackField) => React.ReactNode;
+  /** `custom` fields: skip the error line, for a second field on a value another field already reports. */
+  hideError?: boolean;
   display?: boolean;
   type?: FieldType;
   /** `hidden` options are not offered for picking, but still show when they are the current value. */
@@ -191,6 +200,21 @@ export function DynamicField({
           );
         }
 
+        if (type === "custom" && fieldConfig.render) {
+          return (
+            <div className={wrapperClassName}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Label className="block text-sm font-semibold">
+                  {label} {required && "*"}
+                </Label>
+                {fieldConfig.helpText && <InfoTip text={fieldConfig.helpText} label={`About ${label}`} />}
+              </div>
+              {fieldConfig.render(field)}
+              {!fieldConfig.hideError && <FieldError errors={field.state.meta.errors} />}
+            </div>
+          );
+        }
+
         if (type === "tag") {
           return (
             <div className={wrapperClassName}>
@@ -281,14 +305,17 @@ export function DynamicField({
         return (
           <div className={wrapperClassName}>
             <div className="flex items-center justify-between mb-2">
-              <Label
-                className={cn(
-                  "block text-sm font-semibold text-text-light",
-                  labelClassName
-                )}
-              >
-                {label} {required && "*"}
-              </Label>
+              <div className="flex items-center gap-1.5">
+                <Label
+                  className={cn(
+                    "block text-sm font-semibold text-text-light",
+                    labelClassName
+                  )}
+                >
+                  {label} {required && "*"}
+                </Label>
+                {fieldConfig.helpText && <InfoTip text={fieldConfig.helpText} label={`About ${label}`} />}
+              </div>
               {toggleSwitch}
             </div>
 

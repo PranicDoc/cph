@@ -158,22 +158,7 @@ public class CaseService {
         );
         PatientMedicalHistory history = patient.getMedicalHistory();
         if (history != null) {
-            CaseMedicalSnapshot snapshot = CaseMedicalSnapshot.builder()
-                    .healingCase(healingCase)
-                    .generalHealth(history.getGeneralHealth())
-                    .diet(history.getDiet())
-                    .exercise(history.getExercise())
-                    .exerciseFrequency(history.getExerciseFrequency())
-                    .hypertension(history.getHypertension())
-                    .giIssues(history.getGiIssues())
-                    .stressDepressionAnxiety(history.getStressDepressionAnxiety())
-                    .pregnant(history.getPregnant())
-                    .cancer(history.getCancer())
-                    .cancerLocation(history.getCancerLocation())
-                    .cancerDetails(history.getCancerDetails())
-                    .additionalNotes(history.getAdditionalNotes())
-                    .build();
-            healingCase.setMedicalSnapshot(snapshot);
+            CaseMedicalSnapshot.upsert(healingCase, history);
         }
         HealingCase saved = caseRepository.save(healingCase);
         if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())) {
@@ -506,7 +491,7 @@ public class CaseService {
                 patient.getFirstName(), patient.getLastName(),
                 patient.getDob(), patient.getGender(), patient.getMaritalStatus(),
                 patient.getContact(), patient.getOccupation(),
-                healingCase.getId(), healingCase.getMedicalCondition(),
+                healingCase.getId(), healingCase.getMedicalCondition(), healingCase.getChiefComplaints(),
                 parseLabFindingKeys(healingCase.getLabFindings()),
                 healingCase.getComplementaryTreatments(), healingCase.getComplementaryDetails(),
                 healingCase.getInfectiousIllness(), healingCase.getInfectiousDetails(),
@@ -538,7 +523,7 @@ public class CaseService {
     private CaseResponse toResponse(HealingCase c) {
         return new CaseResponse(
                 c.getId(), c.getPatientId(), c.getHealerId(),
-                c.getMedicalCondition(), c.getHealingDetails(), parseLabFindingKeys(c.getLabFindings()),
+                c.getMedicalCondition(), c.getChiefComplaints(), c.getHealingDetails(), parseLabFindingKeys(c.getLabFindings()),
                 c.getComplementaryTreatments(), c.getComplementaryDetails(),
                 c.getInfectiousIllness(), c.getInfectiousDetails(),
                 c.getBasicBookPg(), c.getAdvancedBookPg(), c.getPsychotherapyPg(),
@@ -560,9 +545,7 @@ public class CaseService {
         ) throw new IllegalArgumentException("No valid protocol found");
         // A case saved with no chief complaint renders as a blank View page later — reject
         // it here so an empty session can never be persisted, regardless of client.
-        if (caseUpdateRequest.medicalCondition() == null || caseUpdateRequest.medicalCondition().isBlank()) {
-            throw new IllegalArgumentException("Chief complaint is required");
-        }
+        List<ChiefComplaintRequest> complaintRows = ChiefComplaintRules.validRows(caseUpdateRequest.chiefComplaints());
         // Self-registered patients complete their own case details, so the mandatory
         // fields are enforced here too — the health form's checks are UI-only.
         if ("PATIENT".equalsIgnoreCase(securityContextUtil.getCurrentRole())
@@ -584,6 +567,9 @@ public class CaseService {
             }
         }
         healingCaseMapper.toEntity(caseUpdateRequest, entity);
+        ChiefComplaintRules.apply(entity, complaintRows);
+        // The complaint as one block of text ("problem since 3 months" per line) for readers of the old field.
+        entity.setMedicalCondition(ChiefComplaintRules.summary(entity.getChiefComplaints()));
         if(caseUpdateRequest.symptoms() != null && !caseUpdateRequest.symptoms().isEmpty()) {
             // Keep the symptoms that stay (same id), so feedback already given on them keeps pointing at them;
             // feedback on a symptom the edit removed has nothing left to refer to, so it goes with it.

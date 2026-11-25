@@ -3,6 +3,13 @@ import type { ReactNode } from "react";
 import { Activity, CalendarDays, ChevronDown, FileText, Info, Package, Sparkles, User } from "lucide-react";
 import { exerciseLabels } from "../../lib/exercise";
 import {
+  BmiValue,
+  ChiefComplaintsView,
+  HistoriesView,
+  PresentingIllnessView,
+} from "../../components/caseSheet/CaseSheetViews";
+import { heightWeightText } from "../../lib/chiefComplaints";
+import {
   LabFindingsList,
   formatDate,
   formatTime,
@@ -153,7 +160,8 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
           <div className="surface card">
             <CardTitle icon={<FileText style={{ width: 16, height: 16 }} />}>Case details</CardTitle>
             <div className="row2" style={{ gap: "18px 24px" }}>
-              <Item label="Medical condition" wide>{data.medicalCondition || "—"}</Item>
+              <Item label="Chief complaints" wide><ChiefComplaintsView complaints={data.chiefComplaints} /></Item>
+              <Item label="Presenting illness" wide><PresentingIllnessView complaints={data.chiefComplaints} /></Item>
               <Item label="Complementary treatments">
                 {yesNo(data.complementaryTreatments)}
                 {data.complementaryTreatments && data.complementaryDetails ? `: ${data.complementaryDetails}` : ""}
@@ -180,6 +188,8 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
               <CardTitle icon={<Sparkles style={{ width: 16, height: 16 }} />}>Medical history (at case start)</CardTitle>
               <div className="row2" style={{ gap: "18px 24px" }}>
                 <Item label="General health">{snap.generalHealth || "—"}</Item>
+                <Item label="Height, weight">{heightWeightText(snap.heightCm, snap.weightKg)}</Item>
+                <Item label="BMI"><BmiValue bmi={snap.bmi} category={snap.bmiCategory} /></Item>
                 <Item label="Diet">{snap.diet || "—"}</Item>
                 <Item label="Exercise">
                   {exerciseLabels(snap.exercise).join(", ") || (snap.exercise ? "None" : "—")}
@@ -195,6 +205,7 @@ export default function NewCaseSummary({ data, onBack }: { data: CaseSummaryData
                 </Item>
                 {snap.cancer && snap.cancerDetails && <Item label="Cancer details" wide>{snap.cancerDetails}</Item>}
                 {snap.additionalNotes && <Item label="Additional notes" wide>{snap.additionalNotes}</Item>}
+                <Item label="Histories" wide><HistoriesView snapshot={snap} /></Item>
               </div>
             </div>
           )}

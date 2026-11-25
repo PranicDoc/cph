@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { LabFindingsView, MedicationsView, ProtocolsView } from "../../components/CaseViewWidgets";
+import { ChiefComplaintsView, PresentingIllnessView } from "../../components/caseSheet/CaseSheetViews";
 import type { HealingSession } from "../../interfaces";
 import type { Protocol } from "../../hooks/admin/useMasterData";
 
@@ -61,7 +62,8 @@ export default function NewSessionView({ sessionData, protocols, onEdit, onEditS
             </button>
           </div>
           <div className="row2" style={{ gap: 22 }}>
-            <Field title="Chief complaint" wide>{sessionData.medicalCondition || "—"}</Field>
+            <Field title="Chief complaint" wide><ChiefComplaintsView complaints={sessionData.chiefComplaints} /></Field>
+            <Field title="Presenting illness" wide><PresentingIllnessView complaints={sessionData.chiefComplaints} /></Field>
             <Field title="Symptoms">
               {symptoms.length ? (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

@@ -1,6 +1,8 @@
 package com.pranicdoc.cph.healing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.pranicdoc.common.dto.BmiCalculator;
 import com.pranicdoc.cph.common.encryption.EncryptedStringConverter;
 import com.pranicdoc.cph.common.model.BaseEntity;
 import com.pranicdoc.cph.common.model.TenantEntity;
@@ -10,9 +12,11 @@ import org.hibernate.annotations.SQLRestriction;
 import com.pranicdoc.cph.patient.model.PatientMedicalHistory;
 import org.hibernate.envers.Audited;
 
+import java.math.BigDecimal;
+
 /**
- * Frozen medical snapshot captured at case creation time.
- * Distinct from PatientMedicalHistory (which is a living record).
+ * The case's copy of the patient's medical history. Created with the case, then refreshed on every
+ * history edit (see {@link #upsert}) so the PDF and Case Summary show current values.
  */
 @Entity
 @Table(name = "case_medical_snapshot")
@@ -69,6 +73,41 @@ public class CaseMedicalSnapshot extends BaseEntity {
     @Column(name = "additional_notes", columnDefinition = "TEXT")
     private String additionalNotes; // 🔒
 
+    @Column(name = "height_cm", precision = 5, scale = 1)
+    private BigDecimal heightCm;
+
+    @Column(name = "weight_kg", precision = 5, scale = 1)
+    private BigDecimal weightKg;
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "past_history", columnDefinition = "TEXT")
+    private String pastHistory; // 🔒
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "surgical_history", columnDefinition = "TEXT")
+    private String surgicalHistory; // 🔒
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "family_history", columnDefinition = "TEXT")
+    private String familyHistory; // 🔒
+
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "psychosocial_history", columnDefinition = "TEXT")
+    private String psychosocialHistory; // 🔒
+
+    /** BMI to one decimal, served with the snapshot; null unless both measurements are present and in range. */
+    @JsonProperty("bmi")
+    public BigDecimal computeBmi() {
+        return BmiCalculator.bmi(heightCm, weightKg).orElse(null);
+    }
+
+    /** "Underweight", "Normal", "Overweight" or "Obese"; null when there is no BMI. */
+    @JsonProperty("bmiCategory")
+    public String computeBmiCategory() {
+        BigDecimal bmi = computeBmi();
+        return bmi == null ? null : BmiCalculator.category(bmi).label();
+    }
+
     /**
      * Upsert the case's snapshot from the patient's current history (creates it when missing). Called on
      * every medical-history edit, so the PDF shows current values. A new history field goes here too.
@@ -92,5 +131,11 @@ public class CaseMedicalSnapshot extends BaseEntity {
         s.cancerLocation = history.getCancerLocation();
         s.cancerDetails = history.getCancerDetails();
         s.additionalNotes = history.getAdditionalNotes();
+        s.heightCm = history.getHeightCm();
+        s.weightKg = history.getWeightKg();
+        s.pastHistory = history.getPastHistory();
+        s.surgicalHistory = history.getSurgicalHistory();
+        s.familyHistory = history.getFamilyHistory();
+        s.psychosocialHistory = history.getPsychosocialHistory();
     }
 }
