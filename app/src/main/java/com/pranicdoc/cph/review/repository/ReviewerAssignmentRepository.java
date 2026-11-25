@@ -19,6 +19,10 @@ public interface ReviewerAssignmentRepository extends JpaRepository<ReviewerAssi
 
     boolean existsByReviewerId(UUID reviewerId);
 
+    boolean existsByHealerIdAndReviewerId(UUID healerId, UUID reviewerId);
+
+    List<ReviewerAssignment> findByReviewerId(UUID reviewerId);
+
     // --- erase / purge (native: must also see soft-deleted rows and the _aud shadow tables) ---
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)

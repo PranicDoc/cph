@@ -9,6 +9,7 @@ import com.pranicdoc.cph.common.security.SecurityContextUtil;
 import com.pranicdoc.cph.healing.dto.PreSignedUrlResponse;
 import com.pranicdoc.cph.healing.model.HealingCase;
 import com.pranicdoc.cph.healing.repository.CaseRepository;
+import com.pranicdoc.cph.rbac.RbacAuthz;
 import com.pranicdoc.cph.review.dto.InboxItemResponse;
 import com.pranicdoc.cph.review.dto.SubmissionResponse;
 import com.pranicdoc.cph.review.event.ReviewEvent;
@@ -18,8 +19,10 @@ import com.pranicdoc.cph.review.model.ReviewRevision;
 import com.pranicdoc.cph.review.model.ReviewStage;
 import com.pranicdoc.cph.review.model.ReviewStatus;
 import com.pranicdoc.cph.review.model.ReviewSubmission;
+import com.pranicdoc.cph.review.model.ReviewerAssignment;
 import com.pranicdoc.cph.review.repository.ReviewRevisionRepository;
 import com.pranicdoc.cph.review.repository.ReviewSubmissionRepository;
+import com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toResponse;
@@ -43,7 +47,9 @@ import static com.pranicdoc.cph.review.mapper.SubmissionResponseMapper.toRespons
  * Instructor side of case review: the queue of submissions assigned to the caller, read access to
  * them, and the decisions (approve, request changes). Row-level rule on every call: the submission is
  * assigned to the caller and is not the caller's own case. A submission moved to another instructor
- * therefore answers 403.
+ * therefore answers 403. A caller without CASE:REVIEW (in only through {@link ReviewAuthz}'s assignment
+ * rule) must also be the healer's reviewer <em>now</em>: unlinking leaves submissions, and moving a healer
+ * leaves the closed ones, stored against the old reviewer.
  */
 @Service
 @RequiredArgsConstructor
@@ -62,6 +68,8 @@ public class ReviewInboxService {
     private final ReviewFileStore files;
     private final SecurityContextUtil security;
     private final ReviewEventPublisher events;
+    private final RbacAuthz rbacAuthz;
+    private final ReviewerAssignmentRepository assignments;
 
     /** Approves the latest revision; counts toward the healer's approved cases. */
     @Auditable(action = "APPROVE_REVIEW")
@@ -105,9 +113,11 @@ public class ReviewInboxService {
     @Transactional(readOnly = true)
     public List<InboxItemResponse> inbox(ReviewStatus status) {
         UUID me = security.getCurrentHealerId();
+        Predicate<UUID> reviewsNow = currentlyLinkedHealers(me);
         List<ReviewSubmission> mine = submissions.findByReviewerIdAndStage(me, ReviewStage.REVIEWER).stream()
                 .filter(s -> me.equals(s.getReviewerId())) // never a submission whose instructor was erased
                 .filter(s -> !me.equals(s.getHealerId()))
+                .filter(s -> reviewsNow.test(s.getHealerId()))
                 .filter(s -> status == null || s.getStatus() == status)
                 .toList();
         if (mine.isEmpty()) {
@@ -147,15 +157,34 @@ public class ReviewInboxService {
         return new PreSignedUrlResponse(files.presignedUrl(key), Instant.now().plus(Duration.ofMinutes(10)));
     }
 
-    /** Row-level check, shared with the comment service: assigned to the caller, and not their own case. */
+    /**
+     * Row-level check, shared with the comment service: assigned to the caller, not their own case, and for
+     * a caller without CASE:REVIEW, of a healer they review now.
+     */
     public ReviewSubmission assignedSubmission(UUID submissionId) {
         ReviewSubmission s = submissions.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", submissionId));
         UUID me = security.getCurrentHealerId();
-        if (s.getStage() != ReviewStage.REVIEWER || !me.equals(s.getReviewerId()) || me.equals(s.getHealerId())) {
+        if (s.getStage() != ReviewStage.REVIEWER || !me.equals(s.getReviewerId()) || me.equals(s.getHealerId())
+                || !(holdsReviewPermission() || assignments.existsByHealerIdAndReviewerId(s.getHealerId(), me))) {
             throw new AccessDeniedException("Submission is not assigned to you");
         }
         return s;
+    }
+
+    private boolean holdsReviewPermission() {
+        return rbacAuthz.hasPermission("CASE", "REVIEW");
+    }
+
+    /** Which healers' rows the caller may list: all for a CASE:REVIEW holder, else those linked to them now. */
+    private Predicate<UUID> currentlyLinkedHealers(UUID me) {
+        if (holdsReviewPermission()) {
+            return healerId -> true;
+        }
+        Set<UUID> linked = assignments.findByReviewerId(me).stream()
+                .map(ReviewerAssignment::getHealerId)
+                .collect(Collectors.toSet());
+        return linked::contains;
     }
 
     /** The case's medical condition is the label healers see for a case; fall back to its creation date. */

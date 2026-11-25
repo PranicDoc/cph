@@ -44,6 +44,9 @@ class ReviewInboxServiceTest {
     @Mock private SecurityContextUtil security;
     @Mock private com.pranicdoc.cph.review.event.ReviewEventPublisher events;
 
+    @Mock private com.pranicdoc.cph.rbac.RbacAuthz rbacAuthz;
+    @Mock private com.pranicdoc.cph.review.repository.ReviewerAssignmentRepository assignments;
+
     private ReviewInboxService service;
 
     private final UUID me = UUID.randomUUID();
@@ -52,7 +55,11 @@ class ReviewInboxServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security, events);
+        service = new ReviewInboxService(submissions, revisions, cases, healers, files, security, events,
+                rbacAuthz, assignments);
+        // The row rules below are those of a caller holding CASE:REVIEW; see ReviewerAccessAfterUnlinkTest
+        // for a caller who only has access through an assignment.
+        org.mockito.Mockito.lenient().when(rbacAuthz.hasPermission("CASE", "REVIEW")).thenReturn(true);
         when(security.getCurrentHealerId()).thenReturn(me);
     }
 
