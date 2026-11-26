@@ -5,7 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.dao.DataAccessException;
 
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 /**
  * Two-level {@link org.springframework.cache.Cache} implementation: a local (L1, typically
@@ -125,8 +128,9 @@ public class TwoLevelCache implements Cache {
 
     @Override
     public void evict(Object key) {
-        local.evict(key);
+        // Redis first: with memory cleared first, a read in between would copy the old value back.
         evictRemoteSafely(key);
+        local.evict(key);
     }
 
     @Override
@@ -138,8 +142,8 @@ public class TwoLevelCache implements Cache {
 
     @Override
     public void clear() {
-        local.clear();
         clearRemoteSafely();
+        local.clear();
     }
 
     @Override
@@ -147,6 +151,67 @@ public class TwoLevelCache implements Cache {
         boolean localInvalidated = local.invalidate();
         boolean remoteInvalidated = invalidateRemoteSafely();
         return localInvalidated || remoteInvalidated;
+    }
+
+    // ─── Manual refresh (CacheRefreshService) ────────────────────────────────
+    // Each call to an unreachable Redis waits for the client timeout, so once one has failed the
+    // caller passes useRedis = false and only memory is handled. The result is false whenever
+    // Redis was skipped or failed. Redis always goes first (see evict).
+
+    /** Keys currently held in memory on this instance. */
+    public Set<Object> localKeys() {
+        return Set.copyOf(((com.github.benmanes.caffeine.cache.Cache<?, ?>) local.getNativeCache())
+                .asMap().keySet());
+    }
+
+    public boolean refreshAll(boolean useRedis) {
+        boolean redisOk = useRedis && runOnRemote("clear()", remote::clear);
+        local.clear();
+        return redisOk;
+    }
+
+    /**
+     * {@code key} is text. In memory the key may be an object such as a UUID, so match on its
+     * string form; Redis keys are already that text.
+     */
+    public boolean refreshKey(String key, boolean useRedis) {
+        boolean redisOk = useRedis && runOnRemote("evict()", () -> remote.evict(key));
+        matchingLocalKeys(key).forEach(local::evict);
+        return redisOk;
+    }
+
+    /**
+     * Refresh that never leaves an in-memory entry cold: each one (all, when {@code key} is null)
+     * is overwritten with {@code loader}'s value, and removed only if that is null.
+     */
+    public boolean reload(String key, Function<Object, Object> loader, boolean useRedis) {
+        boolean redisOk = useRedis && (key == null
+                ? runOnRemote("clear()", remote::clear)
+                : runOnRemote("evict()", () -> remote.evict(key)));
+        for (Object localKey : key == null ? localKeys() : matchingLocalKeys(key)) {
+            Object value = loader.apply(localKey);
+            if (value == null) {
+                local.evict(localKey);
+                continue;
+            }
+            local.put(localKey, value);
+            redisOk = redisOk && runOnRemote("put()", () -> remote.put(localKey, value));
+        }
+        return redisOk;
+    }
+
+    private List<Object> matchingLocalKeys(String key) {
+        return localKeys().stream().filter(k -> String.valueOf(k).equals(key)).toList();
+    }
+
+    private boolean runOnRemote(String operation, Runnable action) {
+        try {
+            action.run();
+            return true;
+        } catch (DataAccessException ex) {
+            log.warn("Redis L2 cache [{}] unavailable on {}", name, operation, ex);
+            return false;
+        }
     }
 
     private ValueWrapper getFromRemoteSafely(Object key) {

@@ -38,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import com.pranicdoc.cph.healing.dto.*;
 import com.pranicdoc.cph.healing.mapper.CphCaseMapper;
+import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.healing.mapper.DeclarationMapper;
 import com.pranicdoc.cph.healing.mapper.HealingCaseMapper;
 import com.pranicdoc.cph.healing.model.*;
@@ -76,6 +77,7 @@ import java.util.function.Predicate;
 public class CaseService {
 
     private final CaseRepository caseRepository;
+    private final HealerRepository healerRepository;
     private final PatientRepository patientRepository;
     private final SecurityContextUtil securityContextUtil;
     private final DeclarationMapper declarationMapper;
@@ -762,7 +764,14 @@ public class CaseService {
             root.set("patient", objectMapper.valueToTree(patientSnapshot));
             // Cases created before consent existed have no declaration: no signature then.
             Declaration declaration = healingCase.getDeclaration();
-            root.put("healerSign", declaration != null ? declaration.getHealerSignature() : null);
+            root.put("healerSign", declaration != null
+                    ? currentHealerName(healingCase.getHealerId(), declaration.getHealerSignature())
+                    : null);
+            CaseClosure closure = healingCase.getClosure();
+            if (closure != null && root.get("caseClosure") instanceof ObjectNode closureNode) {
+                closureNode.put("healerSignature",
+                        currentHealerName(closure.getClosedBy(), closure.getHealerSignature()));
+            }
             healingCaseData = objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize healing case snapshot", e);
@@ -798,6 +807,16 @@ public class CaseService {
         log.info("PDF job created jobId={} caseId={}", jobId, healingCaseId);
         publishJobMessage(jobId, healingCaseId);
         return new JobAckResponse(jobId, JobStatus.PROCESSING);
+    }
+
+    /**
+     * The name to print on a (re)generated PDF, so a renamed healer reads the same on every page.
+     * Read from the table, not the healerName cache. The stored signature is left as recorded and
+     * is what gets printed when the healer can't be resolved.
+     */
+    private String currentHealerName(UUID healerId, String storedName) {
+        String name = healerId == null ? null : healerRepository.findFullNameById(healerId);
+        return name == null || name.isBlank() ? storedName : name;
     }
 
     private void publishJobMessage(String jobId, UUID healingCaseId) {

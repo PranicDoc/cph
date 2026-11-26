@@ -5,7 +5,10 @@ import com.pranicdoc.cph.auth.repository.HealerRepository;
 import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -25,6 +28,14 @@ public class HealerCacheServiceImpl implements HealerCacheService {
     @Cacheable(key = "#healerId", value = "healerEmail", sync = true)
     public String getEmail(UUID healerId) {
         return healerRepository.findEmailById(healerId);
+    }
+
+    @Override
+    @Caching(
+            evict = @CacheEvict(value = "healerName", key = "#healerId"),
+            put = @CachePut(value = "healerEmail", key = "#healerId"))
+    public String onProfileChanged(UUID healerId, String email) {
+        return email;
     }
 
     @Override

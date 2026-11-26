@@ -4,6 +4,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
 import { EraseHealerSheet } from "../../components/admin/EraseHealerSheet";
+import { RefreshCacheSheet } from "../../components/admin/RefreshCacheSheet";
 import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import CustomPlanSheet from "./CustomPlanSheet";
 import { endsSoon, relativeFromNow, shortDate } from "../lib/format";
@@ -22,6 +23,7 @@ export default function NewAccountsPage() {
   const isSuperAdmin = user?.role === "SUPADM";
   const [customOpen, setCustomOpen] = useState(false);
   const [eraseOpen, setEraseOpen] = useState(false);
+  const [cacheOpen, setCacheOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerType, setOwnerType] = useState("");
   const { data, isLoading, isError } = useAdminAccounts(ownerType || undefined, page);
@@ -47,6 +49,11 @@ export default function NewAccountsPage() {
               Erase healer
             </button>
           )}
+          {isSuperAdmin && (
+            <button className="btn btn-secondary" type="button" onClick={() => setCacheOpen(true)}>
+              Refresh cache
+            </button>
+          )}
         <div className="seg" role="group" aria-label="Account type">
           {FILTERS.map((f) => (
             <button
@@ -68,6 +75,7 @@ export default function NewAccountsPage() {
 
       {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
       {eraseOpen && <EraseHealerSheet onClose={() => setEraseOpen(false)} />}
+      {cacheOpen && <RefreshCacheSheet onClose={() => setCacheOpen(false)} />}
 
       {isLoading && <p className="muted">Loading accounts…</p>}
       {isError && <p className="err">Failed to load accounts.</p>}

@@ -7,6 +7,12 @@ import java.util.UUID;
 public interface HealerCacheService {
     String getEmail(UUID healerId);
 
+    /**
+     * Call after a profile change has committed: drops the cached name and overwrites the cached
+     * email. The email is put, not evicted, so it is never left cold (see getEmail in the impl).
+     */
+    String onProfileChanged(UUID healerId, String email);
+
     @Cacheable(key = "#healerId", value = "healerName", sync = true)
     String getName(UUID healerId);
 
