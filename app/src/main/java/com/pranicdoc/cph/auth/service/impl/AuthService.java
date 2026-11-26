@@ -11,6 +11,7 @@ import com.pranicdoc.cph.auth.dto.LinkGoogleRequest;
 import com.pranicdoc.cph.auth.dto.LoginRequest;
 import com.pranicdoc.cph.auth.model.Healer;
 import com.pranicdoc.cph.auth.repository.HealerRepository;
+import com.pranicdoc.cph.auth.service.HealerCacheService;
 import com.pranicdoc.cph.common.audit.Auditable;
 import com.pranicdoc.cph.common.dto.ApiResponse;
 import com.pranicdoc.cph.common.enums.LinkStatus;
@@ -35,6 +36,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
@@ -64,6 +67,7 @@ public class AuthService {
     private final CreditServiceClient creditServiceClient;
     private final ReviewerAssignmentService reviewerAssignments;
     private final FeatureFlags flags;
+    private final HealerCacheService healerCacheService;
     private static final String PATIENT = "PATIENT";
 
     // ─── Login ──────────────────────────────────────────────────
@@ -193,7 +197,22 @@ public class AuthService {
         healer.setEmail(request.email());
         healer.setPhone(request.phone());
         Healer saved = healerRepository.save(healer);
+        refreshCachedProfileAfterCommit(saved.getId(), saved.getEmail());
         return toResponse(saved);
+    }
+
+    /** After commit, so a rolled-back update leaves the caches alone and no reader re-caches old values. */
+    private void refreshCachedProfileAfterCommit(UUID healerId, String email) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            healerCacheService.onProfileChanged(healerId, email);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                healerCacheService.onProfileChanged(healerId, email);
+            }
+        });
     }
 
     // ─── Choose the web UI (classic / new view) ──────────────────

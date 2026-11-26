@@ -32,6 +32,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -85,6 +87,9 @@ class AuthServiceTest {
 
     @Mock
     private FeatureFlags flags;
+
+    @Mock
+    private HealerCacheService healerCacheService;
 
     @InjectMocks
     private AuthService authService;
@@ -410,5 +415,38 @@ class AuthServiceTest {
         currentHealer("Asha Rao", 0);
 
         assertEquals(0, authService.getCurrentHealer().nextNameChangeCost());
+    }
+
+    @Test
+    void updateProfileRefreshesCacheOnlyAfterCommit() {
+        Healer healer = currentHealer("Asha Rao", 0);
+        when(healerRepository.save(healer)).thenReturn(healer);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            authService.updateProfile(new HealerRequest("Asha R. Rao", "new@example.com", null));
+
+            verifyNoInteractions(healerCacheService);
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+            verify(healerCacheService).onProfileChanged(healer.getId(), "new@example.com");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void failedProfileUpdateLeavesCacheAlone() {
+        Healer healer = currentHealer("Asha Rao", 1);
+        when(creditServiceClient.deduct(healer.getId(), "name-change:" + healer.getId() + ":2", 25))
+                .thenReturn(new DeductResponse("INSUFFICIENT", 10));
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertThrows(InsufficientCreditsException.class,
+                    () -> authService.updateProfile(new HealerRequest("Asha Devi", "new@example.com", null)));
+
+            assertTrue(TransactionSynchronizationManager.getSynchronizations().isEmpty());
+            verifyNoInteractions(healerCacheService);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }
