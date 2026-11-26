@@ -6,6 +6,7 @@ import { useAdminAccounts } from "../../hooks/admin/useAdminAccounts";
 import { useAuth } from "../../context/AuthContext";
 import CustomPlanSheet from "../../ui-new/admin/CustomPlanSheet";
 import { EraseHealerSheet } from "../../components/admin/EraseHealerSheet";
+import { RefreshCacheSheet } from "../../components/admin/RefreshCacheSheet";
 import { DeletedPatientsPanel } from "../../components/admin/DeletedPatientsPanel";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -135,6 +136,7 @@ function ClassicAccountsPage() {
   const isSuperAdmin = user?.role === "SUPADM";
   const [customOpen, setCustomOpen] = useState(false);
   const [eraseOpen, setEraseOpen] = useState(false);
+  const [cacheOpen, setCacheOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [ownerTypeFilter, setOwnerTypeFilter] = useState<string>("");
   const { data, isLoading, isError } = useAdminAccounts(ownerTypeFilter || undefined, page);
@@ -181,6 +183,9 @@ function ClassicAccountsPage() {
         {isSuperAdmin && (
           <Button size="sm" variant="destructive-soft" onClick={() => setEraseOpen(true)}>Erase healer</Button>
         )}
+        {isSuperAdmin && (
+          <Button size="sm" variant="outline" onClick={() => setCacheOpen(true)}>Refresh cache</Button>
+        )}
         <Select
           value={ownerTypeFilter || "ALL"}
           onValueChange={(v) => {
@@ -202,6 +207,7 @@ function ClassicAccountsPage() {
 
       {customOpen && <CustomPlanSheet onClose={() => setCustomOpen(false)} />}
       {eraseOpen && <EraseHealerSheet onClose={() => setEraseOpen(false)} />}
+      {cacheOpen && <RefreshCacheSheet onClose={() => setCacheOpen(false)} />}
 
       {isLoading && <p className="text-text-light">Loading accounts…</p>}
       {isError && <p className="text-red-500">Failed to load accounts.</p>}
