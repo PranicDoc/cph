@@ -39,18 +39,19 @@ public class CacheRefreshService {
         List<String> targets = cacheName == null ? cacheNames() : List.of(cacheName);
         boolean redisCleared = true;
         for (String name : targets) {
-            redisCleared &= refreshCache(name, key);
+            // After one failure Redis is left alone: every further call would wait out its timeout.
+            redisCleared = refreshCache(name, key, redisCleared);
         }
         return new CacheRefreshResult(targets, key, redisCleared);
     }
 
-    private boolean refreshCache(String name, String key) {
+    private boolean refreshCache(String name, String key, boolean useRedis) {
         TwoLevelCache cache = (TwoLevelCache) cacheManager.getCache(name);
         if (HEALER_EMAIL.equals(name)) {
             // Reloaded rather than cleared: a request already running relies on this entry, and a
             // cold load during a Hibernate flush recurses (see HealerCacheServiceImpl.getEmail).
-            return cache.reload(key, id -> healerRepository.findEmailById((UUID) id));
+            return cache.reload(key, id -> healerRepository.findEmailById((UUID) id), useRedis);
         }
-        return key == null ? cache.refreshAll() : cache.refreshKey(key);
+        return key == null ? cache.refreshAll(useRedis) : cache.refreshKey(key, useRedis);
     }
 }
